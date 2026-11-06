@@ -3,7 +3,7 @@
  * and Storage INSERT policies remain the security boundary for public submissions.
  *
  * Behaviour after the cutoff:
- *   - Public visitors see a clear, non-clickable "Registration Ends" status.
+ *   - Public visitors see the closed-registration notice in the scrolling announcement strip.
  *   - A verified administrator keeps the original "Register" button and links.
  *   - While an existing admin session is being checked, the UI does not briefly
  *     flash the public-only closed state. The server remains authoritative.
@@ -15,8 +15,7 @@
   if (!registration || !document.body) return;
 
   const OPEN_COPY = "REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME (PKT) · REGISTER BEFORE THE DEADLINE";
-  const CLOSED_COPY = "REGISTRATION HAS ENDED · ONLINE PLAYER REGISTRATION IS CLOSED · THANK YOU FOR YOUR INTEREST";
-  const originalLinkState = new Map();
+  const CLOSED_COPY = "REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026";
 
   let isVerifiedAdmin = false;
   // Do not briefly apply public-only restrictions while the saved session is being
@@ -26,7 +25,6 @@
   let navigationOriginal = null;
   let navigationRegisterCta = null;
   let countdownNode = null;
-  let endedNode = null;
   let noticeOpenTrack = null;
   let noticeClosedTrack = null;
   let noticeAccessible = null;
@@ -35,7 +33,7 @@
 
   function rootPath() {
     let path = window.location.pathname || "/";
-    const routed = path.replace(/\/(?:results\/manage|participants|results|about|register|admin)(?:\/index\.html)?\/?$/i, "/");
+    const routed = path.replace(/\/(?:results\/manage|participants|results|about|register|admin|event-info)(?:\/index\.html)?\/?$/i, "/");
     if (routed !== path) path = routed;
     else path = path.replace(/\/index\.html$/i, "/");
     if (!path.endsWith("/")) path = path.slice(0, path.lastIndexOf("/") + 1);
@@ -75,8 +73,8 @@
       noticeNode.setAttribute("aria-live", "polite");
       noticeNode.innerHTML = `
         <div class="registration-notice-viewport" aria-hidden="true">
-          <div class="registration-notice-track" id="registrationAnnouncementOpen"><span>${OPEN_COPY}</span><span>${OPEN_COPY}</span></div>
-          <div class="registration-notice-track" id="registrationAnnouncementClosed" hidden><span>${CLOSED_COPY}</span><span>${CLOSED_COPY}</span></div>
+          <div class="registration-notice-track" id="registrationAnnouncementOpen" hidden><span>${OPEN_COPY}</span><span>${OPEN_COPY}</span></div>
+          <div class="registration-notice-track" id="registrationAnnouncementClosed"><span>${CLOSED_COPY}</span><span>${CLOSED_COPY}</span></div>
         </div>
         <span class="sr-only" id="registrationNoticeAccessible"></span>`;
       const header = document.querySelector("header.top, header");
@@ -92,8 +90,8 @@
     if (!noticeOpenTrack || !noticeClosedTrack) {
       noticeNode.innerHTML = `
         <div class="registration-notice-viewport" aria-hidden="true">
-          <div class="registration-notice-track" id="registrationAnnouncementOpen"><span>${OPEN_COPY}</span><span>${OPEN_COPY}</span></div>
-          <div class="registration-notice-track" id="registrationAnnouncementClosed" hidden><span>${CLOSED_COPY}</span><span>${CLOSED_COPY}</span></div>
+          <div class="registration-notice-track" id="registrationAnnouncementOpen" hidden><span>${OPEN_COPY}</span><span>${OPEN_COPY}</span></div>
+          <div class="registration-notice-track" id="registrationAnnouncementClosed"><span>${CLOSED_COPY}</span><span>${CLOSED_COPY}</span></div>
         </div>
         <span class="sr-only" id="registrationNoticeAccessible"></span>`;
       noticeOpenTrack = noticeNode.querySelector("#registrationAnnouncementOpen");
@@ -130,14 +128,6 @@
       navigationRegisterLink.insertAdjacentElement("afterend", countdownNode);
     }
 
-    endedNode = (navigationRegisterCta && navigationRegisterCta.querySelector(".registration-ended-pill")) || document.getElementById("registrationEndedCta");
-    if (!endedNode && navigationRegisterCta) {
-      endedNode = document.createElement("span");
-      endedNode.className = "btn registration-ended-pill";
-      endedNode.textContent = "Registration Ends";
-      endedNode.hidden = true;
-      (countdownNode || navigationRegisterLink).insertAdjacentElement("afterend", endedNode);
-    }
   }
 
   function captureNavigationLink() {
@@ -159,53 +149,6 @@
     navigationRegisterLink.removeAttribute("aria-hidden");
   }
 
-  // Only public-facing registration links are replaced after the deadline.
-  // The account-menu item is deliberately excluded: common.js owns its visibility
-  // and only shows it to a signed-in organiser.
-  function closeRegularLink(anchor) {
-    const existing = originalLinkState.get(anchor);
-    if (existing) {
-      if (existing.placeholder && !existing.placeholder.isConnected) {
-        anchor.insertAdjacentElement("afterend", existing.placeholder);
-      }
-      anchor.hidden = true;
-      anchor.removeAttribute("href");
-      anchor.setAttribute("aria-hidden", "true");
-      return;
-    }
-
-    const placeholder = document.createElement("span");
-    placeholder.className = "registration-ended-link";
-    placeholder.textContent = "Registration Ends";
-    placeholder.setAttribute("aria-disabled", "true");
-    placeholder.setAttribute("role", "text");
-    anchor.insertAdjacentElement("afterend", placeholder);
-    originalLinkState.set(anchor, {
-      placeholder,
-      href: anchor.getAttribute("href"),
-      html: anchor.innerHTML,
-      hidden: anchor.hidden
-    });
-    anchor.hidden = true;
-    anchor.removeAttribute("href");
-    anchor.setAttribute("aria-hidden", "true");
-  }
-
-  function restoreRegularLink(anchor) {
-    const state = originalLinkState.get(anchor);
-    if (!state) return;
-    if (state.placeholder && state.placeholder.isConnected) state.placeholder.remove();
-    if (state.href != null) anchor.setAttribute("href", state.href);
-    anchor.innerHTML = state.html;
-    anchor.hidden = state.hidden;
-    anchor.removeAttribute("aria-hidden");
-    originalLinkState.delete(anchor);
-  }
-
-  function restoreAllRegularLinks() {
-    [...originalLinkState.keys()].forEach(restoreRegularLink);
-  }
-
   function syncProfileRegistrationLinks() {
     // The account-menu item is an organiser shortcut, not a public CTA. Only
     // expose it once the real Supabase admin session has been verified.
@@ -220,7 +163,7 @@
     if (noticeAccessible) {
       noticeAccessible.textContent = open
         ? "Registration closes on 05 November 2026 at 11:59 PM Pakistan Standard Time (PKT)."
-        : "Registration has ended. Online player registration is closed.";
+        : "Online registration is closed. Registered runners must arrive by 3:00 PM Pakistan Time on 15 November 2026. The race starts at 4:00 PM.";
     }
   }
 
@@ -269,59 +212,39 @@
     syncProfileRegistrationLinks();
 
     const open = registration.isOpen();
+    const adminInterface = isAdminInterfaceRoute();
     updateBanner(open);
 
-    // Wait for Supabase to validate the persisted session before applying any
-    // public-only closed-state changes. This prevents the "Registration Ends"
-    // badge flashing on every page for a signed-in admin.
+    // Do not expose the public closed-state badge or stale CTA while an existing
+    // organiser session is being checked. Admin workspace routes keep the
+    // original Register shortcut; public routes show only the scrolling notice.
     if (!open && !authResolved) {
-      restoreAllRegularLinks();
       restoreNavigationLink();
+      if (navigationRegisterCta) navigationRegisterCta.hidden = !adminInterface;
       if (countdownNode) countdownNode.hidden = true;
-      if (endedNode) endedNode.hidden = true;
       setMode("auth-checking");
       syncCountdownTimer(false);
       return;
     }
 
-    const adminInterface = isAdminInterfaceRoute();
     const keepHeaderRegister = open || isVerifiedAdmin || adminInterface;
     const mode = open ? "open" : (isVerifiedAdmin ? "admin-closed" : (adminInterface ? "admin-interface-closed" : "public-closed"));
 
-    if (open || isVerifiedAdmin) restoreAllRegularLinks();
+    // Keep registration links in page content functional: they lead to the
+    // registration page, which displays a clear closed notice to the public.
+    // This avoids injecting multiple static "Registration Ends" placeholders.
 
-    const allRegisterLinks = [...document.querySelectorAll("a[href]")]
-      .filter(anchor => !anchor.hasAttribute("data-profile-register") && isRegistrationLink(anchor));
-    originalLinkState.forEach((_, anchor) => {
-      if (!anchor.hasAttribute("data-profile-register") && !allRegisterLinks.includes(anchor)) {
-        allRegisterLinks.push(anchor);
-      }
-    });
-
-    for (const anchor of allRegisterLinks) {
-      if (anchor === navigationRegisterLink) continue;
-      if (open || isVerifiedAdmin) restoreRegularLink(anchor);
-      else closeRegularLink(anchor);
-    }
-
+    if (navigationRegisterCta) navigationRegisterCta.hidden = !keepHeaderRegister;
     if (navigationRegisterLink) {
       if (keepHeaderRegister) {
-        // Keep the original button text and link exactly as authored: "Register".
-        // Admin workspace routes retain this shortcut even while signed out; the
-        // registration form and database still require a verified admin session.
         restoreNavigationLink();
         if (countdownNode) countdownNode.hidden = !open;
-        if (endedNode) endedNode.hidden = true;
         if (open) updateCountdown();
       } else {
         navigationRegisterLink.hidden = true;
         navigationRegisterLink.removeAttribute("href");
         navigationRegisterLink.setAttribute("aria-hidden", "true");
         if (countdownNode) countdownNode.hidden = true;
-        if (endedNode) {
-          endedNode.textContent = "Registration Ends";
-          endedNode.hidden = false;
-        }
       }
     }
 

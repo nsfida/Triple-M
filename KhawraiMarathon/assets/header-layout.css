@@ -117,6 +117,7 @@ header.top .registration-cta {
   margin: 0;
   padding: 0;
 }
+header.top .registration-cta[hidden] { display: none !important; }
 header.top .registration-cta > a.btn {
   display: inline-flex;
   align-items: center;
@@ -158,29 +159,6 @@ header.top .registration-countdown {
 }
 header.top .registration-countdown[hidden],
 header.top .registration-cta > [hidden] { display: none !important; }
-header.top .registration-ended-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-width: 122px;
-  max-width: 100%;
-  min-height: 35px;
-  margin: 0;
-  padding: 6px 10px;
-  border: 1px solid #f2b8bf;
-  border-radius: 8px;
-  background: #fff0f2;
-  color: #9d2637;
-  font-size: .68rem;
-  font-weight: 900;
-  line-height: 1.15;
-  text-align: center;
-  white-space: nowrap;
-  box-shadow: none;
-  cursor: default;
-}
-header.top .registration-ended-pill[hidden] { display: none !important; }
 header.top .profile-mount,
 header.top .profile-wrap {
   position: relative;
@@ -284,7 +262,6 @@ header.top .profile-menu {
   animation: kmr-menu-in .12s ease-out;
 }
 header.top .profile-menu[hidden] { display: none !important; }
-header.top .profile-menu .registration-ended-link { display: none !important; }
 
 /* Primary navigation sits on its own light strip below the masthead. */
 .site-nav-shell {
@@ -309,16 +286,16 @@ header.top .profile-menu .registration-ended-link { display: none !important; }
 }
 .site-nav-shell .primary-nav {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: stretch;
   justify-content: center;
   gap: 7px;
-  width: min(100%, 480px);
+  width: min(100%, 610px);
   margin: 0 auto;
 }
 .site-nav-shell .primary-nav.has-admin-results {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  width: min(100%, 540px);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  width: min(100%, 735px);
 }
 .site-nav-shell .primary-nav > .cta {
   display: block;
@@ -415,7 +392,6 @@ header.top .profile-menu .registration-ended-link { display: none !important; }
   header.top .header-utilities { gap: 6px; }
   header.top .registration-cta { min-width: 112px; }
   header.top .registration-cta > a.btn { min-width: 94px; min-height: 33px; padding: 0 8px; font-size: .66rem; }
-  header.top .registration-ended-pill { min-width: 112px; min-height: 33px; padding: 5px 7px; font-size: .63rem; }
   header.top .profile-trigger { min-width: 132px; max-width: 160px; min-height: 33px; gap: 5px; padding: 2px 6px 2px 2px; }
   header.top .profile-avatar { flex-basis: 25px; width: 25px; height: 25px; }
   header.top .profile-label strong { max-width: 82px; font-size: .61rem; }
@@ -439,7 +415,6 @@ header.top .profile-menu .registration-ended-link { display: none !important; }
   header.top .header-utilities { gap: 5px; }
   header.top .registration-cta { min-width: 106px; }
   header.top .registration-cta > a.btn { min-width: 88px; font-size: .62rem; }
-  header.top .registration-ended-pill { min-width: 106px; font-size: .6rem; }
   header.top .profile-trigger { min-width: 122px; max-width: 145px; }
   header.top .profile-label strong { max-width: 72px; font-size: .58rem; }
   .site-nav-inner { padding-inline: 6px; }

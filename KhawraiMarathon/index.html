@@ -10,26 +10,27 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=20261105-headerfix-1">
+<link rel="stylesheet" href="assets/style.css?v=20261106-eventinfo-2">
 <link rel="stylesheet" href="assets/polish.css?v=20261105-headerfix-1">
 <link rel="stylesheet" href="assets/home.css">
-<link rel="stylesheet" href="assets/header-layout.css?v=20261106-2">
+<link rel="stylesheet" href="assets/header-layout.css?v=20261106-eventinfo-1">
+<link rel="stylesheet" href="assets/event-info.css?v=20261106-eventinfo-1">
 <link rel="stylesheet" href="assets/admin-accounts-dialog.css?v=20261029-3">
 </head>
 <body class="home-body">
 <div class="registration-notice" id="registrationNotice" role="status" aria-live="polite">
   <div class="registration-notice-viewport" aria-hidden="true">
-    <div class="registration-notice-track" id="registrationAnnouncementOpen"><span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span><span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span></div>
-    <div class="registration-notice-track" id="registrationAnnouncementClosed" hidden><span>REGISTRATION HAS ENDED · ONLINE PLAYER REGISTRATION IS CLOSED · THANK YOU FOR YOUR INTEREST</span><span>REGISTRATION HAS ENDED · ONLINE PLAYER REGISTRATION IS CLOSED · THANK YOU FOR YOUR INTEREST</span></div>
+    <div class="registration-notice-track" id="registrationAnnouncementOpen" hidden><span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span><span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span></div>
+    <div class="registration-notice-track" id="registrationAnnouncementClosed"><span>REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026</span><span>REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026</span></div>
   </div>
-  <span class="sr-only" id="registrationNoticeAccessible">Registration closes on 05 November 2026 at 11:59 PM Pakistan Standard Time.</span>
+  <span class="sr-only" id="registrationNoticeAccessible">Online registration is closed. Registered runners must arrive at Railway Phatak, Khawrai Road by 3:00 PM Pakistan Time on 15 November 2026. The race starts at 4:00 PM.</span>
 </div>
 <header class="top home-top">
   <div class="in">
     <a class="logo-link" href="./" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
     <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Strength in every stride. Pride in every finish.</p></div>
     <div class="header-actions"><div class="header-utilities">
-        <div class="cta registration-cta"><a class="btn yellow" id="registerCta" href="register/">Register</a><span class="registration-countdown" id="registrationCountdown" aria-live="off" hidden>CLOSES IN --D --H --M --S</span><span class="btn registration-ended-pill" id="registrationEndedCta" hidden>Registration Ends</span></div>
+        <div class="cta registration-cta" hidden><a class="btn yellow" id="registerCta" href="register/">Register</a><span class="registration-countdown" id="registrationCountdown" aria-live="off" hidden>CLOSES IN --D --H --M --S</span></div>
         <div class="profile-mount"></div>
       </div></div>
   </div>
@@ -37,7 +38,7 @@
 <nav class="site-nav-shell" aria-label="Site navigation">
   <div class="site-nav-inner">
     <div class="primary-nav" aria-label="Main navigation">
-        <div class="cta home-nav-cta"><a class="btn ghost" href="./" aria-current="page">Home</a></div>
+        <div class="cta home-nav-cta"><a class="btn ghost" href="./" aria-current="page">Home</a></div><div class="cta event-info-nav-cta"><a class="btn ghost event-info-nav-link" href="event-info/">Event Info</a></div>
         <div class="cta results-nav-cta"><a class="btn ghost" href="results/">Results</a></div>
         <div class="cta participants-nav-cta"><a class="btn ghost" href="participants/"><span class="nav-label-full">Participants</span><span class="nav-label-mobile">Players</span></a></div>
         <div class="cta about-cta"><a class="btn ghost about-nav-link" href="about/">About</a></div><div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="results/manage/"><span class="nav-label-full">Manage Results</span><span class="nav-label-mobile">Manage<br>Results</span></a></div>
@@ -49,38 +50,44 @@
     <div class="home-hero-copy">
       <div class="home-eyebrow"><span class="home-live-dot"></span> OFFICIAL RACE WEBSITE <span class="home-eyebrow-divider"></span> SEASON 03</div>
       <h2 id="homeHeroTitle">One community.<br><span>One starting line.</span></h2>
-      <p class="home-hero-lead">Welcome to Khawrai Marathon Race - a celebration of endurance, sportsmanship and the spirit that brings our communities together.</p>
+      <p class="home-hero-lead">Registration is now closed. All registered runners must report to the starting point by 3:00 PM Pakistan Time on Sunday, 15 November 2026. The race is scheduled to begin at 4:00 PM.</p>
       <div class="home-date-pill"><span class="home-date-icon" aria-hidden="true">◷</span><span><small>RACE DAY</small><strong>15 November 2026 · 4:00 PM PKT</strong></span></div>
       <div class="home-hero-actions">
         <a class="home-action home-action-primary" href="results/"><span class="home-action-icon" aria-hidden="true">↗</span><span><strong>Live race results</strong><small>Leaderboard and podium</small></span></a>
         <a class="home-action home-action-light" href="participants/"><span class="home-action-icon" aria-hidden="true">◎</span><span><strong>Explore participants</strong><small>Meet the registered runners</small></span></a>
-        <a class="home-registration-link" href="register/">Go to registration <span aria-hidden="true">→</span></a>
+        <a class="home-registration-link" href="event-info/">Event day guide <span aria-hidden="true">→</span></a>
       </div>
       <div class="home-hero-meta"><span>Managed by <strong>Waseem Shahzad Fida</strong></span><span class="home-meta-dot">·</span><span>Organised by <strong>District Sports Office Nowshera</strong></span></div>
     </div>
     <div class="home-hero-visual">
       <img src="images/image2-winner-hero.jpg" alt="Season Two winner leading the Khawrai Marathon runners" fetchpriority="high">
       <div class="home-image-overlay"></div>
-      <div class="home-image-topline"><span>THE RACE CONTINUES</span><span>2026</span></div>
+      <div class="home-image-topline"><span>THE RACE CONTINUES</span></div>
       <div class="home-image-caption"><span class="home-caption-mark">K</span><span><strong>Run with purpose.</strong><small>Celebrate every runner. Honour every finish.</small></span></div>
       <div class="home-vertical-label">KHAWRAI MARATHON · SEASON THREE</div>
     </div>
     <div class="home-hero-bottomline"><span><b>03</b> SEASONS OF COMMUNITY</span><span>KHAWRAI · KHYBER PAKHTUNKHWA</span><span>EST. THROUGH COMMUNITY SPORT</span></div>
   </section>
 
+  <aside class="race-guidance-strip" aria-label="Race-day arrival reminder">
+    <span class="race-guidance-icon" aria-hidden="true">◷</span>
+    <div><strong>Registered participants: please arrive by 3:00 PM PKT.</strong><p>Race start: 4:00 PM on Sunday, 15 November 2026. Starting point: Railway Phatak, Khawrai Road.</p></div>
+    <a href="event-info/">Full Event Guide <span aria-hidden="true">→</span></a>
+  </aside>
+
   <section class="home-shortcuts" aria-label="Quick links">
     <a class="home-shortcut-card home-shortcut-results" href="results/"><span class="shortcut-no">01</span><span class="shortcut-icon" aria-hidden="true">↗</span><span class="shortcut-copy"><strong>Live results</strong><small>Follow race status, finish times and official standings.</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></a>
     <a class="home-shortcut-card" href="participants/"><span class="shortcut-no">02</span><span class="shortcut-icon" aria-hidden="true">◎</span><span class="shortcut-copy"><strong>Participants</strong><small>Browse the public runner directory and updates.</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></a>
-    <a class="home-shortcut-card" href="about/"><span class="shortcut-no">03</span><span class="shortcut-icon" aria-hidden="true">✦</span><span class="shortcut-copy"><strong>About the race</strong><small>Discover the story, organisation and race values.</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></a>
+    <a class="home-shortcut-card" href="event-info/"><span class="shortcut-no">03</span><span class="shortcut-icon" aria-hidden="true">⌖</span><span class="shortcut-copy"><strong>Event Info</strong><small>Arrival time, start and finish points, maps and race-day guidance.</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></a>
   </section>
 
   <section class="home-race-at-glance" aria-labelledby="glanceTitle">
-    <div class="home-section-heading"><div><span class="home-section-kicker">SAVE THE DATE</span><h2 id="glanceTitle">Race day, at a glance.</h2></div><p>Keep the key details close and use the official pages for live updates and announcements.</p></div>
+    <div class="home-section-heading"><div><span class="home-section-kicker">RACE-DAY INFORMATION</span><h2 id="glanceTitle">Race day, at a glance.</h2></div><p>Registration is closed. Registered participants should review the arrival time, route points and race-day guidance before travelling.</p></div>
     <div class="home-facts-grid">
       <article class="home-fact"><span class="home-fact-icon" aria-hidden="true">▦</span><span class="home-fact-label">RACE DATE</span><strong>Sunday, 15 November 2026</strong><small>The third season of Khawrai Marathon Race.</small></article>
       <article class="home-fact"><span class="home-fact-icon" aria-hidden="true">◷</span><span class="home-fact-label">START TIME</span><strong>4:00 PM Pakistan Time</strong><small>The official start is managed by race organisers.</small></article>
-      <article class="home-fact"><span class="home-fact-icon" aria-hidden="true">⌁</span><span class="home-fact-label">REGISTRATION</span><strong>Deadline: 5 November</strong><small>11:59 PM Pakistan Standard Time.</small><a href="register/">Registration information →</a></article>
-      <article class="home-fact"><span class="home-fact-icon" aria-hidden="true">⌖</span><span class="home-fact-label">COMMUNITY</span><strong>Khawrai and nearby villages</strong><small>Season Three welcomes runners from invited neighbouring communities.</small><a href="about/">Read about eligibility →</a></article>
+      <article class="home-fact"><span class="home-fact-icon" aria-hidden="true">⌁</span><span class="home-fact-label">REGISTRATION</span><strong>Online registration closed</strong><small>Entry is limited to participants already registered.</small><a href="event-info/">Read event guidance →</a></article>
+      <article class="home-fact"><span class="home-fact-icon" aria-hidden="true">⌖</span><span class="home-fact-label">RACE DISTANCE</span><strong>Approximately 07 KM</strong><small>From Railway Phatak, Khawrai Road to Government Boys School Khawrai.</small><a href="event-info/">View route locations →</a></article>
     </div>
   </section>
 
@@ -98,12 +105,12 @@
     <div class="home-story-copy"><span class="home-section-kicker">MORE THAN A RACE</span><h2 id="storyTitle">A local tradition.<br><span>A shared future.</span></h2><p>Khawrai Marathon Race grows from the energy of its runners and the support of the community. Season Three carries that spirit forward with a wider invitation, transparent public updates and an official results experience.</p><div class="home-story-points"><div><span>01</span><p><strong>Sport for everyone</strong><small>Celebrate commitment, training and participation.</small></p></div><div><span>02</span><p><strong>Transparent updates</strong><small>Use official pages for runner information and results.</small></p></div><div><span>03</span><p><strong>Community pride</strong><small>Bring people together through a shared sporting event.</small></p></div></div><a class="home-story-button" href="about/">Discover the story of KMR-S3 <span aria-hidden="true">→</span></a></div>
   </section>
 
-  <section class="home-final-cta" aria-labelledby="finalCtaTitle"><div><span class="home-section-kicker">FOLLOW THE JOURNEY</span><h2 id="finalCtaTitle">Every runner has a story.<br><span>Follow race day with us.</span></h2><p>Check the latest standings, explore the runners and keep up with official announcements.</p></div><div class="home-final-actions"><a href="results/" class="home-final-primary">Open live results <span aria-hidden="true">↗</span></a><a href="participants/" class="home-final-secondary">Browse participants <span aria-hidden="true">→</span></a><a href="about/" class="home-final-text">Race information</a></div></section>
+  <section class="home-final-cta" aria-labelledby="finalCtaTitle"><div><span class="home-section-kicker">FOLLOW THE JOURNEY</span><h2 id="finalCtaTitle">Every runner has a story.<br><span>Follow race day with us.</span></h2><p>Review the event guide, check live standings and follow official race-day announcements.</p></div><div class="home-final-actions"><a href="results/" class="home-final-primary">Open live results <span aria-hidden="true">↗</span></a><a href="participants/" class="home-final-secondary">Browse participants <span aria-hidden="true">→</span></a><a href="event-info/" class="home-final-text">Event day guide</a></div></section>
 </main>
-<footer class="home-footer"><a class="home-footer-brand" href="./"><img src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"><span><strong>Khawrai Marathon Race</strong><small>Season Three · 2026</small></span></a><div class="home-footer-middle"><strong>Managed by Waseem Shahzad Fida</strong><span>Organised by District Sports Office Nowshera</span></div><nav aria-label="Footer navigation"><a href="./">Home</a><a href="results/">Results</a><a href="participants/">Participants</a><a href="about/">About</a><a href="register/">Register</a><a href="admin/">Admin sign in</a></nav><div class="home-footer-bottom">© 2026 Khawrai Marathon Race Season Three <span>Season Two photos by Sagar Studio</span></div></footer>
+<footer class="home-footer"><a class="home-footer-brand" href="./"><img src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"><span><strong>Khawrai Marathon Race</strong><small>Season Three · 2026</small></span></a><div class="home-footer-middle"><strong>Managed by Waseem Shahzad Fida</strong><span>Organised by District Sports Office Nowshera</span></div><nav aria-label="Footer navigation"><a href="./">Home</a><a href="results/">Results</a><a href="participants/">Participants</a><a href="about/">About</a><a href="event-info/">Event Info</a><a href="register/">Registration status</a><a href="admin/">Admin sign in</a></nav><div class="home-footer-bottom">© 2026 Khawrai Marathon Race Season Three <span>Season Two photos by Sagar Studio</span></div></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/common.js?v=20261105-5"></script><script src="js/admin-accounts.js?v=20261031-1"></script><script src="js/storage-tools.js?v=20261031-1"></script><script src="js/backup-tools.js?v=20261101-1"></script>
-<script src="js/registration-ui.js?v=20261106-3"></script>
+<script src="js/registration-ui.js?v=20261106-eventinfo-1"></script>
 </body>
 </html>

@@ -21,8 +21,8 @@
   }
   const participantRows = () => results.filter(r => r.current_position != null).sort((a, b) => a.current_position - b.current_position);
   const announcementPresets = Object.freeze({
-    registration_reminder: 'Registration is open. Please complete your registration before the deadline and arrive early on race day.',
-    race_day_arrival: 'Race-day reminder: please arrive early for registration check-in and warm-up. Follow the organisers’ instructions.',
+    registration_reminder: 'Online registration is closed. Registered runners must arrive at Railway Phatak, Khawrai Road by 3:00 PM PKT on 15 November 2026. The race starts at 4:00 PM.',
+    race_day_arrival: 'Race-day reminder: all registered runners must report to Railway Phatak, Khawrai Road by 3:00 PM PKT. The race starts at 4:00 PM on 15 November 2026. Please follow the organisers’ instructions.',
     race_starting_soon: 'The race will start shortly. Runners should move to the starting area and follow the organisers’ instructions.',
     race_started: 'The race has officially started. Best of luck to all runners!',
     race_in_progress: 'The marathon is in progress. Please keep the course clear and follow the marshals’ instructions.',

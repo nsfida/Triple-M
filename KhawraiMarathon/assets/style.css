@@ -38,6 +38,8 @@ button,input,select,textarea{font-size:inherit}
 button{touch-action:manipulation}
 :focus-visible{outline:3px solid #8cb5ff;outline-offset:3px}
 [hidden]{display:none!important}
+/* Accessible text that remains available to assistive technology without adding visual layout. */
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 ::selection{background:#dff3a8;color:#17263b}
 
 /* Universal buttons */
@@ -444,29 +446,6 @@ footer{background:#fff;border-color:var(--line);color:var(--muted)}
 .k-edit-photo-copy small{display:block;color:var(--muted);font-size:.68rem;line-height:1.5;font-weight:500;overflow-wrap:anywhere}
 @media(max-width:480px){.k-edit-photo{grid-template-columns:66px minmax(0,1fr);gap:9px;padding:10px}.k-edit-photo-preview{width:66px;height:74px;border-radius:9px}.k-edit-photo-copy label{font-size:.73rem}.k-edit-photo-copy input[type=file]{font-size:.66rem;padding:6px}.k-edit-photo-copy small{font-size:.63rem;line-height:1.45}}
 
-/* Shared registration status used by every route, not only the participants page. */
-.registration-ended-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: .62rem .9rem;
-  border: 1px solid #e7aab2;
-  border-radius: 9px;
-  background: #fff0f2;
-  color: #9f2132;
-  font-size: .78rem;
-  font-weight: 900;
-  line-height: 1.25;
-  text-align: center;
-  text-decoration: none;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  cursor: default;
-}
-.registration-ended-link[hidden] { display: none !important; }
 /* Admin registration rows use one compact menu instead of a bank of action buttons. */
 #paneR .rt td.ac { width: 64px; min-width: 64px; text-align: center; white-space: nowrap; }
 #paneR .rt .admin-row-menu-toggle { position: relative; top: auto; right: auto; display: inline-grid; width: 34px; height: 34px; margin: 0 auto; padding: 0; border: 1px solid #d7e3e6; border-radius: 10px; background: #fff; color: #245a4d; box-shadow: none; }

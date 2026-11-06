@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f4f7fb">
-<title>Player Registration Form - Khawrai Marathon Season Three</title>
+<title>Registration Status - Khawrai Marathon Season Three</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/style.css?v=20261105-headerfix-1">
+<link rel="stylesheet" href="../assets/style.css?v=20261106-eventinfo-2">
 <style>
 .sheet{width:100%;max-width:1000px;margin:0 auto;padding:22px 22px 54px}
 #f{padding:24px;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
@@ -42,14 +42,15 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 .err{min-height:1.2em;margin:12px 0;color:var(--red);font-size:.82rem;font-weight:800}
 #f> .btn{min-height:48px;padding:.8rem 1.4rem}#f> .btn.ghost{margin-left:8px!important}
 .ok{padding:32px 24px;border:1px solid #c9e9d8;border-top:4px solid var(--green);border-radius:19px;background:#fff;box-shadow:var(--shadow);text-align:center}.ok h2{font-size:1.5rem}.ok p{max-width:650px;margin:12px auto;color:var(--muted);font-size:.86rem}.ok .n{margin:9px 0;color:var(--green);font-size:clamp(2rem,6vw,3.4rem);font-weight:900;letter-spacing:-.06em}
-.registration-closed-card{border-color:#f1c5ca;border-top-color:#bd263d;background:linear-gradient(145deg,#fff 0%,#fff8f8 100%)}.registration-closed-card h2{color:#a91f33}.registration-closed-card .n{color:#b4233a;font-size:clamp(1.45rem,4vw,2.25rem);letter-spacing:-.035em}.registration-closed-card .btn{margin:5px 4px 0}.registration-closed-card .closed-deadline{color:#9d2434;font-weight:900}
+.registration-closed-card{border-color:#f1c5ca;border-top-color:#bd263d;background:linear-gradient(145deg,#fff 0%,#fff8f8 100%)}.registration-closed-card h2{color:#a91f33}.registration-closed-card .n{color:#b4233a;font-size:clamp(1.45rem,4vw,2.25rem);letter-spacing:-.035em}.registration-closed-card .btn{margin:5px 4px 0}.registration-closed-card .closed-deadline{color:#9d2434;font-weight:900}.registration-closed-card .registration-admin-note{margin-top:13px;padding-top:12px;border-top:1px solid #f1d9dd;color:#7d6470;font-size:.75rem}
 @media(max-width:700px){.sheet{padding:13px 10px 34px}#f{padding:14px;border-radius:16px}.fh{gap:8px;padding:13px 8px}.fh img{height:42px;max-width:52px}.fh .gov{font-size:.64rem;letter-spacing:.035em}.fh .dso{font-size:.85rem}.fh .title{margin-top:7px;padding:.4rem .55rem;font-size:.69rem}.meta{font-size:.72rem;gap:7px}.meta span b{margin-left:3px}.fee{padding:11px 12px;font-size:.77rem}.sec{border-radius:12px;margin-bottom:12px}.sec>h2{padding:12px;font-size:.77rem}.sec .body{padding:9px 12px 12px}.r{grid-template-columns:1fr;gap:5px;padding:9px 0}.r>label,.r>.lb{font-size:.77rem}.r input:not([type=radio]):not([type=checkbox]):not([type=file]),.r select,.r textarea{min-height:42px}.pic,.docs{grid-template-columns:1fr}.pic{gap:12px}.pic .drop{min-height:145px}.docs .two{grid-template-columns:1fr 1fr}.docs .drop{min-height:115px;font-size:.84rem}.docs li{font-size:.74rem}.opts{gap:9px 14px}.opts label{font-size:.76rem}.decl{padding:11px;font-size:.75rem}.file{font-size:.75rem}.consent-label span{align-items:flex-start}.consent-label input{flex:none;margin-top:1px}.agree-row{margin-top:11px}#f> .btn{width:100%;margin:0 0 8px!important}#f> .btn.ghost{margin-left:0!important}.ok{padding:25px 15px}}
 @media(max-width:390px){.fh img{max-width:42px;height:35px}.fh{gap:5px;padding:12px 6px}.fh .gov{font-size:.57rem}.fh .dso{font-size:.77rem}.fh .title{font-size:.61rem}.docs .two{grid-template-columns:1fr}.docs .drop{min-height:100px}}
 </style>
 
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/register/">
 <link rel="stylesheet" href="../assets/polish.css?v=20261105-headerfix-1">
-<link rel="stylesheet" href="../assets/header-layout.css?v=20261106-2">
+<link rel="stylesheet" href="../assets/header-layout.css?v=20261106-eventinfo-1">
+<link rel="stylesheet" href="../assets/event-info.css?v=20261106-eventinfo-1">
 <link rel="stylesheet" href="../assets/admin-accounts-dialog.css?v=20261029-2">
 </head>
 <body>
@@ -65,28 +66,28 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 </div>
 <div class="registration-notice" id="registrationNotice" role="status" aria-live="polite">
   <div class="registration-notice-viewport" aria-hidden="true">
-    <div class="registration-notice-track" id="registrationAnnouncementOpen">
+    <div class="registration-notice-track" id="registrationAnnouncementOpen" hidden>
       <span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span>
       <span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span>
     </div>
-    <div class="registration-notice-track" id="registrationAnnouncementClosed" hidden>
-      <span>REGISTRATION HAS ENDED · ONLINE PLAYER REGISTRATION IS CLOSED · THANK YOU FOR YOUR INTEREST</span>
-      <span>REGISTRATION HAS ENDED · ONLINE PLAYER REGISTRATION IS CLOSED · THANK YOU FOR YOUR INTEREST</span>
+    <div class="registration-notice-track" id="registrationAnnouncementClosed">
+      <span>REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026</span>
+      <span>REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026</span>
     </div>
   </div>
-  <span class="sr-only" id="registrationNoticeAccessible">Registration closes on 05 November 2026 at 11:59 PM Pakistan Standard Time.</span>
+  <span class="sr-only" id="registrationNoticeAccessible">Online registration is closed. Registered runners must arrive at Railway Phatak, Khawrai Road by 3:00 PM Pakistan Time on 15 November 2026. The race starts at 4:00 PM.</span>
 </div>
 <header class="top">
   <div class="in">
     <a class="logo-link" href="../" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
     <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Official player registration · Participant entry form</p></div>
-    <div class="header-actions"><div class="header-utilities"><div class="cta registration-cta"><a class="btn yellow" id="registerCta" href="../register/" aria-current="page">Register</a><span class="registration-countdown" id="registrationCountdown" aria-live="off" hidden>CLOSES IN --D --H --M --S</span><span class="btn registration-ended-pill" id="registrationEndedCta" hidden>Registration Ends</span></div>
+    <div class="header-actions"><div class="header-utilities"><div class="cta registration-cta" hidden><a class="btn yellow" id="registerCta" href="../register/" aria-current="page">Register</a><span class="registration-countdown" id="registrationCountdown" aria-live="off" hidden>CLOSES IN --D --H --M --S</span></div>
     <div class="profile-mount"></div></div></div>
   </div>
 </header>
 <nav class="site-nav-shell" aria-label="Site navigation">
   <div class="site-nav-inner">
-    <div class="primary-nav" aria-label="Main navigation"><div class="cta home-nav-cta"><a class="btn ghost" href="../">Home</a></div><div class="cta results-nav-cta"><a class="btn ghost" href="../results/">Results</a></div>
+    <div class="primary-nav" aria-label="Main navigation"><div class="cta home-nav-cta"><a class="btn ghost" href="../">Home</a></div><div class="cta event-info-nav-cta"><a class="btn ghost event-info-nav-link" href="../event-info/">Event Info</a></div><div class="cta results-nav-cta"><a class="btn ghost" href="../results/">Results</a></div>
     <div class="cta participants-nav-cta"><a class="btn ghost" href="../participants/"><span class="nav-label-full">Participants</span><span class="nav-label-mobile">Players</span></a></div>
     <div class="cta about-cta"><a class="btn ghost about-nav-link" href="../about/">About</a></div><div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="../results/manage/"><span class="nav-label-full">Manage Results</span><span class="nav-label-mobile">Manage<br>Results</span></a></div></div>
   </div>
@@ -102,11 +103,12 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
   <p>Each device can register only once, so a second registration cannot be submitted from this device. If this is a mistake, contact the District Sports Office Nowshera.</p>
   <p><a class="btn" href="../participants/">View participants</a> <a class="btn ghost" href="../results/">Race results</a></p></div>
 <div id="registrationClosed" class="ok registration-closed-card" hidden>
-  <h2>Registration Ends</h2>
-  <div class="n">Online registration is closed</div>
-  <p class="closed-deadline">Deadline: 05 November 2026 at 11:59 PM Pakistan Standard Time.</p>
-  <p>Only verified administrators can submit new player registrations after the deadline. Please contact the organisers if you need assistance.</p>
-  <p><a class="btn" href="../participants/">View participants</a> <a class="btn ghost" href="../results/">Race results</a> <a class="btn ghost" href="../admin/">Admin sign in</a></p>
+  <h2>Online Registration Closed</h2>
+  <div class="n">Thank you for your interest</div>
+  <p class="closed-deadline">The registration deadline passed on 5 November 2026 at 11:59 PM Pakistan Time.</p>
+  <p>Online player registration is now closed. This event is open only to participants whose registrations have already been submitted. All registered runners must reach <strong>Railway Phatak, Khawrai Road, by 3:00 PM PKT on Sunday, 15 November 2026</strong>. The race starts at <strong>4:00 PM PKT</strong>.</p>
+  <p><a class="btn" href="../event-info/">Event Info &amp; Route Guide</a> <a class="btn ghost" href="../participants/">View participants</a> <a class="btn ghost" href="../results/">Race results</a></p>
+  <p class="registration-admin-note">Verified administrators can continue to use the registration form through their authorised account.</p>
 </div>
 <form id="f" novalidate>
   <div class="fh">
@@ -177,7 +179,7 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
   <a class="btn ghost" href="../participants/">Back to participants</a> <a class="btn ghost" href="../results/">Race results</a>
 </form></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261105-5"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js?v=20261106-3"></script><script src="../js/image-optimization.js?v=20261031-1"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261105-5"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js?v=20261106-eventinfo-1"></script><script src="../js/image-optimization.js?v=20261031-1"></script>
 <script>
 const $ = id => document.getElementById(id), err = $("err");
 $("today").textContent = fmtDate(new Date());
