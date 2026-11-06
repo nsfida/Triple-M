@@ -222,6 +222,8 @@ const CANONICAL_MIGRATION_FILES = [
   "204_windows_store_push_channels.sql",
   "205_user_backup_restore.sql",
   "206_ai_content_reports.sql",
+  "207_accounting_document_prefixes.sql",
+  "208_accounting_document_save_fix.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

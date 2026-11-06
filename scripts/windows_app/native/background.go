@@ -106,6 +106,10 @@ func onSuspendTimer() {
 	if isWindowShown() || pageSuspended || helloOp != 0 {
 		return
 	}
+	if backupBusy() { // 3.8: never pause the page while it builds a backup
+		procSetTimer.Call(mainHwnd, suspendTimerID, suspendDelayMs, 0)
+		return
+	}
 	if !canSuspendPage(settings.SaveMemory, settings.Notifications, isPackaged(), wnsChannel != 0) {
 		return
 	}

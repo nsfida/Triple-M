@@ -22,7 +22,7 @@
   <Identity
     Name="TriplemVIP.TriplemVIP"
     Publisher="CN=D58541F4-18AA-431F-869F-990A8A8D60CE"
-    Version="3.7.0.0"
+    Version="3.8.0.0"
     ProcessorArchitecture="@ARCH@" />
 
   <Properties>

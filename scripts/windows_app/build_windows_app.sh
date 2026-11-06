@@ -33,7 +33,7 @@ NATIVE_DIR="$ROOT/scripts/windows_app/native"
 INSTALLER_DIR="$ROOT/scripts/windows_app/installer"
 ICO="$ROOT/scripts/windows_app/assets/TriplemVIP.ico"
 OUT="$ROOT/Assets/mobile_app/Windows/TriplemVIP_Setup.exe"
-VERSION="3.7.0"
+VERSION="3.8.0"
 TMP="${TMPDIR:-/tmp}/triplem-vip-windows-build"
 mkdir -p "$TMP" "$INSTALLER_DIR/payload" "$(dirname "$OUT")"
 rm -f "$TMP"/TriplemVIP*.exe

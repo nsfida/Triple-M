@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	"unsafe"
 )
 
@@ -24,10 +25,12 @@ type pendingDownload struct {
 }
 
 type savedDownload struct {
-	path  string
-	op    uintptr
-	total int64
-	id    string
+	path   string
+	op     uintptr
+	total  int64
+	id     string
+	backup bool // 3.8: a backup ZIP from Backup & Restore
+	auto   bool
 }
 
 var (
@@ -66,22 +69,40 @@ func completeSaveAs(id int) {
 		releaseCOM(p.deferral)
 		releaseCOM(p.args)
 	}()
-	path, ok := askSavePath(p.defPath)
+	// 3.8: the backup the page announced goes straight into the backup folder.
+	auto := expectedAuto
+	path, isBackup, dialog, failReason := takeBackupDownload(p.defPath)
+	if isBackup && failReason != "" {
+		vcall(p.args, dlStartSetCancel, 1)
+		releaseCOM(p.op)
+		backupFailed(failReason, auto)
+		return
+	}
+	ok := true
+	if !isBackup || dialog {
+		path, ok = askSavePath(p.defPath)
+	}
 	if !ok {
 		vcall(p.args, dlStartSetCancel, 1)
 		releaseCOM(p.op)
+		if isBackup {
+			backupRunningAt = time.Time{}
+			postToPage(map[string]interface{}{"type": "backup-status", "ok": false, "cancelled": true})
+		}
 		return
 	}
 	vcall(p.args, dlStartSetResultPath, uintptr(unsafe.Pointer(utf16Ptr(path))))
 	vcall(p.args, dlStartSetHandled, 1) // our own completion message replaces the download flyout
 	var total int64
 	vcall(p.op, dlOpTotalBytes, uintptr(unsafe.Pointer(&total)))
-	rec := &savedDownload{path: path, op: p.op, total: total, id: fmt.Sprintf("d%d", id)}
+	rec := &savedDownload{path: path, op: p.op, total: total, id: fmt.Sprintf("d%d", id), backup: isBackup, auto: isBackup && auto}
 	activeDownloads[p.op] = rec
 	var token int64
 	vcall(p.op, dlOpAddStateChanged, hDownloadState.ptr(), uintptr(unsafe.Pointer(&token)))
-	settings.LastSaveDir = filepath.Dir(path)
-	saveSettings()
+	if !isBackup || dialog {
+		settings.LastSaveDir = filepath.Dir(path)
+		saveSettings()
+	}
 }
 
 func onDownloadStateChanged(this, sender, args uintptr) uintptr {
@@ -99,13 +120,27 @@ func onDownloadStateChanged(this, sender, args uintptr) uintptr {
 		}
 		st, err := os.Stat(finalPath)
 		if err != nil || st.Size() == 0 || (rec.total > 0 && st.Size() != rec.total) {
-			postToPage(map[string]interface{}{"type": "download-failed", "name": filepath.Base(rec.path), "reason": "The file was not written completely. Please export it again."})
+			if rec.backup {
+				backupFailed("The backup file was not written completely. It will be tried again.", rec.auto)
+			} else {
+				postToPage(map[string]interface{}{"type": "download-failed", "name": filepath.Base(rec.path), "reason": "The file was not written completely. Please export it again."})
+			}
 		} else {
 			completedFiles[rec.id] = finalPath
-			postToPage(map[string]interface{}{"type": "download-complete", "id": rec.id, "name": filepath.Base(finalPath), "folder": filepath.Base(filepath.Dir(finalPath)), "size": st.Size()})
+			if rec.backup {
+				backupSaved(finalPath, st.Size())
+			}
+			postToPage(map[string]interface{}{"type": "download-complete", "id": rec.id, "name": filepath.Base(finalPath), "folder": filepath.Base(filepath.Dir(finalPath)), "size": st.Size(), "backup": rec.backup, "auto": rec.auto})
 		}
 	case downloadInterrupted:
-		if reason := getInt32(sender, dlOpInterruptReason); reason != interruptUserCanceled {
+		reason := getInt32(sender, dlOpInterruptReason)
+		if rec.backup {
+			if reason == interruptUserCanceled {
+				backupRunningAt = time.Time{}
+			} else {
+				backupFailed(interruptText(reason), rec.auto)
+			}
+		} else if reason != interruptUserCanceled {
 			postToPage(map[string]interface{}{"type": "download-failed", "name": filepath.Base(rec.path), "reason": interruptText(reason)})
 		}
 	}

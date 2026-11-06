@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	appVersionNative = "3.7.0"
+	appVersionNative = "3.8.0"
 	appOrigin        = "https://triplem.vip"
 	maxWebMessage    = 64 * 1024
 )
@@ -166,6 +166,11 @@ type bridgeMessage struct {
 	Recent  []recentRecord  `json:"recent,omitempty"`
 	Online  *bool           `json:"online,omitempty"`
 	Pending int             `json:"pending,omitempty"`
+	// 3.8
+	Backup *backupSchedule `json:"backup,omitempty"`
+	Name   string          `json:"name,omitempty"`
+	Auto   bool            `json:"auto,omitempty"`
+	Reason string          `json:"reason,omitempty"`
 }
 
 var allowedCommands = map[string]bool{
@@ -177,6 +182,9 @@ var allowedCommands = map[string]bool{
 	// 3.7
 	"lock-now": true, "unlock": true, "print-info": true, "print-run": true, "print-pdf": true,
 	"print-system": true, "recent": true, "status": true,
+	// 3.8
+	"backup-schedule": true, "backup-folder": true, "backup-open-folder": true, "backup-now": true,
+	"backup-expect": true, "backup-failed": true,
 }
 
 // parseBridgeMessage validates a JSON message from the page. Offline pages
@@ -211,6 +219,10 @@ func parseBridgeMessage(source, raw string) (bridgeMessage, bool) {
 		m.Recent = m.Recent[:20]
 	}
 	m.ID = cleanID(m.ID)
+	if m.Name != "" && !validBackupFileName(m.Name) {
+		m.Name = ""
+	}
+	m.Reason = clampText(m.Reason, 200)
 	m.Actions = sanitizeToastActions(m.Actions)
 	if !validHexColor(m.Color) {
 		m.Color = ""
@@ -284,13 +296,22 @@ type desktopSettings struct {
 	SaveMemory      bool     `json:"saveMemory"`
 	RecentJumpList  bool     `json:"recentJumpList"`
 	JumpRemoved     []string `json:"jumpRemoved,omitempty"`
+	// 3.8: Backup & Restore in the Windows app
+	Backup            backupSchedule `json:"backup"`
+	BackupFolder      string         `json:"backupFolder,omitempty"`
+	BackupLastDone    int64          `json:"backupLastDone,omitempty"`
+	BackupLastAttempt int64          `json:"backupLastAttempt,omitempty"`
+	BackupSince       int64          `json:"backupSince,omitempty"`
+	BackupLastError   string         `json:"backupLastError,omitempty"`
+	BackupLastFile    string         `json:"backupLastFile,omitempty"`
 }
 
 // New keys default to "on" for existing 3.5 settings files too, because
 // decodeSettings starts from these defaults and only overrides stored keys.
 func defaultSettings() desktopSettings {
 	return desktopSettings{Notifications: true, CloseToTray: true, AutoUpdate: true, QuickAddHotkey: true,
-		LockMinutes: 5, LockHideDetails: true, TrayBadge: true, SaveMemory: true, RecentJumpList: true}
+		LockMinutes: 5, LockHideDetails: true, TrayBadge: true, SaveMemory: true, RecentJumpList: true,
+		Backup: defaultBackupSchedule()}
 }
 
 // decodeSettings never fails: unknown or damaged files fall back to defaults,
@@ -307,6 +328,10 @@ func decodeSettings(b []byte) desktopSettings {
 	_ = json.Unmarshal(b, &s)
 	if !validLockMinutes(s.LockMinutes) {
 		s.LockMinutes = 5
+	}
+	s.Backup = sanitizeBackupSchedule(s.Backup)
+	if s.BackupFolder != "" && !looksLikeAbsWindowsPath(s.BackupFolder) {
+		s.BackupFolder = ""
 	}
 	if len(s.JumpRemoved) > 50 {
 		s.JumpRemoved = s.JumpRemoved[len(s.JumpRemoved)-50:]

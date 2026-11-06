@@ -44,7 +44,9 @@ func desktopInitScript() string {
 		// 3.6
 		"toasts", "links", "hotkey", "theme", "report", "dragdrop",
 		// 3.7
-		"appbar", "applock", "printplus", "recent", "shortcuts", "savememory", "traybadge", "offlineprep"}
+		"appbar", "applock", "printplus", "recent", "shortcuts", "savememory", "traybadge", "offlineprep",
+		// 3.8
+		"backup", "appkeys"}
 	if updatesSupported() {
 		caps = append(caps, "update")
 	}
@@ -188,6 +190,8 @@ func sendSettingsToPage() {
 		"saveMemory":         settings.SaveMemory,
 		"recentJumpList":     settings.RecentJumpList,
 		"canPausePage":       canSuspendPage(true, settings.Notifications, isPackaged(), wnsChannel != 0),
+		// 3.8
+		"backup": backupSettingsForPage(),
 	})
 }
 
@@ -330,6 +334,23 @@ func handleBridgeMessage(m bridgeMessage) {
 		}
 	case "push-close":
 		closePushChannel()
+	// 3.8: Backup & Restore
+	case "backup-schedule":
+		if m.Backup != nil {
+			setBackupSchedule(*m.Backup)
+		}
+	case "backup-folder":
+		chooseBackupFolder()
+	case "backup-open-folder":
+		openBackupFolder()
+	case "backup-now":
+		if !backupBusy() {
+			runBackupNow(false)
+		}
+	case "backup-expect":
+		expectBackup(m.Name, m.Auto)
+	case "backup-failed":
+		backupFailed(m.Reason, m.Auto)
 	}
 }
 

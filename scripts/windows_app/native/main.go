@@ -504,7 +504,7 @@ func handleWindowMessage(hwnd uintptr, message uint32, wParam, lParam uintptr) u
 		if appLocked {
 			return 1 // the lock screen paints the whole window
 		}
-	case WM_LBUTTONUP, WM_KEYDOWN, WM_SETCURSOR:
+	case WM_LBUTTONUP, WM_KEYDOWN, WM_SETCURSOR, WM_MOUSEMOVE:
 		if handleLockInput(message, wParam, lParam) {
 			if message == WM_SETCURSOR {
 				return 1
@@ -584,6 +584,9 @@ func handleWindowMessage(hwnd uintptr, message uint32, wParam, lParam uintptr) u
 			return 0
 		case jumpListTimerID:
 			onJumpListTimer()
+			return 0
+		case backupTimerID: // 3.8
+			onBackupTimer()
 			return 0
 		}
 		switch wParam {
@@ -1184,6 +1187,9 @@ func runNativeApp(args launchArgs) {
 	startCleanRunTimer()
 	scheduleIconRepair()
 	startLockMonitoring()
+	if !safeStart {
+		armBackupTimer() // 3.8: scheduled backups
+	}
 	messageLoop()
 
 	// Keep callback vtables and COM pointers alive until the native loop exits.

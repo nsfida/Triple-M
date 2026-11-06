@@ -39,12 +39,14 @@ const (
 	VK_RETURN            = 0x0D
 	VK_SPACE             = 0x20
 
-	DT_CENTER     = 0x1
-	DT_VCENTER    = 0x4
-	DT_WORDBREAK  = 0x10
-	DT_SINGLELINE = 0x20
-	DT_NOPREFIX   = 0x800
-	DT_CALCRECT   = 0x400
+	DT_CENTER       = 0x1
+	DT_VCENTER      = 0x4
+	DT_WORDBREAK    = 0x10
+	DT_SINGLELINE   = 0x20
+	DT_NOPREFIX     = 0x800
+	DT_CALCRECT     = 0x400
+	DT_END_ELLIPSIS = 0x8000
+	SRCCOPY         = 0x00CC0020
 )
 
 var (
@@ -71,6 +73,9 @@ var (
 	procSetTextColor              = gdi32Lock.NewProc("SetTextColor")
 	procRoundRect                 = gdi32Lock.NewProc("RoundRect")
 	procGetStockObject            = gdi32Lock.NewProc("GetStockObject")
+	procCreateCompatibleBitmap    = gdi32Lock.NewProc("CreateCompatibleBitmap")
+	procBitBlt                    = gdi32Lock.NewProc("BitBlt")
+	procCreatePen                 = gdi32Lock.NewProc("CreatePen")
 	procWTSRegisterSessionNotif   = wtsapi32.NewProc("WTSRegisterSessionNotification")
 	procWTSUnRegisterSessionNotif = wtsapi32.NewProc("WTSUnRegisterSessionNotification")
 	procGetTickCount              = kernel32.NewProc("GetTickCount")
@@ -99,6 +104,7 @@ var (
 	lockMessage     string // shown under the Unlock button
 	lockButtonRect  rect
 	lockSignOutRect rect
+	lockHover       int // 3.8: 1 = Unlock button, 2 = sign-out link
 	signOutAskedAt  time.Time
 	lastAutoPrompt  time.Time
 	themeDark       bool
@@ -396,6 +402,12 @@ func drawText(hdc uintptr, text string, r *rect, flags uintptr) {
 	procDrawTextW.Call(hdc, uintptr(unsafe.Pointer(&u[0])), uintptr(len(u)-1), uintptr(unsafe.Pointer(r)), flags|DT_NOPREFIX)
 }
 
+// paintLockScreen draws the lock screen (3.8): a centred card with the app
+// icon, a short explanation, the Unlock button, an optional message, a hint
+// and the sign-out link. Every text is measured first and the layout
+// (layoutLockScreen) sizes the card and the button around it, so nothing
+// overflows at any window size, display scale or button state. The screen is
+// drawn off-screen first so it never flickers.
 func paintLockScreen(hwnd uintptr) {
 	var ps paintStruct
 	hdc, _, _ := procBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
@@ -406,90 +418,193 @@ func paintLockScreen(hwnd uintptr) {
 	defer recoverOptional("lock screen")
 	var cr rect
 	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&cr)))
+	w, h := cr.Right-cr.Left, cr.Bottom-cr.Top
+	if w <= 0 || h <= 0 {
+		return
+	}
 	dpi := windowDPI()
-	bg, fg, muted := rgb(0xF4, 0xF6, 0xFB), rgb(0x0F, 0x17, 0x2A), rgb(0x5B, 0x67, 0x7A)
-	if themeDark {
-		bg, fg, muted = rgb(0x0F, 0x17, 0x2A), rgb(0xE2, 0xE8, 0xF0), rgb(0x94, 0xA3, 0xB8)
-	}
-	brush, _, _ := procCreateSolidBrush.Call(bg)
-	procFillRect.Call(hdc, uintptr(unsafe.Pointer(&cr)), brush)
-	procDeleteObject.Call(brush)
-	procSetBkMode.Call(hdc, 1) // TRANSPARENT
 
-	w := cr.Right - cr.Left
-	cx := cr.Left + w/2
-	iconSize := scalePx(72, dpi)
-	block := iconSize + scalePx(170, dpi)
-	top := cr.Top + (cr.Bottom-cr.Top-block)/2
-	if top < scalePx(16, dpi) {
-		top = scalePx(16, dpi)
+	// Off-screen buffer (falls back to drawing directly).
+	dc := hdc
+	mem, _, _ := procCreateCompatibleDC.Call(hdc)
+	var bmp, oldBmp uintptr
+	if mem != 0 {
+		bmp, _, _ = procCreateCompatibleBitmap.Call(hdc, uintptr(w), uintptr(h))
+		if bmp != 0 {
+			oldBmp, _, _ = procSelectObject.Call(mem, bmp)
+			dc = mem
+		}
 	}
-	if icon := loadAppIconSize(int(iconSize)); icon != 0 {
-		procDrawIconEx.Call(hdc, uintptr(cx-iconSize/2), uintptr(top), icon, uintptr(iconSize), uintptr(iconSize), 0, 0, 3) // DI_NORMAL
-		procDestroyIcon.Call(icon)
+	defer func() {
+		if dc == mem && mem != 0 {
+			procBitBlt.Call(hdc, 0, 0, uintptr(w), uintptr(h), mem, 0, 0, SRCCOPY)
+			procSelectObject.Call(mem, oldBmp)
+		}
+		if bmp != 0 {
+			procDeleteObject.Call(bmp)
+		}
+		if mem != 0 {
+			procDeleteDC.Call(mem)
+		}
+	}()
+
+	pal := lockPalette(themeDark)
+	fillRectColor(dc, rect{0, 0, w, h}, pal.bg)
+	procSetBkMode.Call(dc, 1) // TRANSPARENT
+
+	waiting := helloOp != 0
+	sub := "Use Windows Hello (face, fingerprint or PIN) to continue."
+	hint := "Press Enter to unlock"
+	if waiting {
+		hint = "Complete the Windows Hello prompt to continue"
 	}
-	y := top + iconSize + scalePx(16, dpi)
+	link := "Can't use Windows Hello? Sign out"
 
-	title := makeFont(scalePx(21, dpi), 600)
-	old, _, _ := procSelectObject.Call(hdc, title)
-	procSetTextColor.Call(hdc, fg)
-	r := rect{cr.Left + scalePx(16, dpi), y, cr.Right - scalePx(16, dpi), y + scalePx(30, dpi)}
-	drawText(hdc, "Triplem VIP is locked", &r, DT_CENTER|DT_SINGLELINE|DT_VCENTER)
-	procSelectObject.Call(hdc, old)
-	procDeleteObject.Call(title)
-	y += scalePx(34, dpi)
+	titleF := makeFont(scalePx(22, dpi), 650)
+	subF := makeFont(scalePx(14, dpi), 400)
+	btnF := makeFont(scalePx(15, dpi), 600)
+	smallF := makeFont(scalePx(13, dpi), 400)
+	hintF := makeFont(scalePx(12, dpi), 400)
+	linkF := makeFontU(scalePx(13, dpi), 600, lockHover == 2)
+	defer func() {
+		for _, f := range []uintptr{titleF, subF, btnF, smallF, hintF, linkF} {
+			if f != 0 {
+				procDeleteObject.Call(f)
+			}
+		}
+	}()
 
-	body := makeFont(scalePx(14, dpi), 400)
-	old, _, _ = procSelectObject.Call(hdc, body)
-	procSetTextColor.Call(hdc, muted)
-	r = rect{cr.Left + scalePx(16, dpi), y, cr.Right - scalePx(16, dpi), y + scalePx(22, dpi)}
-	drawText(hdc, "Use Windows Hello (face, fingerprint or PIN) to continue.", &r, DT_CENTER|DT_SINGLELINE|DT_VCENTER)
-	y += scalePx(36, dpi)
+	textW := lockCardTextWidth(w, dpi)
+	_, titleH := measureText(dc, titleF, "Triplem VIP is locked", 0, DT_SINGLELINE)
+	_, subH := measureText(dc, subF, sub, textW, DT_WORDBREAK|DT_CENTER)
+	lw1, lh := measureText(dc, btnF, lockButtonLabel(false), 0, DT_SINGLELINE)
+	lw2, _ := measureText(dc, btnF, lockButtonLabel(true), 0, DT_SINGLELINE)
+	labelW := lw1
+	if lw2 > labelW {
+		labelW = lw2 // the button keeps one width, so it never jumps or overflows
+	}
+	msgH := int32(0)
+	if lockMessage != "" {
+		_, msgH = measureText(dc, smallF, lockMessage, textW, DT_WORDBREAK|DT_CENTER)
+	}
+	_, hintH := measureText(dc, hintF, hint, textW, DT_WORDBREAK|DT_CENTER)
+	linkW, linkH := measureText(dc, linkF, link, 0, DT_SINGLELINE)
+
+	lay := layoutLockScreen(lockLayoutIn{W: w, H: h, DPI: dpi, TitleH: titleH, SubH: subH, LabelW: labelW, LabelH: lh, MsgH: msgH, HintH: hintH, LinkW: linkW, LinkH: linkH})
+
+	// Card.
+	roundRectColor(dc, toRect(lay.Card), pal.card, pal.border, scalePx(18, dpi))
+	if lay.ShowIcon {
+		ir := toRect(lay.Icon)
+		roundRectColor(dc, ir, pal.iconBg, pal.iconBg, scalePx(18, dpi))
+		inner := scalePx(44, dpi)
+		if icon := loadAppIconSize(int(inner)); icon != 0 {
+			procDrawIconEx.Call(dc, uintptr(ir.Left+(ir.Right-ir.Left-inner)/2), uintptr(ir.Top+(ir.Bottom-ir.Top-inner)/2), icon, uintptr(inner), uintptr(inner), 0, 0, 3) // DI_NORMAL
+			procDestroyIcon.Call(icon)
+		}
+	}
+	drawTextIn(dc, titleF, pal.fg, "Triplem VIP is locked", toRect(lay.Title), DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS)
+	drawTextIn(dc, subF, pal.muted, sub, toRect(lay.Sub), DT_CENTER|DT_WORDBREAK)
 
 	// Unlock button.
-	bw, bh := scalePx(168, dpi), scalePx(40, dpi)
-	lockButtonRect = rect{cx - bw/2, y, cx + bw/2, y + bh}
-	btn, _, _ := procCreateSolidBrush.Call(rgb(0x24, 0x57, 0xD6))
-	nullPen, _, _ := procGetStockObject.Call(8) // NULL_PEN
-	oldPen, _, _ := procSelectObject.Call(hdc, nullPen)
-	oldBrush, _, _ := procSelectObject.Call(hdc, btn)
-	rad := uintptr(scalePx(12, dpi))
-	procRoundRect.Call(hdc, uintptr(lockButtonRect.Left), uintptr(lockButtonRect.Top), uintptr(lockButtonRect.Right), uintptr(lockButtonRect.Bottom), rad, rad)
-	procSelectObject.Call(hdc, oldBrush)
-	procSelectObject.Call(hdc, oldPen)
-	procDeleteObject.Call(btn)
-	procSelectObject.Call(hdc, old)
-	procDeleteObject.Call(body)
-
-	label := makeFont(scalePx(15, dpi), 600)
-	old, _, _ = procSelectObject.Call(hdc, label)
-	procSetTextColor.Call(hdc, rgb(0xFF, 0xFF, 0xFF))
+	lockButtonRect = toRect(lay.Button)
+	btnColor := pal.primary
+	switch {
+	case waiting:
+		btnColor = pal.waiting
+	case lockHover == 1:
+		btnColor = pal.primaryHover
+	}
+	roundRectColor(dc, lockButtonRect, btnColor, btnColor, scalePx(12, dpi))
 	br := lockButtonRect
-	text := "Unlock"
-	if helloOp != 0 {
-		text = "Waiting for Windows Hello…"
-	}
-	drawText(hdc, text, &br, DT_CENTER|DT_SINGLELINE|DT_VCENTER)
-	procSelectObject.Call(hdc, old)
-	procDeleteObject.Call(label)
-	y += bh + scalePx(14, dpi)
+	br.Left += scalePx(14, dpi)
+	br.Right -= scalePx(14, dpi)
+	drawTextIn(dc, btnF, pal.onPrimary, lockButtonLabel(waiting), br, DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS)
 
-	small := makeFont(scalePx(13, dpi), 400)
-	old, _, _ = procSelectObject.Call(hdc, small)
 	if lockMessage != "" {
-		procSetTextColor.Call(hdc, rgb(0xC2, 0x41, 0x0C))
-		r = rect{cx - scalePx(260, dpi), y, cx + scalePx(260, dpi), y + scalePx(60, dpi)}
-		drawText(hdc, lockMessage, &r, DT_CENTER|DT_WORDBREAK)
-		y += scalePx(64, dpi)
-	} else {
-		y += scalePx(6, dpi)
+		drawTextIn(dc, smallF, pal.warn, lockMessage, toRect(lay.Msg), DT_CENTER|DT_WORDBREAK)
 	}
-	procSetTextColor.Call(hdc, muted)
-	lockSignOutRect = rect{cx - scalePx(180, dpi), y, cx + scalePx(180, dpi), y + scalePx(22, dpi)}
-	so := lockSignOutRect
-	drawText(hdc, "Can't use Windows Hello? Sign out", &so, DT_CENTER|DT_SINGLELINE|DT_VCENTER)
-	procSelectObject.Call(hdc, old)
-	procDeleteObject.Call(small)
+	drawTextIn(dc, hintF, pal.muted, hint, toRect(lay.Hint), DT_CENTER|DT_WORDBREAK)
+	fillRectColor(dc, toRect(lay.Divider), pal.border)
+
+	lockSignOutRect = toRect(lay.Link)
+	linkColor := pal.link
+	if lockHover == 2 {
+		linkColor = pal.linkHover
+	}
+	drawTextIn(dc, linkF, linkColor, link, lockSignOutRect, DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS)
+}
+
+type lockColors struct {
+	bg, card, border, fg, muted, primary, primaryHover, waiting, onPrimary, warn, link, linkHover, iconBg uintptr
+}
+
+func lockPalette(dark bool) lockColors {
+	if dark {
+		return lockColors{
+			bg: rgb(0x0B, 0x12, 0x20), card: rgb(0x14, 0x1D, 0x2E), border: rgb(0x26, 0x33, 0x48),
+			fg: rgb(0xE8, 0xED, 0xF5), muted: rgb(0x9A, 0xA8, 0xBC),
+			primary: rgb(0x3B, 0x6F, 0xF0), primaryHover: rgb(0x52, 0x82, 0xF5), waiting: rgb(0x3A, 0x46, 0x5A),
+			onPrimary: rgb(0xFF, 0xFF, 0xFF), warn: rgb(0xF5, 0x9E, 0x6B),
+			link: rgb(0x8F, 0xB0, 0xFF), linkHover: rgb(0xB5, 0xCB, 0xFF), iconBg: rgb(0x1D, 0x2A, 0x42),
+		}
+	}
+	return lockColors{
+		bg: rgb(0xEE, 0xF2, 0xF8), card: rgb(0xFF, 0xFF, 0xFF), border: rgb(0xDD, 0xE3, 0xEC),
+		fg: rgb(0x0F, 0x17, 0x2A), muted: rgb(0x5B, 0x67, 0x7A),
+		primary: rgb(0x24, 0x57, 0xD6), primaryHover: rgb(0x1D, 0x49, 0xB8), waiting: rgb(0x64, 0x74, 0x8B),
+		onPrimary: rgb(0xFF, 0xFF, 0xFF), warn: rgb(0xC2, 0x41, 0x0C),
+		link: rgb(0x24, 0x57, 0xD6), linkHover: rgb(0x16, 0x3A, 0x99), iconBg: rgb(0xE8, 0xEF, 0xFC),
+	}
+}
+
+func toRect(r lkRect) rect { return rect{r.L, r.T, r.R, r.B} }
+
+func makeFontU(px int32, weight int, underline bool) uintptr {
+	u := uintptr(0)
+	if underline {
+		u = 1
+	}
+	f, _, _ := procCreateFontW.Call(uintptr(-px), 0, 0, 0, uintptr(weight), 0, u, 0, 1, 0, 0, 5, 0, uintptr(unsafe.Pointer(utf16Ptr("Segoe UI"))))
+	return f
+}
+
+// measureText returns the size of text in the given font. width > 0 wraps the
+// text at that width (DT_WORDBREAK).
+func measureText(dc, font uintptr, text string, width int32, flags uintptr) (int32, int32) {
+	old, _, _ := procSelectObject.Call(dc, font)
+	defer procSelectObject.Call(dc, old)
+	r := rect{0, 0, width, 0}
+	if width <= 0 {
+		r.Right = 100000
+	}
+	drawText(dc, text, &r, flags|DT_CALCRECT)
+	return r.Right - r.Left, r.Bottom - r.Top
+}
+
+func drawTextIn(dc, font, color uintptr, text string, r rect, flags uintptr) {
+	old, _, _ := procSelectObject.Call(dc, font)
+	procSetTextColor.Call(dc, color)
+	drawText(dc, text, &r, flags)
+	procSelectObject.Call(dc, old)
+}
+
+func fillRectColor(dc uintptr, r rect, color uintptr) {
+	b, _, _ := procCreateSolidBrush.Call(color)
+	procFillRect.Call(dc, uintptr(unsafe.Pointer(&r)), b)
+	procDeleteObject.Call(b)
+}
+
+func roundRectColor(dc uintptr, r rect, fill, border uintptr, radius int32) {
+	brush, _, _ := procCreateSolidBrush.Call(fill)
+	pen, _, _ := procCreatePen.Call(0, 1, border) // PS_SOLID
+	oldB, _, _ := procSelectObject.Call(dc, brush)
+	oldP, _, _ := procSelectObject.Call(dc, pen)
+	procRoundRect.Call(dc, uintptr(r.Left), uintptr(r.Top), uintptr(r.Right), uintptr(r.Bottom), uintptr(radius), uintptr(radius))
+	procSelectObject.Call(dc, oldP)
+	procSelectObject.Call(dc, oldB)
+	procDeleteObject.Call(pen)
+	procDeleteObject.Call(brush)
 }
 
 func pointIn(r rect, x, y int32) bool {
@@ -518,6 +633,19 @@ func handleLockInput(message uint32, wParam, lParam uintptr) bool {
 	case WM_KEYDOWN:
 		if wParam == VK_RETURN || wParam == VK_SPACE {
 			requestHello("unlock")
+			invalidateWindow()
+		}
+		return true
+	case WM_MOUSEMOVE:
+		x, y := int32(int16(lParam&0xFFFF)), int32(int16((lParam>>16)&0xFFFF))
+		hover := 0
+		if pointIn(lockButtonRect, x, y) {
+			hover = 1
+		} else if pointIn(lockSignOutRect, x, y) {
+			hover = 2
+		}
+		if hover != lockHover {
+			lockHover = hover
 			invalidateWindow()
 		}
 		return true
