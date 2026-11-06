@@ -141,8 +141,13 @@
       "path": "Assets/style/59-card-order.css",
       "bytes": 2436,
       "sha256": "eaff4e46edca8cf58a417942321f5af2214e0fbb1bb31cb6040014e67c8ee60b"
+    },
+    {
+      "path": "Assets/style/60-ai-report.css",
+      "bytes": 4197,
+      "sha256": "19a52ee6a53f771c283e316588983b41c73132cd08e95ee279dc420d3d5c52a1"
     }
   ],
-  "bytes": 564645,
-  "sha256": "efec61a88e4c64c25a0b26aca5a2c1b671489054d6970f85b42d6075fc610efb"
+  "bytes": 568899,
+  "sha256": "974bf38ab5c36b8951c6e0c6b1aa41d917163c4f28a75c376afae267fbac7fa2"
 }
