@@ -18,6 +18,8 @@ const has = rel => fs.existsSync(path.join(root, rel));
 const text = rel => fs.readFileSync(path.join(root, rel), "utf8");
 const nativeDir = "scripts/windows_app/native";
 const skipNative = has(`${nativeDir}/backup.go`) ? false : "Windows app source not present in this checkout";
+// SQL migrations are kept out of the public repository: these checks run only where they exist.
+const skipSql = files => files.every(has) ? false : "Database migrations are not present in this checkout";
 
 test("3.8 lock screen: measured text, layout that cannot overflow, no flicker", { skip: skipNative }, () => {
   const lock = text(`${nativeDir}/applock.go`);
@@ -81,7 +83,7 @@ test("3.8 backup in the app reuses the account backup and its restore", () => {
   assert.match(ui, /const out = await E\(\)\.createBackup\(d, \{ password: "", signal: quietRun\.signal/);
 });
 
-test("migration 207 replaces only the prefix function and falls back to the old prefixes", () => {
+test("migration 207 replaces only the prefix function and falls back to the old prefixes", { skip: skipSql(["migrations/207_accounting_document_prefixes.sql"]) }, () => {
   const sql = text("migrations/207_accounting_document_prefixes.sql").replace(/^--.*$/gm, "");
   const fns = [...sql.matchAll(/create or replace function public\.([a-z_]+)/g)].map(m => m[1]);
   assert.deepEqual(fns, ["app_accounting_document_prefix"]);
@@ -90,7 +92,7 @@ test("migration 207 replaces only the prefix function and falls back to the old 
   for (const [t, p] of [["quotation", "QUO"], ["sales_invoice", "INV"], ["purchase_bill", "BILL"], ["expense_invoice", "EXP"]]) assert.match(sql, new RegExp(`when '${t}' then '${p}'`));
 });
 
-test("migration 208 is the 149 document save with one added directive", () => {
+test("migration 208 is the 149 document save with one added directive", { skip: skipSql(["migrations/149_full_accounting_erp_core.sql", "migrations/208_accounting_document_save_fix.sql"]) }, () => {
   const m149 = text("migrations/149_full_accounting_erp_core.sql");
   const m208 = text("migrations/208_accounting_document_save_fix.sql");
   const block = s => s.slice(s.indexOf("create or replace function public.app_accounting_save_document"), s.indexOf("grant execute on function public.app_accounting_save_document"));

@@ -13,7 +13,7 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const text = rel => fs.readFileSync(path.join(root, rel), "utf8");
 
-test("migration 206 is additive and only adds the AI report table and RPCs", () => {
+test("migration 206 is additive and only adds the AI report table and RPCs", { skip: fs.existsSync(path.join(root, "migrations/206_ai_content_reports.sql")) ? false : "Database migrations are not present in this checkout" }, () => {
   const sql = text("migrations/206_ai_content_reports.sql");
   assert.match(sql, /create table if not exists public\.app_ai_content_reports/);
   const body = sql.replace(/^--.*$/gm, "");
@@ -97,5 +97,5 @@ test("Bitcoin is hidden only in the Microsoft Store version of the Windows app",
   // The admin's user editor (userAllowedTabs) is not gated, so saving a user never removes Bitcoin access.
   assert.doesNotMatch(text("Assets/app/notes/01-notes.js"), /cryptoFeaturesHidden/);
   // No server or data change for this: the gate is page-side only.
-  assert.doesNotMatch(text("migrations/206_ai_content_reports.sql"), /bitcoin/i);
+  if (fs.existsSync(path.join(root, "migrations/206_ai_content_reports.sql"))) assert.doesNotMatch(text("migrations/206_ai_content_reports.sql"), /bitcoin/i);
 });
