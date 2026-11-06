@@ -1,6 +1,6 @@
 "use strict";
 
-/* Guards for the Windows Setup and desktop app (3.7.0). */
+/* Guards for the Windows Setup and desktop app (3.8.0). */
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -53,7 +53,7 @@ test("Setup page is self-contained and locked down", { skip: skipSource }, () =>
 test("published Setup and app carry Windows version information", () => {
   const exe = fs.readFileSync(path.join(root, "Assets/mobile_app/Windows/TriplemVIP_Setup.exe"));
   const utf16 = s => Buffer.from(s, "utf16le");
-  for (const s of ["VS_VERSION_INFO", "CompanyName", "Triplem VIP Setup", "ProductName", "3.7.0.0"]) {
+  for (const s of ["VS_VERSION_INFO", "CompanyName", "Triplem VIP Setup", "ProductName", "3.8.0.0"]) {
     assert.ok(exe.includes(utf16(s)), `version resource contains ${s}`);
   }
   assert.ok(exe.includes(Buffer.from("PerMonitorV2")), "DPI-aware manifest embedded");

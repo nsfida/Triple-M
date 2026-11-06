@@ -3126,15 +3126,17 @@ it("Section keyboard shortcuts are browser-safe, section-scoped, loan-mode aware
   assert.match(shortcuts, /registerSectionShortcuts\("installments"/);
   assert.match(shortcuts, /registerSectionShortcuts\("assets"/);
   assert.match(shortcuts, /registerSectionShortcuts\("notes"/);
-  assert.match(shortcuts, /descriptor\("n"\).*Add Expense/s);
-  assert.match(shortcuts, /descriptor\("a"\).*Add Money/s);
-  assert.match(shortcuts, /descriptor\("t"\).*Transfer Money/s);
-  assert.match(shortcuts, /descriptor\("g"\).*Loan Given/s);
-  assert.match(shortcuts, /descriptor\("r"\).*Received Back/s);
-  assert.match(shortcuts, /descriptor\("t"\).*Loan Taken/s);
-  assert.match(shortcuts, /descriptor\("b"\).*Loan Returned/s);
-  assert.match(shortcuts, /descriptor\("o"\).*Open \/ Partial Only/s);
-  assert.match(shortcuts, /descriptor\("f"\).*Search/s);
+  assert.match(shortcuts, /sc\("n", "Add Expense"/);
+  assert.match(shortcuts, /sc\("a", "Add Money"/);
+  assert.match(shortcuts, /sc\("t", "Transfer Money"/);
+  assert.match(shortcuts, /sc\("g", "Loan Given"/);
+  assert.match(shortcuts, /sc\("r", "Received Back"/);
+  assert.match(shortcuts, /sc\("t", "Loan Taken"/);
+  assert.match(shortcuts, /sc\("b", "Loan Returned"/);
+  assert.match(shortcuts, /sc\("o", "Open \/ Partial Only"/);
+  assert.match(shortcuts, /sc\("f", "Search/);
+  // Browsers keep Ctrl + Alt + key; the Windows app uses two keys (Alt + key).
+  assert.match(shortcuts, /return WINDOWS_APP \? \{ key, ctrl: false, alt: true, shift: false \} : \{ key, ctrl: true, alt: true, shift: false \};/);
   assert.match(shortcuts, /newNoteBtn/);
   assert.match(shortcuts, /searchInstallments/);
   assert.match(shortcuts, /searchAssets/);
