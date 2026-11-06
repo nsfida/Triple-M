@@ -689,6 +689,12 @@ function isSecurityRecoveryNotification(item){
   return String(notificationPayloadObject(item).type || "").toLowerCase() === "security_recovery_approval";
 }
 
+// A user reported an AI response (migration 206). Shown in the admin bell.
+function isAiContentReportNotification(item){
+  if (!item || String(item.kind || "").toLowerCase() !== "system") return false;
+  return String(notificationPayloadObject(item).type || "").toLowerCase() === "ai_content_report";
+}
+
 function isLiveChatOfferNotification(item){
   return isLiveChatAssignmentNotification(item) || isLiveChatTransferNotification(item);
 }
@@ -700,6 +706,7 @@ function notificationBelongsInBell(item){
     || isSubscriptionUserNotification(item)
     || isAdminBroadcastNotification(item)
     || isSecurityRecoveryNotification(item)
+    || isAiContentReportNotification(item)
     || isLiveChatRoutingNotification(item);
 }
 
@@ -3366,6 +3373,7 @@ function notificationTitleText(n){
 
 function notificationVisual(n){
   if (isSecurityRecoveryNotification(n)) return { cls: "warn", icon: "fa-shield-halved" };
+  if (isAiContentReportNotification(n)) return { cls: "warn", icon: "fa-flag" };
   if (isLiveChatOfferNotification(n)) return { cls: "inquiry", icon: "fa-headset" };
   if (isAdminBroadcastNotification(n)) return { cls: "", icon: "fa-bullhorn" };
   if (isSubscriptionUserNotification(n)) return { cls: "renewal", icon: "fa-crown" };
@@ -3430,6 +3438,10 @@ function notificationDetailFields(n){
   } else if (n.kind === "access_expiry_warning" || n.kind === "access_auto_disabled") {
     add("Trial expired", payload.trial_expires_at ? formatTrialExpiry(payload.trial_expires_at) : "");
     add("Access disabled on", payload.access_disable_at ? formatTrialExpiry(payload.access_disable_at) : "");
+  } else if (isAiContentReportNotification(n)) {
+    add("AI", payload.source === "triplem_ai" ? "Triplem AI" : payload.source === "aziz" ? "Aziz" : "Live chat AI");
+    add("Reason", ({ offensive: "Offensive or hateful", harmful: "Harmful or dangerous", sexual: "Sexual content", inaccurate: "Inaccurate or misleading", privacy: "Privacy concern", other: "Something else" })[payload.reason] || payload.reason);
+    add("Report ID", payload.report_id);
   } else if (isLiveChatOfferNotification(n)) {
     add("Visitor", payload.guest_name);
     add("Message", payload.message);

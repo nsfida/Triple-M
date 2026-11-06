@@ -762,6 +762,36 @@
   }
 
   // Regression contract marker retained for RTL-safe chat tests: <p dir="auto">${escape(m.body)}</p>
+  // AI answers this visitor reported in this page session (the button shows "Reported").
+  const reportedAiMessages = new Set();
+  let renderedMessageRows = [];
+  function aiMessageKey(m) {
+    return safeText(m?.id) || `${safeText(m?.created_at)}|${safeText(m?.body).slice(0, 80)}`;
+  }
+
+  function reportLiveChatAiMessage(index) {
+    const rows = renderedMessageRows;
+    const m = rows[index];
+    if (!m || !window.TriplemAiReport) return;
+    const key = aiMessageKey(m);
+    if (reportedAiMessages.has(key)) return;
+    let prompt = "";
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (String(rows[i]?.sender_role || "") !== "admin") { prompt = safeText(rows[i].body); break; }
+    }
+    window.TriplemAiReport.open({
+      source: isAzizSession() ? "aziz" : "live_chat_ai",
+      content: safeText(m.body),
+      prompt,
+      context: { session_id: safeText(session?.aziz_chat_id || session?.inquiry_id || ""), message_id: safeText(m.id), message_at: safeText(m.created_at), surface: "live_chat" },
+      onReported: () => {
+        reportedAiMessages.add(key);
+        lastRenderSignature = "";
+        renderMessages(session?.messages || rows);
+      }
+    });
+  }
+
   function renderMessages(messages) {
     if (!els.messages) return;
     const rows = Array.isArray(messages) ? messages : [];
@@ -771,7 +801,7 @@
     const previousAdmin = lastSeenAdminMessageId;
     const latestAdmin = [...rows].reverse().find(m => String(m.sender_role || "") === "admin");
     lastSeenAdminMessageId = latestAdmin?.id || lastSeenAdminMessageId;
-    const messageHtml = rows.length ? rows.map(m => {
+    const messageHtml = rows.length ? rows.map((m, index) => {
       const fromGuest = String(m.sender_role || "") !== "admin";
       const actor = fromGuest ? "visitor" : safeText(m.message_actor || m.support_actor || (m.sender_id ? "agent" : "system")).toLowerCase();
       const isAi = actor === "ai" || m.is_ai === true;
@@ -783,8 +813,13 @@
         ? `<span class="landing-live-chat-avatar is-user" aria-hidden="true"><i class="fa-solid fa-user"></i></span>`
         : `<span class="landing-live-chat-avatar is-brand ${isAi ? "is-ai" : isHuman ? "is-human" : "is-system"}" aria-hidden="true"><img src="Assets/logo/logo.png" alt="" /></span>`;
       const actorClass = fromGuest ? "is-guest" : isAi ? "is-ai" : isHuman ? "is-human" : "is-system";
-      return `<div class="landing-live-chat-message-row ${fromGuest ? "is-guest" : "is-admin"} ${actorClass}">${fromGuest ? "" : avatar}<div class="landing-live-chat-message ${fromGuest ? "is-guest" : "is-admin"} ${actorClass}"><div class="landing-live-chat-message-meta"><span class="landing-live-chat-message-who"><strong>${escape(label)}</strong>${badge}</span><span>${escape(when)}</span></div><p dir="auto">${typeof currencyAwareTextHtml === "function" ? currencyAwareTextHtml(m.body) : escape(m.body)}</p></div>${fromGuest ? avatar : ""}</div>`;
+      // Report an AI response (Microsoft Store 11.16).
+      const report = isAi && safeText(m.body) && window.TriplemAiReport
+        ? `<div class="landing-live-chat-message-actions">${window.TriplemAiReport.buttonHtml(`data-live-chat-ai-report="${index}"`, reportedAiMessages.has(aiMessageKey(m)))}</div>`
+        : "";
+      return `<div class="landing-live-chat-message-row ${fromGuest ? "is-guest" : "is-admin"} ${actorClass}">${fromGuest ? "" : avatar}<div class="landing-live-chat-message ${fromGuest ? "is-guest" : "is-admin"} ${actorClass}"><div class="landing-live-chat-message-meta"><span class="landing-live-chat-message-who"><strong>${escape(label)}</strong>${badge}</span><span>${escape(when)}</span></div><p dir="auto">${typeof currencyAwareTextHtml === "function" ? currencyAwareTextHtml(m.body) : escape(m.body)}</p>${report}</div>${fromGuest ? avatar : ""}</div>`;
     }).join("") : (aiGenerating ? "" : `<div class="landing-live-chat-empty">No messages yet.</div>`);
+    renderedMessageRows = rows;
     els.messages.innerHTML = messageHtml + (aiGenerating ? aiThinkingMarkup() : "");
     lastRenderSignature = signature;
     if (wasNearBottom || !previousAdmin) requestAnimationFrame(() => { els.messages.scrollTop = els.messages.scrollHeight; });
@@ -1345,6 +1380,12 @@
     els.startButton = $("landingLiveChatStartButton");
     els.startError = $("landingLiveChatStartError");
     els.messages = $("landingLiveChatMessages");
+    els.messages?.addEventListener("click", event => {
+      const btn = event.target instanceof Element ? event.target.closest("[data-live-chat-ai-report]") : null;
+      if (!btn) return;
+      event.preventDefault();
+      reportLiveChatAiMessage(Number(btn.dataset.liveChatAiReport));
+    });
     els.guided = $("landingLiveChatGuided");
     els.expiry = $("landingLiveChatExpiryText");
     els.replyForm = $("landingLiveChatReplyForm");

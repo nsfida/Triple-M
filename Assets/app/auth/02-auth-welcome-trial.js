@@ -10,7 +10,10 @@ async function openTrialSignupModal(preferredPlan = "free"){
     document.body.appendChild(modal);
   }
 
-  const workspaceCurrencies = (window.TriplemCurrencyRegistry?.codes?.() || SUPPORTED_CURRENCIES || []).slice();
+  // Microsoft Store version: no Bitcoin (Store policy 10.2.6), so BTC is not offered at sign-up there.
+  const storeNoCrypto = typeof cryptoFeaturesHidden === "function" && cryptoFeaturesHidden();
+  const workspaceCurrencies = (window.TriplemCurrencyRegistry?.codes?.() || SUPPORTED_CURRENCIES || []).slice()
+    .filter(code => !(storeNoCrypto && String(code).toUpperCase() === "BTC"));
   const regionalCurrency = typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD";
   const prices = TRIPLEM_PUBLIC_PLAN_PRICES;
   const teamPrices = TRIPLEM_PUBLIC_TEAM_PRICES;
@@ -104,7 +107,7 @@ async function openTrialSignupModal(preferredPlan = "free"){
             <div class="signup-detail-section">
               <div class="signup-detail-head"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Workspace setup</strong><small>Currency, identity mark and company team</small></div></div>
               <div class="signup-v2-form-grid">
-                <div class="form-group signup-span-2"><label class="form-label">Workspace currencies</label>${checkboxGridHtml("trialCurrencies", workspaceCurrencies, [regionalCurrency])}<p class="help">Choose one or more. BTC also enables the Bitcoin section.</p></div>
+                <div class="form-group signup-span-2"><label class="form-label">Workspace currencies</label>${checkboxGridHtml("trialCurrencies", workspaceCurrencies, [regionalCurrency])}<p class="help">${storeNoCrypto ? "Choose one or more." : "Choose one or more. BTC also enables the Bitcoin section."}</p></div>
                 <div class="form-group"><label class="form-label" for="trialBillingCurrency">Primary / billing currency</label><select id="trialBillingCurrency" class="input" aria-label="Regional billing currency"><option value="${escapeHtml(regionalCurrency)}">${escapeHtml(regionalCurrency)}</option></select></div>
                 <div class="form-group"><label class="form-label" for="trialLogoFile">Logo <span class="trial-optional">optional</span></label><input id="trialLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" /><input id="trialLogoUrl" type="hidden" value="" /><div class="admin-logo-preview-wrap"><img id="trialLogoPreview" class="admin-logo-preview hide" src="" alt="Logo preview" /><span id="trialLogoStatus" class="help">PNG, JPG, WebP or GIF.</span></div></div>
                 <div class="form-group company-signup-field signup-span-2 signup-team-field hide">

@@ -741,6 +741,7 @@ function tabIsAllowed(tab){
   if (key === "loans") key = "given";
   if (!state.unlocked) return false;
   if (key === WORKSPACE_HOME_TAB) return true;
+  if (key === "bitcoin" && typeof cryptoFeaturesHidden === "function" && cryptoFeaturesHidden()) return false;
   if (key === "messages") {
     return !isGuestMode();
   }
@@ -997,6 +998,8 @@ function activate(tab){
   if (!state.unlocked) {
     return;
   }
+  // Microsoft Store version: no Bitcoin wallet (Store policy 10.2.6).
+  if (tab === "bitcoin" && typeof cryptoFeaturesHidden === "function" && cryptoFeaturesHidden()) return;
   if (tab === WORKSPACE_HOME_TAB) {
     try { if (typeof window.setTriplemAiPageLock === "function") window.setTriplemAiPageLock(false); } catch (_) {}
     showWorkspaceHome();

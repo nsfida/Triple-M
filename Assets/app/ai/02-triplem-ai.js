@@ -634,13 +634,36 @@
     throw new Error("This AI Draft type is not supported for finalization yet.");
   }
 
-  function renderMessage(message) {
+  // Report an AI response (Microsoft Store 11.16): every generated answer has a Report button.
+  function reportButtonHtml(message, index) {
+    if (message.role === "user" || message.generated !== true || !window.TriplemAiReport) return "";
+    return `<div class="triplem-ai-message-actions">${window.TriplemAiReport.buttonHtml(`data-triplem-ai-report="${index}"`, message.reported === true)}</div>`;
+  }
+
+  function renderMessage(message, index) {
     const isUser = message.role === "user";
     const text = isUser ? esc(message.text || "").replace(/\n/g, "<br>") : formatAssistantText(message.text || "");
     return `<article class="triplem-ai-message ${isUser ? "is-user" : "is-ai"}">
       <div class="triplem-ai-message-avatar" aria-hidden="true">${isUser ? `<i class="fa-solid fa-user"></i>` : `<i class="fa-solid fa-sparkles"></i>`}</div>
-      <div class="triplem-ai-message-content"><div class="triplem-ai-message-label">${isUser ? "You" : "Triplem AI"}</div><div class="triplem-ai-message-text">${text}</div>${isUser ? "" : renderRecordCards(message.records)}${isUser ? "" : renderDraftCards(message.drafts,true)}${isUser ? "" : renderReferences(message)}</div>
+      <div class="triplem-ai-message-content"><div class="triplem-ai-message-label">${isUser ? "You" : "Triplem AI"}</div><div class="triplem-ai-message-text">${text}</div>${isUser ? "" : renderRecordCards(message.records)}${isUser ? "" : renderDraftCards(message.drafts,true)}${isUser ? "" : renderReferences(message)}${reportButtonHtml(message, index)}</div>
     </article>`;
+  }
+
+  function reportAiMessage(index) {
+    const ai = aiState();
+    const message = ai?.messages?.[index];
+    if (!message || message.role === "user" || message.generated !== true || message.reported === true) return;
+    let prompt = "";
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (ai.messages[i]?.role === "user") { prompt = String(ai.messages[i].text || ""); break; }
+    }
+    window.TriplemAiReport?.open({
+      source: "triplem_ai",
+      content: String(message.text || ""),
+      prompt,
+      context: { model: message.model || ai.model || "", surface: "workspace", message_at: message.at || "" },
+      onReported: () => { message.reported = true; renderTriplemAiWorkspace(); }
+    });
   }
 
   function suggestionHtml() {
@@ -744,6 +767,7 @@
     root.querySelectorAll("[data-triplem-ai-settings]").forEach(btn => btn.addEventListener("click", openTriplemAiSettingsModal));
     root.querySelectorAll("[data-triplem-ai-record-key]").forEach(btn => btn.addEventListener("click", async () => { await openTriplemAiRecord(findRecordByKey(btn.dataset.triplemAiRecordKey)); }));
     root.querySelectorAll("[data-triplem-ai-draft-id]").forEach(btn => btn.addEventListener("click", () => openAiDraft(btn.dataset.triplemAiDraftId)));
+    root.querySelectorAll("[data-triplem-ai-report]").forEach(btn => btn.addEventListener("click", () => reportAiMessage(Number(btn.dataset.triplemAiReport))));
     root.querySelector("[data-triplem-ai-clear]")?.addEventListener("click", () => {
       const ai = aiState();
       if (!ai || ai.sending) return;
@@ -802,7 +826,7 @@
     renderTriplemAiWorkspace();
     try {
       const response = await invoke("chat", { message, history });
-      ai.messages.push({ role: "assistant", text: String(response.answer || "I could not produce an answer."), records: Array.isArray(response.records) ? response.records : [], references: Array.isArray(response.references) ? response.references : [], drafts: Array.isArray(response.drafts) ? response.drafts : [] });
+      ai.messages.push({ role: "assistant", generated: !!response.answer, model: response.model || ai.model || "", at: new Date().toISOString(), text: String(response.answer || "I could not produce an answer."), records: Array.isArray(response.records) ? response.records : [], references: Array.isArray(response.references) ? response.references : [], drafts: Array.isArray(response.drafts) ? response.drafts : [] });
       if (Array.isArray(response.drafts) && response.drafts.length) {
         const byId = new Map((ai.drafts || []).map(d => [String(d.id), d]));
         response.drafts.forEach(d => byId.set(String(d.id), d));

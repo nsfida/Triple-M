@@ -2945,7 +2945,13 @@ function getSessionAssignedModules(){
   return normalizeAssignedModules(tabs);
 }
 
+/** Microsoft Store version of the Windows app: no cryptocurrency features (Store policy 10.2.6). */
+function cryptoFeaturesHidden(){
+  try { return window.TRIPLEM_STORE_APP === true; } catch (_) { return false; }
+}
+
 function userHasPermission(moduleName, action = "view"){
+  if (String(moduleName || "").toLowerCase() === "bitcoin" && cryptoFeaturesHidden()) return false;
   return TripleMPermissions.evaluateUserPermission({
     moduleName,
     action,
@@ -3027,6 +3033,7 @@ function applyPermissionGates(){
     let allowed = isGuestMode() ? mod !== "admin_panel" && mod !== "assets" : userHasPermission(mod, "view");
     if (locked) allowed = false;
     if (tab.dataset.tab === "admin" && getUserAccessFlags().is_trial) allowed = false;
+    if (mod === "bitcoin" && cryptoFeaturesHidden()) allowed = false;
     // Bitcoin tab follows assigned module permission (admin Bitcoin access / trial BTC selection).
     tab.classList.toggle("hide", !allowed);
     tab.disabled = !allowed;
