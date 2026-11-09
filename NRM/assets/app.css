@@ -127,3 +127,10 @@ body.contract-view .page input:disabled,body.contract-view .page textarea:disabl
 @media print{.view-tabs,#existingContractsView{display:none!important}}
 
 @media print{body.contract-view #sheets{padding:0;zoom:1!important}body.contract-view .page{margin:0;box-shadow:none}}
+
+
+/* Driver signature: overlay the original 9 mm signature line so the
+   contract's A4 page dimensions and content flow remain unchanged. */
+.sig .ln.signature-slot{position:relative;overflow:visible}
+.sig .ln .signature-image{position:absolute;left:50%;bottom:.35mm;transform:translateX(-50%);width:auto;height:auto;max-width:52mm;max-height:17mm;object-fit:contain;object-position:center center;display:none;pointer-events:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.sig .ln .signature-image:not([hidden]){display:block}

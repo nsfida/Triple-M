@@ -4,6 +4,7 @@ const CFG = window.NRM_CONFIG || {};
 const $ = id => document.getElementById(id);
 const STORAGE_KEY = 'nrm_secure_session_v2';
 const contractId = new URLSearchParams(window.location.search).get('id') || '';
+let signatureLoadPromise = Promise.resolve(false);
 
 async function api(fn, payload = {}) {
   if (!CFG.supabaseUrl || !CFG.supabaseAnonKey) throw new Error('Supabase configuration is missing.');
@@ -81,6 +82,9 @@ async function renderSavedContract(token) {
   const page = document.importNode(sourcePage, true);
   applySnapshot(page, record.snapshot);
   $('sheets').replaceChildren(page);
+  const signatureImage = page.querySelector('#driverSignature');
+  const savedDriverName = page.querySelector('#name')?.value || '';
+  signatureLoadPromise = window.NRMSignatures ? window.NRMSignatures.load(signatureImage, savedDriverName) : Promise.resolve(false);
   $('contractHeading').textContent = `Saved Contract · CNo. ${record.contract_no}`;
   $('contractState').textContent = 'Authenticated · Read-only';
   document.title = `Contract ${record.contract_no} | Rental Agreement`;
@@ -131,7 +135,7 @@ $('accessForm').addEventListener('submit', event => {
   if (!key) { setError('Enter the admin access key.'); return; }
   unlockWithKey(key);
 });
-$('printBtn').addEventListener('click', () => window.print());
+$('printBtn').addEventListener('click', async () => { try { await signatureLoadPromise; } catch (_) {} window.print(); });
 $('backBtn').addEventListener('click', () => { window.location.href = 'index.html?view=existing'; });
 window.addEventListener('resize', fitPage);
 
