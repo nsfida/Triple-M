@@ -338,8 +338,8 @@
         items = [
           { label: "View", icon: "fa-eye", action: () => openOpeningBalanceDetails(balance.id) },
           can("create") && n(balance.amount_outstanding) > 0 ? { label: "Receive", icon: "fa-hand-holding-dollar", action: () => openCommissionReceiving({ ...balance, source_type: "opening" }) } : null,
-          can("edit") && n(balance.amount_received) <= 0 ? { label: "Edit", icon: "fa-pen", action: () => openOpeningBalanceForm(balance) } : null,
-          can("delete") && n(balance.amount_received) <= 0 ? { label: "Delete", icon: "fa-trash", danger: true, action: () => deleteOpeningBalance(balance.id) } : null
+          canChangeOpeningBalance() && n(balance.amount_received) <= 0 ? { label: "Edit", icon: "fa-pen", action: () => openOpeningBalanceForm(balance) } : null,
+          canChangeOpeningBalance() && n(balance.amount_received) <= 0 ? { label: "Delete", icon: "fa-trash", danger: true, action: () => deleteOpeningBalance(balance.id) } : null
         ];
       } else if (kind === "company") {
         const company = S.companies.find(x => x.id === id); if (!company) return;
@@ -660,6 +660,15 @@
     S.commissionHasMore = !!res?.has_more;
   }
 
+  // 2026-11-09 (migration 211): only the protected Main Admin may edit or delete
+  // an opening balance. The server enforces this too.
+  function canChangeOpeningBalance() {
+    try {
+      const u = window.state?.sessionUser;
+      return !!(u && u.role === "admin" && u.is_protected === true && !(typeof isGuestMode === "function" && isGuestMode()));
+    } catch (_) { return false; }
+  }
+
   async function loadOpeningBalances() {
     const res = await rpc("app_insurance_list_commission_opening_balances", {
       p_start_date: S.commissionFilters.start || null,
@@ -862,6 +871,7 @@
   }
 
   function openOpeningBalanceForm(existing=null) {
+    if(existing&&!canChangeOpeningBalance())return notify("Only the Main Admin can edit an opening balance.","error");
     if(!can(existing?"edit":"create"))return notify("Opening balance entry is not permitted for this account.","error");
     const title=existing?"Edit Opening Balance":"Add Opening Balance";
     openModal({id:"insuranceOpeningBalanceModal",title,subtitle:"Bring forward commission owed from policies before Triplem VIP.",body:`<form id="insuranceOpeningBalanceForm" class="insurance-form-grid insurance-opening-balance-form">
@@ -877,10 +887,11 @@
   }
 
   async function openOpeningBalanceDetails(id) {
-    try{const res=await rpc("app_insurance_get_commission_opening_balance",{p_id:id}),row=res?.item;if(!row)return;const payments=Array.isArray(row.payments)?row.payments:[];const paymentHtml=payments.length?payments.map(p=>`<div class="insurance-commission-payment-row"><div><strong>${esc(p.reference_no)}</strong><span>${fmtDate(p.received_date)} ${fmtTime(p.received_time)}${p.external_reference?` · ${esc(p.external_reference)}`:""}</span></div><b>${moneyHtml(p.amount_allocated,row.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No receiving entry has been recorded against this opening balance.</div>`;openModal({id:"insuranceOpeningBalanceDetailsModal",title:"Opening Commission Balance",subtitle:row.reference_no,body:`<div class="insurance-detail-grid"><div class="insurance-detail"><span>Insurance Company</span><strong>${esc(row.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Balance Date</span><strong>${fmtDate(row.balance_date)}</strong></div><div class="insurance-detail"><span>Opening Balance</span><strong>${moneyHtml(row.opening_amount,row.currency)}</strong></div><div class="insurance-detail"><span>Received</span><strong>${moneyHtml(row.amount_received,row.currency)}</strong></div><div class="insurance-detail"><span>Balance to Receive</span><strong>${moneyHtml(row.amount_outstanding,row.currency)}</strong></div><div class="insurance-detail"><span>Status</span><strong>${openingBalanceStatusBadge(row)}</strong></div>${row.notes?`<div class="insurance-detail insurance-detail-wide"><span>Migration Note</span><strong>${esc(row.notes)}</strong></div>`:""}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Receiving History</div>${paymentHtml}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>${can("edit")&&n(row.amount_received)<=0?`<button class="btn ghost" id="insuranceOpeningBalanceEdit">Edit</button>`:""}${can("create")&&n(row.amount_outstanding)>0?`<button class="btn primary" id="insuranceOpeningBalanceReceive">Receive</button>`:""}`,onOpen(modal,close){$("#insuranceOpeningBalanceEdit",modal)?.addEventListener("click",()=>{close();openOpeningBalanceForm(row);});$("#insuranceOpeningBalanceReceive",modal)?.addEventListener("click",()=>{close();openCommissionReceiving({...row,source_type:"opening"});});}});}catch(err){notify(err.message||"Could not open opening balance.","error");}
+    try{const res=await rpc("app_insurance_get_commission_opening_balance",{p_id:id}),row=res?.item;if(!row)return;const payments=Array.isArray(row.payments)?row.payments:[];const paymentHtml=payments.length?payments.map(p=>`<div class="insurance-commission-payment-row"><div><strong>${esc(p.reference_no)}</strong><span>${fmtDate(p.received_date)} ${fmtTime(p.received_time)}${p.external_reference?` · ${esc(p.external_reference)}`:""}</span></div><b>${moneyHtml(p.amount_allocated,row.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No receiving entry has been recorded against this opening balance.</div>`;openModal({id:"insuranceOpeningBalanceDetailsModal",title:"Opening Commission Balance",subtitle:row.reference_no,body:`<div class="insurance-detail-grid"><div class="insurance-detail"><span>Insurance Company</span><strong>${esc(row.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Balance Date</span><strong>${fmtDate(row.balance_date)}</strong></div><div class="insurance-detail"><span>Opening Balance</span><strong>${moneyHtml(row.opening_amount,row.currency)}</strong></div><div class="insurance-detail"><span>Received</span><strong>${moneyHtml(row.amount_received,row.currency)}</strong></div><div class="insurance-detail"><span>Balance to Receive</span><strong>${moneyHtml(row.amount_outstanding,row.currency)}</strong></div><div class="insurance-detail"><span>Status</span><strong>${openingBalanceStatusBadge(row)}</strong></div>${row.notes?`<div class="insurance-detail insurance-detail-wide"><span>Migration Note</span><strong>${esc(row.notes)}</strong></div>`:""}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Receiving History</div>${paymentHtml}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>${canChangeOpeningBalance()&&n(row.amount_received)<=0?`<button class="btn ghost" id="insuranceOpeningBalanceEdit">Edit</button>`:""}${can("create")&&n(row.amount_outstanding)>0?`<button class="btn primary" id="insuranceOpeningBalanceReceive">Receive</button>`:""}`,onOpen(modal,close){$("#insuranceOpeningBalanceEdit",modal)?.addEventListener("click",()=>{close();openOpeningBalanceForm(row);});$("#insuranceOpeningBalanceReceive",modal)?.addEventListener("click",()=>{close();openCommissionReceiving({...row,source_type:"opening"});});}});}catch(err){notify(err.message||"Could not open opening balance.","error");}
   }
 
   async function deleteOpeningBalance(id) {
+    if(!canChangeOpeningBalance())return notify("Only the Main Admin can delete an opening balance.","error");
     const row=S.openingBalances.find(x=>x.id===id);if(!row)return;
     if(!global.confirm(`Delete opening balance ${row.reference_no}?`))return;
     try{await rpc("app_insurance_delete_commission_opening_balance",{p_id:id});await Promise.all([loadOpeningBalances(),loadCommissionSummary()]);renderMyCommission();notify("Opening balance deleted.");}catch(err){notify(err.message||"Could not delete opening balance.","error");}
