@@ -2719,7 +2719,7 @@ function requireProtectedAdminBackup(){
     throw new Error("Protected administrator access required.");
   }
   if (!state.sessionToken) {
-    throw new Error("Authentication required. Please sign in again, then retry Upload Backup.");
+    throw new Error("Authentication required. Please sign in again, then try again.");
   }
 }
 
@@ -2956,7 +2956,7 @@ async function downloadAdminBackupSql(){
       "-- Downloaded: " + stamp + "\n" +
       "-- Source asset: " + ADMIN_FULL_SCHEMA_SQL_URL + "\n" +
       "-- Includes: full schema DDL + protected main admin credentials only (no other data).\n" +
-      "-- After this schema runs, use Admin Upload Backup (JSON/CSV) for full data restore.\n" +
+      "-- After this schema runs, restore data with Admin > Backup > System Backup & Restore.\n" +
       sqlBodyWithoutCommit +
       credentialsSql +
       "\nCOMMIT;\n";
@@ -2985,59 +2985,15 @@ function normalizeAdminBackupPayload(parsed){
   return canonicalizeAdminBackupPayload(parsed);
 }
 
-async function uploadAdminBackupFile(file){
-  requireProtectedAdminBackup();
-  if (!file) return;
-  setAdminBackupStatus("Reading backup…", "busy");
-  const text = await file.text();
-  const kind = detectAdminBackupKind(file, text);
-  let payload;
-  try {
-    if (kind === "json") {
-      // Same canonical envelope as Download Backup (JSON).
-      payload = normalizeAdminBackupPayload(JSON.parse(text));
-    } else {
-      // parseAdminBackupCsv already returns the canonical envelope Download CSV writes.
-      payload = normalizeAdminBackupPayload(parseAdminBackupCsv(text));
-    }
-  } catch (err) {
-    setAdminBackupStatus(err.message || String(err), "error");
-    throw err;
-  }
-
-  const tableNames = Object.keys(payload.tables || {});
-  const rowCount = tableNames.reduce((s, t) => s + (Array.isArray(payload.tables[t]) ? payload.tables[t].length : 0), 0);
-  const ok = confirm(
-    `Restore full admin backup?\n\n` +
-    `This DESTRUCTIVELY replaces exported tables with ${rowCount} row(s) across ${tableNames.length} table(s).\n` +
-    `Other users’ sessions will be cleared. Continue only for disaster recovery.`
-  );
-  if (!ok) {
-    setAdminBackupStatus("Restore cancelled", "");
-    return;
-  }
-
-  setAdminBackupStatus("Restoring database…", "busy");
-  let result;
-  try {
-    result = await supabaseRpc("app_admin_import_full_backup", { p_payload: payload });
-  } catch (err) {
-    const detail = err?.message || String(err);
-    setAdminBackupStatus(detail, "error");
-    throw new Error(`Restore failed: ${detail}. The previous database state may be partially applied — re-export a fresh backup before retrying.`);
-  }
-  setAdminBackupStatus("Restore complete", "ok");
-  alert(result?.warning || "Database restore finished. Refresh recommended.");
-  try {
-    await loadAdminUsers();
-  } catch { /* ignore */ }
-}
+// The destructive "Upload Backup (JSON/CSV)" import (it cleared tables before
+// inserting) was removed on 2026-11-10. Restores now go through System Backup &
+// Restore (Assets/app/backup/03-system-backup.js), which only adds missing
+// records and never overwrites or deletes. Downloads below are unchanged.
 
 function bindAdminBackupEvents(){
   const jsonBtn = document.getElementById("adminBackupDownloadJsonBtn");
   const csvBtn = document.getElementById("adminBackupDownloadCsvBtn");
   const sqlBtn = document.getElementById("adminBackupDownloadSqlBtn");
-  const uploadInput = document.getElementById("adminBackupUploadInput");
   jsonBtn?.addEventListener("click", () => {
     downloadAdminBackupJson().catch(err => alert(err.message || err));
   });
@@ -3047,16 +3003,8 @@ function bindAdminBackupEvents(){
   sqlBtn?.addEventListener("click", () => {
     downloadAdminBackupSql().catch(err => alert(err.message || err));
   });
-  uploadInput?.addEventListener("change", async e => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      await uploadAdminBackupFile(file);
-    } catch (err) {
-      setAdminBackupStatus(err.message || String(err), "error");
-      alert(err.message || err);
-    }
+  document.getElementById("adminSystemBackupBtn")?.addEventListener("click", () => {
+    window.TriplemSystemBackup?.open?.();
   });
   updateAdminBackupVisibility();
 }

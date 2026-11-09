@@ -40,8 +40,8 @@
     m.className = "modal hide";
     m.setAttribute("aria-hidden", "true");
     m.innerHTML = `<div class="modal-backdrop" data-fs-close></div>
-      <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="fileStorageTitle" style="max-width:860px">
-        <div class="modal-head"><div><h3 id="fileStorageTitle">File Storage Settings</h3><p>Cloudflare R2 for receipts, invoices and documents of all users.</p></div>
+      <div class="modal-dialog tm-fs-dialog" role="dialog" aria-modal="true" aria-labelledby="fileStorageTitle">
+        <div class="modal-head"><div><h3 id="fileStorageTitle"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> File Storage Settings</h3><p>Cloudflare R2 for receipts, invoices and documents of all users.</p></div>
           <button class="icon-btn ghost" type="button" data-fs-close aria-label="Close">×</button></div>
         <div class="modal-body" id="fileStorageBody"><div class="empty">Loading…</div></div>
       </div>`;
@@ -66,56 +66,69 @@
     const pct = imgOrig ? ((saved / imgOrig) * 100).toFixed(1) : "0.0";
     const conn = c.last_test_ok === true ? ["ok", "Connected"] : c.last_test_ok === false ? ["bad", "Failed"] : ["", c.configured ? "Not tested" : "Not configured"];
     const body = document.getElementById("fileStorageBody");
+    const field = (label, control, hint = "", cls = "") => `<label class="tm-fs-field ${cls}"><span>${label}</span>${control}${hint ? `<small>${hint}</small>` : ""}</label>`;
+    const metric = (label, value, tone = "") => `<div class="tm-fs-metric ${tone}"><small>${label}</small><strong title="${esc(value)}">${esc(value)}</strong></div>`;
     body.innerHTML = `
-      <div class="tm-fs-status">
-        <div class="tm-fs-stat ${conn[0]}"><small>Connection</small><strong>${esc(conn[1])}</strong></div>
-        <div class="tm-fs-stat"><small>Active bucket</small><strong title="${esc(c.bucket)}">${esc(c.bucket || "—")}</strong></div>
-        <div class="tm-fs-stat ${c.enabled ? "ok" : ""}"><small>Storage</small><strong>${c.enabled ? "Enabled" : "Disabled"}</strong></div>
-        <div class="tm-fs-stat"><small>Last successful connection</small><strong>${esc(fmtDate(c.last_success_at))}</strong></div>
-        <div class="tm-fs-stat"><small>Last configuration update</small><strong>${esc(fmtDate(c.updated_at))}</strong></div>
-      </div>
-      ${c.last_test_message ? `<p class="tm-fs-msg ${c.last_test_ok ? "ok" : "bad"}">${esc(c.last_test_message)}</p>` : ""}
-      <form id="fileStorageForm" autocomplete="off" novalidate>
-        <div class="tm-fs-grid">
-          <label class="tm-fs-field"><span>Cloudflare Account ID</span><input class="input" name="account_id" value="${esc(c.account_id)}" placeholder="32 characters" spellcheck="false" required></label>
-          <label class="tm-fs-field"><span>R2 Bucket Name</span><input class="input" name="bucket" value="${esc(c.bucket || "triplem-vip-files")}" spellcheck="false" required></label>
-          <label class="tm-fs-field wide"><span>S3 API Endpoint</span><input class="input" name="endpoint" value="${esc(c.endpoint)}" placeholder="https://ACCOUNT_ID.r2.cloudflarestorage.com" spellcheck="false"><small>Leave empty to build it from the Account ID.</small></label>
-          <label class="tm-fs-field"><span>S3 Access Key ID</span><input class="input" name="access_key_id" value="" placeholder="${c.configured ? `Configured (ends ${esc(c.access_key_hint)}) — leave empty to keep` : "From an R2 API token"}" spellcheck="false" autocomplete="off"><small>The R2 token's Access Key ID, not a Cloudflare API token.</small></label>
-          <label class="tm-fs-field"><span>Secret Access Key</span><input class="input" type="password" name="secret_access_key" value="" placeholder="${c.configured ? "•••••••• saved — leave empty to keep" : "Shown once when the token is created"}" autocomplete="new-password"><small>Stored encrypted on the server. It is never shown again.</small></label>
-          <label class="tm-fs-field"><span>Region</span><input class="input" name="region" value="${esc(c.region || "auto")}" spellcheck="false"></label>
-          <label class="tm-fs-field"><span>Storage</span><select class="select" name="enabled"><option value="on"${c.enabled ? " selected" : ""}>Enabled for all users</option><option value="off"${c.enabled ? "" : " selected"}>Disabled</option></select><small>Enabling runs a connection test first.</small></label>
+      <div class="tm-fs">
+        <div class="tm-fs-hero">
+          <span class="tm-fs-badge ${conn[0] || "idle"}"><i aria-hidden="true"></i>${esc(conn[1])}</span>
+          <dl class="tm-fs-kv">
+            <div><dt>Bucket</dt><dd title="${esc(c.bucket)}">${esc(c.bucket || "—")}</dd></div>
+            <div><dt>Storage</dt><dd class="${c.enabled ? "ok" : ""}">${c.enabled ? "Enabled" : "Disabled"}</dd></div>
+            <div><dt>Last successful connection</dt><dd>${esc(fmtDate(c.last_success_at))}</dd></div>
+            <div><dt>Configuration updated</dt><dd>${esc(fmtDate(c.updated_at))}</dd></div>
+          </dl>
         </div>
-        <div class="tm-fs-section"><h4>Image optimisation</h4>
-          <div class="tm-fs-grid">
-            <label class="tm-fs-field"><span>Optimise images before upload</span><select class="select" name="optimize"><option value="on"${s.optimize !== false ? " selected" : ""}>On (recommended)</option><option value="off"${s.optimize === false ? " selected" : ""}>Off</option></select></label>
-            <label class="tm-fs-field"><span>Quality</span><select class="select" name="preset">${[["document", "Document — clearest text (recommended)"], ["balanced", "Balanced"], ["compact", "Compact"]].map(([v, t]) => `<option value="${v}"${(s.preset || "document") === v ? " selected" : ""}>${t}</option>`).join("")}</select></label>
-            <label class="tm-fs-field"><span>Largest image side</span><select class="select" name="max_edge">${[2000, 2500, 3000, 3500, 4000].map(v => `<option value="${v}"${Number(s.max_edge || 3000) === v ? " selected" : ""}>${v} px${v === 3000 ? " (recommended)" : ""}</option>`).join("")}</select></label>
-            <label class="tm-fs-field"><span>Largest upload</span><select class="select" name="max_upload_mb">${[5, 10, 15, 25].map(v => `<option value="${v}"${Number(s.max_upload_mb || 15) === v ? " selected" : ""}>${v} MB</option>`).join("")}</select></label>
-            <div class="tm-fs-field wide"><span>Allowed files</span><div>${[["image/jpeg", "JPG"], ["image/png", "PNG"], ["image/webp", "WebP"], ["application/pdf", "PDF"]].map(([v, t]) => `<label style="margin-right:14px"><input type="checkbox" name="allowed" value="${v}"${allowed.includes(v) ? " checked" : ""}> ${t}</label>`).join("")}</div></div>
+        ${c.last_test_message ? `<p class="tm-fs-msg tm-fs-banner ${c.last_test_ok ? "ok" : "bad"}">${esc(c.last_test_message)}</p>` : ""}
+        <form id="fileStorageForm" class="tm-fs-form" autocomplete="off" novalidate>
+          <section class="tm-fs-card" aria-labelledby="tmFsConnTitle">
+            <header class="tm-fs-card-head"><i class="fa-solid fa-plug" aria-hidden="true"></i><div><h4 id="tmFsConnTitle">Connection</h4><p>Cloudflare R2 API token. Credentials are encrypted on the server and never shown again.</p></div></header>
+            <div class="tm-fs-grid">
+              ${field("Cloudflare Account ID", `<input class="input" name="account_id" value="${esc(c.account_id)}" placeholder="32 characters" spellcheck="false" required>`)}
+              ${field("R2 Bucket Name", `<input class="input" name="bucket" value="${esc(c.bucket || "triplem-vip-files")}" spellcheck="false" required>`)}
+              ${field("S3 API Endpoint", `<input class="input" name="endpoint" value="${esc(c.endpoint)}" placeholder="https://ACCOUNT_ID.r2.cloudflarestorage.com" spellcheck="false">`, "Leave empty to build it from the Account ID.", "wide")}
+              ${field("S3 Access Key ID", `<input class="input" name="access_key_id" value="" placeholder="${c.configured ? `Configured (ends ${esc(c.access_key_hint)}) — leave empty to keep` : "From an R2 API token"}" spellcheck="false" autocomplete="off">`, "The R2 token's Access Key ID, not a Cloudflare API token.")}
+              ${field("Secret Access Key", `<input class="input" type="password" name="secret_access_key" value="" placeholder="${c.configured ? "•••••••• saved — leave empty to keep" : "Shown once when the token is created"}" autocomplete="new-password">`, "Stored encrypted. Never displayed again.")}
+              ${field("Region", `<input class="input" name="region" value="${esc(c.region || "auto")}" spellcheck="false">`)}
+              ${field("Storage", `<select class="select" name="enabled"><option value="on"${c.enabled ? " selected" : ""}>Enabled for all users</option><option value="off"${c.enabled ? "" : " selected"}>Disabled</option></select>`, "Enabling runs a connection test first.")}
+            </div>
+          </section>
+          <section class="tm-fs-card" aria-labelledby="tmFsImgTitle">
+            <header class="tm-fs-card-head"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><div><h4 id="tmFsImgTitle">Image optimisation</h4><p>Applied on the device before upload. PDFs are stored unchanged.</p></div></header>
+            <div class="tm-fs-grid tm-fs-grid--4">
+              ${field("Optimise before upload", `<select class="select" name="optimize"><option value="on"${s.optimize !== false ? " selected" : ""}>On (recommended)</option><option value="off"${s.optimize === false ? " selected" : ""}>Off</option></select>`)}
+              ${field("Quality", `<select class="select" name="preset">${[["document", "Document (sharpest text)"], ["balanced", "Balanced"], ["compact", "Compact"]].map(([v, t]) => `<option value="${v}"${(s.preset || "document") === v ? " selected" : ""}>${t}</option>`).join("")}</select>`)}
+              ${field("Largest image side", `<select class="select" name="max_edge">${[2000, 2500, 3000, 3500, 4000].map(v => `<option value="${v}"${Number(s.max_edge || 3000) === v ? " selected" : ""}>${v} px${v === 3000 ? " (default)" : ""}</option>`).join("")}</select>`)}
+              ${field("Largest upload", `<select class="select" name="max_upload_mb">${[5, 10, 15, 25].map(v => `<option value="${v}"${Number(s.max_upload_mb || 15) === v ? " selected" : ""}>${v} MB</option>`).join("")}</select>`)}
+              <div class="tm-fs-field wide"><span>Allowed files</span><div class="tm-fs-chips">${[["image/jpeg", "JPG"], ["image/png", "PNG"], ["image/webp", "WebP"], ["application/pdf", "PDF"]].map(([v, t]) => `<label class="tm-fs-chip"><input type="checkbox" name="allowed" value="${v}"${allowed.includes(v) ? " checked" : ""}><span>${t}</span></label>`).join("")}</div></div>
+            </div>
+          </section>
+          <div class="tm-fs-bar">
+            <p class="tm-fs-msg" id="fileStorageMsg" role="status" aria-live="polite"></p>
+            <div class="tm-fs-actions">
+              <button type="button" class="btn ghost" data-fs-test${c.configured ? "" : " disabled"}><i class="fa-solid fa-plug-circle-check" aria-hidden="true"></i> Test Connection</button>
+              <button type="submit" class="btn primary"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Configuration</button>
+            </div>
           </div>
-        </div>
-        <p class="tm-fs-msg" id="fileStorageMsg" role="status" aria-live="polite"></p>
-        <div class="tm-fs-actions">
-          <button type="button" class="btn ghost" data-fs-test${c.configured ? "" : " disabled"}><i class="fa-solid fa-plug-circle-check" aria-hidden="true"></i> Test Connection</button>
-          <button type="submit" class="btn primary"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Configuration</button>
-        </div>
-      </form>
-      <div class="tm-fs-section"><h4>Storage overview</h4>
-        <div class="tm-fs-status">
-          <div class="tm-fs-stat"><small>Attachments</small><strong>${esc(ov?.attachments ?? 0)}</strong></div>
-          <div class="tm-fs-stat"><small>Total stored</small><strong>${esc(fmtBytes(ov?.stored_bytes))}</strong></div>
-          <div class="tm-fs-stat"><small>Images · original</small><strong>${esc(fmtBytes(imgOrig))}</strong></div>
-          <div class="tm-fs-stat"><small>Images · stored</small><strong>${esc(fmtBytes(imgStored))}</strong></div>
-          <div class="tm-fs-stat ok"><small>Saved by optimisation</small><strong>${esc(fmtBytes(saved))} (${pct}%)</strong></div>
-          <div class="tm-fs-stat"><small>PDFs</small><strong>${esc(ov?.pdfs ?? 0)}</strong></div>
-          <div class="tm-fs-stat ${Number(ov?.uploading) ? "" : ""}"><small>Pending uploads</small><strong>${esc(ov?.uploading ?? 0)}</strong></div>
-          <div class="tm-fs-stat ${Number(ov?.failed) ? "bad" : ""}"><small>Failed uploads</small><strong>${esc(ov?.failed ?? 0)}</strong></div>
-          <div class="tm-fs-stat ${Number(ov?.deleting) ? "bad" : ""}"><small>Deletes to retry</small><strong>${esc(ov?.deleting ?? 0)}</strong></div>
-          <div class="tm-fs-stat"><small>Last storage operation</small><strong>${esc(fmtDate(c.last_operation_at))}</strong></div>
-        </div>
-        ${(ov?.recent_errors || []).length ? `<h4>Recent errors</h4><ul class="tm-fs-errors">${ov.recent_errors.map(e => `<li>${esc(fmtDate(e.at))} · ${esc(e.module)} · ${esc(e.status)} — ${esc(e.error)}</li>`).join("")}</ul>` : ""}
-        <p class="tm-fs-note">Calculated by Triplem VIP from its attachment records. Uploads still waiting on users' devices (offline) are counted once they reach the server. Cloudflare's own usage and billing figures are in the Cloudflare dashboard.</p>
-        <div class="tm-fs-actions"><button type="button" class="btn ghost" data-fs-refresh><i class="fa-solid fa-rotate" aria-hidden="true"></i> Refresh</button><button type="button" class="btn ghost" data-fs-retry${c.configured ? "" : " disabled"}><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Retry pending</button></div>
+        </form>
+        <section class="tm-fs-card" aria-labelledby="tmFsOvTitle">
+          <header class="tm-fs-card-head"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i><div><h4 id="tmFsOvTitle">Storage overview</h4><p>Calculated from Triplem VIP's attachment records.</p></div>
+            <div class="tm-fs-head-actions"><button type="button" class="btn ghost tiny" data-fs-refresh><i class="fa-solid fa-rotate" aria-hidden="true"></i> Refresh</button><button type="button" class="btn ghost tiny" data-fs-retry${c.configured ? "" : " disabled"}><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Retry pending</button></div></header>
+          <div class="tm-fs-metrics">
+            ${metric("Attachments", ov?.attachments ?? 0)}
+            ${metric("Total stored", fmtBytes(ov?.stored_bytes))}
+            ${metric("Images · original", fmtBytes(imgOrig))}
+            ${metric("Images · stored", fmtBytes(imgStored))}
+            ${metric("Saved by optimisation", `${fmtBytes(saved)} (${pct}%)`, "ok")}
+            ${metric("PDFs", ov?.pdfs ?? 0)}
+            ${metric("Pending uploads", ov?.uploading ?? 0)}
+            ${metric("Failed uploads", ov?.failed ?? 0, Number(ov?.failed) ? "bad" : "")}
+            ${metric("Deletes to retry", ov?.deleting ?? 0, Number(ov?.deleting) ? "bad" : "")}
+            ${metric("Last storage operation", fmtDate(c.last_operation_at))}
+          </div>
+          ${(ov?.recent_errors || []).length ? `<h5 class="tm-fs-subhead">Recent errors</h5><ul class="tm-fs-errors">${ov.recent_errors.map(e => `<li>${esc(fmtDate(e.at))} · ${esc(e.module)} · ${esc(e.status)} — ${esc(e.error)}</li>`).join("")}</ul>` : ""}
+          <p class="tm-fs-note">Uploads still waiting on users' devices (offline) are counted once they reach the server. Cloudflare's own usage and billing figures are in the Cloudflare dashboard.</p>
+        </section>
       </div>`;
     const form = body.querySelector("#fileStorageForm");
     const say = (text, ok) => { const p = body.querySelector("#fileStorageMsg"); p.className = `tm-fs-msg ${ok === true ? "ok" : ok === false ? "bad" : ""}`; p.innerHTML = text; };

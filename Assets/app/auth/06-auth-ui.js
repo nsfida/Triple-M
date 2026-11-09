@@ -177,10 +177,27 @@
 
   // ── One compact eye control inside every password input ──────────────────
   const PASSWORD_SHELL_CLASS = "triplem-password-shell";
-  function existingLegacyEye(parent, input) {
-    if (!parent) return null;
+  // Every older per-screen toggle that may sit next to a password field. They
+  // stay in the DOM (older bindings may reference them) but are hidden, so a
+  // field never shows two eyes. Generic "button with an eye icon" detection is
+  // limited to direct siblings of the field so unrelated "View" buttons in a
+  // larger container are never touched.
+  const LEGACY_EYE_SELECTOR = ".pw-eye-btn,[data-toggle-form-pw],[data-team-pw-eye],[data-password-toggle],.triplem-ai-key-eye";
+  function existingLegacyEyes(parent, input) {
+    if (!parent || !parent.querySelectorAll) return [];
+    const found = new Set();
     const id = input?.id || "";
-    return parent.querySelector?.(`.pw-eye-btn[data-toggle-form-pw="${CSS.escape(id)}"],#${id ? CSS.escape(id + "Toggle") : "__none__"},.pw-eye-btn`) || null;
+    const passwordFields = parent.querySelectorAll('input[type="password"],input[data-triplem-password-visible="1"]').length;
+    if (passwordFields <= 1) parent.querySelectorAll(LEGACY_EYE_SELECTOR).forEach(b => found.add(b));
+    else if (id) parent.querySelectorAll(`[data-toggle-form-pw="${CSS.escape(id)}"]`).forEach(b => found.add(b));
+    if (id) {
+      const named = document.getElementById(id + "Toggle");
+      if (named && parent.contains(named)) found.add(named);
+    }
+    parent.querySelectorAll(":scope > button").forEach(b => {
+      if (b.querySelector(":scope > i.fa-eye, :scope > i.fa-eye-slash")) found.add(b);
+    });
+    return [...found].filter(b => !b.classList.contains("triplem-password-eye") && !b.contains(input));
   }
 
   function enhancePasswordInput(input) {
@@ -206,8 +223,7 @@
 
     // Keep legacy controls in the DOM for compatibility with older bindings,
     // but remove them visually. The new control is always positioned in-field.
-    const legacy = existingLegacyEye(originalParent, input);
-    if (legacy && !legacy.classList.contains("triplem-password-eye")) {
+    for (const legacy of existingLegacyEyes(originalParent, input)) {
       legacy.classList.add("triplem-password-eye-legacy");
       legacy.setAttribute("aria-hidden", "true");
       legacy.tabIndex = -1;
