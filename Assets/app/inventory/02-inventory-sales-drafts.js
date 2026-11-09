@@ -243,6 +243,7 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
                     </td>
                     <td>
                       <div class="loan-tx-action-wrap">
+                        ${window.TriplemAttachments ? TriplemAttachments.iconForId(row.entryId, "") : ""}
                         ${typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(row.entryId) : ""}
                         <button type="button" class="icon-btn ghost loan-tx-menu-btn" aria-haspopup="menu" aria-expanded="false" title="Transaction actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         <div class="loan-tx-menu" role="menu">

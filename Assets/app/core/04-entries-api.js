@@ -176,6 +176,8 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
   const timestamp = new Date().toISOString();
   const rows = asEntryArray(entryOrEntries).map(entry => withLocalEntryIdentity(entry, timestamp));
   state.entries.unshift(...rows);
+  // Attachments (2026-11): lets a form link its files to the row it just saved.
+  try { window.TriplemAttachments?.reportSaved?.(rows); } catch (_) {}
   const touchesExpenses = rows.some(row => hasExpenseAccountTag(row?.notes) || entryBelongsToLedgerScope(row, LEDGER_SCOPE_EXPENSES));
   const touchesGoods = rows.some(row => hasGoodsTag(row?.notes) || entryBelongsToLedgerScope(row, LEDGER_SCOPE_GOODS));
   let syncPromise = Promise.resolve(rows);

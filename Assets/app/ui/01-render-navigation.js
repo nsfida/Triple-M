@@ -262,6 +262,7 @@ function renderInstallmentPlanOverlayBody(plan){
       : (isDownPayment ? "Before schedule" : (schedule ? "—" : "Balance"));
     const paymentActions = !isDownPayment && row.id
       ? `<div class="card-action-grid" role="group" aria-label="Payment actions">
+          ${window.TriplemAttachments ? TriplemAttachments.iconForId(row.id, "") : ""}
           ${typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(row.id) : ""}
           ${teamCanShowEdit("entries") ? `<button class="icon-btn ghost installmentPaymentEditBtn" type="button" data-payment-id="${escapeHtml(row.id)}" title="Edit payment" aria-label="Edit payment"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i></button>` : ""}
           ${teamCanShowDelete("entries") ? `<button class="icon-btn ghost installmentPaymentDeleteBtn" type="button" data-payment-id="${escapeHtml(row.id)}" data-group-id="${escapeHtml(plan.group_id)}" title="Delete payment" aria-label="Delete payment"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>` : ""}
@@ -5604,7 +5605,7 @@ function walletTransactionRowsHtml(items){
     return `<article class="wallet-transaction-row ${tone}">
       <div class="wallet-transaction-icon"><i class="fa-solid ${meta.transfer ? "fa-arrow-right-arrow-left" : meta.inbound ? "fa-arrow-down" : "fa-receipt"}"></i></div>
       <div class="wallet-transaction-main">
-        <div class="wallet-transaction-title"><strong>${escapeHtml(meta.label)}</strong><span>${escapeHtml(meta.typeLabel)}</span></div>
+        <div class="wallet-transaction-title"><strong>${escapeHtml(meta.label)}</strong><span>${escapeHtml(meta.typeLabel)}</span>${window.TriplemAttachments ? TriplemAttachments.iconHtml(String(row?.row_type || "").toUpperCase() === "TOPUP" ? "topup" : "expense", row?.id) : ""}</div>
         <div class="wallet-transaction-meta"><span><i class="fa-regular fa-calendar"></i>${escapeHtml(date)}</span>${meta.reference ? `<span><i class="fa-solid fa-hashtag"></i>${escapeHtml(meta.reference)}</span>` : ""}</div>
         ${meta.note ? `<p>${escapeHtml(meta.note)}</p>` : ""}
       </div>

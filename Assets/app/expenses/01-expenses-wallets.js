@@ -2157,7 +2157,9 @@ function expenseRecordMenuHtml(type, id, { allowEdit = true, allowDelete = true,
   if (status) { allowEdit = false; allowDelete = false; }
   const safeType = escapeHtml(type || "expense");
   const safeId = escapeHtml(id || "");
-  return `<div class="expense-tx-action-wrap">
+  // Paperclip only when the record has attachments (nothing otherwise).
+  const attIcon = window.TriplemAttachments ? TriplemAttachments.iconHtml(type === "topup" ? "topup" : "expense", id) : "";
+  return `${attIcon}<div class="expense-tx-action-wrap">
     <button type="button" class="icon-btn ghost expense-record-menu-btn" data-expense-record-menu="${safeId}" data-expense-record-type="${safeType}" aria-haspopup="menu" aria-expanded="false" title="Transaction actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
     <div class="expense-tx-menu expense-record-menu" data-expense-record-menu-panel="${safeId}" role="menu">
       ${allowEdit && teamCanShowEdit("entries") ? `<button type="button" role="menuitem" data-expense-record-edit="${safeId}" data-expense-record-type="${safeType}"><i class="fa-solid fa-pen"></i><span>Edit</span></button>` : ""}
@@ -3180,6 +3182,10 @@ function openExpenseModal(mode, presetGroupId = ""){
   els.expenseModal.classList.remove("hide");
   els.expenseModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
+  if (window.TriplemAttachments) {
+    if (mode === "expense") TriplemAttachments.prepare(els.expenseEntryForm, "expense");
+    if (mode === "topup") TriplemAttachments.prepare(els.expenseTopupForm, "topup");
+  }
   els.expenseAccountForm.classList.toggle("hide", mode !== "account");
   els.expenseTopupForm.classList.toggle("hide", mode !== "topup");
   els.expenseEntryForm.classList.toggle("hide", mode !== "expense");
@@ -3355,6 +3361,12 @@ function openExpenseTransactionEditModal(entryOrId){
     updateExpenseTaxPreview();
     const submit = form.querySelector('button[type="submit"]');
     if (submit) submit.textContent = "Update";
+  }
+  // Existing attachments of this record (view, add, replace, remove).
+  if (window.TriplemAttachments) {
+    const attForm = mode === "topup" ? els.expenseTopupForm : els.expenseEntryForm;
+    const ref = TriplemAttachments.refForEntry(entry);
+    if (ref) TriplemAttachments.showExisting(attForm, ref);
   }
   return true;
 }
@@ -5020,6 +5032,7 @@ function renderExpensesList(){
                     <td class="expense-item-detail-note">${escapeHtml(tx.notes)}</td>
                     <td>
                       <div class="expense-tx-action-wrap">
+                        ${window.TriplemAttachments ? TriplemAttachments.iconForId(tx.id, "expense") : ""}
                         ${!tx.auditStatus && typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(tx.id) : ""}
                         <button type="button" class="icon-btn ghost expense-tx-menu-btn" data-expense-tx-menu="${escapeHtml(tx.id)}" aria-haspopup="menu" aria-expanded="false" title="Transaction actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         <div class="expense-tx-menu" data-expense-tx-menu-panel="${escapeHtml(tx.id)}" role="menu">

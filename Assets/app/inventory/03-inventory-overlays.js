@@ -295,6 +295,7 @@ function inventoryHistoryRowsHtml(group){
       <td>${escapeHtml(row.note || "—")}</td>
       <td>
         <div class="inventory-history-actions">
+          ${window.TriplemAttachments ? TriplemAttachments.iconForId(row.entryId, "") : ""}
           ${typeof offlineSyncButtonHtml === "function" && row.entryId ? offlineSyncButtonHtml(row.entryId) : ""}
           ${row.isSale || row.kind === "Settlement"
             ? `<button class="tiny sectionHistoryBtn" data-action="receipt" data-id="${escapeHtml(row.entryId)}" title="Receipt PDF"><i class="fa-solid fa-file-pdf"></i></button>

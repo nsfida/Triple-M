@@ -39,6 +39,11 @@ function openTransferModal(fromGroupId, fromWalletName, currency, options = {}) 
     : `Move money from ${fromWalletName} to another wallet.`;
   els.transferForm.reset();
   resetTransferOptionalDetails(els.transferForm);
+  if (window.TriplemAttachments) {
+    TriplemAttachments.prepare(els.transferForm, "expense");
+    const editRef = options.editing && expenseTransferEditState?.expenseEntry ? TriplemAttachments.refForEntry(expenseTransferEditState.expenseEntry) : null;
+    if (editRef) TriplemAttachments.showExisting(els.transferForm, editRef);
+  }
   defaultDateInputs(els.transferForm);
   els.transferFromWallet.disabled = false;
   els.transferToWallet.disabled = false;

@@ -463,14 +463,29 @@ window.addEventListener("resize", () => {
     });
   }
 
+  // Attachments (receipts, agreements, invoices) on new loans, plans, payments and inventory.
+  if (window.TriplemAttachments) {
+    TriplemAttachments.autoPrepare(els.principalModalForm, "loan");
+    TriplemAttachments.autoPrepare(els.paymentModalForm, "loan_payment");
+    TriplemAttachments.autoPrepare(els.goodsBoughtForm, "inventory_item");
+    TriplemAttachments.autoPrepare(els.goodsSoldForm, "inventory_sale");
+  }
   els.principalModalForm.addEventListener("submit", async e => {
     e.preventDefault();
-    try { await createPrincipal(els.principalModalForm); } catch (err) { alert(err.message); }
+    if (window.TriplemAttachments?.busy(els.principalModalForm)) { alert("Please wait until the attachment is ready."); return; }
+    try {
+      if (window.TriplemAttachments) await TriplemAttachments.saveWithAttachments(els.principalModalForm, ["loan", "installment"], () => createPrincipal(els.principalModalForm));
+      else await createPrincipal(els.principalModalForm);
+    } catch (err) { alert(err.message); }
   });
 
   els.paymentModalForm.addEventListener("submit", async e => {
     e.preventDefault();
-    try { await createPayment(els.paymentModalForm); } catch (err) { alert(err.message); }
+    if (window.TriplemAttachments?.busy(els.paymentModalForm)) { alert("Please wait until the attachment is ready."); return; }
+    try {
+      if (window.TriplemAttachments) await TriplemAttachments.saveWithAttachments(els.paymentModalForm, ["loan_payment", "installment_payment"], () => createPayment(els.paymentModalForm));
+      else await createPayment(els.paymentModalForm);
+    } catch (err) { alert(err.message); }
   });
 
   els.editForm.addEventListener("submit", async e => {
@@ -513,11 +528,19 @@ window.addEventListener("resize", () => {
   }
   els.goodsBoughtForm.addEventListener("submit", async e => {
     e.preventDefault();
-    try { await saveGoodsBought(els.goodsBoughtForm); } catch (err) { alert(err.message); }
+    if (window.TriplemAttachments?.busy(els.goodsBoughtForm)) { alert("Please wait until the attachment is ready."); return; }
+    try {
+      if (window.TriplemAttachments) await TriplemAttachments.saveWithAttachments(els.goodsBoughtForm, ["inventory_item"], () => saveGoodsBought(els.goodsBoughtForm));
+      else await saveGoodsBought(els.goodsBoughtForm);
+    } catch (err) { alert(err.message); }
   });
   els.goodsSoldForm.addEventListener("submit", async e => {
     e.preventDefault();
-    try { await saveGoodsSold(els.goodsSoldForm); } catch (err) { alert(err.message); }
+    if (window.TriplemAttachments?.busy(els.goodsSoldForm)) { alert("Please wait until the attachment is ready."); return; }
+    try {
+      if (window.TriplemAttachments) await TriplemAttachments.saveWithAttachments(els.goodsSoldForm, ["inventory_sale"], () => saveGoodsSold(els.goodsSoldForm));
+      else await saveGoodsSold(els.goodsSoldForm);
+    } catch (err) { alert(err.message); }
   });
   if (els.goodsSettlementForm) {
     els.goodsSettlementForm.addEventListener("submit", async e => {
@@ -549,16 +572,28 @@ window.addEventListener("resize", () => {
   });
   els.expenseTopupForm.addEventListener("submit", async e => {
     e.preventDefault();
-    try { await saveExpenseTopup(els.expenseTopupForm); } catch (err) { alert(err.message); }
+    if (window.TriplemAttachments?.busy(els.expenseTopupForm)) { alert("Please wait until the attachment is ready."); return; }
+    try {
+      if (window.TriplemAttachments) await TriplemAttachments.saveWithAttachments(els.expenseTopupForm, ["topup"], () => saveExpenseTopup(els.expenseTopupForm));
+      else await saveExpenseTopup(els.expenseTopupForm);
+    } catch (err) { alert(err.message); }
   });
   els.expenseEntryForm.addEventListener("submit", async e => {
     e.preventDefault();
-    try { await saveExpenseEntry(els.expenseEntryForm); } catch (err) { alert(err.message); }
+    if (window.TriplemAttachments?.busy(els.expenseEntryForm)) { alert("Please wait until the attachment is ready."); return; }
+    try {
+      if (window.TriplemAttachments) await TriplemAttachments.saveWithAttachments(els.expenseEntryForm, ["expense"], () => saveExpenseEntry(els.expenseEntryForm));
+      else await saveExpenseEntry(els.expenseEntryForm);
+    } catch (err) { alert(err.message); }
   });
 
   els.transferForm.addEventListener("submit", async e => {
     e.preventDefault();
-    try { await saveTransfer(els.transferForm); } catch (err) { alert(err.message); }
+    if (window.TriplemAttachments?.busy(els.transferForm)) { alert("Please wait until the attachment is ready."); return; }
+    try {
+      if (window.TriplemAttachments) await TriplemAttachments.saveWithAttachments(els.transferForm, ["expense"], () => saveTransfer(els.transferForm));
+      else await saveTransfer(els.transferForm);
+    } catch (err) { alert(err.message); }
   });
   els.expenseCurrencySelect.addEventListener("change", () => {
     renderExpenseAccountSelectors();
