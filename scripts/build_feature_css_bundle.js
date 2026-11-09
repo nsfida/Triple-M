@@ -35,7 +35,8 @@ const sources = [
   "Assets/style/57-notifications-messaging.css",
   "Assets/style/58-backup-restore.css",
   "Assets/style/59-card-order.css",
-  "Assets/style/60-ai-report.css"
+  "Assets/style/60-ai-report.css",
+  "Assets/style/61-attachments.css"
 ];
 
 const output = path.join(root, "Assets/style/app.feature.bundle.css");

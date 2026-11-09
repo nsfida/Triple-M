@@ -225,6 +225,8 @@ const CANONICAL_MIGRATION_FILES = [
   "207_accounting_document_prefixes.sql",
   "208_accounting_document_save_fix.sql",
   "209_desktop_global_search.sql",
+  "210_r2_file_storage_attachments.sql",
+  "211_insurance_opening_balance_main_admin_only.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
