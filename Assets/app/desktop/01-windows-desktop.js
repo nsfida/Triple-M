@@ -297,7 +297,7 @@
       await openConversation(id, opts.action === "reply");
     },
     // 3.7
-    async search() { openSearchPalette(); },
+    async search() { if (window.TriplemDesktopSearch?.focus?.()) return; openSearchPalette(); },
     async "new-invoice"() {
       if (!allowed("accounting") || !can("accounting", "create")) return notAvailable("New invoices");
       goTab("accounting");
@@ -1441,7 +1441,7 @@
   }
 
   const APP_KEYS = [
-    { code: "KeyK", keys: ["Ctrl", "K"], label: "Search", run: () => openSearchPalette() },
+    { code: "KeyK", keys: ["Ctrl", "K"], label: "Search", run: () => { if (!window.TriplemDesktopSearch?.focus?.()) openSearchPalette(); } },
     { code: "KeyN", keys: ["Ctrl", "N"], label: "New entry in this section", run: sectionNewEntry },
     { code: "KeyE", keys: ["Ctrl", "E"], label: "Add expense", run: () => openTarget("new-expense") },
     { code: "KeyI", keys: ["Ctrl", "I"], label: "New sales invoice", run: () => openTarget("new-invoice") },
@@ -1496,7 +1496,7 @@
       if (!k || k.listOnly) return;
       if (e.code === "Slash") { e.preventDefault(); k.run(); return; }
       if (modal && e.code === "KeyR") { e.preventDefault(); return; } // never reload over an open form
-      if (!signedIn || modal || document.querySelector(".dpp-backdrop, .dsp-backdrop")) return;
+      if (!signedIn || modal || document.querySelector(".dpp-backdrop, .dsp-backdrop, .dpv-root")) return;
       if (e.target instanceof Element && e.target.closest("[contenteditable='true'],[contenteditable='plaintext-only']")) return;
       e.preventDefault();
       e.stopPropagation();
@@ -1592,11 +1592,11 @@
   const MARGIN_MM = { none: 0, narrow: 6.35, normal: 10.16, wide: 19.05 };
 
   function readPrintPrefs() {
-    const d = { printer: "", copies: 1, orientation: "portrait", paper: "a4", margins: "default", color: "default", duplex: "default", scale: 100, backgrounds: true, headers: false };
+    const d = { printer: "", copies: 1, orientation: "portrait", paper: "a4", margins: "default", marginMm: [10, 10, 10, 10], color: "default", duplex: "default", scale: 100, backgrounds: true, headers: false };
     try { return { ...d, ...(JSON.parse(localStorage.getItem(PRINT_PREFS_KEY) || "{}") || {}) }; } catch (_) { return d; }
   }
   function savePrintPrefs(o) {
-    const keep = (({ printer, copies, orientation, paper, margins, color, duplex, scale, backgrounds, headers }) => ({ printer, copies, orientation, paper, margins, color, duplex, scale, backgrounds, headers }))(o);
+    const keep = (({ printer, copies, orientation, paper, margins, marginMm, color, duplex, scale, backgrounds, headers }) => ({ printer, copies, orientation, paper, margins, marginMm, color, duplex, scale, backgrounds, headers }))(o);
     try { localStorage.setItem(PRINT_PREFS_KEY, JSON.stringify(keep)); } catch (_) {}
   }
 
@@ -1611,7 +1611,8 @@
   function applyPageRule(o) {
     removePageRule();
     const paper = PAPER_MM[o.paper];
-    const margin = MARGIN_MM[o.margins];
+    const custom = o.margins === "custom" && Array.isArray(o.marginMm) && o.marginMm.length === 4 && o.marginMm.every(v => Number.isFinite(v) && v >= 0 && v <= 60);
+    const margin = custom ? o.marginMm.map(v => `${Math.round(v * 10) / 10}mm`).join(" ") : (MARGIN_MM[o.margins] === undefined ? undefined : `${MARGIN_MM[o.margins]}mm`);
     if (!paper && margin === undefined) return;
     const parts = [];
     if (paper) {
@@ -1620,7 +1621,7 @@
     } else if (o.orientation === "landscape") {
       parts.push("size:landscape");
     }
-    if (margin !== undefined) parts.push(`margin:${margin}mm`);
+    if (margin !== undefined) parts.push(`margin:${margin}`);
     const style = document.createElement("style");
     style.id = "triplemDesktopPageRule";
     style.textContent = `@page{${parts.join(";")}}`;
@@ -1711,9 +1712,18 @@
     }
   }
 
+  // 3.9: with the in-app PDF viewer the print panel is a full print preview
+  // (the page is printed to a temporary PDF with the chosen settings and
+  // shown page by page). The 3.7 panel stays for older apps and as a fallback.
+  function previewAvailable() {
+    return caps.has("pdfview") && caps.has("printpdf") && typeof window.TriplemPdfViewer?.openPagePreview === "function" && !local.previewFailed;
+  }
   function openPrintPanel(context = {}) {
     ensureStyles();
     if (document.getElementById("triplemDesktopPrintPanel")) return;
+    if (!context.classic && previewAvailable()) {
+      try { if (window.TriplemPdfViewer.openPagePreview(context)) return; } catch (err) { console.warn("Print preview unavailable:", err); }
+    }
     const prefs = readPrintPrefs();
     const host = document.createElement("div");
     host.id = "triplemDesktopPrintPanel";
@@ -1747,20 +1757,7 @@
       if (o.scale < 10 || o.scale > 200) { showError("Scale must be between 10 and 200 %."); return; }
       savePrintPrefs(o);
       closePrintPanel({ keepPrinting: true });
-      local.printing = true;
-      local.printMode = "direct";
-      applyPageRule(o);
-      const fileName = safe(context.fileName || document.title || "Triplem VIP").replace(/[\\/:*?"<>|]+/g, " ").trim() || "Triplem VIP";
-      // Two frames so the page lays out with the new @page rule first (with a
-      // timer as a fallback when frames are paused).
-      let sentJob = false;
-      const go = () => {
-        if (sentJob) return;
-        sentJob = true;
-        send(action === "pdf" ? "print-pdf" : "print-run", { print: { ...o, fileName: /\.pdf$/i.test(fileName) ? fileName : `${fileName}.pdf` } });
-      };
-      requestAnimationFrame(() => requestAnimationFrame(go));
-      setTimeout(go, 250);
+      startPrintJob(action === "pdf" ? "print-pdf" : "print-run", o, context);
     });
     host.innerHTML = printPanelHtml(prefs, context);
     document.body.appendChild(host);
@@ -1768,6 +1765,70 @@
     document.addEventListener("keydown", printPanelKeys, true);
     if (!local.printInfo) send("print-info");
     local.reRenderPrintPanel = render;
+  }
+
+  function printFileName(context = {}) {
+    const fileName = safe(context.fileName || document.title || "Triplem VIP").replace(/[\\/:*?"<>|]+/g, " ").trim() || "Triplem VIP";
+    return /\.pdf$/i.test(fileName) ? fileName : `${fileName}.pdf`;
+  }
+
+  // Starts a print job (print-run), a PDF (print-pdf) or a 3.9 preview PDF
+  // (print-preview) of what the page prints now, with the @page rule applied.
+  function startPrintJob(cmd, o, context = {}) {
+    if (cmd !== "print-preview") {
+      local.printing = true;
+      local.printMode = "direct";
+    } else {
+      // Making the preview PDF fires "afterprint": the receipt must stay.
+      local.printMode = "preview";
+    }
+    applyPageRule(o);
+    // Two frames so the page lays out with the new @page rule first (with a
+    // timer as a fallback when frames are paused).
+    let sentJob = false;
+    const go = () => {
+      if (sentJob) return;
+      sentJob = true;
+      send(cmd, { print: { ...o, fileName: printFileName(context) } });
+    };
+    requestAnimationFrame(() => requestAnimationFrame(go));
+    setTimeout(go, 250);
+  }
+
+  // 3.9: prints an element prepared by the PDF viewer (one sheet per page)
+  // instead of the page, with its own @page rule.
+  function printPreparedHost(el, o, pageCss, system = false) {
+    cleanupThermal();
+    removePageRule();
+    el.id = "triplemDesktopPrintHost";
+    el.setAttribute("aria-hidden", "true");
+    document.body.appendChild(el);
+    document.body.classList.add("triplem-desktop-printing");
+    const style = document.createElement("style");
+    style.id = "triplemDesktopPageRule";
+    style.textContent = pageCss;
+    document.head.appendChild(style);
+    local.thermalCleanup = () => {
+      document.body.classList.remove("triplem-desktop-printing");
+      el.remove();
+    };
+    local.printing = true;
+    local.printMode = system ? "system" : "direct";
+    let sentJob = false;
+    const go = () => {
+      if (sentJob) return;
+      sentJob = true;
+      if (system) send("print-system");
+      else send("print-run", { print: o });
+    };
+    requestAnimationFrame(() => requestAnimationFrame(go));
+    setTimeout(go, 250);
+  }
+
+  function systemPrint() {
+    local.printing = true;
+    local.printMode = "system";
+    send("print-system");
   }
 
   // Receipt printing: the receipt document is rendered into a print-only host
@@ -1795,7 +1856,11 @@
     };
     // Direct printing (3.7) cleans up when the app reports the job finished;
     // the Windows print dialog path cleans up after printing as before.
-    const onAfter = () => { window.removeEventListener("afterprint", onAfter); if (local.printMode !== "direct") cleanupThermal(); };
+    const onAfter = () => {
+      if (local.printMode === "preview") return; // 3.9: the preview PDF was made, not printed
+      window.removeEventListener("afterprint", onAfter);
+      if (local.printMode !== "direct") cleanupThermal();
+    };
     window.addEventListener("afterprint", onAfter);
     const imgs = [...printHost.querySelectorAll("img")].filter(img => !img.complete);
     let pending = imgs.length;
@@ -1822,6 +1887,7 @@
         e.preventDefault();
         e.stopPropagation();
         if (document.getElementById("triplemDesktopPrintPanel")) return;
+        if (window.TriplemPdfViewer?.isOpen?.()) { window.TriplemPdfViewer.printKey(); return; }
         cleanupThermal();
         nativePrint({ title: document.title });
       }
@@ -2000,7 +2066,19 @@
   }
 
   // ---- Messages from the native app -------------------------------------------------------
+  const subscribers = new Map(); // 3.9: other desktop modules (PDF viewer)
+  function subscribe(type, fn) {
+    if (!subscribers.has(type)) subscribers.set(type, new Set());
+    subscribers.get(type).add(fn);
+    return () => subscribers.get(type)?.delete(fn);
+  }
   function handleNative(msg) {
+    handleNativeCore(msg);
+    // Other modules run after this module has taken the message in.
+    const subs = subscribers.get(msg?.type);
+    if (subs) [...subs].forEach(fn => { try { fn(msg); } catch (err) { console.warn("Desktop module failed:", err); } });
+  }
+  function handleNativeCore(msg) {
     switch (msg?.type) {
       case "settings":
         local.settings = {
@@ -2106,10 +2184,13 @@
       case "download-complete": {
         if (msg.backup) break; // reported by "backup-saved"
         const id = safe(msg.id);
-        showDesktopNotice(`Saved ${safe(msg.name)}`, "info", [
-          { label: "Open file", run: () => send("download-open", { id }) },
+        const file = { id, name: safe(msg.name), path: safe(msg.path), folder: safe(msg.folder), size: Number(msg.size) || 0 };
+        // 3.9: PDFs open in the app's own viewer (address bar, print preview).
+        const inApp = msg.view === "pdf" && caps.has("pdfview") && typeof window.TriplemPdfViewer?.openFile === "function";
+        showDesktopNotice(`Saved ${file.name}`, "info", [
+          { label: inApp ? "Open" : "Open file", run: () => (inApp ? window.TriplemPdfViewer.openFile(file) : send("download-open", { id })) },
           { label: "Show in folder", run: () => send("download-show", { id }) }
-        ], msg.folder ? `in ${safe(msg.folder)}` : "");
+        ], msg.folder ? `in ${file.folder}` : "");
         break;
       }
       case "download-failed":
@@ -2171,6 +2252,14 @@
     showShortcuts,
     backupNow: () => runDesktopBackup({ auto: false }),
     openMenu: (section = "") => { toggleAppMenu(true); if (section) setAccordion(section); },
+    // 3.9: shared helpers for the PDF viewer and the search bar.
+    kit: Object.freeze({
+      caps, send, on: subscribe, notice: showDesktopNotice, esc, safe,
+      allowed, can, goTab, waitFor, signedInUserId, openTarget,
+      readPrintPrefs, savePrintPrefs, printInfo: () => local.printInfo, requestPrintInfo: () => send("print-info"),
+      startPrintJob, printPreparedHost, systemPrint, finishPrint, validPages, printFileName,
+      previewFailed: () => { local.previewFailed = true; }, PAPER_MM, MARGIN_MM
+    }),
     _test: Object.freeze({ planToasts, notificationTitle, notificationBody, cssColorToHex, fileAccepted, validPages, readRecent, applyPageRule, removePageRule })
   });
 
