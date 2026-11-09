@@ -2066,7 +2066,7 @@ it("140 unifies recovery and Smart PIN inside sign-in, embeds password eyes, fix
   assert.match(sourceCss, /\.smart-pin-security-actions \.btn/);
   assert.match(sourceCss, /\.triplem-password-eye/);
   assert.match(css, /Triplem VIP Build 140/);
-  assert.match(index, /auth\/06-auth-ui\.js\?v=20260904-authsurface140/);
+  assert.match(index, /auth\/06-auth-ui\.js\?v=(?:20260904-authsurface140|20261110-oneeye212)/);
   assert.match(index, /assets\/01-assets\.js\?v=20261009-assets-critical-fixes/);
   assert.match(index, /authsurface=20260904-v140/);
 });
