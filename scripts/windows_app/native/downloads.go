@@ -130,7 +130,7 @@ func onDownloadStateChanged(this, sender, args uintptr) uintptr {
 			if rec.backup {
 				backupSaved(finalPath, st.Size())
 			}
-			postToPage(map[string]interface{}{"type": "download-complete", "id": rec.id, "name": filepath.Base(finalPath), "folder": filepath.Base(filepath.Dir(finalPath)), "size": st.Size(), "backup": rec.backup, "auto": rec.auto})
+			postToPage(map[string]interface{}{"type": "download-complete", "id": rec.id, "name": filepath.Base(finalPath), "folder": filepath.Base(filepath.Dir(finalPath)), "path": finalPath, "view": viewerKind(finalPath), "size": st.Size(), "backup": rec.backup, "auto": rec.auto})
 		}
 	case downloadInterrupted:
 		reason := getInt32(sender, dlOpInterruptReason)

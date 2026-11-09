@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	appVersionNative = "3.8.0"
+	appVersionNative = "3.9.0"
 	appOrigin        = "https://triplem.vip"
 	maxWebMessage    = 64 * 1024
 )
@@ -185,6 +185,8 @@ var allowedCommands = map[string]bool{
 	// 3.8
 	"backup-schedule": true, "backup-folder": true, "backup-open-folder": true, "backup-now": true,
 	"backup-expect": true, "backup-failed": true,
+	// 3.9
+	"file-read": true, "print-preview": true,
 }
 
 // parseBridgeMessage validates a JSON message from the page. Offline pages

@@ -46,7 +46,9 @@ func desktopInitScript() string {
 		// 3.7
 		"appbar", "applock", "printplus", "recent", "shortcuts", "savememory", "traybadge", "offlineprep",
 		// 3.8
-		"backup", "appkeys"}
+		"backup", "appkeys",
+		// 3.9
+		"pdfview"}
 	if updatesSupported() {
 		caps = append(caps, "update")
 	}
@@ -296,6 +298,8 @@ func handleBridgeMessage(m bridgeMessage) {
 		runDirectPrint(m.Print)
 	case "print-pdf":
 		runPrintToPdf(m.Print)
+	case "print-preview":
+		runPrintPreview(m.Print)
 	case "lock-now":
 		lockApp("requested")
 	case "unlock":
@@ -314,6 +318,8 @@ func handleBridgeMessage(m bridgeMessage) {
 		openDownload(m.ID, false)
 	case "download-show":
 		openDownload(m.ID, true)
+	case "file-read":
+		readFileForViewer(m.ID)
 	case "retry":
 		retryConnection()
 	case "show":

@@ -55,12 +55,13 @@ var (
 	procEnumPrintersW      = winspool.NewProc("EnumPrintersW")
 	procGetDefaultPrinterW = winspool.NewProc("GetDefaultPrinterW")
 
-	webView7       uintptr
-	hPrintDone     *comHandler
-	hPdfDone       *comHandler
-	printBusy      bool
-	pdfPendingPath string
-	pdfSeq         int
+	webView7          uintptr
+	hPrintDone        *comHandler
+	hPdfDone          *comHandler
+	printBusy         bool
+	pdfPendingPath    string
+	pdfPendingPreview bool // 3.9: a print preview into the app's temp folder
+	pdfSeq            int
 )
 
 type printerInfo4 struct {
@@ -231,30 +232,67 @@ func runDirectPrint(raw []byte) {
 }
 
 // runPrintToPdf saves the current page as a PDF file the user chooses.
-func runPrintToPdf(raw []byte) {
+func runPrintToPdf(raw []byte) { runPdfJob(raw, false) }
+
+// 3.9: print preview. The page is printed to a PDF in the app's own temp
+// folder (no dialog) and shown in the in-app viewer, which prints with the
+// same settings. Earlier preview files in that folder are removed first.
+func runPrintPreview(raw []byte) { runPdfJob(raw, true) }
+
+func previewFailed(reason string) {
+	postToPage(map[string]interface{}{"type": "print-preview", "ok": false, "error": reason})
+}
+
+func runPdfJob(raw []byte, preview bool) {
 	defer recoverOptional("save as PDF")
 	if printBusy {
+		if preview {
+			postToPage(map[string]interface{}{"type": "print-preview", "ok": false, "busy": true})
+		}
 		return
+	}
+	fail := printFailed
+	if preview {
+		fail = previewFailed
 	}
 	o, ok := decodePrintOptions(raw)
 	if !ok {
-		printFailed("The PDF options could not be read.")
+		fail("The PDF options could not be read.")
 		return
 	}
 	o, err := sanitizePrintOptions(o, nil)
 	if err != nil {
-		printFailed(err.Error())
+		fail(err.Error())
 		return
 	}
 	if webView7 == 0 {
-		printFailed("Saving as PDF needs a newer Microsoft Edge WebView2 Runtime.")
+		fail("Saving as PDF needs a newer Microsoft Edge WebView2 Runtime.")
 		return
 	}
-	docs := filepath.Join(os.Getenv("USERPROFILE"), "Documents")
-	path, chosen := askSavePath(filepath.Join(docs, o.FileName))
-	if !chosen {
-		postToPage(map[string]interface{}{"type": "print-done", "ok": false, "cancelled": true})
-		return
+	var path string
+	if preview {
+		dir := filepath.Join(os.TempDir(), previewDirName)
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			fail("The preview could not be prepared.")
+			return
+		}
+		if entries, err := os.ReadDir(dir); err == nil {
+			for _, e := range entries {
+				if isPreviewFileName(e.Name()) {
+					os.Remove(filepath.Join(dir, e.Name()))
+				}
+			}
+		}
+		pdfSeq++
+		path = filepath.Join(dir, previewFileName(pdfSeq))
+	} else {
+		docs := filepath.Join(os.Getenv("USERPROFILE"), "Documents")
+		var chosen bool
+		path, chosen = askSavePath(filepath.Join(docs, o.FileName))
+		if !chosen {
+			postToPage(map[string]interface{}{"type": "print-done", "ok": false, "cancelled": true})
+			return
+		}
 	}
 	ps := newPrintSettings(o, true)
 	defer releaseCOM(ps) // releaseCOM ignores 0 (default settings)
@@ -262,8 +300,21 @@ func runPrintToPdf(raw []byte) {
 		hPdfDone = newHandler(func(this, hr, success uintptr) uintptr {
 			printBusy = false
 			p := pdfPendingPath
+			wasPreview := pdfPendingPreview
 			pdfPendingPath = ""
+			pdfPendingPreview = false
 			st, err := os.Stat(p)
+			if wasPreview {
+				if !hrOK(hr) || success == 0 || err != nil || st.Size() == 0 {
+					previewFailed("The preview could not be made.")
+					return 0
+				}
+				pdfSeq++
+				id := fmt.Sprintf("v%d", pdfSeq)
+				completedFiles[id] = p
+				postToPage(map[string]interface{}{"type": "print-preview", "ok": true, "id": id, "size": st.Size()})
+				return 0
+			}
 			if !hrOK(hr) || success == 0 || err != nil || st.Size() == 0 {
 				postToPage(map[string]interface{}{"type": "download-failed", "name": filepath.Base(p), "reason": "The PDF could not be saved. Choose another folder and try again."})
 				postToPage(map[string]interface{}{"type": "print-done", "ok": false, "pdf": true})
@@ -273,16 +324,25 @@ func runPrintToPdf(raw []byte) {
 			id := fmt.Sprintf("p%d", pdfSeq)
 			completedFiles[id] = p
 			postToPage(map[string]interface{}{"type": "print-done", "ok": true, "pdf": true})
-			postToPage(map[string]interface{}{"type": "download-complete", "id": id, "name": filepath.Base(p), "folder": filepath.Base(filepath.Dir(p)), "size": st.Size()})
+			postToPage(map[string]interface{}{"type": "download-complete", "id": id, "name": filepath.Base(p), "folder": filepath.Base(filepath.Dir(p)), "path": p, "view": viewerKind(p), "size": st.Size()})
 			return 0
 		})
 	}
 	printBusy = true
 	pdfPendingPath = path
-	settings.LastSaveDir = filepath.Dir(path)
-	saveSettings()
+	pdfPendingPreview = preview
+	if !preview {
+		settings.LastSaveDir = filepath.Dir(path)
+		saveSettings()
+	}
 	if !hrOK(vcall(webView7, wv7PrintToPdf, uintptr(unsafe.Pointer(utf16Ptr(path))), ps, hPdfDone.ptr())) {
 		pdfPendingPath = ""
-		printFailed("The PDF could not be saved.")
+		pdfPendingPreview = false
+		printBusy = false
+		if preview {
+			previewFailed("The preview could not be made.")
+		} else {
+			printFailed("The PDF could not be saved.")
+		}
 	}
 }
