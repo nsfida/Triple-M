@@ -117,7 +117,7 @@ test("Store manifest declares the startup task and the alias used by Jump List t
   assert.match(m, /TaskId="TriplemVIPStartup" Enabled="false"/);
   assert.match(m, /<desktop:ExecutionAlias Alias="triplemvip\.exe" \/>/);
   assert.match(m, /ProcessorArchitecture="@ARCH@"/);
-  assert.match(m, /Version="3\.8\.0\.0"/);
+  assert.match(m, /Version="3\.9\.0\.0"/);
 });
 
 test("signing is wired into the build and never faked", { skip: has("scripts/windows_app/build_windows_app.sh") ? false : "Windows build scripts not present in this checkout" }, () => {
@@ -139,7 +139,7 @@ test("page module is inert outside the Windows app and only uses existing app fu
   assert.match(js, /can\("accounting", "create"\)/);
   assert.match(js, /document\.getElementById\("openExpenseEntryBtn"\)/);
   assert.doesNotMatch(js, /supabaseRpc|supabase\(|fetch\(/, "the desktop module performs no database or network writes");
-  assert.match(text("index.html"), /<script defer src="Assets\/app\/desktop\/01-windows-desktop\.js\?v=\d{8}-desktop380"><\/script>/);
+  assert.match(text("index.html"), /<script defer src="Assets\/app\/desktop\/01-windows-desktop\.js\?v=\d{8}-desktop390"><\/script>/);
   const messaging = text("Assets/app/messaging/01-messaging.js");
   assert.match(messaging, /if \(el\.id === "adminNotifyCount" \|\| el\.id === "adminMessagesCount"\) announceUnreadCounts\(\);/);
   assert.match(messaging, /new CustomEvent\("triplem:comms-snapshot"/);

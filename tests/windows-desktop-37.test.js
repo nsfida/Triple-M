@@ -75,7 +75,7 @@ test("3.7 page side: app bar under the header icons with the Windows app menu", 
   assert.match(js, /send\("settings-set", \{ key: "appLock", value: want \}\)/);
   assert.match(js, /e\.target\.checked = !!local\.settings\.appLock; \/\/ changes only after Windows Hello confirms/);
   assert.match(js, /if \(caps\.has\("printplus"\)\) \{ openPrintPanel\(context\); return; \}/);
-  assert.match(js, /send\(action === "pdf" \? "print-pdf" : "print-run"/);
+  assert.match(js, /startPrintJob\(action === "pdf" \? "print-pdf" : "print-run", o, context\);/);
   assert.match(js, /function openSearchPalette\(\)/);
   assert.match(js, /TriplemAccounting\.openDocument\("sales"\)/);
   assert.match(js, /if \(typeof ensureAllLedgerDataLoaded === "function"\) await ensureAllLedgerDataLoaded\(\{\}\);/);

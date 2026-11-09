@@ -73,7 +73,7 @@ test("Windows download is wired into landing and authenticated account UI", () =
   assert.match(html, /data-app-platform="android"/);
   assert.match(html, /data-app-platform="ios"/);
   assert.match(html, /data-app-platform="windows"/);
-  assert.match(html, /Assets\/mobile_app\/Windows\/TriplemVIP_Setup\.exe\?v=20261106-desktop380/);
+  assert.match(html, /Assets\/mobile_app\/Windows\/TriplemVIP_Setup\.exe\?v=20261106-desktop390/);
   assert.match(html, /Accept the license, choose the installation folder/);
   assert.match(html, /approve the Windows confirmation after first launch/);
   assert.match(html, /Assets\/app\/ui\/04-app-downloads\.js/);

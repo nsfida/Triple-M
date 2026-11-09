@@ -43,7 +43,7 @@ test("3.8 backup: only announced backup files, saved without overwriting, prunin
   assert.match(b, /resumePage\(\) \/\/ a paused page cannot build the file/);
   assert.match(text(`${nativeDir}/background.go`), /if backupBusy\(\) \{ \/\/ 3\.8: never pause the page while it builds a backup/);
   assert.match(text(`${nativeDir}/downloads.go`), /path, isBackup, dialog, failReason := takeBackupDownload\(p\.defPath\)/);
-  assert.match(text(`${nativeDir}/bridge.go`), /"backup", "appkeys"\}/);
+  assert.match(text(`${nativeDir}/bridge.go`), /"backup", "appkeys",/);
   assert.match(text(`${nativeDir}/logic.go`), /"backup-schedule": true, "backup-folder": true, "backup-open-folder": true, "backup-now": true,/);
 });
 
@@ -101,7 +101,7 @@ test("migration 208 is the 149 document save with one added directive", { skip: 
   const fns = [...m208.replace(/^--.*$/gm, "").matchAll(/create or replace function public\.([a-z_]+)/g)].map(m => m[1]);
   assert.deepEqual(fns, ["app_accounting_save_document"]);
   const schema = text("scripts/build_full_schema_sql.js");
-  assert.match(schema, /"207_accounting_document_prefixes\.sql",\n  "208_accounting_document_save_fix\.sql",\n\];/);
+  assert.match(schema, /"207_accounting_document_prefixes\.sql",\n  "208_accounting_document_save_fix\.sql",\n/);
 });
 
 function loadAccounting() {
