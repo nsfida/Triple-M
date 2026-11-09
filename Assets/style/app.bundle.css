@@ -30088,6 +30088,10 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) :is(
 
 /* ── Global password visibility control ─────────────────────────────────── */
 .triplem-password-eye-legacy{display:none!important}
+/* Microsoft Edge and the Windows app (WebView2) draw their own "reveal" eye
+   inside password fields; together with the app's eye that showed two. Only
+   the reveal control is hidden: autofill and password managers are unaffected. */
+input::-ms-reveal{display:none!important;width:0!important;height:0!important}
 .triplem-password-shell{position:relative!important;width:100%!important;min-width:0!important;box-sizing:border-box}
 .triplem-password-shell:not(.input-wrapper){display:block!important}
 .input-wrapper.triplem-password-shell{display:flex!important;align-items:center!important}

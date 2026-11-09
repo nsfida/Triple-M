@@ -146,8 +146,18 @@
       "path": "Assets/style/60-ai-report.css",
       "bytes": 4197,
       "sha256": "19a52ee6a53f771c283e316588983b41c73132cd08e95ee279dc420d3d5c52a1"
+    },
+    {
+      "path": "Assets/style/61-attachments.css",
+      "bytes": 12713,
+      "sha256": "76d859a5ab7015887356e070863c0438b403e4c9f8fc952c6e1f5d03d5a5b8fb"
+    },
+    {
+      "path": "Assets/style/62-system-backup.css",
+      "bytes": 18524,
+      "sha256": "7a4e72222f88e779ee80552ba4c1137089123dcbc5f4c5db4f661db7df2ab623"
     }
   ],
-  "bytes": 577612,
-  "sha256": "0b64c56eeab8398582fa93daf61e9f54cfe3022d1d720d05d165602824dbfb1a"
+  "bytes": 608969,
+  "sha256": "c1f78461f4ad1ce1022a6b9cc7eef002e376da326c04ab44bd5506c5ccdc7d0d"
 }
