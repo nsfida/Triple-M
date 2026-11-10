@@ -230,6 +230,12 @@ const CANONICAL_MIGRATION_FILES = [
   "212_system_backup_restore.sql",
   "213_insurance_opening_balance_edit_after_receiving.sql",
   "214_insurance_opening_balance_owner_can_edit.sql",
+  "215_inventory_v2_access_control.sql",
+  "216_inventory_v2_main_admin_default.sql",
+  "217_inventory_v2_catalogue_stock.sql",
+  "218_inventory_v2_dashboard_photos.sql",
+  "219_inventory_v2_sales_purchases.sql",
+  "220_inventory_v2_offline_sync.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
