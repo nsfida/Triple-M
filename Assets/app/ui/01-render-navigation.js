@@ -583,6 +583,8 @@ function getWorkspaceVisibleTabButtons(){
     .filter(btn => {
       const key = String(btn.dataset.tab || "").trim();
       if (!key || key === "messages" || key === "about") return false;
+      // Inventory V1 switched off by the Main Admin (Inventory 2.0 access, migration 215).
+      if (key === "goods" && window.TriplemInventoryV2?.v1Hidden?.()) return false;
       return !btn.disabled && !btn.classList.contains("hide") && btn.getAttribute("aria-hidden") !== "true";
     });
 }
@@ -685,6 +687,7 @@ function renderWorkspaceHome(){
   grid.querySelectorAll("[data-workspace-tab]").forEach(card => {
     card.addEventListener("click", () => activate(card.dataset.workspaceTab));
   });
+  try { window.TriplemInventoryV2?.decorateHome?.(grid); } catch (_) {}
   try { window.bindHomeReorder?.(grid); } catch (_) {}
 }
 
@@ -999,6 +1002,9 @@ function activate(tab){
   if (!state.unlocked) {
     return;
   }
+  // Inventory 2.0 opens full screen; V1 stays closed when the Main Admin switched it off.
+  if (tab === "inventory2") { window.TriplemInventoryV2?.open?.(); return; }
+  if ((tab === "goods" || tab === "inventory") && window.TriplemInventoryV2?.v1Hidden?.()) return;
   // Microsoft Store version: no Bitcoin wallet (Store policy 10.2.6).
   if (tab === "bitcoin" && typeof cryptoFeaturesHidden === "function" && cryptoFeaturesHidden()) return;
   if (tab === WORKSPACE_HOME_TAB) {

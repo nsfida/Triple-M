@@ -3097,6 +3097,8 @@ function applyPermissionGates(){
     stopInstallmentDueChecker();
     stopMessagingLiveSync();
   }
+  // Inventory 2.0 / V1 access (migration 215): read once per session, no polling.
+  try { window.TriplemInventoryV2?.refreshAccess?.(); } catch (_) {}
 }
 
 function apiHeaders(extra = {}){

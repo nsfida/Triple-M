@@ -2082,6 +2082,8 @@ function openAdminEditUserModal(user){
   bindAdminAccountingAccessControl(body, "adminEdit");
   bindAdminInsuranceAccessControl(body, "adminEdit");
   bindAdminTriplemAiAccessControl(body, "adminEdit");
+  // Inventory V1 / 2.0 access (migrations 215-216), protected Main Admin only.
+  try { window.TriplemInventoryV2?.mountEditSection?.(body, user); } catch (_) {}
   const err = modal.querySelector("#adminEditError");
   err.textContent = "";
   err.classList.remove("show");
@@ -2191,6 +2193,8 @@ function openAdminEditUserModal(user){
           });
         }
       }
+
+      if (isProtectedAdminSession()) await window.TriplemInventoryV2?.saveEditSection?.(modal, user);
 
       const allowTeamEl = modal.querySelector("#adminEditAllowTeam");
       if (allowTeamEl && !allowTeamEl.disabled) {

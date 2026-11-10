@@ -384,6 +384,7 @@ function doLogout(){
   state.sessionRememberMe = false;
   state.sessionUser = null;
   state.permissions = [];
+  try { window.TriplemInventoryV2?.reset?.(); } catch (_) {}
   try { window.resetTriplemAiState?.({ keepMessages: false }); } catch (_) {}
   state.secretPinPreferenceId = null;
   state.secretPinHash = "";
