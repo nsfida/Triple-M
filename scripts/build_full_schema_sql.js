@@ -228,6 +228,7 @@ const CANONICAL_MIGRATION_FILES = [
   "210_r2_file_storage_attachments.sql",
   "211_insurance_opening_balance_main_admin_only.sql",
   "212_system_backup_restore.sql",
+  "213_insurance_opening_balance_edit_after_receiving.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
