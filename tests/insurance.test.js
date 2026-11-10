@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261109-openingadmin211/);
+  assert.match(html, /01-insurance\.js\?v=20261110-openingedit213/);
 });
 
 

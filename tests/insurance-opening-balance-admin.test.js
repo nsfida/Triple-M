@@ -16,9 +16,10 @@ const skipSql = fs.existsSync(path.join(root, MIG)) && fs.existsSync(path.join(r
 test("the app shows Edit and Delete for opening balances only to the Main Admin", () => {
   const js = text("Assets/app/insurance/01-insurance.js");
   assert.match(js, /function canChangeOpeningBalance\(\) \{[\s\S]*?u\.role === "admin" && u\.is_protected === true/);
-  assert.match(js, /canChangeOpeningBalance\(\) && n\(balance\.amount_received\) <= 0 \? \{ label: "Edit"/);
+  // 213: Edit stays available after receiving; Delete still only before receiving.
+  assert.match(js, /canChangeOpeningBalance\(\) \? \{ label: "Edit"/);
   assert.match(js, /canChangeOpeningBalance\(\) && n\(balance\.amount_received\) <= 0 \? \{ label: "Delete"/);
-  assert.match(js, /\$\{canChangeOpeningBalance\(\)&&n\(row\.amount_received\)<=0\?`<button class="btn ghost" id="insuranceOpeningBalanceEdit">Edit<\/button>`/);
+  assert.match(js, /\$\{canChangeOpeningBalance\(\)\?`<button class="btn ghost" id="insuranceOpeningBalanceEdit">Edit<\/button>`/);
   assert.match(js, /if\(existing&&!canChangeOpeningBalance\(\)\)return notify\("Only the Main Admin can edit an opening balance\.","error"\);/);
   assert.match(js, /async function deleteOpeningBalance\(id\) \{\s*if\(!canChangeOpeningBalance\(\)\)return notify/);
   // Creating an opening balance is unchanged.
@@ -41,4 +42,30 @@ test("migration 211 adds the Main Admin check and otherwise keeps the 176 functi
   for (const m of body.matchAll(/update public\.([a-z_]+)/g)) assert.equal(m[1], "insurance_commission_opening_balances");
   assert.match(body, /u\.role = 'admin' and u\.is_active and coalesce\(u\.is_protected, false\) is true/);
   assert.match(text("scripts/build_full_schema_sql.js"), /"211_insurance_opening_balance_main_admin_only\.sql",/);
+});
+
+const MIG213 = "migrations/213_insurance_opening_balance_edit_after_receiving.sql";
+test("migration 213: opening balance can be corrected after receiving; cash is moved, never lost", { skip: fs.existsSync(path.join(root, MIG213)) ? false : "Database migrations are not present in this checkout" }, () => {
+  const m = text(MIG213);
+  const body = m.replace(/^--.*$/gm, "");
+  assert.match(body, /perform public\.app_insurance_require_main_admin_for_opening\(\);/);
+  assert.doesNotMatch(body, /Opening balance cannot be edited after receiving has started/);
+  assert.match(body, /Currency cannot be changed after commission has been received/);
+  assert.match(body, /Insurance Company cannot be changed after commission has been received/);
+  assert.match(body, /the lowest amount you can save now is/);
+  assert.doesNotMatch(body, /\b(alter table|drop |truncate|create table)/i);
+  // Only the one function is replaced.
+  assert.equal((body.match(/create or replace function/g) || []).length, 1);
+  assert.match(body, /create or replace function public\.app_insurance_update_commission_opening_balance\(/);
+  // Delete is unchanged (still refused once something was received).
+  assert.doesNotMatch(body, /app_insurance_delete_commission_opening_balance/);
+  assert.match(text("scripts/build_full_schema_sql.js"), /"213_insurance_opening_balance_edit_after_receiving\.sql",/);
+});
+
+test("after receiving, the edit form keeps company and currency fixed and explains what happens", () => {
+  const js = text("Assets/app/insurance/01-insurance.js");
+  assert.match(js, /const receivedSoFar=existing\?n\(existing\.amount_received\):0,locked=receivedSoFar>0;/);
+  assert.match(js, /name="company_id" required\$\{locked\?" disabled":""\}/);
+  assert.match(js, /<input type="hidden" name="currency" value="\$\{esc\(existing\.currency\)\}">/);
+  assert.match(js, /canChangeOpeningBalance\(\) && n\(balance\.amount_received\) <= 0 \? \{ label: "Delete"/);
 });
