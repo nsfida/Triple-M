@@ -17,6 +17,83 @@ function detectTriplemLowPowerUi(){
 }
 detectTriplemLowPowerUi();
 
+/* Background Bubbles & Animations (2026-11-10). A device-level visual
+   preference kept in localStorage only: changing it sends nothing to the
+   server. Default ON (no visual change for existing users), except when the
+   operating system asks for reduced motion and the user has not chosen.
+   OFF removes the decorative elements from the DOM, so their CSS animations,
+   blur filters and compositor layers stop completely (nothing keeps running
+   hidden). The bubbles are pure CSS; there is no JavaScript loop to stop. */
+const TRIPLEM_BG_MOTION_KEY = "triplem-bg-motion-v1";
+const TRIPLEM_BG_OFF_CLASS = "triplem-bg-off";
+const TRIPLEM_BG_CIRCLE_COUNT = 9;
+function readTriplemBackgroundMotionChoice(){
+  try {
+    const v = localStorage.getItem(TRIPLEM_BG_MOTION_KEY);
+    if (v === "on") return true;
+    if (v === "off") return false;
+  } catch (_) {}
+  return null;
+}
+function triplemBackgroundMotionEnabled(){
+  const choice = readTriplemBackgroundMotionChoice();
+  if (choice !== null) return choice;
+  return !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+}
+function applyTriplemBackgroundMotion(enabled, options = {}){
+  const on = enabled !== false;
+  const root = document.documentElement;
+  root.classList.toggle(TRIPLEM_BG_OFF_CLASS, !on);
+  const circles = document.querySelector(".floating-circles");
+  if (circles) {
+    if (!on) {
+      circles.replaceChildren();
+      circles.hidden = true;
+    } else {
+      if (circles.children.length !== TRIPLEM_BG_CIRCLE_COUNT) {
+        circles.replaceChildren(...Array.from({ length: TRIPLEM_BG_CIRCLE_COUNT }, () => {
+          const c = document.createElement("div");
+          c.className = "circle";
+          return c;
+        }));
+      }
+      circles.hidden = false;
+    }
+  }
+  const currency = document.getElementById("pageCurrencyBg");
+  if (currency) {
+    if (!on) {
+      currency.replaceChildren();
+      currency.hidden = true;
+    } else {
+      currency.hidden = false;
+      if (!currency.children.length && options.rebuild !== false && typeof initFloatingCurrencyBackground === "function") {
+        try { initFloatingCurrencyBackground(); } catch (_) {}
+      }
+    }
+  }
+  if (options.persist) {
+    try { localStorage.setItem(TRIPLEM_BG_MOTION_KEY, on ? "on" : "off"); } catch (_) {}
+  }
+  document.querySelectorAll("[data-bg-motion-toggle]").forEach(btn => {
+    btn.setAttribute("aria-checked", on ? "true" : "false");
+    btn.classList.toggle("is-on", on);
+    const state = btn.querySelector("[data-bg-motion-state]");
+    if (state) state.textContent = on ? "On" : "Off";
+  });
+  return on;
+}
+// Applied as soon as this file runs (before the workspace renders).
+applyTriplemBackgroundMotion(triplemBackgroundMotionEnabled(), { rebuild: false });
+try {
+  window.matchMedia?.("(prefers-reduced-motion: reduce)")?.addEventListener?.("change", () => {
+    if (readTriplemBackgroundMotionChoice() === null) applyTriplemBackgroundMotion(triplemBackgroundMotionEnabled());
+  });
+} catch (_) {}
+window.addEventListener("storage", e => {
+  if (e.key === TRIPLEM_BG_MOTION_KEY) applyTriplemBackgroundMotion(triplemBackgroundMotionEnabled());
+});
+
 const TRIPLEM_THEME_STORAGE_KEY = "triplem-theme-v1";
 const TRIPLEM_THEME_REGISTRY = window.TRIPLEM_THEME_REGISTRY || {};
 const TRIPLEM_THEMES = Object.freeze(
@@ -176,8 +253,18 @@ function renderThemeDropdown(){
             <i class="fa-solid fa-check theme-menu-check" aria-hidden="true"></i>
           </button>
         `).join("")}
-      </div>`;
+      </div>
+      <div class="theme-menu-divider" aria-hidden="true"></div>
+      <button class="theme-menu-toggle" type="button" role="switch" data-bg-motion-toggle aria-checked="true" title="Floating bubbles and currency symbols behind the workspace">
+        <span class="theme-menu-toggle-icon" aria-hidden="true"><i class="fa-solid fa-circle-nodes"></i></span>
+        <span class="theme-menu-copy"><strong>Background Bubbles &amp; Animations</strong><small data-bg-motion-state>On</small></span>
+        <span class="theme-menu-switch" aria-hidden="true"><i></i></span>
+      </button>`;
     dropdown.dataset.themeRendered = "1";
+    dropdown.querySelector("[data-bg-motion-toggle]")?.addEventListener("click", event => {
+      event.stopPropagation();
+      applyTriplemBackgroundMotion(!triplemBackgroundMotionEnabled(), { persist: true });
+    });
     dropdown.querySelectorAll("[data-theme-choice]").forEach(button => {
       button.addEventListener("click", event => {
         event.stopPropagation();
@@ -193,6 +280,7 @@ function renderThemeDropdown(){
       });
     });
   }
+  applyTriplemBackgroundMotion(triplemBackgroundMotionEnabled(), { rebuild: false });
   const activeTheme = isTriplemWorkspaceAuthenticated() ? readTriplemTheme() : "default";
   dropdown.querySelectorAll("[data-theme-choice]").forEach(button => {
     const selected = button.dataset.themeChoice === activeTheme;

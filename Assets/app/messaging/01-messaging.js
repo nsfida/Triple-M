@@ -2705,6 +2705,7 @@ function startAdminCommsPolling(){
 }
 
 function stopMessagingLiveSync(){
+  messagingLiveState.startedFor = "";
   stopLiveChatRealtimeBridge();
   if (!messagingLiveEligible()) {
     liveChatNotificationState.offerInquiryIds.clear();
@@ -2769,7 +2770,7 @@ function scheduleMessagingLivePoll(delayMs, options = {}){
 }
 
 function startMessagingLiveSync(){
-  stopMessagingLiveSync();
+  stopMessagingLiveSync(); // also clears startedFor; applyPermissionGates sets it again
   if (!messagingLiveEligible()) return;
   bindMessagingLiveVisibility();
   if (!messagingLiveIsActive()) {
@@ -3083,7 +3084,14 @@ function updateAdminCommsVisibility(){
   if (!messagingLiveEligible()) stopMessagingLiveSync();
 }
 
-async function refreshAdminCommsBadges(){
+// Overlapping refreshes are coalesced (triplemCoalesceAsync, notes/01-notes.js; loaded earlier).
+function refreshAdminCommsBadges(){
+  const self = refreshAdminCommsBadges;
+  if (!self.coalesced) self.coalesced = typeof triplemCoalesceAsync === "function" ? triplemCoalesceAsync(refreshAdminCommsBadgesRun) : refreshAdminCommsBadgesRun;
+  return self.coalesced();
+}
+
+async function refreshAdminCommsBadgesRun(){
   updateAdminCommsVisibility();
   if (!messagingLiveEligible()) return;
   try {
@@ -5301,6 +5309,7 @@ function markInstallmentDueCheckCompleted(key){
 }
 
 function stopInstallmentDueChecker(){
+  installmentDueState.startedFor = "";
   if (installmentDueState.timer) {
     clearTimeout(installmentDueState.timer);
     installmentDueState.timer = null;

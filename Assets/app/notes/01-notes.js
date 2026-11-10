@@ -943,7 +943,33 @@ async function presentUnreadReminderAlertsFromNotifications(){
 }
 
 /** On unlock / cold load: deliver due rows, then play unread reminder overlays. */
-async function bootstrapReminderDeliveryOnUnlock(){
+/**
+ * Coalesce overlapping calls (2026-11-10). Sign-in, the live poll, reminders and
+ * several panels each ask for a badge refresh; measured on staging this produced
+ * 6 full badge refreshes (18 requests) within 2 s of sign-in. Now a call made while a
+ * refresh is running waits for ONE follow-up refresh that starts after the
+ * current one, so every caller still receives data fetched after it asked.
+ */
+function triplemCoalesceAsync(run){
+  let current = null, next = null;
+  return function coalesced(){
+    if (!current) {
+      current = Promise.resolve().then(run).finally(() => { current = null; });
+      return current;
+    }
+    if (!next) {
+      next = current.catch(() => {}).then(() => { next = null; return coalesced(); });
+    }
+    return next;
+  };
+}
+// Several unlock paths start this at once; one run (plus at most one follow-up) is enough.
+function bootstrapReminderDeliveryOnUnlock(){
+  const self = bootstrapReminderDeliveryOnUnlock;
+  if (!self.coalesced) self.coalesced = triplemCoalesceAsync(bootstrapReminderDeliveryOnUnlockRun);
+  return self.coalesced();
+}
+async function bootstrapReminderDeliveryOnUnlockRun(){
   if (!messagingLiveEligible()) return;
   try {
     await dispatchDueNoteRemindersThrottled(true);

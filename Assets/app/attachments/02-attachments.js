@@ -34,7 +34,7 @@
   const BACKOFF = [3000, 15000, 45000, 120000, 300000, 600000];
 
   const S = {
-    cfg: null, cfgPromise: null, index: new Map(), indexOwner: "", indexPromise: null,
+    cfg: null, cfgPromise: null, cfgToken: "", cfgAt: 0, cfgRetryAt: 0, cfgFails: 0, indexServerOk: false, indexSig: undefined, index: new Map(), indexOwner: "", indexPromise: null,
     pump: null, timer: 0, worker: null, workerBroken: false, coreLoaded: null, jobs: new Map(), jobSeq: 0,
     controls: new WeakMap(), memQueue: new Map(), dbBroken: false, captureRows: null, notified: new Set()
   };
@@ -51,20 +51,46 @@
   const isUuid = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || ""));
 
   // ---- configuration (no credentials; from app_storage_client_config) ------------------
+  // Root cause of the "missing Attach button until a hard refresh" (2026-11-10):
+  // the first answer was kept for the whole page life, even when it was only a
+  // stand-in ("disabled") produced before the session was ready, while offline,
+  // or after a failed request. Now only a real server answer for the current
+  // session is kept; stand-ins are used for the moment and the server is asked
+  // again the next time a form opens (or when the connection returns), and
+  // every Attach control already on the page is updated when the answer arrives.
+  // No polling: requests happen only when a form opens.
+  const CFG_FALLBACK = Object.freeze({ enabled: false, optimize: true, max_edge: 3000, preset: "document", max_upload_mb: 15 });
+  // After a failed request, wait before asking again: 1.5 s, 3 s, 6 s ... at most 30 s.
+  const cfgRetryDelay = n => Math.min(30000, 1500 * Math.pow(2, Math.max(0, n - 1)));
+  const CFG_REVALIDATE_MS = 30 * 60000; // a confirmed answer is re-checked at most every 30 min, on form open
   function cachedCfg() { try { return JSON.parse(localStorage.getItem(CFG_CACHE_KEY) || "null"); } catch (_) { return null; } }
+  const cfgConfirmed = () => !!S.cfg && S.cfgToken === token() && S.cfgToken !== "";
+  function bestCfg() { return cfgConfirmed() ? S.cfg : (cachedCfg() || CFG_FALLBACK); }
+  function applyCfgToControls(cfg) {
+    document.querySelectorAll(".tm-att").forEach(host => { host.hidden = !cfg.enabled; });
+  }
   async function clientConfig(force = false) {
-    if (S.cfg && !force) return S.cfg;
+    const tok = token();
+    const fresh = cfgConfirmed() && Date.now() - (S.cfgAt || 0) < CFG_REVALIDATE_MS;
+    if (fresh && !force) return S.cfg;
     if (S.cfgPromise && !force) return S.cfgPromise;
+    if (!signedIn() || navigator.onLine === false || typeof supabaseRpc !== "function") return bestCfg();
+    if (!force && !cfgConfirmed() && Date.now() < (S.cfgRetryAt || 0)) return bestCfg();
     S.cfgPromise = (async () => {
-      if (!signedIn() || navigator.onLine === false || typeof supabaseRpc !== "function") return (S.cfg = cachedCfg() || { enabled: false, optimize: true, max_edge: 3000, preset: "document", max_upload_mb: 15 });
       try {
         const c = await supabaseRpc("app_storage_client_config", {}, { offlineCache: false });
-        S.cfg = c && typeof c === "object" ? c : { enabled: false };
-        try { localStorage.setItem(CFG_CACHE_KEY, JSON.stringify(S.cfg)); } catch (_) {}
+        if (!c || typeof c !== "object") throw new Error("empty configuration");
+        if (token() !== tok) return bestCfg(); // the session changed while waiting
+        S.cfg = c; S.cfgToken = tok; S.cfgAt = Date.now(); S.cfgRetryAt = 0; S.cfgFails = 0;
+        try { localStorage.setItem(CFG_CACHE_KEY, JSON.stringify(c)); } catch (_) {}
+        applyCfgToControls(c);
+        if (c.enabled && !S.indexServerOk && S.indexOwner && S.indexOwner === ownerId()) setTimeout(() => loadIndex(true), 0);
+        return c;
       } catch (_) {
-        S.cfg = cachedCfg() || { enabled: false, optimize: true, max_edge: 3000, preset: "document", max_upload_mb: 15 };
+        S.cfgFails = (S.cfgFails || 0) + 1;
+        S.cfgRetryAt = Date.now() + cfgRetryDelay(S.cfgFails);
+        return bestCfg(); // not remembered: the next form opening asks again
       }
-      return S.cfg;
     })().finally(() => { S.cfgPromise = null; });
     return S.cfgPromise;
   }
@@ -189,7 +215,8 @@
     S.indexPromise = (async () => {
       await refreshLocalPending();
       const cfg = await clientConfig();
-      if (cfg.enabled && navigator.onLine !== false && typeof supabaseRpc === "function") {
+      let serverOk = false;
+      if (cfg.enabled && navigator.onLine !== false && typeof supabaseRpc === "function" && signedIn()) {
         try {
           const res = await supabaseRpc("app_attachment_index", {}, { offlineCache: false });
           const rows = Array.isArray(res?.rows) ? res.rows : [];
@@ -197,12 +224,21 @@
           for (const r of rows) if (Array.isArray(r) && r.length === 3) m.set(`${r[0]}:${String(r[1]).toLowerCase()}`, Number(r[2]) || 0);
           S.index = m;
           S.indexLoadedAt = Date.now();
+          serverOk = true;
         } catch (_) { /* icons for files on the server appear after the next load */ }
       }
       S.indexOwner = owner;
+      // Not answered by the server (settings not confirmed yet, offline, or an
+      // error): asked again once the storage settings are confirmed or the
+      // connection returns - never on a timer.
+      S.indexServerOk = serverOk || cfgConfirmed() && !cfg.enabled;
       if (!S.indexLoadedAt) S.indexLoadedAt = -1;
     })().finally(() => { S.indexPromise = null; });
-    S.indexPromise.then(() => { if (S.index.size || localPending.size) changed(); });
+    // Lists are re-rendered only when the paperclip icons would actually change.
+    S.indexPromise.then(() => {
+      const sig = [...S.index].concat([...localPending].map(([k, v]) => [`p:${k}`, v])).sort().join("|");
+      if (sig !== S.indexSig) { const first = S.indexSig === undefined; S.indexSig = sig; if (!first || sig) changed(); }
+    });
     return S.indexPromise;
   }
   function counts(module, id) {
@@ -219,10 +255,22 @@
     return `<button type="button" class="tm-att-icon${c.pending ? " is-pending" : ""}" data-tm-att-module="${esc(module)}" data-tm-att-record="${esc(id)}" title="${esc(label)}" aria-label="${esc(label)}"><i class="fa-solid fa-paperclip" aria-hidden="true"></i>${n > 1 ? `<span>${n}</span>` : ""}</button>`;
   }
   function iconForEntry(entry) { const r = refForEntry(entry); return r ? iconHtml(r.module, r.id) : ""; }
+  // id -> entry lookup, rebuilt only when the loaded entries change (was a linear
+  // search per rendered row, i.e. quadratic work on long lists).
+  let entryMapSrc = null, entryMapLen = -1, entryMap = new Map();
+  function entryById(id) {
+    const list = session()?.entries || [];
+    if (list !== entryMapSrc || list.length !== entryMapLen) {
+      entryMap = new Map();
+      for (const e of list) if (e && e.id != null) entryMap.set(String(e.id), e);
+      entryMapSrc = list; entryMapLen = list.length;
+    }
+    return entryMap.get(String(id));
+  }
   // Icon for a ledger row known only by id (module from the row, or the given fallback).
   function iconForId(id, fallbackModule = "") {
     if (!isUuid(id)) return "";
-    const entry = (session()?.entries || []).find(e => String(e.id) === String(id));
+    const entry = entryById(id);
     const r = entry ? refForEntry(entry) : null;
     if (r) return iconHtml(r.module, r.id);
     return fallbackModule ? iconHtml(fallbackModule, String(id).toLowerCase()) : "";
@@ -543,7 +591,7 @@
     const ctl = mount(form, { module });
     if (!ctl) return null;
     reset(form);
-    ctl.host.hidden = !(S.cfg && S.cfg.enabled);
+    ctl.host.hidden = !bestCfg().enabled;
     clientConfig().then(c => { ctl.host.hidden = !c.enabled; }).catch(() => {});
     return ctl;
   }
@@ -626,7 +674,12 @@
   }
 
   // ---- triggers (no polling) -----------------------------------------------------------------
-  window.addEventListener("online", () => schedule(500));
+  window.addEventListener("online", () => {
+    schedule(500);
+    // A form opened while offline may be waiting for the storage settings.
+    if (!cfgConfirmed() && document.querySelector(".tm-att")) clientConfig(true).then(applyCfgToControls).catch(() => {});
+    else if (cfgConfirmed() && S.cfg.enabled && !S.indexServerOk && S.indexOwner) loadIndex(true);
+  });
   window.addEventListener("triplem:offline-entry-synced", () => schedule(800));
   let started = false;
   function startOnce() {

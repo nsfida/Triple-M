@@ -193,6 +193,8 @@ function initFloatingCurrencyBackground(){
   const root = document.getElementById("pageCurrencyBg");
   if (!root) return;
   root.replaceChildren();
+  // Background Bubbles & Animations switched off on this device: build nothing.
+  if (document.documentElement.classList.contains("triplem-bg-off")) return;
   const specs = (window.TriplemCurrencyRegistry?.all?.() || []).map(currency => ({
     type: currency.code.toLowerCase(),
     cls: `float-currency-${currency.code.toLowerCase()}`,
@@ -3068,14 +3070,30 @@ function applyPermissionGates(){
   updateAdminCommsVisibility();
   updateAdminBackupVisibility();
   if (messagingLiveEligible()) {
-    refreshAdminCommsBadges().catch(() => {});
-    startInstallmentDueChecker();
-    startMessagingLiveSync();
-    // Alert audio is intentionally not primed during sign-in. Real reminder events start audio on demand.
-    if (typeof bootstrapReminderDeliveryOnUnlock === "function") {
-      bootstrapReminderDeliveryOnUnlock().catch(() => {});
+    // applyPermissionGates runs several times while signing in (measured: 4-6 calls in
+    // about 2 s). The inbox/reminder start-up is needed once per session; repeating it
+    // only re-sent the same requests. It runs again after a new sign-in or when the
+    // workspace becomes eligible again. (2026-11-10)
+    const commsKey = `${state.sessionToken || ""}|${state.sessionUser?.id || ""}`;
+    if (applyPermissionGates.commsStartedFor !== commsKey) {
+      applyPermissionGates.commsStartedFor = commsKey;
+      refreshAdminCommsBadges().catch(() => {});
+      // Alert audio is intentionally not primed during sign-in. Real reminder events start audio on demand.
+      if (typeof bootstrapReminderDeliveryOnUnlock === "function") {
+        bootstrapReminderDeliveryOnUnlock().catch(() => {});
+      }
+    }
+    // Restarting these on every call reconnected the live socket and re-ran the first poll.
+    if (typeof installmentDueState === "undefined" || installmentDueState.startedFor !== commsKey) {
+      startInstallmentDueChecker();
+      if (typeof installmentDueState !== "undefined") installmentDueState.startedFor = commsKey;
+    }
+    if (typeof messagingLiveState === "undefined" || messagingLiveState.startedFor !== commsKey) {
+      startMessagingLiveSync();
+      if (typeof messagingLiveState !== "undefined") messagingLiveState.startedFor = commsKey;
     }
   } else {
+    applyPermissionGates.commsStartedFor = "";
     stopInstallmentDueChecker();
     stopMessagingLiveSync();
   }
