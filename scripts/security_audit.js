@@ -124,4 +124,22 @@ for (const required of [
 }
 if (/functions\/v1|rest\/v1|auth\/v1/.test(sw)) fail("Service worker must not cache Supabase API/auth traffic.");
 
+// Code-signing and update-signing keys must never be part of the project (GitHub or the website).
+{
+  const skip = new Set(["node_modules", ".git", "dist-production"]);
+  const keyName = /\.(pfx|p12|pvk|snk|jks|keystore)$|update_signing_key|signing[-_]key\.(txt|pem|key)$/i;
+  const found = [];
+  const walk = dir => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (skip.has(e.name)) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (keyName.test(e.name)) found.push(path.relative(root, p));
+      else if (/\.(pem|key|txt)$/i.test(e.name) && fs.statSync(p).size < 200000 && /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/.test(fs.readFileSync(p, "utf8"))) found.push(path.relative(root, p));
+    }
+  };
+  walk(root);
+  if (found.length) fail(`Signing key material must not be inside the project: ${found.join(", ")}`);
+}
+
 console.log(`Security audit passed: ${runtimeScripts.length} deferred runtime scripts, pinned executable CDNs, no public secret literals.`);
