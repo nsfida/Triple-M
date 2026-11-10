@@ -338,7 +338,7 @@
         items = [
           { label: "View", icon: "fa-eye", action: () => openOpeningBalanceDetails(balance.id) },
           can("create") && n(balance.amount_outstanding) > 0 ? { label: "Receive", icon: "fa-hand-holding-dollar", action: () => openCommissionReceiving({ ...balance, source_type: "opening" }) } : null,
-          // 213: the Main Admin can correct the amount even after receiving (fully or partly).
+          // 213/214: the account owner can correct the amount even after receiving (fully or partly).
           canChangeOpeningBalance() ? { label: "Edit", icon: "fa-pen", action: () => openOpeningBalanceForm(balance) } : null,
           canChangeOpeningBalance() && n(balance.amount_received) <= 0 ? { label: "Delete", icon: "fa-trash", danger: true, action: () => deleteOpeningBalance(balance.id) } : null
         ];
@@ -661,12 +661,14 @@
     S.commissionHasMore = !!res?.has_more;
   }
 
-  // 2026-11-09 (migration 211): only the protected Main Admin may edit or delete
-  // an opening balance. The server enforces this too.
+  // 214: the account owner (individual or business owner) can edit/delete their own opening
+  // balances; team members cannot. The server enforces the same rule.
   function canChangeOpeningBalance() {
     try {
       const u = window.state?.sessionUser;
-      return !!(u && u.role === "admin" && u.is_protected === true && !(typeof isGuestMode === "function" && isGuestMode()));
+      if (!u || (typeof isGuestMode === "function" && isGuestMode())) return false;
+      if (u.team_owner_id) return false;
+      return can("edit");
     } catch (_) { return false; }
   }
 
@@ -872,7 +874,7 @@
   }
 
   function openOpeningBalanceForm(existing=null) {
-    if(existing&&!canChangeOpeningBalance())return notify("Only the Main Admin can edit an opening balance.","error");
+    if(existing&&!canChangeOpeningBalance())return notify("Only the account owner can edit an opening balance.","error");
     if(!can(existing?"edit":"create"))return notify("Opening balance entry is not permitted for this account.","error");
     const title=existing?"Edit Opening Balance":"Add Opening Balance";
     // 213: after commission has been received, company and currency stay fixed (settlements are tied
@@ -898,7 +900,7 @@
   }
 
   async function deleteOpeningBalance(id) {
-    if(!canChangeOpeningBalance())return notify("Only the Main Admin can delete an opening balance.","error");
+    if(!canChangeOpeningBalance())return notify("Only the account owner can delete an opening balance.","error");
     const row=S.openingBalances.find(x=>x.id===id);if(!row)return;
     if(!global.confirm(`Delete opening balance ${row.reference_no}?`))return;
     try{await rpc("app_insurance_delete_commission_opening_balance",{p_id:id});await Promise.all([loadOpeningBalances(),loadCommissionSummary()]);renderMyCommission();notify("Opening balance deleted.");}catch(err){notify(err.message||"Could not delete opening balance.","error");}
