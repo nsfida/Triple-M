@@ -8543,6 +8543,13 @@ body.messages-compose-open{overflow:hidden!important}
   .insurance-cancel-line.insurance-rf-line>.insurance-report-line-actions{grid-column:3;grid-row:1}
 }
 
+/* 2026-11-10 (migration 213): note shown when editing an opening balance that already has receipts. */
+.insurance-opening-edit-note{grid-column:1/-1;display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:9px;
+  border:1px solid color-mix(in srgb,var(--primary,#2563eb) 28%,transparent);background:color-mix(in srgb,var(--primary,#2563eb) 7%,transparent);
+  color:var(--text,#0f172a);font-size:.74rem;line-height:1.45}
+.insurance-opening-edit-note i{color:var(--primary,#2563eb);margin-top:2px}
+.insurance-opening-balance-form select:disabled{opacity:.72;cursor:not-allowed}
+
 /* ===== SOURCE: Assets/style/55-app-downloads.css ===== */
 /* Triplem VIP application downloads: compact cross-platform download hub + theme parity. */
 
