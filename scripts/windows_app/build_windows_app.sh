@@ -25,6 +25,16 @@
 # Never commit the key file. Without it, installed apps simply keep the
 # current version until the next signed release.
 #
+# Release hygiene (2026-11-10): executables are built with -s -w, i.e. without
+# the DWARF debug sections and symbol table that Go otherwise embeds. Those
+# sections are compressed (entropy ~8.0) and carry numeric names such as "/19",
+# a shape some antivirus heuristics associate with packed executables. Stripping
+# them is ordinary release practice; it is not an evasion technique and does not
+# guarantee that no engine will flag the file. Signing remains the real fix.
+#
+# TRIPLEM_OUT=/path/TriplemVIP_Setup.exe builds elsewhere (e.g. a test build)
+# without touching the published download.
+#
 # Requirements: Go 1.22+, Python 3, GNU binutils with PE support for both
 # x86-64 and AArch64 (Debian/Ubuntu: apt install binutils-multiarch).
 set -euo pipefail
@@ -32,7 +42,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 NATIVE_DIR="$ROOT/scripts/windows_app/native"
 INSTALLER_DIR="$ROOT/scripts/windows_app/installer"
 ICO="$ROOT/scripts/windows_app/assets/TriplemVIP.ico"
-OUT="$ROOT/Assets/mobile_app/Windows/TriplemVIP_Setup.exe"
+OUT="${TRIPLEM_OUT:-$ROOT/Assets/mobile_app/Windows/TriplemVIP_Setup.exe}"
 VERSION="3.9.0"
 TMP="${TMPDIR:-/tmp}/triplem-vip-windows-build"
 mkdir -p "$TMP" "$INSTALLER_DIR/payload" "$(dirname "$OUT")"
@@ -67,7 +77,7 @@ build_app() {
     cd "$NATIVE_DIR"
     GO111MODULE=off GOOS=windows GOARCH="$goarch" CGO_ENABLED=0 go build \
       -trimpath \
-      -ldflags='-H=windowsgui -buildid=' \
+      -ldflags='-s -w -H=windowsgui -buildid=' \
       -o "$out" .
   )
   python3 "$ROOT/scripts/windows_app/build_resources.py" "$out" "$ICO" \
@@ -89,7 +99,7 @@ APP_SHA_ARM64="$(sha256sum "$TMP/TriplemVIP-arm64.exe" | awk '{print $1}')"
   cd "$INSTALLER_DIR"
   GO111MODULE=off GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
     -trimpath \
-    -ldflags="-H=windowsgui -buildid= -X main.expectedPayloadSHA256=$APP_SHA -X main.expectedPayloadSHA256ARM64=$APP_SHA_ARM64" \
+    -ldflags="-s -w -H=windowsgui -buildid= -X main.expectedPayloadSHA256=$APP_SHA -X main.expectedPayloadSHA256ARM64=$APP_SHA_ARM64" \
     -o "$TMP/TriplemVIP_Setup.exe" .
 )
 python3 "$ROOT/scripts/windows_app/build_resources.py" "$TMP/TriplemVIP_Setup.exe" "$ICO" \
