@@ -168,5 +168,14 @@ function svg(key) {
 }
 
 fs.mkdirSync(OUT, { recursive: true });
-for (const key of Object.keys(TILES)) fs.writeFileSync(path.join(OUT, `${key}.svg`), svg(key));
-console.log(`Wrote ${Object.keys(TILES).length} icons to ${path.relative(process.cwd(), OUT)}`);
+// Never replaces an icon that is already there (the owner may use their own artwork);
+// pass --force to regenerate every icon.
+const force = process.argv.includes("--force");
+let written = 0;
+for (const key of Object.keys(TILES)) {
+  const file = path.join(OUT, `${key}.svg`);
+  if (!force && fs.existsSync(file)) continue;
+  fs.writeFileSync(file, svg(key));
+  written++;
+}
+console.log(`Wrote ${written} icons to ${path.relative(process.cwd(), OUT)}${force ? "" : " (existing icons kept; --force replaces them)"}`);
