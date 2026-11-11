@@ -521,6 +521,7 @@ function btcSummarizeUtxoBalance() {
 }
 
 async function btcFetchJson(url, options) {
+  if (window.TriplemStore?.active) throw new Error("Not available in the Microsoft Store edition");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
   return fetch(url, {
@@ -553,6 +554,8 @@ async function btcFetchText(url, options) {
 // BTC Price fetching functions
 let btcPriceFetchInFlight = null;
 function btcFetchPrice() {
+  // Microsoft Store edition: no cryptocurrency service is contacted.
+  if (window.TriplemStore?.active) return Promise.resolve(null);
   // Multiple wallet cards can request a price during the same render. Reuse one
   // network promise instead of issuing parallel CoinGecko requests.
   if (btcPriceFetchInFlight) return btcPriceFetchInFlight;
@@ -3266,6 +3269,8 @@ async function deleteBitcoinWallet(walletId) {
 }
 
 async function loadBitcoinWalletsFromDatabase(options = {}) {
+  // Microsoft Store edition: the section is not part of this edition; nothing is loaded.
+  if (window.TriplemStore?.active) { state.bitcoinWallets = []; state.bitcoinWalletsLoaded = true; return; }
   const force = options.force === true;
   if (state.bitcoinWalletsLoaded && !force) {
     renderBitcoinWallets();

@@ -1177,7 +1177,11 @@ function getExpenseAccounts(options = {}){
     cache.unfiltered = buildExpenseAccountsUnfiltered();
     cache.logoByName = null;
   }
-  const groups = cache.unfiltered;
+  // Microsoft Store edition: wallets in a cryptocurrency are not part of this edition (they
+  // stay in the account and appear on the website as before).
+  const groups = window.TriplemStore?.active
+    ? cache.unfiltered.filter(group => !window.TriplemStore.isCryptoCode(group.currency))
+    : cache.unfiltered;
   if (!applyUiFilters) return groups;
 
   const searchTerm = String(state.search.expenses || "").trim().toLowerCase();

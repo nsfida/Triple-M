@@ -2238,6 +2238,9 @@ async function btcBuildAndBroadcast() {
 }
 
 function btcBindUI() {
+  // Microsoft Store edition: the section is not part of this edition and its markup is
+  // emptied, so there is nothing to bind (and boot() must continue with the next steps).
+  if (window.TriplemStore && window.TriplemStore.active) return;
   // Wallet type toggle buttons
   els.btcFullWalletBtn.addEventListener('click', () => btcToggleWalletType('full'));
   els.btcWatchWalletBtn.addEventListener('click', () => btcToggleWalletType('watch'));
@@ -2587,6 +2590,9 @@ function applyBitcoinAccessMode(currencies, tabs, mode){
 
 function bitcoinAccessSelectHtml(prefix, mode, { style = "margin-top:12px" } = {}){
   const current = ["none", "currency_only", "tab_only", "both"].includes(mode) ? mode : "none";
+  // Microsoft Store edition: not offered, but the user's current value is kept so saving a
+  // user from the Store app never changes access the user has on the website.
+  if (window.TriplemStore?.active) return `<input type="hidden" id="${escapeHtml(prefix)}BitcoinAccess" value="${escapeHtml(current)}" data-store-keep />`;
   return `
     <div class="form-group admin-bitcoin-access" style="${escapeHtml(style)}">
       <label class="form-label" for="${prefix}BitcoinAccess">Bitcoin access</label>
@@ -2613,7 +2619,7 @@ function bindBitcoinAccessControls(root, prefix, { currenciesGroup, tabsGroup } 
   const select = root.querySelector(`#${prefix}BitcoinAccess`);
   const curGroup = currenciesGroup || `${prefix}Currencies`;
   const tabGroup = tabsGroup || `${prefix}Tabs`;
-  if (!select) return;
+  if (!select || window.TriplemStore?.active) return;
 
   const syncSelectFromChecks = () => {
     const currencies = typeof readCheckboxGrid === "function" ? readCheckboxGrid(root, curGroup) : [];
@@ -2737,8 +2743,15 @@ function permissionMapFromUser(user){
 
 function checkboxGridHtml(name, options, selected, { disabledIds = [] } = {}){
   const selectedSet = new Set((selected || []).map(v => String(v).toLowerCase()));
+  // Microsoft Store edition: no cryptocurrency currency or section to choose. A user's
+  // existing crypto access is carried through unchanged by the hidden Bitcoin access value.
+  const store = window.TriplemStore?.active === true;
+  const shown = store ? options.filter(opt => {
+    const id = String(typeof opt === "string" ? opt : opt.id);
+    return !(window.TriplemStore.isCryptoCode(id) || id.toLowerCase() === "bitcoin");
+  }) : options;
   return `<div class="admin-check-grid" data-check-group="${escapeHtml(name)}">` +
-    options.map(opt => {
+    shown.map(opt => {
       const id = typeof opt === "string" ? opt : opt.id;
       const label = typeof opt === "string" ? opt : opt.label;
       const checked = selectedSet.has(String(id).toLowerCase()) ? "checked" : "";

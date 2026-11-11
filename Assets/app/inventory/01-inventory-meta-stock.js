@@ -515,6 +515,7 @@ async function fetchExpenseBtcAllWalletData(address, networkKey = ""){
 }
 
 function refreshExpenseBtcWallets(accounts, options = {}){
+  if (window.TriplemStore?.active) return; // Microsoft Store edition: no cryptocurrency service
   const force = options.force === true;
   const targets = [];
   const seen = new Set();
