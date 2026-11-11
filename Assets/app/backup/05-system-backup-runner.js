@@ -39,6 +39,25 @@
   // =====================================================================================
   // Backup
   // =====================================================================================
+  // Module notes for the manifest. Inventory 2.0 products store an icon id only; the icon pack ships
+  // with the app, so the backup records which pack version the ids refer to (never the icons).
+  async function moduleInfo(deps, tableTotals) {
+    const v2 = Object.entries(tableTotals).filter(([t]) => /^inventory_v2_/.test(t));
+    const out = {};
+    if (v2.length) {
+      let pack = null;
+      try { pack = deps.iconPack ? await deps.iconPack() : null; } catch (_) { pack = null; }
+      out.inventoryV2 = {
+        tables: v2.length,
+        records: v2.reduce((a, [, n]) => a + Number(n || 0), 0),
+        iconPack: pack && pack.version ? String(pack.version) : null,
+        iconSource: pack && pack.source ? String(pack.source) : null,
+        iconsInBackup: false
+      };
+    }
+    return out;
+  }
+
   async function createBackup(deps, { password, sink, readBack, onProgress = () => {}, signal } = {}) {
     const problem = E.passwordProblem(password);
     if (problem) throw new SystemBackupError("weak_password", problem);
@@ -237,6 +256,7 @@
       createdBy: begin.createdBy || null,
       totals, tables: Object.entries(tableTotals).map(([table, records]) => ({ table, records, scope: catByTable.get(table)?.scope, mode: catByTable.get(table)?.mode })),
       catalog, owners: ownerSummaries,
+      modules: await moduleInfo(deps, tableTotals),
       excluded: catalog.filter(c => c.scope === "excluded").map(c => ({ table: c.table, reason: c.reason })),
       schema: { files: E.SCHEMA_FILES, coverage, objects: objects.length },
       warnings, failures, status,

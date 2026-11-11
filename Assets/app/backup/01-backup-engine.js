@@ -99,6 +99,17 @@
     return new Promise((resolve, reject) => lib.zip(files, { level: 6, mtime: new Date() }, (err, data) => err ? reject(err) : resolve(data)));
   }
 
+  // Inventory 2.0 products store an icon id; the icon pack ships with the app, so the manifest
+  // records which pack version those ids refer to (the icons themselves are never in a backup).
+  async function moduleNotes(deps, tables) {
+    const v2 = (tables || []).filter(t => /^inventory_v2_/.test(String(t.table)));
+    if (!v2.length) return {};
+    let pack = null;
+    try { pack = deps.iconPack ? await deps.iconPack() : null; } catch (_) { pack = null; }
+    return { inventoryV2: { tables: v2.length, records: v2.reduce((a, t) => a + Number(t.count || 0), 0),
+      iconPack: pack && pack.version ? String(pack.version) : null, iconsInBackup: false } };
+  }
+
   // Path rules for anything read from an uploaded ZIP (no traversal, no
   // absolute paths, no hidden control characters, known folders only).
   function safeEntryName(name) {
@@ -108,7 +119,7 @@
     if (parts.some(p => p === ".." || p === ".")) return false;
     if (n.endsWith("/")) return "dir";
     return n === "manifest.json" || n === "README.txt" || n === "profile.json" || n === "payload.bin"
-      || /^data\/[a-z_]+\/[a-z_]+\.ndjson$/.test(n)
+      || /^data\/[a-z][a-z0-9_]*\/[a-z][a-z0-9_]*\.ndjson$/.test(n)
       || /^attachments\/company-logos\/[A-Za-z0-9_.\/-]+$/.test(n);
   }
 
@@ -322,6 +333,7 @@
       totals: { records: manifestTables.reduce((a, t) => a + t.count, 0), attachments: attachmentFiles.length },
       tables: manifestTables,
       attachments: { bucket: LOGO_BUCKET, files: attachmentFiles, missing },
+      modules: await moduleNotes(deps, manifestTables),
       excluded: [
         "Passwords, PINs, two-factor keys, passkeys, recovery keys and sign-in sessions (security)",
         "Notifications and device push subscriptions (recreated automatically)",
@@ -443,7 +455,7 @@
     }
     const seen = new Set();
     for (const t of m.tables) {
-      if (!t || !/^[a-z_]+$/.test(String(t.table)) || !/^[a-z_]+$/.test(String(t.section)) || !["data", "settings", "history"].includes(t.mode)
+      if (!t || !/^[a-z][a-z0-9_]{1,79}$/.test(String(t.table)) || !/^[a-z][a-z0-9_]{1,39}$/.test(String(t.section)) || !["data", "settings", "history"].includes(t.mode)
         || t.file !== `data/${t.section}/${t.table}.ndjson` || !Number.isInteger(t.count) || t.count < 0 || !/^[0-9a-f]{64}$/.test(String(t.sha256)) || seen.has(t.table)) {
         throw new BackupError("corrupt", "The backup description is damaged.");
       }

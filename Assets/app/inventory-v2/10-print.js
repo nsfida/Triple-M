@@ -193,5 +193,5 @@
     return print(documentHtml(x, x.doc_type === "return" ? "purchase_return" : x.doc_type));
   }
 
-  window.TriplemInv2Print = { receiptHtml, documentHtml, paymentHtml, statementHtml, print, printSale, printPurchase, METHOD };
+  window.TriplemInv2Print = { receiptHtml, documentHtml, paymentHtml, statementHtml, print, printSale, printPurchase, METHOD, a4Shell, header, business };
 })();

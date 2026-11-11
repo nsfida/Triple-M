@@ -169,6 +169,7 @@
       onOpen(f) {
         const foot = f.querySelector(".inv2-dialog-foot"), b = [];
         b.push(`<button type="button" class="inv2-btn" data-print><i class="fa-solid fa-print" aria-hidden="true"></i> Print</button>`);
+        if (x.doc_type === "purchase" && x.status === "completed") b.push(`<button type="button" class="inv2-btn" data-labels><i class="fa-solid fa-tags" aria-hidden="true"></i> Labels</button>`);
         if (I().canEdit()) {
           if (x.doc_type === "order" && ["open", "partial"].includes(x.status)) b.push(`${x.status === "open" ? `<button type="button" class="inv2-btn danger-ghost" data-cancel>Cancel order</button>` : ""}<button type="button" class="inv2-btn primary" data-receive><i class="fa-solid fa-dolly" aria-hidden="true"></i> Receive</button>`);
           if (x.doc_type === "purchase" && Number(x.due) > 0) b.push(`<button type="button" class="inv2-btn" data-pay><i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> Pay</button>`);
@@ -177,6 +178,7 @@
         foot.innerHTML = b.join("") + `<button type="button" class="inv2-btn" data-close-x>Close</button>`;
         foot.querySelector("[data-close-x]").addEventListener("click", () => d.close(true));
         foot.querySelector("[data-print]").addEventListener("click", () => Pr().printPurchase(x));
+        foot.querySelector("[data-labels]")?.addEventListener("click", () => { d.close(true); Shell().show("labels", { purchase_id: x.id, force: true }); });
         foot.querySelector("[data-receive]")?.addEventListener("click", () => { d.close(true); receiveDialog(x, after); });
         foot.querySelector("[data-pay]")?.addEventListener("click", () => { d.close(true); window.TriplemInv2Parties.paymentDialog("supplier", { id: x.supplier_id }, () => after && after(), x.id); });
         foot.querySelector("[data-return]")?.addEventListener("click", () => { d.close(true); returnDialog(x, after); });

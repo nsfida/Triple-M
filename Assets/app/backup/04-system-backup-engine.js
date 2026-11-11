@@ -307,7 +307,9 @@
   const sizeOf = src => (src instanceof Uint8Array ? src.length : Number(src.size));
 
   // Path rules for anything read from an uploaded archive.
-  const SECTION = "[a-z_]{2,40}";
+  // Section folders are lower-case names that start with a letter; digits are allowed after it
+  // (Inventory 2.0 uses "inventory_v2"). Dots, slashes and other characters are never allowed.
+  const SECTION = "[a-z][a-z0-9_]{1,39}";
   const TABLE = "[a-z0-9_]{2,80}";
   const PATH_RULES = [
     new RegExp(`^${ROOT}(backup-header\\.json|README\\.txt)$`),

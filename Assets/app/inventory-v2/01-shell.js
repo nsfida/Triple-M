@@ -23,6 +23,7 @@
     { key: "documents", label: "Invoices & Receipts", icon: "fa-file-invoice" },
     { key: "outstanding", label: "Outstanding Balances", icon: "fa-scale-balanced" },
     { key: "reports", label: "Reports", icon: "fa-chart-column" },
+    { key: "labels", label: "Labels & Barcodes", icon: "fa-tags" },
     { key: "settings", label: "Settings", icon: "fa-gear" }
   ];
   // What each section will hold, and in which planned phase it arrives.
@@ -37,6 +38,7 @@
     documents: ["Invoices, receipts, credit notes, delivery notes and A4/thermal printing.", 5],
     outstanding: ["What customers owe you and what you owe suppliers, with ageing.", 5],
     reports: ["Sales, profit, stock value, slow movers, tax summary and exports.", 8],
+    labels: ["Price and barcode labels for shelves, products and received goods.", 8],
     settings: ["Business details, outlets, taxes, numbering, receipts and staff roles.", 3]
   };
 

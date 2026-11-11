@@ -14,7 +14,7 @@
   "use strict";
   if (window.TriplemSystemBackup) return;
 
-  const V = "20261110-sysbackup1";
+  const V = "20261111-sysbackup2";
   const ENGINE_URL = `Assets/app/backup/04-system-backup-engine.js?v=${V}`;
   const RUNNER_URL = `Assets/app/backup/05-system-backup-runner.js?v=${V}`;
   const FFLATE_URL = "Assets/app/lib/fflate-0.8.2.min.js?v=0.8.2";
@@ -64,6 +64,12 @@
       appVersion: String(document.documentElement.dataset.build || ""),
       platform: window.__TRIPLEM_DESKTOP__ ? "windows-app" : (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? "mobile-web" : "web"),
       rpc: (n, a) => window.supabaseRpc(n, a, { offlineCache: false }),
+      iconPack: async () => {
+        const res = await fetch("Assets/inventory-v2/icons/icon-manifest.json", { cache: "no-store" }).catch(() => null);
+        if (!res || !res.ok) return null;
+        const j = await res.json().catch(() => null);
+        return j ? { version: j.version, source: j.source } : null;
+      },
       fetchAttachment: async a => {
         let res;
         try { res = await fetch(fnUrl, { method: "POST", cache: "no-store", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ action: "system-backup-file", id: a.id }) }); }

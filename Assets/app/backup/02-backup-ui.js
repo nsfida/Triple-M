@@ -17,6 +17,7 @@
     loans: ["Loans", "fa-hand-holding-dollar"],
     installments: ["Installments", "fa-calendar-check"],
     inventory: ["Inventory", "fa-boxes-stacked"],
+    inventory_v2: ["Inventory 2.0", "fa-cubes"],
     assets: ["Assets", "fa-building"],
     depreciation: ["Depreciation", "fa-chart-line"],
     notes: ["Notes & reminders", "fa-note-sticky"],
@@ -48,12 +49,22 @@
     insurance_commission_deduction_allocations: "Deduction allocations", insurance_commission_deduction_settlements: "Deduction settlements",
     app_user_prefs: "Preferences", accounting_settings: "Accounting settings", accounting_counters: "Number sequences",
     expense_transaction_audit_events: "Expense audit trail", accounting_audit_log: "Accounting audit log", app_activity_log: "Activity log",
-    app_triplem_ai_drafts: "AI drafts", app_triplem_ai_provenance: "AI history"
+    app_triplem_ai_drafts: "AI drafts", app_triplem_ai_provenance: "AI history",
+    inventory_v2_settings: "Inventory 2.0 settings", inventory_v2_units: "Units", inventory_v2_locations: "Shops & warehouses",
+    inventory_v2_categories: "Categories", inventory_v2_brands: "Brands", inventory_v2_products: "Products",
+    inventory_v2_variants: "Variants", inventory_v2_product_units: "Pack sizes", inventory_v2_barcodes: "Barcodes",
+    inventory_v2_batches: "Batches & expiry", inventory_v2_serials: "Serial & IMEI numbers", inventory_v2_stock_movements: "Stock movements",
+    inventory_v2_stock_balances: "Stock on hand", inventory_v2_cost_layers: "Cost layers", inventory_v2_client_operations: "Sync receipts",
+    inventory_v2_customers: "Customers", inventory_v2_suppliers: "Suppliers", inventory_v2_counters: "Number sequences",
+    inventory_v2_sales: "Sales & quotations", inventory_v2_sale_lines: "Sale lines", inventory_v2_purchases: "Purchases",
+    inventory_v2_purchase_lines: "Purchase lines", inventory_v2_payments: "Payments", inventory_v2_payment_allocations: "Payment links",
+    inventory_v2_postings: "Accounting postings", inventory_v2_sync_issues: "Offline review notes", inventory_v2_audit_log: "Inventory 2.0 activity"
   };
   const KEY_WORDS = { code: "account code", journal_no: "journal number", "doc_type, document_no": "document number", document_uuid: "document id",
     reference_no: "reference number", "lower(company_name)": "company name", customer_number: "customer number", barcode: "barcode",
     group_id: "internal group id", "lower(name)": "name", "lower(TRIM(BOTH FROM name))": "name", "lower(slug)": "category",
-    pref_key: "setting", period_date: "period", import_fingerprint: "bank statement line", sale_id: "sale", cancellation_id: "cancellation" };
+    pref_key: "setting", period_date: "period", sku: "SKU", serial_no: "serial / IMEI number", doc_no: "document number",
+    "doc_key": "number sequence", client_op_id: "sync receipt", import_fingerprint: "bank statement line", sale_id: "sale", cancellation_id: "cancellation" };
   const WHY = {
     recycle_bin: "This record is in your Recycle Bin. Restore it from the Recycle Bin; the backup never overwrites it.",
     other_account: "This record id belongs to another account and cannot be restored here.",
@@ -118,6 +129,12 @@
       fflate,
       rpc: (fn, args) => window.supabaseRpc(fn, args),
       currentUserId: uid,
+      iconPack: async () => {
+        const res = await fetch("Assets/inventory-v2/icons/icon-manifest.json", { cache: "no-store" }).catch(() => null);
+        if (!res || !res.ok) return null;
+        const j = await res.json().catch(() => null);
+        return j ? { version: j.version, source: j.source } : null;
+      },
       appVersion: String(document.documentElement.dataset.build || ""),
       platform: window.__TRIPLEM_DESKTOP__ ? "windows-app" : (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? "mobile-web" : "web"),
       fetchFile: async path => {
