@@ -4,7 +4,7 @@
  *   (app_inventory_access). Team members always follow the owner.
  * - Hides Inventory V1 everywhere in the app when the Main Admin switched it off
  *   (V1 code and data are not touched).
- * - Adds the "Triplem VIP Inventory 2.0" card to the home screen when 2.0 is on.
+ * - Adds the "Inventory 2.0" card to the home screen when 2.0 is on.
  * - Adds the Inventory block to the Main Admin's Admin > Edit user form (beside Accounting
  *   and Triplem AI): V1 on/off, 2.0 on/off, which opens first, plan exception.
  *
@@ -78,18 +78,14 @@
   function decorateHome(grid) {
     if (!grid || !v2Enabled()) return;
     if (grid.querySelector('[data-workspace-tab="inventory2"]')) return;
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "workspace-home-card workspace-home-card--inventory2";
-    card.dataset.workspaceTab = "inventory2";
-    card.innerHTML = `
-      <span class="workspace-card-art"><img class="workspace-card-icon" src="Assets/logo/icons/inventory.png" alt="" aria-hidden="true" loading="eager" decoding="async"><span class="inv2-card-badge" aria-hidden="true">2.0</span></span>
-      <span class="workspace-card-copy">
-        <strong>Triplem VIP Inventory 2.0</strong>
-        <small>Point of sale, stock, purchases, customers and suppliers.</small>
-      </span>
-      <span class="workspace-card-open" aria-hidden="true"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>`;
-    card.addEventListener("click", () => open());
+    const tpl = document.createElement("template");
+    if (typeof window.workspaceHomeCardHtml === "function") {
+      tpl.innerHTML = window.workspaceHomeCardHtml({ key: "inventory2", rawKey: "inventory2", label: "Inventory 2.0", copy: "POS, stock, purchases, customers and suppliers." }).trim();
+    } else {
+      tpl.innerHTML = `<div class="workspace-home-card wh2-card workspace-home-card--inventory2" role="button" tabindex="0" data-workspace-tab="inventory2" data-home-key="inventory2" data-default-label="Inventory 2.0"><span class="wh2-icon"><img class="wh2-img" src="Assets/logo/icons/home/inventory2.svg" alt="" aria-hidden="true"></span><span class="wh2-text"><strong class="wh2-label">Inventory 2.0</strong></span></div>`;
+    }
+    const card = tpl.content.firstElementChild;
+    // Opening and the ⋮ menu are handled by the Home grid (01-render-navigation.js).
     // Primary version first; otherwise next to where V1 sits (or at the end).
     const v1Card = grid.querySelector('[data-workspace-tab="goods"]');
     if (S.access?.primary_version === "v2") grid.insertBefore(card, grid.firstElementChild);

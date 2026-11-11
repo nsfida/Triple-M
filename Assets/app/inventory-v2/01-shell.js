@@ -120,7 +120,7 @@
     root.hidden = true;
     root.setAttribute("role", "dialog");
     root.setAttribute("aria-modal", "true");
-    root.setAttribute("aria-label", "Triplem VIP Inventory 2.0");
+    root.setAttribute("aria-label", "Inventory 2.0");
     root.innerHTML = `
       <aside class="inv2-sidebar" aria-label="Inventory 2.0 sections">
         <div class="inv2-brand">
