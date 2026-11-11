@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kangaroo ECDLP</title>
+<style>
+:root{--bg:#0d1016;--pan:#151a23;--bd:#232c3a;--fg:#d7e0ee;--mut:#7f8ca3;--ac:#36d399;--ac2:#3b82f6;--warn:#f59e0b;--err:#ef4444;--fnt:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 var(--fnt);-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:14px}
+h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.3px}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.badge{font-size:11px;padding:2px 7px;border-radius:5px;border:1px solid var(--bd);color:var(--mut)}
+.badge.ok{color:var(--ac);border-color:#1f3a2e}.badge.bad{color:var(--err);border-color:#3a1f1f}
+.sub{color:var(--mut);font-size:11px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.f{display:flex;flex-direction:column;gap:3px}.f.wide{grid-column:1/3}
+label{font-size:11px;color:var(--mut)}
+input,select{background:var(--pan);border:1px solid var(--bd);color:var(--fg);border-radius:6px;padding:7px 8px;font:12px var(--fnt);outline:none;width:100%}
+input:focus,select:focus{border-color:var(--ac2)}input.err{border-color:var(--err)}
+.row4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px}
+.btns{display:flex;gap:7px;margin:12px 0}
+button{flex:1;background:var(--pan);border:1px solid var(--bd);color:var(--fg);border-radius:6px;padding:9px;font:600 12px var(--fnt);cursor:pointer;transition:.12s}
+button:hover:not(:disabled){border-color:var(--ac2)}button:disabled{opacity:.4;cursor:default}
+#start{border-color:#1f3a2e;color:var(--ac)}#stop{color:var(--err)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.st{background:var(--pan);border:1px solid var(--bd);border-radius:6px;padding:8px}
+.st .k{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.st .v{font-size:14px;margin-top:2px;font-variant-numeric:tabular-nums;word-break:break-all}
+#result{display:none;background:#0f1a14;border:1px solid #1f3a2e;border-radius:6px;padding:10px;margin-bottom:10px}
+#result.show{display:block}
+#result .lbl{color:var(--ac);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+#result .key{word-break:break-all;font-size:13px;color:#eafff5;background:#0a140f;padding:7px;border-radius:5px;border:1px solid #163026}
+#result .meta{color:var(--mut);font-size:11px;margin-top:6px;word-break:break-all}
+.clusters{display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;margin-bottom:10px}
+.crow{border:1px solid var(--bd);border-radius:5px;background:var(--pan);padding:6px 8px;display:flex;justify-content:space-between;gap:8px;font-size:11px}
+.crow .rng{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crow .dp{color:var(--fg);font-variant-numeric:tabular-nums;white-space:nowrap}
+#status{color:var(--mut);font-size:12px;min-height:16px;margin:0 0 6px}
+#status.ok{color:var(--ac)}#status.err{color:var(--err)}
+.note{color:var(--warn);font-size:11px;border:1px solid #3a2f14;background:#1a160c;border-radius:6px;padding:8px;margin-top:10px;line-height:1.5}
+.hint{color:var(--mut);font-size:10.5px;margin-top:3px}
+@media(max-width:640px){.grid,.stats,.row4{grid-template-columns:1fr}.f.wide{grid-column:1/2}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>KANGAROO · ECDLP SOLVER</h1>
+    <span id="core" class="badge">core…</span>
+    <span id="thr" class="badge"></span>
+  </div>
+  <p class="sub">Pollard's Kangaroo over secp256k1. Finds a private key inside a known range from its <b>public key</b>. CPU / Web Workers, batched inversion, independent clusters, selectable seeding mode.</p>
+
+  <div class="grid">
+    <div class="f wide"><label>Start of range — 64 hex</label><input id="lo" spellcheck="false" placeholder="e.g. 0000…0001"></div>
+    <div class="f wide"><label>End of range — 64 hex</label><input id="hi" spellcheck="false" placeholder="e.g. 0000…ffff"></div>
+    <div class="f wide"><label>Public key — 66 hex (compressed 02/03…) or 130 hex (uncompressed 04…)</label><input id="pub" spellcheck="false" placeholder="02/03 + X  or  04 + X + Y"><div class="hint" id="pubhint"></div></div>
+  </div>
+  <div class="row4">
+    <div class="f"><label>Mode</label>
+      <select id="mode">
+        <option value="random" selected>Random</option>
+        <option value="sequence">Sequence</option>
+        <option value="reverse">Reverse</option>
+      </select>
+    </div>
+    <div class="f"><label>CPU cores (threads)</label><input id="cores" type="number" min="1" max="64" value="4"></div>
+    <div class="f"><label>Clusters (independent)</label><input id="clu" type="number" min="1" max="1024" value="4"></div>
+    <div class="f"><label>DP bits (0 = auto)</label><input id="dp" type="number" min="0" max="40" value="0"></div>
+  </div>
+
+  <div class="btns">
+    <button id="start">START</button>
+    <button id="pause" disabled>PAUSE</button>
+    <button id="stop" disabled>STOP</button>
+    <button id="clear">CLEAR</button>
+  </div>
+
+  <div class="stats">
+    <div class="st"><div class="k">Speed</div><div class="v" id="sp">0 /s</div></div>
+    <div class="st"><div class="k">Total jumps</div><div class="v" id="jt">0</div></div>
+    <div class="st"><div class="k">Distinguished pts</div><div class="v" id="dpc">0</div></div>
+    <div class="st"><div class="k">Elapsed</div><div class="v" id="el">0s</div></div>
+    <div class="st"><div class="k">√W (per cluster)</div><div class="v" id="sq">—</div></div>
+    <div class="st"><div class="k">Status</div><div class="v" id="stt" style="font-size:12px">idle</div></div>
+  </div>
+
+  <div id="result">
+    <div class="lbl">◆ PRIVATE KEY FOUND</div>
+    <div class="key" id="rkey"></div>
+    <div class="meta" id="rmeta"></div>
+  </div>
+
+  <div class="clusters" id="clusters"></div>
+  <p id="status">Enter a range and the target public key.</p>
+
+  <div class="note" id="note"></div>
+</div>
+
+<!-- ===================== WORKER ENGINE ===================== -->
+<script type="text/js-worker" id="engine">
+"use strict";
+const P  = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
+const Gx = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n;
+const Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n;
+
+function mod(a){a%=P;return a<0n?a+P:a;}
+function inv(a){let lm=1n,hm=0n,low=mod(a),high=P;while(low>1n){const r=high/low,nm=hm-lm*r,nw=high-low*r;hm=lm;lm=nm;high=low;low=nw;}return mod(lm);}
+function add(p,q){if(!p)return q;if(!q)return p;if(p[0]===q[0]){if(mod(p[1]+q[1])===0n)return null;return dbl(p);}const s=mod((q[1]-p[1])*inv(q[0]-p[0]));const x=mod(s*s-p[0]-q[0]);return[x,mod(s*(p[0]-x)-p[1])];}
+function dbl(p){if(!p)return null;const s=mod(3n*p[0]*p[0]*inv(2n*p[1]));const x=mod(s*s-2n*p[0]);return[x,mod(s*(p[0]-x)-p[1])];}
+function mul(k){let r=null,a=[Gx,Gy];k=((k%P)+P)%P;while(k>0n){if(k&1n)r=add(r,a);a=dbl(a);k>>=1n;}return r;}
+function neg(p){return p?[p[0],mod(P-p[1])]:null;}
+
+/* uniform in [0, W) via rejection sampling — no modulo bias ("very random") */
+function randBelow(W){
+  if(W<=1n)return 0n;
+  const bits=W.toString(2).length, by=(bits+7)>>3, mask=(1n<<BigInt(bits))-1n;
+  const buf=new Uint8Array(by);
+  for(;;){
+    crypto.getRandomValues(buf);
+    let v=0n;for(let i=0;i<by;i++)v=(v<<8n)|BigInt(buf[i]);
+    v&=mask;
+    if(v<W)return v;
+  }
+}
+
+let active=false, paused=false;
+let clusters=[];          // independent kangaroo states, one per cluster
+let ci=0;                 // round-robin index
+let scratchN=0;
+let DX=[],JXs=[],JYs=[],JD=[],PRE=[];
+function ensureScratch(n){ if(n>scratchN){DX=new Array(n);JXs=new Array(n);JYs=new Array(n);JD=new Array(n);PRE=new Array(n);scratchN=n;} }
+
+function seedCluster(c){
+  // jump table: jdist=2^i, point=(2^i)*G
+  c.jpx=[];c.jpy=[];c.jdist=[];
+  let jp=[Gx,Gy],jd=1n;
+  for(let i=0;i<c.L;i++){c.jdist.push(jd);c.jpx.push(jp[0]);c.jpy.push(jp[1]);jp=dbl(jp);jd<<=1n;}
+  c.dpMask=(1n<<BigInt(c.dpBits))-1n;
+
+  const Q=[c.Qx,c.Qy];
+  const B=c.B, half=B>>1, wildN=B-half, W=c.W;
+  const mode=c.mode||'random';
+  c.KX=new Array(B);c.KY=new Array(B);c.KD=new Array(B);c.KT=new Array(B);
+
+  // Random: fresh uniform start per kangaroo, within THIS cluster's own space [0,W).
+  function seedRandom(start,n,t,O){
+    for(let i=0;i<n;i++){
+      const d=randBelow(W), k=start+i;
+      c.KT[k]=t;c.KD[k]=d;
+      const p=O?add(O,mul(d)):mul(d);
+      c.KX[k]=p[0];c.KY[k]=p[1];
+    }
+  }
+  // Sequence/Reverse: evenly spaced starts, computed incrementally
+  // (one scalar-mult + n point-adds instead of n scalar-mults).
+  function seedHerd(start,n,t,O){
+    if(n<=0)return;
+    if(mode==='random'){seedRandom(start,n,t,O);return;}
+    let step=W/BigInt(n);
+    if(step<1n){seedRandom(start,n,t,O);return;}   // range smaller than herd -> fall back
+    const stepG=mul(step);
+    if(mode==='reverse'){
+      const inc=neg(stepG);                        // walk the seeds downward
+      let d=W-1n, cur=O?add(O,mul(d)):mul(d);
+      for(let i=0;i<n;i++){
+        const k=start+i;c.KT[k]=t;c.KD[k]=d;
+        c.KX[k]=cur[0];c.KY[k]=cur[1];
+        d-=step;if(d<1n)d=1n;cur=add(cur,inc);
+      }
+    }else{ // sequence
+      let d=1n, cur=O?add(O,mul(d)):mul(d);
+      for(let i=0;i<n;i++){
+        const k=start+i;c.KT[k]=t;c.KD[k]=d;
+        c.KX[k]=cur[0];c.KY[k]=cur[1];
+        d+=step;cur=add(cur,stepG);
+      }
+    }
+  }
+
+  seedHerd(0,half,0,null);     // tame herd: d*G
+  seedHerd(half,wildN,1,Q);    // wild herd: Q + d*G
+  c.jumps=0;
+}
+
+let outDps=[], jumpsSincePost=0, lastPost=0;
+
+function stepCluster(c){
+  const B=c.B,jpx=c.jpx,jpy=c.jpy,jdist=c.jdist,L=c.L,dpMask=c.dpMask;
+  const KX=c.KX,KY=c.KY,KD=c.KD,KT=c.KT;
+  ensureScratch(B);
+  for(let i=0;i<B;i++){
+    let idx=Number(KX[i]&0xffffffffn)%L;
+    let d=mod(jpx[idx]-KX[i]);
+    if(d===0n){idx=(idx+1)%L;d=mod(jpx[idx]-KX[i]);if(d===0n){idx=(idx+2)%L;d=mod(jpx[idx]-KX[i]);}}
+    JXs[i]=jpx[idx];JYs[i]=jpy[idx];JD[i]=jdist[idx];DX[i]=d;
+  }
+  PRE[0]=DX[0];
+  for(let i=1;i<B;i++)PRE[i]=mod(PRE[i-1]*DX[i]);
+  let acc=inv(PRE[B-1]);
+  for(let i=B-1;i>=0;i--){
+    const di=(i>0)?mod(acc*PRE[i-1]):acc;
+    acc=mod(acc*DX[i]);
+    const s=mod((JYs[i]-KY[i])*di);
+    const nx=mod(s*s-KX[i]-JXs[i]);
+    const ny=mod(s*(KX[i]-nx)-KY[i]);
+    KX[i]=nx;KY[i]=ny;KD[i]+=JD[i];
+    if((nx&dpMask)===0n){
+      outDps.push({c:c.idx,x:'0x'+nx.toString(16),d:'0x'+KD[i].toString(16),t:KT[i]});
+    }
+  }
+  c.jumps+=B;
+}
+
+function runSlice(){
+  if(!active)return;
+  if(paused)return;
+  if(clusters.length===0)return;
+  const deadline=performance.now()+55;
+  while(performance.now()<deadline){
+    stepCluster(clusters[ci]);
+    jumpsSincePost+=clusters[ci].B;
+    ci=(ci+1)%clusters.length;
+  }
+  const now=performance.now();
+  if(outDps.length>0 || now-lastPost>200){
+    self.postMessage({type:'dps',list:outDps,jumps:jumpsSincePost});
+    outDps=[];jumpsSincePost=0;lastPost=now;
+  }
+  if(active&&!paused)setTimeout(runSlice,0);
+}
+
+self.onmessage=function(ev){
+  const d=ev.data||{};
+  if(d.type==='stop'){active=false;clusters=[];return;}
+  if(d.type==='pause'){paused=true;return;}
+  if(d.type==='resume'){if(paused){paused=false;if(active)setTimeout(runSlice,0);}return;}
+  if(d.type!=='start')return;
+  try{
+    clusters=d.clusters.map(c=>({
+      idx:c.idx, W:BigInt(c.W), rb:c.rb, L:c.L, dpBits:c.dpBits, B:c.B,
+      Qx:BigInt(c.Qx), Qy:BigInt(c.Qy), mode:c.mode||'random'
+    }));
+    for(const c of clusters)seedCluster(c);
+    ci=0;active=true;paused=false;outDps=[];jumpsSincePost=0;lastPost=performance.now();
+    setTimeout(runSlice,0);
+  }catch(e){self.postMessage({type:'error',message:e.message||String(e)});}
+};
+self.postMessage({type:'ready'});
+
+</script>
+
+<script>
+'use strict';
+var $=function(id){return document.getElementById(id);};
+/* ---- secp256k1 (main thread: parse pubkey, build Q, verify solution) ---- */
+var P=0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
+var Gx=0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n;
+var Gy=0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n;
+var Nn=0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+function mod(a){a%=P;return a<0n?a+P:a;}
+function inv(a){let lm=1n,hm=0n,low=mod(a),high=P;while(low>1n){const r=high/low,nm=hm-lm*r,nw=high-low*r;hm=lm;lm=nm;high=low;low=nw;}return mod(lm);}
+function add(p,q){if(!p)return q;if(!q)return p;if(p[0]===q[0]){if(mod(p[1]+q[1])===0n)return null;return dbl(p);}const s=mod((q[1]-p[1])*inv(q[0]-p[0]));const x=mod(s*s-p[0]-q[0]);return[x,mod(s*(p[0]-x)-p[1])];}
+function dbl(p){if(!p)return null;const s=mod(3n*p[0]*p[0]*inv(2n*p[1]));const x=mod(s*s-2n*p[0]);return[x,mod(s*(p[0]-x)-p[1])];}
+function mul(k){let r=null,a=[Gx,Gy];k=((k%P)+P)%P;while(k>0n){if(k&1n)r=add(r,a);a=dbl(a);k>>=1n;}return r;}
+function powmod(b,e,m){let r=1n;b%=m;while(e>0n){if(e&1n)r=r*b%m;b=b*b%m;e>>=1n;}return r;}
+function neg(p){return[p[0],mod(P-p[1])];}
+function onCurve(p){return mod(p[1]*p[1])===mod(mod(mod(p[0]*p[0])*p[0])+7n);}
+function parsePub(h){
+  h=h.trim().toLowerCase().replace(/^0x/,'').replace(/\s+/g,'');
+  if(h.length===130&&h.slice(0,2)==='04'){const p=[BigInt('0x'+h.slice(2,66)),BigInt('0x'+h.slice(66))];if(!onCurve(p))throw new Error('point not on curve');return p;}
+  if(h.length===66&&(h.slice(0,2)==='02'||h.slice(0,2)==='03')){
+    const x=BigInt('0x'+h.slice(2));const rhs=mod(mod(mod(x*x)*x)+7n);let y=powmod(rhs,(P+1n)/4n,P);
+    if(mod(y*y)!==rhs)throw new Error('X has no valid Y (bad pubkey)');
+    const odd=(y&1n)===1n,want=h.slice(0,2)==='03';if(odd!==want)y=mod(P-y);
+    return[x,y];
+  }
+  throw new Error('pubkey must be 66 hex (02/03…) or 130 hex (04…)');
+}
+function pad64(x){let s=x.toString(16);while(s.length<64)s='0'+s;return s;}
+function bitlen(x){return x.toString(2).length;}
+function isHex(s,n){return new RegExp('^[0-9a-fA-F]{'+n+'}$').test(s);}
+function fmt(n){return n.toLocaleString('en-US');}
+
+var engineURL=URL.createObjectURL(new Blob([$('engine').textContent],{type:'text/javascript'}));
+
+/* ---- self test: solve a tiny instance to prove the embedded engine works ---- */
+(function selfTest(){
+  try{
+    var k=12345n, lo=12000n, hi=13000n;         // tiny known range
+    var Ppt=mul(k), W=hi-lo+1n, rb=bitlen(W);
+    var Q=add(Ppt,neg(mul(lo)));
+    var spec={idx:0,W:'0x'+W.toString(16),rb:rb,L:Math.ceil(rb/2)+5,dpBits:2,B:128,mode:'random',
+              Qx:'0x'+Q[0].toString(16),Qy:'0x'+Q[1].toString(16)};
+    var w=new Worker(engineURL), map=new Map(), done=false;
+    var to=setTimeout(function(){if(!done){$('core').textContent='core ?';w.terminate();}},4000);
+    w.onmessage=function(e){
+      var d=e.data; if(d.type==='ready'){w.postMessage({type:'start',clusters:[spec]});return;}
+      if(d.type!=='dps')return;
+      for(var i=0;i<d.list.length;i++){var dp=d.list[i],prev=map.get(dp.x);
+        if(prev===undefined){map.set(dp.x,{d:BigInt(dp.d),t:dp.t});continue;}
+        if(prev.t===dp.t)continue;
+        var tD=prev.t===0?prev.d:BigInt(dp.d),wD=prev.t===0?BigInt(dp.d):prev.d;
+        var cand=((lo+(tD-wD))%Nn+Nn)%Nn;
+        if(cand>=lo&&cand<=hi){var c=mul(cand);if(c[0]===Ppt[0]&&c[1]===Ppt[1]&&cand===k){done=true;clearTimeout(to);w.terminate();$('core').textContent='core ✓';$('core').className='badge ok';return;}}
+      }
+    };
+    w.onerror=function(){$('core').textContent='core ✗';$('core').className='badge bad';};
+  }catch(e){$('core').textContent='no worker';$('core').className='badge bad';}
+})();
+
+/* ---- state ---- */
+var workers=[],clusters=[],maps=[],running=false,paused=false,found=false;
+var t0=0,pausedAt=0,timer=null,lastJumps=0,lastT=0,totalJumps=0,Ppt=null,globalA=0n,globalB=0n;
+
+function setBtns(s){$('start').disabled=(s!=='idle');$('pause').disabled=(s==='idle');$('stop').disabled=(s==='idle');$('pause').textContent=(s==='pause')?'RESUME':'PAUSE';}
+function status(m,k){$('status').textContent=m;$('status').className=k||'';}
+
+function validate(){
+  var lo=$('lo').value.trim().replace(/^0x/,''),hi=$('hi').value.trim().replace(/^0x/,'');
+  var ok=true;
+  if(!isHex(lo,lo.length)||lo.length===0||lo.length>64){$('lo').classList.add('err');ok=false;}else $('lo').classList.remove('err');
+  if(!isHex(hi,hi.length)||hi.length===0||hi.length>64){$('hi').classList.add('err');ok=false;}else $('hi').classList.remove('err');
+  if(!ok){status('Start/End must be hex (≤64 digits).','err');return null;}
+  var L=BigInt('0x'+lo),H=BigInt('0x'+hi);
+  if(L<1n||H>=Nn){status('Range must be within the curve order.','err');return null;}
+  if(L>=H){$('lo').classList.add('err');$('hi').classList.add('err');status('Start must be < End.','err');return null;}
+  var pt;try{pt=parsePub($('pub').value);}catch(e){$('pub').classList.add('err');status('Public key: '+e.message,'err');return null;}
+  $('pub').classList.remove('err');
+  return {a:L,b:H,P:pt};
+}
+
+$('pub').addEventListener('input',function(){
+  var v=$('pub').value.trim();if(!v){$('pubhint').textContent='';return;}
+  try{var p=parsePub(v);$('pubhint').textContent='✓ on curve · X='+pad64(p[0]).slice(0,16)+'…';$('pubhint').style.color='var(--ac)';}
+  catch(e){$('pubhint').textContent='✗ '+e.message;$('pubhint').style.color='var(--err)';}
+});
+
+function buildClusters(a,b,Ppt,count,dpOverride,mode){
+  clusters=[];maps=[];
+  var span=b-a+1n,cc=BigInt(count),csz=span/cc,rem=span%cc,cur=a;
+  for(var i=0;i<count;i++){
+    var e=cur+csz-1n;if(BigInt(i)<rem)e+=1n;
+    var W=e-cur+1n,rb=bitlen(W);
+    var dpBits=dpOverride>0?dpOverride:Math.max(0,Math.floor(rb/2)-7);
+    var L=Math.min(rb+2,Math.ceil(rb/2)+5);
+    var Q=add(Ppt,neg(mul(cur)));
+    clusters.push({idx:i,lo:cur,hi:e,W:W,rb:rb,L:L,dpBits:dpBits,B:512,mode:mode,
+      Qx:'0x'+Q[0].toString(16),Qy:'0x'+Q[1].toString(16),jumps:0});
+    maps.push(new Map());
+    cur=e+1n;
+  }
+}
+
+function renderClusters(){
+  var h='';
+  for(var i=0;i<clusters.length;i++){var c=clusters[i];
+    h+='<div class="crow"><span class="rng">#'+i+'  '+pad64(c.lo).replace(/^0+/,'')+' … '+pad64(c.hi).replace(/^0+/,'')+'  ('+c.rb+'b)</span><span class="dp" id="cdp_'+i+'">DP 0</span></div>';
+  }
+  $('clusters').innerHTML=h;
+}
+
+function start(){
+  var v=validate();if(!v)return;
+  stopAll();found=false;paused=false;
+  $('result').classList.remove('show');
+  var cores=Math.max(1,Math.min(64,parseInt($('cores').value)||1));
+  var cnt=Math.max(1,Math.min(1024,parseInt($('clu').value)||1));
+  var dpOv=Math.max(0,Math.min(40,parseInt($('dp').value)||0));
+  var mode=$('mode').value;if(['random','sequence','reverse'].indexOf(mode)<0)mode='random';
+  Ppt=v.P;globalA=v.a;globalB=v.b;
+  if((v.b-v.a+1n)<BigInt(cnt))cnt=Number(v.b-v.a+1n);
+  buildClusters(v.a,v.b,Ppt,cnt,dpOv,mode);
+  renderClusters();
+  // assign clusters to workers
+  var assign=[];for(var w=0;w<cores;w++)assign.push([]);
+  if(cnt>=cores){for(var c=0;c<cnt;c++)assign[c%cores].push(c);}
+  else{for(var w2=0;w2<cores;w2++)assign[w2].push(w2%cnt);}
+  var activeWorkers=assign.filter(function(a){return a.length>0;}).length;
+  $('thr').textContent=activeWorkers+(activeWorkers>1?' threads':' thread');
+  totalJumps=0;lastJumps=0;workers=[];
+  for(var wi=0;wi<cores;wi++){
+    if(assign[wi].length===0)continue;
+    (function(idxs){
+      var worker;try{worker=new Worker(engineURL);}catch(e){status('Worker failed: '+e.message,'err');return;}
+      var specs=idxs.map(function(ci){var c=clusters[ci];return {idx:c.idx,W:'0x'+c.W.toString(16),rb:c.rb,L:c.L,dpBits:c.dpBits,B:c.B,mode:c.mode,Qx:c.Qx,Qy:c.Qy};});
+      worker.onmessage=function(e){var d=e.data;
+        if(d.type==='ready'){worker.postMessage({type:'start',clusters:specs});}
+        else if(d.type==='dps'){onDps(d);}
+        else if(d.type==='error'){status('Worker error: '+d.message,'err');}
+      };
+      workers.push(worker);
+    })(assign[wi]);
+  }
+  running=true;t0=performance.now();lastT=t0;setBtns('run');
+  var rb0=clusters[0].rb;$('sq').textContent='2^'+(rb0/2).toFixed(1);
+  status('Running ['+mode+'] — '+cnt+' cluster'+(cnt>1?'s':'')+' · expected ≈ 2^'+(rb0/2+1).toFixed(1)+' jumps for the solving cluster.');
+  timer=setInterval(tick,250);
+}
+
+function onDps(d){
+  if(found)return;
+  totalJumps+=d.jumps;
+  var list=d.list;
+  for(var i=0;i<list.length;i++){
+    var dp=list[i],map=maps[dp.c];if(!map)continue;
+    var prev=map.get(dp.x);
+    if(prev===undefined){map.set(dp.x,{d:dp.d,t:dp.t});continue;}
+    if(prev.t===dp.t)continue;
+    var tD=prev.t===0?BigInt(prev.d):BigInt(dp.d);
+    var wD=prev.t===0?BigInt(dp.d):BigInt(prev.d);
+    var cand=((clusters[dp.c].lo+(tD-wD))%Nn+Nn)%Nn;
+    if(cand>=globalA&&cand<=globalB){
+      var chk=mul(cand);
+      if(chk&&chk[0]===Ppt[0]&&chk[1]===Ppt[1]){ onFound(cand,dp.c); return; }
+    }
+  }
+}
+
+function onFound(k,cluster){
+  if(found)return;found=true;running=false;
+  stopAll();
+  $('rkey').textContent=pad64(k);
+  $('rmeta').textContent='decimal '+k.toString()+'  ·  found in cluster #'+cluster+'  ·  mode '+$('mode').value+'  ·  verified k·G = target pubkey';
+  $('result').classList.add('show');
+  setBtns('idle');$('stt').textContent='FOUND';clearInterval(timer);timer=null;tick(true);
+  status('Private key found and verified.','ok');
+}
+
+function tick(final){
+  var now=performance.now();
+  var dps=0;for(var i=0;i<maps.length;i++){dps+=maps[i].size;var el=$('cdp_'+i);if(el)el.textContent='DP '+fmt(maps[i].size);}
+  $('dpc').textContent=fmt(dps);$('jt').textContent=fmt(totalJumps);
+  if(!paused){var dt=(now-lastT)/1000;if(dt>0){$('sp').textContent=fmt(Math.round((totalJumps-lastJumps)/dt))+' /s';lastJumps=totalJumps;lastT=now;}}
+  var e=(now-t0)/1000;$('el').textContent=(e<60?e.toFixed(0)+'s':Math.floor(e/60)+'m'+Math.floor(e%60)+'s');
+  if(!final&&running&&!paused)$('stt').textContent='running';
+}
+
+function stopAll(){workers.forEach(function(w){try{w.postMessage({type:'stop'});w.terminate();}catch(e){}});workers=[];}
+function pauseToggle(){
+  if(!running||found)return;paused=!paused;
+  workers.forEach(function(w){w.postMessage({type:paused?'pause':'resume'});});
+  setBtns(paused?'pause':'run');$('stt').textContent=paused?'paused':'running';
+  if(paused){pausedAt=performance.now();clearInterval(timer);timer=null;}
+  else{t0+=performance.now()-pausedAt;lastT=performance.now();timer=setInterval(tick,250);}
+}
+function stop(){if(!running&&!workers.length)return;running=false;paused=false;stopAll();setBtns('idle');$('stt').textContent='stopped';if(timer){clearInterval(timer);timer=null;}status('Stopped.');}
+function clearAll(){
+  stop();$('lo').value='';$('hi').value='';$('pub').value='';$('pubhint').textContent='';
+  $('result').classList.remove('show');$('clusters').innerHTML='';maps=[];clusters=[];
+  $('sp').textContent='0 /s';$('jt').textContent='0';$('dpc').textContent='0';$('el').textContent='0s';$('sq').textContent='—';$('stt').textContent='idle';
+  status('Cleared.');['lo','hi','pub'].forEach(function(id){$(id).classList.remove('err');});
+}
+
+$('start').onclick=start;$('pause').onclick=pauseToggle;$('stop').onclick=stop;$('clear').onclick=clearAll;
+$('cores').value=Math.min(8,navigator.hardwareConcurrency||4);
+$('clu').value=$('cores').value;
+$('note').innerHTML='<b>Modes.</b> <b>Random</b> seeds every kangaroo at a fresh, unbiased uniform start inside each cluster\'s own range — independent per cluster. '+
+  '<b>Sequence</b> spreads the herd evenly from the bottom of the range upward; <b>Reverse</b> spreads it from the top downward. '+
+  'All three are correctness-equivalent (the collision math does not depend on where kangaroos start); they change which part of the space is covered first. '+
+  'Sequence/Reverse seed the whole herd with one scalar-mult plus incremental point additions, so startup is cheap.<br><br>'+
+  '<b>Reality check.</b> Kangaroo needs ≈ 2·√W elliptic-curve operations. This CPU build does ~'+
+  '0.3–0.6M jumps/sec per core, so a few million/sec total. That is excellent for ranges up to ~2<sup>50</sup>–2<sup>60</sup> bits, '+
+  'but puzzle #135 (√W≈2<sup>67</sup>) and #140 (√W≈2<sup>69.5</sup>) need ~10<sup>20</sup>–10<sup>21</sup> operations — out of reach for any CPU/browser '+
+  '(those were solved on large GPU farms). Use this to learn the method, verify small keys, and solve modest ranges. Clusters are fully independent (separate DP tables, no mixing); for one fastest search set Clusters = 1 so every core feeds one table.';
+</script>
+</body>
+</html>
