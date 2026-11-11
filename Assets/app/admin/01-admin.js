@@ -73,7 +73,9 @@ function renderAdminUserCardHtml(user, { nested = false, memberCount = 0, active
   const triplemAiBadge = user.triplem_ai_access ? `<span class="admin-badge triplem-ai-badge"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI</span>` : "";
   const paymentBadge = pendingSubscription ? `<span class="admin-badge warn admin-payment-pending-badge">Payment pending</span>` : "";
   let planBadge = `<span class="admin-badge ok">Full</span>`;
-  if (flags.period_expired && flags.grace_active) {
+  if (flags.read_only) {
+    planBadge = `<span class="admin-badge warn">Limited access</span>`;
+  } else if (flags.period_expired && flags.grace_active) {
     planBadge = `<span class="admin-badge warn">Grace ${escapeHtml(String(Math.floor(Number(flags.grace_days_left) || 0)))}d</span>`;
   } else if (flags.lock_active) {
     planBadge = `<span class="admin-badge warn">Locked ${escapeHtml(String(Math.floor(Number(flags.lock_days_left) || 0)))}d</span>`;
@@ -856,12 +858,15 @@ async function openPlanSubscriptionModal(){
   const pendingPlan = pendingSeatAddition ? "Team seat addition" : (sub?.plan === "yearly" ? "Pro Yearly" : "Pro Monthly");
   const pendingExpiry = pendingSeatAddition ? currentExpiry : (sub?.proposed_expires_at ? formatTrialExpiry(sub.proposed_expires_at) : currentExpiry);
   const regionalCurrency = typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD";
+  // Grace period / limited access explained here too (migration 224).
+  const lifecycleNote = window.TriplemLimitedAccess?.bannerText?.(getUserAccessFlags(state.sessionUser)) || null;
 
   body.innerHTML = `
     <div class="plan-sub-current-card">
       <div><span class="section-kicker">Current access</span><h4>${escapeHtml(currentLabel)}</h4><p>${escapeHtml(currentExpiry)}</p></div>
-      <span class="settings-pill ${pending ? "warn" : "ok"}">${pending ? "Payment pending" : "Active"}</span>
+      <span class="settings-pill ${pending || lifecycleNote ? "warn" : "ok"}">${pending ? "Payment pending" : lifecycleNote?.kind === "limited" ? "Limited access" : lifecycleNote?.kind === "grace" ? "Grace period" : "Active"}</span>
     </div>
+    ${lifecycleNote && !pending ? `<div class="plan-sub-lifecycle is-${lifecycleNote.kind}" role="note"><i class="fa-solid ${lifecycleNote.kind === "limited" ? "fa-lock" : "fa-hourglass-half"}" aria-hidden="true"></i><div><strong>${escapeHtml(lifecycleNote.title)}</strong><p>${escapeHtml(lifecycleNote.message)}</p><p><button type="button" class="signup-terms-link" data-banner-details>What is available and what is paused</button> · <button type="button" class="signup-terms-link" data-open-terms="trial">Free Trial Terms</button></p></div></div>` : ""}
     ${pending ? `<div class="plan-sub-pending"><i class="fa-solid fa-clock"></i><div><strong>Payment approval pending</strong><p>${escapeHtml(pendingPlan)} · ${regionalMoneyHtml(sub.amount, sub.currency || regionalCurrency)}${sub.team_enabled ? ` · ${escapeHtml(String(sub.team_seats))} paid team seat${Number(sub.team_seats)===1?"":"s"}` : ""}</p><p>${pendingSeatAddition ? "Company plan expiry remains unchanged while the additional seats are reviewed." : `Proposed expiry: <strong>${escapeHtml(pendingExpiry)}</strong>. Your workspace remains available while the administrator verifies the receipt.`}</p></div></div>` : ""}
     ${isTeamMember ? `<div class="plan-sub-managed"><i class="fa-solid fa-building-shield"></i><div><strong>Managed by company account</strong><p>Your plan and paid team access are controlled by the company main account.</p></div></div>` : ""}
     ${isProtected ? `<div class="plan-sub-managed"><i class="fa-solid fa-shield-halved"></i><div><strong>Protected administrator</strong><p>This account does not require self-service subscription renewal.</p></div></div>` : ""}
@@ -882,6 +887,7 @@ async function openPlanSubscriptionModal(){
         <label class="signup-bank-card"><input type="radio" name="planPaymentBank" value="enbd" /><img src="Assets/logo/wallet_logos/Emirates NBD.png" alt="Emirates NBD" /><span><strong>Emirates NBD</strong><small>Name: Nadeem Shahzad Fida</small><small>IBAN: AE060260001015884837801</small><small>Account No: 1015884837801</small></span></label>
       </div>
       <label class="settings-field plan-receipt-field">Payment receipt<input id="planReceiptFile" class="input settings-input" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" /><span class="settings-hint">PNG, JPG, WebP or PDF, maximum 5MB. The receipt remains private for administrator review.</span></label>
+      <label class="signup-purchase-confirm" for="planPurchaseConfirm"><input id="planPurchaseConfirm" type="checkbox" /><span>I am starting a purchase of the selected plan for the total shown. I pay by bank transfer directly to Triplem VIP (payment provider: the bank account selected above); the plan does not renew automatically.${window.TriplemStore?.active ? " Microsoft is not the seller of Triplem VIP plans." : ""} <button type="button" class="signup-terms-link" data-open-terms="terms">Terms and Conditions</button></span></label>
       <div id="planSubscriptionError" class="lock-error"></div>
       <div class="settings-sheet-footer plan-sub-footer"><button type="button" class="btn ghost" data-plan-sub-close>Cancel</button><button type="button" class="btn primary" id="planSubscriptionSubmit"><i class="fa-solid fa-paper-plane"></i> Submit payment for approval</button></div>
     ` : ""}`;
@@ -910,6 +916,7 @@ async function openPlanSubscriptionModal(){
     try {
       const file=body.querySelector("#planReceiptFile")?.files?.[0];
       if (!file) throw new Error("Please attach your bank transfer receipt.");
+      if (!body.querySelector("#planPurchaseConfirm")?.checked) throw new Error("Please confirm that you are starting a purchase.");
       if (file.size>5*1024*1024) throw new Error("Payment receipt must be 5MB or smaller.");
       if (!["image/png","image/jpeg","image/webp","application/pdf"].includes(file.type)) throw new Error("Receipt must be PNG, JPG, WebP, or PDF.");
       submit.disabled=true; submit.innerHTML=`<i class="fa-solid fa-spinner btn-loader"></i> Submitting…`;

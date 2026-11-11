@@ -3163,6 +3163,12 @@ async function supabase(path, options = {}){
     error.path = path;
     error.responseData = data;
     error.isConnectivityError = [408, 425, 429, 500, 502, 503, 504].includes(res.status);
+    // Limited access (migration 224): the database refused a new entry or change.
+    if (data?.hint === "TRIPLEM_LIMITED_ACCESS" || /^Limited access:/.test(String(message))) {
+      error.code = "LIMITED_ACCESS";
+      error.isLimitedAccess = true;
+      try { window.TriplemLimitedAccess?.onRefused?.(error); } catch (_) {}
+    }
     throw error;
   }
   return data;

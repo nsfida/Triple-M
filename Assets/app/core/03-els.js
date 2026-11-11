@@ -12,6 +12,7 @@ const els = {
   accessBannerTitle: document.getElementById("accessBannerTitle"),
   accessBannerMessage: document.getElementById("accessBannerMessage"),
   accessBannerContact: document.getElementById("accessBannerContact"),
+  accessBannerTerms: document.getElementById("accessBannerTerms"),
   lockError: document.getElementById("lockError"),
   welcomeScreen: document.getElementById("welcomeScreen"),
   welcomeName: document.getElementById("welcomeName"),
@@ -531,8 +532,19 @@ function getUserAccessFlags(user = state.sessionUser){
     const periodExpired = user.period_expired === true || user.trial_expired === true;
     const periodActive = user.period_active === true || user.trial_active === true;
     const graceActive = user.grace_active === true;
-    const lockActive = user.lock_active === true;
+    // 2026-11-11 (migration 224): no locked day and no deactivation any more. After the grace
+    // period the account has limited access: everything can be viewed and downloaded, nothing
+    // can be added or changed (the database refuses it). Older servers keep their old meaning.
+    const v224 = user.access_lifecycle === "v224";
+    const readOnly = v224 && user.read_only === true;
+    const lockActive = !v224 && user.lock_active === true;
     return {
+      access_lifecycle: v224 ? "v224" : null,
+      read_only: readOnly,
+      limited_access: readOnly,
+      write_allowed: !readOnly,
+      grace_ends_at: user.grace_ends_at || user.lock_starts_at || null,
+      read_only_since: user.read_only_since || null,
       access_plan: plan || "full",
       is_trial: isTrial,
       trial_active: isTrial && periodActive,
@@ -549,8 +561,8 @@ function getUserAccessFlags(user = state.sessionUser){
       lock_active: lockActive,
       lock_days_left: user.lock_days_left ?? null,
       lock_starts_at: user.lock_starts_at || null,
-      should_auto_disable: user.should_auto_disable === true,
-      access_disable_at: user.access_disable_at || null,
+      should_auto_disable: !v224 && user.should_auto_disable === true,
+      access_disable_at: v224 ? null : (user.access_disable_at || null),
       access_last_extended_at: user.access_last_extended_at || null,
       access_last_extended_until: user.access_last_extended_until || null,
       payment_approval_pending: user.payment_approval_pending === true || user.payment_approval_pending === "true",
@@ -559,8 +571,10 @@ function getUserAccessFlags(user = state.sessionUser){
       subscription_billing_period: user.subscription_billing_period || null,
       subscription_proposed_expires_at: user.subscription_proposed_expires_at || null,
       subscription_promotion_months: Number(user.subscription_promotion_months) || 0,
-      // Grace always allows workspace use, even if an older API still sent data_access_allowed=false
-      data_access_allowed: graceActive
+      // Grace always allows workspace use, even if an older API still sent data_access_allowed=false.
+      // Limited access (v224) still allows viewing and downloading everything.
+      data_access_allowed: v224
+        || graceActive
         || periodActive
         || user.unlimited_access === true
         || (typeof user.data_access_allowed === "boolean" ? user.data_access_allowed : !periodExpired)
@@ -624,6 +638,12 @@ function getUserAccessFlags(user = state.sessionUser){
   }
 
   return {
+    access_lifecycle: null,
+    read_only: false,
+    limited_access: false,
+    write_allowed: true,
+    grace_ends_at: lockStartsAt,
+    read_only_since: null,
     access_plan: plan || "full",
     is_trial: isTrial,
     trial_active: isTrial && periodActive,
@@ -747,6 +767,9 @@ function adminPlanStatusMeta(user){
   }
   if (flags.grace_active) {
     return { flags, status: "Expired · grace", statusClass: "warn", expiresLabel: formatAccessDateShort(flags.trial_expires_at) };
+  }
+  if (flags.read_only) {
+    return { flags, status: "Expired · limited access", statusClass: "warn", expiresLabel: formatAccessDateShort(flags.trial_expires_at) };
   }
   if (flags.lock_active) {
     return { flags, status: "Expired · locked", statusClass: "warn", expiresLabel: formatAccessDateShort(flags.trial_expires_at) };
@@ -1144,8 +1167,8 @@ function updateAccessBanner(){
   if (!els.guestModeBanner) return;
   const flags = getUserAccessFlags();
   const showGuest = isGuestMode();
-  // Front banner: guest demo, OR active plan with ≤14 days remaining only.
-  // Expired / grace warnings stay in Account Settings — not on the main page.
+  // Front banner: guest demo, a pending payment, the trial/plan countdown (14 days or less),
+  // the grace period and limited access (2026-11-11, migration 224).
   const daysLeft = Number(flags.trial_days_remaining);
   const showPendingPayment = !showGuest && state.unlocked && flags.payment_approval_pending === true;
   const showApproaching = !showGuest
@@ -1156,10 +1179,24 @@ function updateAccessBanner(){
     && Number.isFinite(daysLeft)
     && daysLeft >= 0
     && daysLeft <= 14;
+  const lifecycle = (!showGuest && state.unlocked && !showPendingPayment && !showApproaching && window.TriplemLimitedAccess)
+    ? window.TriplemLimitedAccess.bannerText(flags) : null;
+  const showGrace = lifecycle?.kind === "grace";
+  const showLimited = lifecycle?.kind === "limited";
+  const isTrialPlan = flags.access_plan === "trial" || flags.is_trial === true;
+  try { window.TriplemLimitedAccess?.apply?.(); } catch (_) {}
+  if (els.accessBannerTerms) {
+    els.accessBannerTerms.classList.toggle("hide", showGuest);
+    els.accessBannerTerms.setAttribute("data-open-terms", isTrialPlan ? "trial" : "terms");
+    els.accessBannerTerms.textContent = isTrialPlan ? "Trial Terms and Conditions" : "Plan Terms and Conditions";
+  }
+  const actions = document.getElementById("accessBannerActions");
+  if (actions) actions.classList.toggle("hide", !(showApproaching || showGrace || showLimited));
+  if (els.accessBannerContact) els.accessBannerContact.classList.toggle("hide", !!(showApproaching || showGrace || showLimited));
 
-  els.guestModeBanner.classList.toggle("hide", !(showGuest || showPendingPayment || showApproaching));
-  els.guestModeBanner.classList.toggle("trial-expired-banner", false);
-  els.guestModeBanner.classList.toggle("trial-grace-banner", false);
+  els.guestModeBanner.classList.toggle("hide", !(showGuest || showPendingPayment || showApproaching || showGrace || showLimited));
+  els.guestModeBanner.classList.toggle("trial-expired-banner", !!showLimited);
+  els.guestModeBanner.classList.toggle("trial-grace-banner", !!showGrace);
   els.guestModeBanner.classList.toggle("trial-active-banner", !!showApproaching);
   els.guestModeBanner.classList.toggle("payment-pending-banner", !!showPendingPayment);
 
@@ -1183,10 +1220,23 @@ function updateAccessBanner(){
 
   if (showApproaching) {
     const daysLabel = `${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining`;
-    if (els.accessBannerTitle) els.accessBannerTitle.textContent = "Plan ending soon";
-    if (els.accessBannerMessage) {
-      els.accessBannerMessage.textContent = `${daysLabel}. Expires ${formatTrialExpiry(flags.trial_expires_at)}. Renew from Plan & Subscription.`;
+    if (isTrialPlan) {
+      if (els.accessBannerTitle) els.accessBannerTitle.textContent = "Free trial";
+      if (els.accessBannerMessage) {
+        els.accessBannerMessage.textContent = `${daysLabel}. Your free trial ends on ${formatTrialExpiry(flags.trial_expires_at)}. After that you keep full access for a 3-day grace period; then new entries are paused until you choose a plan, while all your records stay available to view and download. Nothing is deleted.`;
+      }
+    } else {
+      if (els.accessBannerTitle) els.accessBannerTitle.textContent = "Plan ending soon";
+      if (els.accessBannerMessage) {
+        els.accessBannerMessage.textContent = `${daysLabel}. Your plan ends on ${formatTrialExpiry(flags.trial_expires_at)}. Renew from Plan & Subscription to keep adding entries after the 3-day grace period.`;
+      }
     }
+  }
+
+  if (lifecycle) {
+    if (els.accessBannerTitle) els.accessBannerTitle.textContent = lifecycle.title;
+    if (els.accessBannerMessage) els.accessBannerMessage.textContent = lifecycle.message;
+    try { window.TriplemLimitedAccess.maybeShow(); } catch (_) {}
   }
   updateWeakPasswordBanner();
 }

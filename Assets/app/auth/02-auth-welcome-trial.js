@@ -21,6 +21,20 @@ async function openTrialSignupModal(preferredPlan = "free"){
   const stateSignup = { step: 1, plan: normalizedPreferredPlan, accountType: "individual", receiptBase64: "" };
   const money = (v, c = regionalCurrency) => regionalMoneyHtml(v, c);
   const priceLines = period => `<span><b>${escapeHtml(regionalCurrency)}</b> ${money(prices[period][regionalCurrency], regionalCurrency)}</span>`;
+  // 2026-11-11: the modules the new workspace starts with (app_signup_v4, migration 223).
+  // Selected by default; the user can change them. The Microsoft Store edition has no Bitcoin module.
+  const SIGNUP_MODULES = [
+    { key: "expenses", icon: "fa-wallet", title: "Expenses & Wallets", text: "Spending, income, wallets, transfers and receipts.", on: true },
+    { key: "inventory_v2", icon: "fa-boxes-stacked", title: "Inventory 2.0", text: "Products, variants, stock by location, purchases, sales, POS, barcodes and labels.", on: true },
+    { key: "assets", icon: "fa-building-columns", title: "Assets", text: "Asset register with depreciation schedules.", on: true },
+    { key: "loans", icon: "fa-hand-holding-dollar", title: "Loans", text: "Money lent and borrowed, repayments and balances.", on: true },
+    { key: "installments", icon: "fa-calendar-days", title: "Installments", text: "Installment plans, due dates and collections.", on: true },
+    { key: "notes", icon: "fa-note-sticky", title: "Notes & Reminders", text: "Notes, checklists and reminders.", on: true },
+    ...(storeNoCrypto ? [] : [{ key: "bitcoin", icon: "fa-brands fa-bitcoin", title: "Bitcoin", text: "Bitcoin wallets and records (adds the BTC currency).", on: true }]),
+    { key: "accounting", icon: "fa-book", title: "Accounting", text: "Double-entry books, chart of accounts and statements.", on: false }
+  ];
+  const moduleCardsHtml = () => SIGNUP_MODULES.map(m => `<label class="signup-module-card"><input type="checkbox" name="trialModules" value="${m.key}"${m.on ? " checked" : ""} /><span class="signup-module-icon"><i class="${m.icon.startsWith("fa-brands") ? m.icon : `fa-solid ${m.icon}`}" aria-hidden="true"></i></span><span><strong>${escapeHtml(m.title)}</strong><small>${escapeHtml(m.text)}</small></span><span class="signup-module-check" aria-hidden="true"><i class="fa-solid fa-check"></i></span></label>`).join("");
+  const termsVersion = window.TriplemTerms?.VERSION || "2026-11-11";
 
   modal.innerHTML = `
     <div class="modal-backdrop" data-trial-close="1"></div>
@@ -47,7 +61,7 @@ async function openTrialSignupModal(preferredPlan = "free"){
       <div class="modal-body trial-signup-body signup-v2-body">
         <div class="signup-v2-progress" aria-label="Signup progress">
           <span class="active" data-signup-progress="1">1 <small>Plan</small></span>
-          <span data-signup-progress="2">2 <small>Account</small></span>
+          <span data-signup-progress="2">2 <small>Account &amp; modules</small></span>
           <span data-signup-progress="3">3 <small>Details</small></span>
           <span data-signup-progress="4">4 <small>Payment</small></span>
         </div>
@@ -74,12 +88,28 @@ async function openTrialSignupModal(preferredPlan = "free"){
               <span class="signup-plan-benefit"><i class="fa-solid fa-check"></i> Longer uninterrupted access</span>
             </button>
           </div>
+          <div class="signup-trial-facts" role="note" aria-labelledby="signupTrialFactsTitle">
+            <strong id="signupTrialFactsTitle"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> How the free trial works</strong>
+            <ul>
+              <li><b>14 days free</b> from sign-up, with full access to the modules you choose. No card and no automatic charge; it never turns into a paid plan by itself.</li>
+              <li><b>Grace period:</b> when the trial ends you keep full access for 3 more days, and the app shows the exact end date.</li>
+              <li><b>Then limited access:</b> your account stays active and you can still sign in, view and download all records, reports, PDFs, CSV files, receipts, invoices and backups. New entries, changes and deletions are paused until a Pro plan is approved. <b>Nothing is deleted</b> and the account is not switched off.</li>
+              <li><b>Limits:</b> Triplem AI is enabled on request and uses your own Google Gemini key; Insurance is enabled on request; an internet connection is required.</li>
+              <li><b>Paid plans</b> are paid by bank transfer directly to Triplem VIP and approved by an administrator. They do not renew automatically.</li>
+            </ul>
+            <button type="button" class="signup-terms-link" data-open-terms="trial">Read the full Free Trial Terms</button>
+          </div>
         </section>
 
         <section class="signup-v2-step hide" data-signup-step="2">
           <div class="signup-type-grid">
             <button type="button" class="signup-type-card selected" data-signup-type="individual"><i class="fa-solid fa-user"></i><strong>Individual</strong><small>Personal private workspace</small></button>
             <button type="button" class="signup-type-card" data-signup-type="company"><i class="fa-solid fa-building"></i><strong>Company</strong><small>Company branding, TRN, team option</small></button>
+          </div>
+          <div class="signup-modules" role="group" aria-labelledby="signupModulesTitle">
+            <div class="signup-detail-head"><span><i class="fa-solid fa-table-cells-large"></i></span><div><strong id="signupModulesTitle">Choose your workspace modules</strong><small>The recommended modules are selected. Untick what you do not need; Dashboard, Reports and Currency settings are always included. Support can add or remove modules later without touching your records.</small></div></div>
+            <div class="signup-module-grid">${moduleCardsHtml()}</div>
+            <p class="help signup-module-note">New accounts use Inventory 2.0. Insurance, Triplem AI and the Classic inventory are enabled by Triplem VIP on request.</p>
           </div>
         </section>
 
@@ -107,7 +137,7 @@ async function openTrialSignupModal(preferredPlan = "free"){
             <div class="signup-detail-section">
               <div class="signup-detail-head"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Workspace setup</strong><small>Currency, identity mark and company team</small></div></div>
               <div class="signup-v2-form-grid">
-                <div class="form-group signup-span-2"><label class="form-label">Workspace currencies</label>${checkboxGridHtml("trialCurrencies", workspaceCurrencies, [regionalCurrency])}<p class="help">${storeNoCrypto ? "Choose one or more." : "Choose one or more. BTC also enables the Bitcoin section."}</p></div>
+                <div class="form-group signup-span-2"><label class="form-label">Workspace currencies</label>${checkboxGridHtml("trialCurrencies", workspaceCurrencies, [regionalCurrency])}<p class="help">${storeNoCrypto ? "Choose one or more." : "Choose one or more. The Bitcoin module adds BTC automatically."}</p></div>
                 <div class="form-group"><label class="form-label" for="trialBillingCurrency">Primary / billing currency</label><select id="trialBillingCurrency" class="input" aria-label="Regional billing currency"><option value="${escapeHtml(regionalCurrency)}">${escapeHtml(regionalCurrency)}</option></select></div>
                 <div class="form-group"><label class="form-label" for="trialLogoFile">Logo <span class="trial-optional">optional</span></label><input id="trialLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" /><input id="trialLogoUrl" type="hidden" value="" /><div class="admin-logo-preview-wrap"><img id="trialLogoPreview" class="admin-logo-preview hide" src="" alt="Logo preview" /><span id="trialLogoStatus" class="help">PNG, JPG, WebP or GIF.</span></div></div>
                 <div class="form-group company-signup-field signup-span-2 signup-team-field hide">
@@ -141,7 +171,12 @@ async function openTrialSignupModal(preferredPlan = "free"){
           </div>
           <div class="form-group signup-receipt-field"><label class="form-label" for="trialReceiptFile">Attach transfer receipt</label><input id="trialReceiptFile" class="input" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" /><p class="help">PNG, JPG, WebP or PDF · maximum 5MB. The receipt is kept private for administrator review.</p></div>
           <div class="signup-pending-note"><i class="fa-solid fa-shield-halved"></i><span>Your account opens immediately with provisional <strong>Pro access</strong>. Payment remains <strong>Pending approval</strong> until the administrator verifies the transfer.</span></div>
+          <label class="signup-purchase-confirm" for="trialPurchaseConfirm"><input id="trialPurchaseConfirm" type="checkbox" /><span id="trialPurchaseConfirmText">I am starting a purchase of this plan. I pay by bank transfer directly to Triplem VIP (payment provider: the bank account I choose above); the plan does not renew automatically.${storeNoCrypto ? " Microsoft is not the seller of Triplem VIP plans." : ""}</span></label>
         </section>
+
+        <div class="signup-terms-accept hide" id="trialTermsBlock">
+          <label for="trialTermsAccept"><input id="trialTermsAccept" type="checkbox" /><span>I have read and accept the <button type="button" class="signup-terms-link" data-open-terms="terms">Terms and Conditions</button> and the <button type="button" class="signup-terms-link" data-open-terms="trial">Free Trial Terms</button> (version ${escapeHtml(termsVersion)}), and I am 18 or older.</span></label>
+        </div>
 
         <div id="trialSignupError" class="lock-error"></div>
         <div class="modal-footer trial-signup-footer signup-v2-footer">
@@ -193,6 +228,7 @@ async function openTrialSignupModal(preferredPlan = "free"){
     const unit = teamPrices[stateSignup.plan][c];
     hint.innerHTML = `${money(unit, c)} per team member ${stateSignup.plan === "monthly" ? "monthly" : "yearly"} · ${seats} seat${seats === 1 ? "" : "s"} = ${money(unit * seats, c)}`;
   };
+  const selectedModules = () => [...modal.querySelectorAll('input[name="trialModules"]:checked')].map(i => i.value);
   const updatePaymentSummary = () => {
     const el = modal.querySelector("#trialPaymentSummary"); if (!el || stateSignup.plan === "free") return;
     const c = regionalCurrency;
@@ -214,6 +250,7 @@ async function openTrialSignupModal(preferredPlan = "free"){
     const finalStep = stateSignup.plan === "free" ? 3 : 4;
     nextBtn.classList.toggle("hide", step >= finalStep);
     saveBtn.classList.toggle("hide", step !== finalStep);
+    modal.querySelector("#trialTermsBlock")?.classList.toggle("hide", step !== finalStep);
     if (step === 3) { updateCompanyFields(); updateTeamPrice(); }
     if (step === 4) updatePaymentSummary();
   };
@@ -257,7 +294,10 @@ async function openTrialSignupModal(preferredPlan = "free"){
     err.textContent = ""; err.classList.remove("show");
     try {
       if (stateSignup.step === 1) return showStep(2);
-      if (stateSignup.step === 2) return showStep(3);
+      if (stateSignup.step === 2) {
+        if (!selectedModules().length) throw new Error("Choose at least one workspace module.");
+        return showStep(3);
+      }
       if (stateSignup.step === 3) { validateDetails(); return showStep(stateSignup.plan === "free" ? 3 : 4); }
     } catch (ex) { err.textContent = ex.message || "Please check your details."; err.classList.add("show"); }
   };
@@ -278,6 +318,10 @@ async function openTrialSignupModal(preferredPlan = "free"){
       const setupRecoveryAfterSignup = !!modal.querySelector("#trialRecoverySetup")?.checked;
       const paid = stateSignup.plan !== "free";
       const receiptFile = modal.querySelector("#trialReceiptFile")?.files?.[0] || null;
+      const modules = selectedModules();
+      if (!modules.length) throw new Error("Choose at least one workspace module.");
+      if (!modal.querySelector("#trialTermsAccept")?.checked) throw new Error("Please accept the Terms and Conditions and the Free Trial Terms.");
+      if (paid && !modal.querySelector("#trialPurchaseConfirm")?.checked) throw new Error("Please confirm that you are starting a purchase.");
       if (paid) {
         if (!receiptFile) throw new Error("Please attach your bank transfer receipt.");
         if (receiptFile.size > 5 * 1024 * 1024) throw new Error("Payment receipt must be 5MB or smaller.");
@@ -287,6 +331,10 @@ async function openTrialSignupModal(preferredPlan = "free"){
       const billingCurrency = modal.querySelector("#trialBillingCurrency").value;
       let currencies = readCheckboxGrid(modal, "trialCurrencies");
       currencies = [billingCurrency, ...currencies.filter(currency => currency !== billingCurrency)];
+      // BTC follows the Bitcoin module (never in the Microsoft Store edition).
+      const wantsBitcoin = !storeNoCrypto && modules.includes("bitcoin");
+      currencies = currencies.filter(currency => String(currency).toUpperCase() !== "BTC" || wantsBitcoin);
+      if (wantsBitcoin && !currencies.includes("BTC")) currencies.push("BTC");
       const teamEnabled = stateSignup.accountType === "company" && !!modal.querySelector("#trialTeamEnabled").checked;
       const signupPayload = {
         p_plan: stateSignup.plan,
@@ -312,15 +360,29 @@ async function openTrialSignupModal(preferredPlan = "free"){
         p_ip: null,
         p_country_code: typeof getRegionalCountryCode === "function" ? getRegionalCountryCode() : "ZZ"
       };
+      const missingFn = e => /function.*does not exist|could not find the function|pgrst202|schema cache/i.test(String(e?.message || e || ""));
       let result;
       try {
-        result = await supabaseRpc("app_signup_v3", signupPayload);
-      } catch (regionalSignupError) {
-        const message = String(regionalSignupError?.message || regionalSignupError || "");
-        if (!/app_signup_v3|function.*does not exist|could not find the function|pgrst202|schema cache/i.test(message)) throw regionalSignupError;
-        const fallbackPayload = { ...signupPayload };
-        delete fallbackPayload.p_country_code;
-        result = await supabaseRpc("app_signup_v2", fallbackPayload);
+        // Modules + recorded acceptance of the terms (migration 223).
+        result = await supabaseRpc("app_signup_v4", {
+          ...signupPayload,
+          p_modules: modules,
+          p_client: (window.TriplemStore && window.TriplemStore.clientTag) || "web",
+          p_terms_accepted: true,
+          p_terms_version: termsVersion
+        });
+      } catch (v4Error) {
+        // Only an older database without migration 223 falls back to the previous sign-up.
+        if (!missingFn(v4Error)) throw v4Error;
+        try {
+          result = await supabaseRpc("app_signup_v3", signupPayload);
+        } catch (regionalSignupError) {
+          const message = String(regionalSignupError?.message || regionalSignupError || "");
+          if (!/app_signup_v3/i.test(message) && !missingFn(regionalSignupError)) throw regionalSignupError;
+          const fallbackPayload = { ...signupPayload };
+          delete fallbackPayload.p_country_code;
+          result = await supabaseRpc("app_signup_v2", fallbackPayload);
+        }
       }
       const sessionToken = result?.session_token || "";
       const user = result?.user || null;
@@ -597,7 +659,8 @@ async function completeAuthenticatedUnlock(user, sessionToken, { remember = fals
   updateHeaderTextFromConfig();
 
   const access = getUserAccessFlags(user);
-  // Lock only after grace ends (1-day lock window). Grace keeps normal workspace access.
+  // Older servers: workspace lock after the grace period. From migration 224 there is no lock
+  // (lock_active is always false): the account becomes read-only instead (05-limited-access.js).
   state.trialLocked = access.lock_active === true
     || (typeof isAccessWorkspaceLocked === "function" && isAccessWorkspaceLocked(user));
 

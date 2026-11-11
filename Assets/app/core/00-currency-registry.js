@@ -68,7 +68,9 @@
 
   function rebuild(next){
     const currencies = (Array.isArray(next?.currencies) ? next.currencies : [])
-      .map(cleanCurrency).filter(Boolean).filter(currency => currency.enabled);
+      .map(cleanCurrency).filter(Boolean).filter(currency => currency.enabled)
+      // Microsoft Store edition: no cryptocurrency (Store policy 10.2.6).
+      .filter(currency => !(window.TriplemStore && window.TriplemStore.active && window.TriplemStore.isCryptoCode(currency.code)));
     if (!currencies.length) return false;
 
     const requestedDefault = String(next?.defaultCurrency || currencies[0].code).trim().toUpperCase();

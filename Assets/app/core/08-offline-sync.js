@@ -252,7 +252,14 @@ function newOfflineOperation(fields){
 
 // ── Queueing ────────────────────────────────────────────────────────────────
 
+// Limited access (trial or plan ended, grace over): the server would refuse the change, so it
+// is not kept for later either.
+function offlineQueueRefusedForLimitedAccess(){
+  try { return !!window.TriplemLimitedAccess?.blocksWrites?.() && window.TriplemLimitedAccess.refuseOffline(); } catch (_) { return false; }
+}
+
 function queueOfflineLedgerInsert(rows, label = "Entry"){
+  if (offlineQueueRefusedForLimitedAccess()) return false;
   const ownerId = offlineQueueOwnerId();
   const list = (Array.isArray(rows) ? rows : [rows]).filter(Boolean);
   if (!ownerId || !offlineQueueRowsAreSafe(list)) return false;
@@ -287,6 +294,7 @@ function queueOfflineLedgerInsert(rows, label = "Entry"){
 }
 
 function queueOfflineTableInsert(table, rows, label = "Entry", options = {}){
+  if (offlineQueueRefusedForLimitedAccess()) return false;
   const ownerId = offlineQueueOwnerId();
   const normalizedTable = String(table || "").trim();
   const list = (Array.isArray(rows) ? rows : [rows]).filter(Boolean).map(safeOfflineClone).filter(Boolean);
@@ -329,6 +337,7 @@ function queueOfflineTableInsert(table, rows, label = "Entry", options = {}){
  *    the user's own earlier edit is never mistaken for a conflict.
  */
 function queueOfflineLedgerPatch(id, body, entry, label = "Entry", options = {}){
+  if (offlineQueueRefusedForLimitedAccess()) return false;
   const ownerId = offlineQueueOwnerId();
   const targetId = String(id || "");
   if (!ownerId || !targetId || !body || typeof body !== "object") return false;

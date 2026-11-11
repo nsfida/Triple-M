@@ -156,6 +156,13 @@
 
   // ---- queue -------------------------------------------------------------------------------------
   async function enqueue(op, payload, summary) {
+    // Limited access (trial or plan ended, grace over): the server would refuse this sale.
+    if (window.TriplemLimitedAccess?.blocksWrites?.()) {
+      window.TriplemLimitedAccess.refuseOffline();
+      const e = new Error("Limited access: new entries are paused until a plan is approved.");
+      e.isLimitedAccess = true;
+      throw e;
+    }
     const item = { op, owner: ownerKey(), created_at: new Date().toISOString(), payload, summary, status: "waiting", attempts: 0, last_error: "", sent: !!summary.sent };
     await put("queue", item);
     await noteSale(payload.location_id, payload);
