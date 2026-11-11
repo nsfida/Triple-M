@@ -144,8 +144,8 @@
     },
     {
       "path": "Assets/style/60-ai-report.css",
-      "bytes": 4197,
-      "sha256": "19a52ee6a53f771c283e316588983b41c73132cd08e95ee279dc420d3d5c52a1"
+      "bytes": 7286,
+      "sha256": "320f39ed90a0cd85ba430c5439144d4671229e9d5ffb83646f4655bb1280037c"
     },
     {
       "path": "Assets/style/61-attachments.css",
@@ -164,10 +164,15 @@
     },
     {
       "path": "Assets/style/64-inventory-v2.css",
-      "bytes": 69950,
-      "sha256": "ad5be37537d6d401c170b66f9cf838a20dba3b79b3e0169e04d0a6a22809a3e8"
+      "bytes": 77313,
+      "sha256": "ffde5b16c57ea98717eab5863d50494d7211e8c61c7f2d010161d1c640679431"
+    },
+    {
+      "path": "Assets/style/65-signup-trial-terms.css",
+      "bytes": 14556,
+      "sha256": "e2b153eaa67760d5b14f043e94ec35ba09239bd61cc27c221c200be782280fc3"
     }
   ],
-  "bytes": 683112,
-  "sha256": "22b9b93d9df56f22d193e8976caaa4eacfff0ab765edb9d644720127b1ca2b89"
+  "bytes": 708186,
+  "sha256": "12e6a0eb964c1908960e3eb1c4c2836328e32e53b00807a6ced8a76df50f013a"
 }
