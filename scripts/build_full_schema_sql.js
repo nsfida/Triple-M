@@ -236,6 +236,8 @@ const CANONICAL_MIGRATION_FILES = [
   "218_inventory_v2_dashboard_photos.sql",
   "219_inventory_v2_sales_purchases.sql",
   "220_inventory_v2_offline_sync.sql",
+  "221_inventory_v2_backup_restore_review_notes.sql",
+  "222_inventory_v2_reports_labels.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
