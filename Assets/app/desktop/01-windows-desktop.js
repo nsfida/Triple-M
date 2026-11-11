@@ -770,7 +770,7 @@
   const HOTKEY_LABELS = { "new-expense": "Add expense", search: "Search", "new-invoice": "New sales invoice" };
   const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const APPKEYS_KEY = "triplem-desktop-appkeys-v1";
-  const ACC_ICONS = { sync: "fa-wifi", backup: "fa-box-archive", security: "fa-fingerprint", notify: "fa-bell", keys: "fa-keyboard", updates: "fa-rotate" };
+  const ACC_ICONS = { sync: "fa-wifi", backup: "fa-box-archive", security: "fa-fingerprint", notify: "fa-bell", keys: "fa-keyboard", updates: "fa-rotate", about: "fa-circle-info", ai: "fa-flag" };
 
   function hotkeyList() {
     const list = Array.isArray(info.hotkeys) && info.hotkeys.length ? info.hotkeys : [{ target: "new-expense", keys: SHORTCUT }];
@@ -833,10 +833,30 @@
         ${switchRow("autoUpdate", "Download updates automatically")}
         <p class="desktop-app-update-line" id="desktopUpdateLine" aria-live="polite" hidden></p>
         <div class="desktop-app-actions"><button type="button" data-desktop-cmd="update">Check for updates</button></div>`));
+    // Microsoft Store edition: the Store installs every update; the app has no updater.
+    const storeEdition = info.edition === "store" || !!(window.TriplemStore && window.TriplemStore.active);
+    if (storeEdition && !caps.has("update")) {
+      const storeUrl = (window.TriplemStore && window.TriplemStore.storePage) || "ms-windows-store://pdp/?ProductId=9MV028GH5NPX";
+      items.push(accItem("updates", "Updates", `
+        <p class="dam-note">This is the Microsoft Store edition. Updates are delivered only by the Microsoft Store; Windows installs them automatically, or you can check for them in the Store under Library.</p>
+        <div class="dam-btns"><a class="dam-btn primary" href="${esc(storeUrl)}"><i class="fa-brands fa-microsoft" aria-hidden="true"></i> Open in Microsoft Store</a></div>`));
+      items.push(accItem("about", "About this edition", `
+        <p class="dam-note">Triplem VIP for Windows from the Microsoft Store opens your Triplem VIP account and needs an internet connection. The 14-day free trial and paid plans belong to your Triplem VIP account; plans are paid directly to Triplem VIP.</p>
+        <p class="dam-note" data-store-keep>The Microsoft Store edition does not include cryptocurrency features.</p>
+        <div class="dam-btns dam-btns-wide">
+          <button type="button" class="dam-btn" data-open-terms="trial"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> Trial Terms</button>
+          <button type="button" class="dam-btn" data-open-terms="terms"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Terms and Conditions</button>
+          <a class="dam-btn" href="/windows-store/privacy.html"><i class="fa-solid fa-user-shield" aria-hidden="true"></i> Privacy</a>
+          <a class="dam-btn" href="/windows-store/ai.html"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI features</a>
+        </div>`));
+    }
+    items.push(accItem("ai", "Report AI content", `
+        <p class="dam-note">Aziz, the Live Support assistant and Triplem AI generate answers with AI (Google Gemini). If an answer is offensive, harmful, sexual, misleading or wrong, report it: every AI answer has a Report button, or report an issue here.</p>
+        <div class="dam-btns"><button type="button" class="dam-btn primary" data-ai-report-general="aziz" data-ai-report-surface="windows_app"><i class="fa-regular fa-flag" aria-hidden="true"></i> Report an AI issue</button></div>`));
     return `
       <div class="dam-head">
         <span class="dam-logo" aria-hidden="true"><i class="fa-brands fa-windows"></i></span>
-        <div class="dam-head-text"><strong>Triplem VIP for Windows</strong><small id="damVersion">Version ${esc(info.version || "")}${info.arch ? ` · ${esc(info.arch)}` : ""}${info.packaged ? " · Microsoft Store" : ""}</small></div>
+        <div class="dam-head-text"><strong>Triplem VIP for Windows</strong><small id="damVersion">Version ${esc(info.version || "")}${info.arch ? ` · ${esc(info.arch)}` : ""}${(info.edition === "store" || info.packaged) ? " · Microsoft Store edition" : ""}</small></div>
         <button type="button" class="dam-close" data-dam="close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
       <div class="dam-accordion">${items.join("")}</div>

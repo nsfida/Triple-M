@@ -3477,6 +3477,8 @@ function notificationActions(n){
     actions.push({ id: "open", label: "Open installment", icon: "fa-calendar-day", primary: true });
   } else if (source === "admin" && n.kind === "subscription_payment" && payload.request_id) {
     actions.push({ id: "review-payment", label: "Review payment", icon: "fa-receipt", primary: true });
+  } else if (isAiContentReportNotification(n) && window.TriplemAiReport?.openAdminQueue) {
+    actions.push({ id: "review-ai-report", label: "Review AI report", icon: "fa-flag", primary: true });
   }
   if (source === "admin" && n.related_user_id) {
     actions.push({ id: "open-user", label: "Open user", icon: "fa-user", primary: !actions.length });
@@ -3592,6 +3594,12 @@ async function runNotificationAction(n, action){
     closeOpenMenusForAction();
     if (isLiveChatTransferNotification(n)) syncLiveChatOfferDock([n]);
     else await openLiveChatAssignmentDetails(n);
+    return;
+  }
+  if (action === "review-ai-report") {
+    closeOpenMenusForAction();
+    closeNotificationDetail();
+    window.TriplemAiReport?.openAdminQueue?.({ focusId: payload.report_id || "" });
     return;
   }
   if (action === "review-payment") {

@@ -60,7 +60,7 @@
     ["installments", "How do installment plans, dues and payment schedules work?"],
     ["assets", "Can I manage assets, depreciation, revenue and disposal?"],
     ["notes", "Can I keep notes and reminders?"],
-    ["bitcoin", "What Bitcoin or BTC tools does Triplem VIP have?"],
+    ...(window.TriplemStore?.active ? [] : [["bitcoin", "What Bitcoin or BTC tools does Triplem VIP have?"]]),
     ["company_team", "Can my company add team members, staff and permissions?"],
     ["platforms", "Does Triplem VIP work on mobile, iPhone, Android and desktop?"],
     ["personalization", "Can I change themes, branding, logos and appearance?"],

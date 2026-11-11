@@ -81,7 +81,7 @@
         "X-Session-Token": token
       },
       cache: "no-store",
-      body: JSON.stringify({ action, ...payload })
+      body: JSON.stringify({ action, ...payload, client: (window.TriplemStore && window.TriplemStore.clientTag) || "web" })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.ok === false) {
@@ -649,6 +649,32 @@
     </article>`;
   }
 
+  // Header "Report" button and the disclosure link report the latest AI answer.
+  function latestReportableIndex() {
+    const list = aiState()?.messages || [];
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      if (list[i] && list[i].role !== "user" && list[i].generated === true) return i;
+    }
+    return -1;
+  }
+  // (03-ai-report.js loads after this file, so the provider is left in a shared map it reads.)
+  (window.__TRIPLEM_AI_REPORT_PROVIDERS = window.__TRIPLEM_AI_REPORT_PROVIDERS || {}).triplem_ai = () => {
+    const ai = aiState();
+    const index = latestReportableIndex();
+    if (!ai || index < 0) return null;
+    const message = ai.messages[index];
+    let prompt = "";
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (ai.messages[i]?.role === "user") { prompt = String(ai.messages[i].text || ""); break; }
+    }
+    return {
+      content: String(message.text || ""),
+      prompt,
+      context: { model: message.model || ai.model || "", surface: "workspace", message_at: message.at || "" },
+      onReported: () => { message.reported = true; renderTriplemAiWorkspace(); }
+    };
+  };
+
   function reportAiMessage(index) {
     const ai = aiState();
     const message = ai?.messages?.[index];
@@ -724,6 +750,7 @@
         <div class="triplem-ai-console-brand"><span class="triplem-ai-mini-orb"><i class="fa-solid fa-wand-magic-sparkles"></i></span><div><strong>Triplem AI</strong><small><span class="triplem-ai-status-dot" aria-hidden="true"></span>Private workspace intelligence · ${esc(selectedModelLabel(ai.model))}</small></div></div>
         <div class="triplem-ai-console-actions">
           <span class="triplem-ai-secure-pill"><i class="fa-solid fa-vault"></i> Private key secured</span>
+          ${window.TriplemAiReport?.headerButtonHtml ? window.TriplemAiReport.headerButtonHtml("triplem_ai", "workspace") : ""}
           <button type="button" class="icon-btn ghost" data-triplem-ai-clear title="Clear this chat" aria-label="Clear this chat"><i class="fa-solid fa-eraser"></i></button>
           <button type="button" class="icon-btn ghost" data-triplem-ai-settings title="Triplem AI settings" aria-label="Triplem AI settings"><i class="fa-solid fa-gear"></i></button>
         </div>
@@ -736,6 +763,7 @@
         <button type="submit" class="triplem-ai-send" ${ai.sending ? "disabled" : ""} aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
         <div class="triplem-ai-composer-foot"><span>Enter to send · Shift + Enter for a new line</span><span id="triplemAiCharCount">0 / 6000</span></div>
       </form>
+      ${window.TriplemAiReport?.disclosureHtml ? window.TriplemAiReport.disclosureHtml("triplem_ai", "workspace") : ""}
     </div>`;
   }
 

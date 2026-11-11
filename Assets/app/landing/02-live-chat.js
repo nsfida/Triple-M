@@ -72,7 +72,7 @@
     operations: [
       { id: "team_company", label: "Team & company setup?" },
       { id: "notes", label: "Notes & reminders?" },
-      { id: "bitcoin", label: "Bitcoin tools?" },
+      ...(window.TriplemStore?.active ? [] : [{ id: "bitcoin", label: "Bitcoin tools?" }]),
       { id: "demo", label: "Can I see the demo?" },
       { id: "home", label: "Main questions" },
       { id: "agent", label: "Talk to an Agent", kind: "agent" }
@@ -210,7 +210,8 @@
           inquiryId: safeText(session?.inquiry_id || ""),
           turnId: safeText(turnId).slice(0, 120),
           countryCode: typeof getRegionalCountryCode === "function" ? getRegionalCountryCode() : "ZZ",
-          regionalCurrency: typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD"
+          regionalCurrency: typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD",
+          client: (window.TriplemStore && window.TriplemStore.clientTag) || "web"
         }),
         cache: "no-store",
         ...(controller ? { signal: controller.signal } : {})
@@ -624,7 +625,7 @@
       "overview","business_value","setup","dashboard","pricing","payment_method","trial_signup",
       "wallets","expenses","income","currency","inventory","sales","customers","invoices",
       "reports","accounting","chart_accounts","journals","receivables_payables","bank_reconciliation","tax_accounting","accounting_reports","accounting_controls",
-      "loans","installments","assets","notes","bitcoin","company_team","platforms",
+      "loans","installments","assets","notes",...(window.TriplemStore?.active ? [] : ["bitcoin"]),"company_team","platforms",
       "personalization","security","payment_security","continuity","demo","smart_pin","import_backup","support","founder"
     ]);
     const intents = (Array.isArray(raw.intents) ? raw.intents : [])
@@ -768,6 +769,38 @@
   function aiMessageKey(m) {
     return safeText(m?.id) || `${safeText(m?.created_at)}|${safeText(m?.body).slice(0, 80)}`;
   }
+
+  // Header "Report" button and the disclosure link report the latest AI answer.
+  function latestLiveChatAi() {
+    const rows = renderedMessageRows || [];
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      const m = rows[i];
+      if (String(m?.sender_role || "") === "admin" && isAiMessage(m) && safeText(m.body)) return i;
+    }
+    return -1;
+  }
+  function liveChatReportProvider() {
+    const index = latestLiveChatAi();
+    if (index < 0) return null;
+    const rows = renderedMessageRows;
+    const m = rows[index];
+    const key = aiMessageKey(m);
+    let prompt = "";
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (String(rows[i]?.sender_role || "") !== "admin") { prompt = safeText(rows[i].body); break; }
+    }
+    return {
+      source: isAzizSession() ? "aziz" : "live_chat_ai",
+      content: safeText(m.body),
+      prompt,
+      context: { session_id: safeText(session?.aziz_chat_id || session?.inquiry_id || ""), message_id: safeText(m.id), message_at: safeText(m.created_at), surface: "live_chat" },
+      onReported: () => { reportedAiMessages.add(key); lastRenderSignature = ""; renderMessages(session?.messages || rows); }
+    };
+  }
+  // (03-ai-report.js may load after this file, so the provider is left in a shared map it reads.)
+  window.__TRIPLEM_AI_REPORT_PROVIDERS = window.__TRIPLEM_AI_REPORT_PROVIDERS || {};
+  window.__TRIPLEM_AI_REPORT_PROVIDERS.aziz = liveChatReportProvider;
+  window.__TRIPLEM_AI_REPORT_PROVIDERS.live_chat_ai = liveChatReportProvider;
 
   function reportLiveChatAiMessage(index) {
     const rows = renderedMessageRows;
