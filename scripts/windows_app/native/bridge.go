@@ -76,6 +76,9 @@ func desktopInitScript() string {
 		"version":  appVersionNative,
 		"arch":     runtimeArchFolder(runtime.GOARCH),
 		"packaged": isPackaged(),
+		// "store": the Microsoft Store edition (its own feature set and pages).
+		"edition":  map[bool]string{true: "store", false: "direct"}[storeEditionActive(isPackaged())],
+		"storeId":  map[bool]string{true: "9MV028GH5NPX", false: ""}[storeEditionActive(isPackaged())],
 		"caps":     caps,
 		"shortcut": quickAddShortcutTxt,
 		"hotkeys":  hotkeys,
@@ -424,6 +427,16 @@ var currentNavigationURL string
 
 func onNavigationStarting(this, sender, args uintptr) uintptr {
 	uri := getString(args, navStartingUri)
+	// Microsoft Store edition: only the workspace and the Store edition pages
+	// open inside the app; any other page of the website is replaced by the
+	// matching Store edition page.
+	if storeEditionActive(isPackaged()) {
+		if target, redirect := storeNavigationRedirect(uri); redirect {
+			vcall(args, navStartingSetCancel, 1)
+			navigateTo(target)
+			return 0
+		}
+	}
 	if uri == "" || isAppURL(uri) {
 		currentNavigationURL = uri
 		if isTrustedAppSource(uri) {

@@ -43,7 +43,7 @@ NATIVE_DIR="$ROOT/scripts/windows_app/native"
 INSTALLER_DIR="$ROOT/scripts/windows_app/installer"
 ICO="$ROOT/scripts/windows_app/assets/TriplemVIP.ico"
 OUT="${TRIPLEM_OUT:-$ROOT/Assets/mobile_app/Windows/TriplemVIP_Setup.exe}"
-VERSION="3.9.0"
+VERSION="3.10.1"
 TMP="${TMPDIR:-/tmp}/triplem-vip-windows-build"
 mkdir -p "$TMP" "$INSTALLER_DIR/payload" "$(dirname "$OUT")"
 rm -f "$TMP"/TriplemVIP*.exe
@@ -110,7 +110,7 @@ cp "$TMP/TriplemVIP_Setup.exe" "$OUT"
 MANIFEST="$(dirname "$OUT")/latest.json"
 if [ -n "${TRIPLEM_UPDATE_KEY_FILE:-}" ]; then
   KEY_PUB="$(cd "$ROOT/scripts/windows_app/updatesign" && GO111MODULE=off go run . -key "$TRIPLEM_UPDATE_KEY_FILE" -print-public)"
-  if ! grep -q "updatePublicKeyB64 = \"$KEY_PUB\"" "$NATIVE_DIR/logic36.go"; then
+  if ! grep -q "updatePublicKeyB64 = \"$KEY_PUB\"" "$NATIVE_DIR/logic_update.go"; then
     echo "ERROR: the update signing key does not match the public key compiled into the app." >&2
     exit 1
   fi

@@ -1204,7 +1204,6 @@ const (
 	MB_YESNO                    = 0x00000004
 	MB_ICONQUESTION             = 0x00000020
 	IDYES                       = 6
-	MOVEFILE_DELAY_UNTIL_REBOOT = 0x4
 )
 
 var (
@@ -1212,7 +1211,6 @@ var (
 	procRegDeleteTreeWNative       = advapi32Native.NewProc("RegDeleteTreeW")
 	procSHGetKnownFolderPathNative = shell32.NewProc("SHGetKnownFolderPath")
 	procCoTaskMemFreeNative        = ole32.NewProc("CoTaskMemFree")
-	procMoveFileExWNative          = kernel32.NewProc("MoveFileExW")
 )
 
 var folderDesktopNative = guid{0xB4BFCC3A, 0xDB2C, 0x424C, [8]byte{0xB0, 0x29, 0x7F, 0xE9, 0x9A, 0x87, 0xC6, 0x41}}
@@ -1233,46 +1231,9 @@ func knownFolderNative(id *guid) string {
 	return syscall.UTF16ToString(arr[:n])
 }
 
-func unregisterAppNative() {
-	const hkcu = uintptr(0x80000001)
-	key := `Software\Microsoft\Windows\CurrentVersion\Uninstall\TriplemVIP`
-	procRegDeleteTreeWNative.Call(hkcu, uintptr(unsafe.Pointer(utf16Ptr(key))))
-}
-
 func messageBoxReturn(title, text string, flags uintptr) int {
 	r, _, _ := procMessageBoxW.Call(0, uintptr(unsafe.Pointer(utf16Ptr(text))), uintptr(unsafe.Pointer(utf16Ptr(title))), flags)
 	return int(r)
-}
-
-func runUninstall() {
-	if messageBoxReturn("Triplem VIP Uninstall", "Remove the Triplem VIP Windows application from this computer?\n\nYour online Triplem VIP account and cloud data will not be deleted.", MB_YESNO|MB_ICONQUESTION) != IDYES {
-		return
-	}
-	if desktop := knownFolderNative(&folderDesktopNative); desktop != "" {
-		_ = os.Remove(filepath.Join(desktop, "Triplem VIP.lnk"))
-	}
-	if programs := knownFolderNative(&folderProgramsNative); programs != "" {
-		_ = os.Remove(filepath.Join(programs, "Triplem VIP.lnk"))
-	}
-	closeRunningInstance()
-	removeStartupRegistration()
-	procCoInitializeEx.Call(0, COINIT_APARTMENTTHREADED)
-	deleteJumpList()
-	unregisterAppNative()
-	removeAppIdentity()
-	if local := os.Getenv("LOCALAPPDATA"); local != "" {
-		_ = os.RemoveAll(filepath.Join(local, "Triplem VIP", "WebView2"))
-		_ = os.RemoveAll(filepath.Join(local, "Triplem VIP", "Updates"))
-		_ = os.Remove(filepath.Join(local, "Triplem VIP", "desktop-settings.json"))
-		_ = os.Remove(filepath.Join(local, "Triplem VIP", "window.json"))
-		_ = os.Remove(filepath.Join(local, "Triplem VIP", "toast-logo.png"))
-		_ = os.Remove(filepath.Join(local, "Triplem VIP", "run-state.json"))
-	}
-	self, _ := os.Executable()
-	dir := filepath.Dir(self)
-	procMoveFileExWNative.Call(uintptr(unsafe.Pointer(utf16Ptr(self))), 0, MOVEFILE_DELAY_UNTIL_REBOOT)
-	procMoveFileExWNative.Call(uintptr(unsafe.Pointer(utf16Ptr(dir))), 0, MOVEFILE_DELAY_UNTIL_REBOOT)
-	messageBox("Triplem VIP", "Triplem VIP has been removed from Windows. Windows may finish deleting the final executable after restart. Your online account and cloud data were not changed.", MB_OK|MB_ICONINFORMATION)
 }
 
 func main() {
@@ -1290,19 +1251,4 @@ func main() {
 		startupLog("running instance did not answer; starting normally")
 	}
 	runNativeApp(args)
-}
-
-// closeRunningInstance asks a running Triplem VIP (which may be hidden in the
-// tray) to exit before its files are removed.
-func closeRunningInstance() {
-	for i := 0; i < 50; i++ {
-		h := findRunningWindow()
-		if h == 0 {
-			return
-		}
-		if i == 0 {
-			procPostMessageW.Call(h, wmTriplemQuit, 0, 0)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
 }

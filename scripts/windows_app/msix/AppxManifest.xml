@@ -22,14 +22,14 @@
   <Identity
     Name="TriplemVIP.TriplemVIP"
     Publisher="CN=D58541F4-18AA-431F-869F-990A8A8D60CE"
-    Version="3.9.1.0"
+    Version="3.10.1.0"
     ProcessorArchitecture="@ARCH@" />
 
   <Properties>
     <DisplayName>Triplem VIP</DisplayName>
     <PublisherDisplayName>Triplem VIP</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
-    <Description>Triplem VIP accounting, expenses, inventory, loans and assets workspace for Windows.</Description>
+    <Description>Triplem VIP for Windows (Microsoft Store edition): accounting, expenses, inventory, loans, installments and assets workspace. Requires a Triplem VIP account and an internet connection.</Description>
   </Properties>
 
   <Dependencies>

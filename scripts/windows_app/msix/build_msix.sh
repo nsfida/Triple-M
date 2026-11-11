@@ -38,6 +38,30 @@ VERSION="$(sed -n 's/^ *Version="\([0-9.]*\)"$/\1/p' "$MSIX_DIR/AppxManifest.xml
 
 bash "$ROOT/scripts/windows_app/build_windows_app.sh"
 
+# The Store packages carry the Microsoft Store edition of the app (-tags store):
+# no self-updater, no uninstaller and no registry autostart (Windows and the
+# Store manage all three for packaged apps), and the page runs the Store
+# edition feature set. The direct-download Setup above is unchanged.
+STORE_BUILD="$BUILD/store"
+mkdir -p "$STORE_BUILD"
+build_store() {
+  local goarch="$1" out="$2"
+  (
+    cd "$ROOT/scripts/windows_app/native"
+    GO111MODULE=off GOOS=windows GOARCH="$goarch" CGO_ENABLED=0 go build -tags store \
+      -trimpath -ldflags='-s -w -H=windowsgui -buildid=' -o "$out" .
+  )
+  python3 "$ROOT/scripts/windows_app/build_resources.py" "$out" "$ROOT/scripts/windows_app/assets/TriplemVIP.ico" \
+    --description "Triplem VIP" --version "$(echo "$VERSION" | cut -d. -f1-3)" --original "TriplemVIP.exe"
+  # Guard: the Store edition must not contain the direct-download updater.
+  if strings "$out" | grep -q -e 'latest.json' -e 'TriplemVIP_Setup' -e 'mobile_app/Windows'; then
+    echo "ERROR: $out contains direct-download update code." >&2; exit 1
+  fi
+}
+(cd "$ROOT/scripts/windows_app/native" && GO111MODULE=off go test -tags store . >/dev/null)
+build_store amd64 "$STORE_BUILD/TriplemVIP.exe"
+build_store arm64 "$STORE_BUILD/TriplemVIP-arm64.exe"
+
 rm -rf "$TMP" && mkdir -p "$TMP/packages" "$OUT_DIR"
 pack() {
   local arch="$1" app="$2" stage="$TMP/stage-$1" out="$TMP/packages/TriplemVIP-$1.msix"
@@ -50,6 +74,6 @@ pack() {
   cmp "$TMP/check-$arch/TriplemVIP.exe" "$app"
   cp "$out" "$OUT_DIR/"
 }
-pack x64 "$BUILD/TriplemVIP.exe"
-pack arm64 "$BUILD/TriplemVIP-arm64.exe"
+pack x64 "$STORE_BUILD/TriplemVIP.exe"
+pack arm64 "$STORE_BUILD/TriplemVIP-arm64.exe"
 echo "Created and validated in $OUT_DIR: TriplemVIP-x64.msix and TriplemVIP-arm64.msix ($VERSION)"

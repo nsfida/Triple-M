@@ -3,7 +3,6 @@
 package main
 
 import (
-	"os"
 	"time"
 	"unsafe"
 )
@@ -16,12 +15,7 @@ import (
 //     Windows.ApplicationModel.StartupTask API, which is the only supported
 //     way for packaged apps.
 
-const (
-	runKeyPath          = `Software\Microsoft\Windows\CurrentVersion\Run`
-	startupApprovedPath = `Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run`
-	runValueName        = "Triplem VIP"
-	startupTaskID       = "TriplemVIPStartup"
-)
+const startupTaskID = "TriplemVIPStartup"
 
 var (
 	iidStartupTaskStatics = guid{0xee5b60bd, 0xa148, 0x41a7, [8]byte{0xb2, 0x6e, 0xe8, 0xb8, 0x8a, 0x1e, 0x62, 0xf8}}
@@ -60,14 +54,7 @@ func startWithWindowsEnabled() bool {
 		}
 		return packagedStartupCache == 1
 	}
-	if regReadBytes(runKeyPath, runValueName) == nil {
-		return false
-	}
-	// Disabled in Task Manager / Settings > Apps > Startup: first byte 0x03.
-	if b := regReadBytes(startupApprovedPath, runValueName); len(b) > 0 && b[0]&1 == 1 {
-		return false
-	}
-	return true
+	return directStartupEnabled()
 }
 
 func setStartWithWindows(on bool) {
@@ -76,23 +63,7 @@ func setStartWithWindows(on bool) {
 		packagedStartupCache = -1
 		return
 	}
-	if !on {
-		regDeleteValue(runKeyPath, runValueName)
-		return
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return
-	}
-	regSetStringValue(runKeyPath, runValueName, `"`+exe+`" --background`)
-	// Clear a previous "disabled" mark so the user's explicit choice applies.
-	regDeleteValue(startupApprovedPath, runValueName)
-}
-
-// removeStartupRegistration is used by the uninstaller.
-func removeStartupRegistration() {
-	regDeleteValue(runKeyPath, runValueName)
-	regDeleteValue(startupApprovedPath, runValueName)
+	setDirectStartup(on)
 }
 
 // ---- WinRT helpers (packaged only) -------------------------------------------------

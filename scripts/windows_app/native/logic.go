@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	appVersionNative = "3.9.1"
+	appVersionNative = "3.10.1"
 	appOrigin        = "https://triplem.vip"
 	maxWebMessage    = 64 * 1024
 )
@@ -140,6 +140,9 @@ func externalOpenAllowed(raw string) bool {
 		return u.Host != ""
 	case "mailto", "tel":
 		return true
+	case "ms-windows-store":
+		// Only this product's own Store page (updates and ratings).
+		return strings.EqualFold(raw, productStoreURL) || strings.EqualFold(raw, productStoreURL+"&mode=mini")
 	}
 	return false
 }
