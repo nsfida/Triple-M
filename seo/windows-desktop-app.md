@@ -2,7 +2,7 @@
 
 > Use Triplem VIP as a native Windows desktop app that loads the live triplem.vip workspace with the same account, data, permissions and web updates.
 
-Reviewed: 2026-11-05
+Reviewed: 2026-11-11
 
 ## Native Windows access
 
@@ -33,6 +33,10 @@ These features are part of the Triplem VIP Windows app 3.6. Your account, record
 The Windows application is another access method for the same Triplem VIP account and Supabase-backed data. It does not create a separate offline database.
 
 Normal website changes can appear in the desktop app without requiring a new desktop release for every web-interface update.
+
+## Microsoft Store edition
+
+Triplem VIP for Windows is available as Setup from triplem.vip and from the Microsoft Store. Both open the same account. The Microsoft Store edition is installed, signed and updated only by the Microsoft Store and has no updater of its own. A Triplem VIP account is required; new accounts get a free 14-day trial, a 3-day grace period, then limited access (view and download everything, no new entries) until a plan is approved. Store edition guide: https://triplem.vip/windows-store/ · Free Trial Terms: https://triplem.vip/windows-store/trial-terms.html · Privacy: https://triplem.vip/windows-store/privacy.html · AI features: https://triplem.vip/windows-store/ai.html
 
 ## Platform choices
 

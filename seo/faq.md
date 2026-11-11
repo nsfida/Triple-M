@@ -1,7 +1,7 @@
 # Triplem VIP Frequently Asked Questions
 
 Canonical page: https://triplem.vip/seo/faq.html
-Last reviewed: 2026-11-04
+Last reviewed: 2026-11-11
 
 Answers below are published on the canonical HTML page. Check that page for the current product wording and visual navigation.
 
@@ -154,7 +154,7 @@ Pricing depends on your plan and usage needs. Check the Pricing tab for current 
 
 ### What happens after a free trial ends?
 
-Your login remains, but continued full access typically needs an admin grant or paid plan. Contact support before the trial ends if you want an uninterrupted transition.
+Every new account has a free 14-day trial with no card. When it ends you keep full access for a 3-day grace period, and the app shows the exact end date. After that the account moves to limited access: it stays active, you can sign in, view, search and download every record, report, PDF, CSV export, receipt, invoice and backup, but new entries, changes and deletions are paused until a Pro plan is approved. Nothing is deleted and the account is not switched off. Full terms: https://triplem.vip/windows-store/trial-terms.html
 
 ### How do I get help?
 

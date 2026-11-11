@@ -2,7 +2,11 @@
 
 > Track inventory catalogues, variants, customers, stock, sales, invoices, receipts and business records in the wider Triplem VIP finance workspace.
 
-Reviewed: 2026-09-21
+Reviewed: 2026-11-11
+
+## Inventory 2.0 for new accounts
+
+New Triplem VIP accounts start with Inventory 2.0: products with variants, units, barcodes, batches and serial numbers; stock by outlet and warehouse with transfers, adjustments and counts; purchases, suppliers and payments; sales, a point-of-sale screen with offline sales that sync later, customer balances and receipts; printable labels and barcodes; and inventory reports with PDF and CSV export. The Classic inventory described below remains available to existing accounts, and Triplem VIP can enable it for any account on request.
 
 ## Inventory structure
 
