@@ -101,6 +101,14 @@ The documented Bitcoin key workflows are client-side. Sensitive private-key mate
 
 Visitors can use the public inquiry or Live Support options, email the official contact address, or use the available trial option on the sign-in screen when it is offered. Account access is private and may require approval.
 
+### What happens when a free trial or plan ends?
+
+New accounts start with a free 14-day trial: no card, no automatic charge, full access to the modules chosen at sign-up (Expenses & Wallets, Inventory 2.0, Assets, Loans, Installments and Notes by default; Accounting optional). When the trial or a paid plan ends there is a 3-day grace period with full access. After that the account has limited access until a Pro plan is approved: it stays active, every record can still be viewed, searched and downloaded (reports, PDF, CSV and Excel exports, receipts, invoices, documents, backups), but new entries, changes and deletions are paused in every section, enforced by the server. Records are never deleted and the account is not switched off because a trial or plan ended. Paid plans are paid by bank transfer directly to Triplem VIP, approved by an administrator and do not renew automatically. Full terms: https://triplem.vip/windows-store/trial-terms.html
+
+### Which inventory do new accounts use?
+
+New accounts use Inventory 2.0: products and variants, stock by location, purchases, sales, point of sale, barcodes and labels, offline sales and inventory reports. The Classic inventory remains available to existing accounts, and the Main Admin can enable it for an account on request.
+
 ### Where can current plan details be checked?
 
 The live [Pricing section](https://triplem.vip/#pricing) is the source for current plan details. Pricing, offers and currency presentation may change, so this reference does not repeat amounts that could become stale.

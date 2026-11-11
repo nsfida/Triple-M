@@ -17,7 +17,7 @@ const native = () => fs.readdirSync(path.join(root, nativeDir)).filter(f => f.en
 
 test("updates are only installed from a signed manifest and a matching SHA-256", { skip: skipNative }, () => {
   const src = native();
-  assert.match(src, /appVersionNative = "3\.9\.1"/);
+  assert.match(src, /appVersionNative = "3\.10\.1"/);
   assert.match(src, /ed25519\.Verify\(pub, payload, sig\)/);
   assert.match(src, /updatePublicKeyB64 = "[A-Za-z0-9+/]{43}="/);
   assert.match(src, /strings\.HasPrefix\(m\.URL, updateDownloadPrefix\)/);
@@ -74,7 +74,7 @@ test("Store push: strict COM handler, cancelled while running, closed on sign-ou
   assert.match(src, /case "push-close":\s*closePushChannel\(\)/);
   assert.match(src, /if !isPackaged\(\) \|\| safeStart \|\| wnsOperation != 0 \{/);
   const manifest = text("scripts/windows_app/msix/AppxManifest.xml");
-  assert.match(manifest, /Version="3\.9\.1\.0"/);
+  assert.match(manifest, /Version="3\.10\.1\.0"/);
   assert.match(manifest, /<uap3:Protocol Name="triplemvip" Parameters="--link &quot;%1&quot;">/);
 });
 

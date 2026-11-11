@@ -29,7 +29,7 @@ test("3.9 native: only PDFs the app saved, size-limited, in chunks; previews in 
   assert.match(p, /if isPreviewFileName\(e\.Name\(\)\) \{/, "only preview-<n>.pdf files are ever removed");
   assert.match(p, /dir := filepath\.Join\(os\.TempDir\(\), previewDirName\)/);
   assert.match(text(`${nativeDir}/logic.go`), /"file-read": true, "print-preview": true,/);
-  assert.match(text(`${nativeDir}/logic.go`), /appVersionNative = "3\.9\.1"/);
+  assert.match(text(`${nativeDir}/logic.go`), /appVersionNative = "3\.10\.1"/);
   assert.match(text(`${nativeDir}/bridge.go`), /"pdfview"\}/);
   assert.match(text(`${nativeDir}/downloads.go`), /"path": finalPath, "view": viewerKind\(finalPath\)/);
   assert.match(text(`${nativeDir}/logic39_test.go`), /func TestPreviewFiles/);

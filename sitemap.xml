@@ -257,7 +257,7 @@
   </url>
   <url>
     <loc>https://triplem.vip/seo/faq.html</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/faq.html" />
@@ -321,7 +321,7 @@
   </url>
   <url>
     <loc>https://triplem.vip/seo/inventory-management.html</loc>
-    <lastmod>2026-09-22</lastmod>
+    <lastmod>2026-11-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/inventory-management.html" />
@@ -409,10 +409,50 @@
   </url>
   <url>
     <loc>https://triplem.vip/seo/windows-desktop-app.html</loc>
-    <lastmod>2026-11-05</lastmod>
+    <lastmod>2026-11-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/windows-desktop-app.html" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/windows-desktop-app.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/windows-store/</loc>
+    <lastmod>2026-11-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/windows-store/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/windows-store/" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/windows-store/ai.html</loc>
+    <lastmod>2026-11-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/windows-store/ai.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/windows-store/ai.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/windows-store/privacy.html</loc>
+    <lastmod>2026-11-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/windows-store/privacy.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/windows-store/privacy.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/windows-store/terms.html</loc>
+    <lastmod>2026-11-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/windows-store/terms.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/windows-store/terms.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/windows-store/trial-terms.html</loc>
+    <lastmod>2026-11-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/windows-store/trial-terms.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/windows-store/trial-terms.html" />
   </url>
 </urlset>

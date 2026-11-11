@@ -36,7 +36,7 @@ Primary language: English. Public regional references also include Arabic, Urdu,
 - [Accounting ERP](https://triplem.vip/seo/accounting-erp.html): Double-entry books, journals, Chart of Accounts, receivables, payables, reconciliation and reports.
 - [Accounting software](https://triplem.vip/seo/accounting-software.html): Operational finance alongside formal Accounting ERP.
 - [Expense tracking](https://triplem.vip/seo/expense-tracking.html): Expenses, receiving and internal transfers.
-- [Inventory management](https://triplem.vip/seo/inventory-management.html): Stock, catalogue, sales, customers and invoices.
+- [Inventory management](https://triplem.vip/seo/inventory-management.html): Inventory 2.0 for new accounts (stock by location, purchases, sales, point of sale, labels) and the Classic inventory.
 - [Loan management](https://triplem.vip/seo/loan-management.html): Loans given and taken, repayments and settlement.
 - [Installment plans](https://triplem.vip/seo/installment-plans.html): Bought and Sold plans, schedules and payment direction.
 - [Asset management](https://triplem.vip/seo/asset-management.html): Ownership costs, income, disposal and reporting.
@@ -50,6 +50,9 @@ Primary language: English. Public regional references also include Arabic, Urdu,
 - [Windows desktop app](https://triplem.vip/seo/windows-desktop-app.html): Installing the Windows 10/11 app, shortcuts, taskbar pinning, notifications with actions, automatic updates and the quick-add shortcut.
 - [Editorial policy](https://triplem.vip/seo/editorial-policy.html): Public-content accuracy, correction and review principles.
 - [Privacy policy](https://triplem.vip/seo/privacy-policy.html): What data is collected, service providers, retention, export and deletion.
+- [Free Trial Terms](https://triplem.vip/windows-store/trial-terms.html): The 14-day free trial, the 3-day grace period, limited access after it (view and download, no new entries) and paid plans.
+- [Terms and Conditions](https://triplem.vip/windows-store/terms.html): Accounts, plans and payment, acceptable use, data, AI features and the Microsoft Store edition.
+- [Windows app, Microsoft Store edition](https://triplem.vip/windows-store/): Requirements, features, trial, updates through the Store, privacy and AI disclosure.
 
 ## Regional references
 

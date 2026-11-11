@@ -58,13 +58,14 @@
     (function () {
       try {
         var d = window.__TRIPLEM_DESKTOP__;
-        if (d && d.app === "windows" && d.packaged === true) {
+        if (d && d.app === "windows" && (d.edition === "store" || d.packaged === true)) {
           window.TRIPLEM_STORE_APP = true;
           document.documentElement.classList.add("triplem-store-app");
         }
       } catch (_) {}
     })();
   </script>
+  <script src="Assets/app/core/00-store-edition.js?v=20261111-store1"></script>
   <style>
     html.triplem-windows-app .landing-visitor-alert-control,
     html.triplem-windows-app #lockScreen .landing-visitor-alert-control,
@@ -950,7 +951,9 @@
   <script defer src="Assets/app/core/01-config-constants.js?accounting=149001&offline=20261104-001"></script>
   <script defer src="Assets/app/core/02-state.js?v=20260909-triplem-ai-158&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/inventory-catalog.js"></script>
-  <script defer src="Assets/app/core/03-els.js?v=20260903-admin-overlay126&pagination=155&help=20260922-001&amp;inv2=20261110-216"></script>
+  <script defer src="Assets/app/core/03-els.js?v=20260903-admin-overlay126&pagination=155&help=20260922-001&amp;inv2=20261110-216&amp;trial=20261111-store1"></script>
+  <script defer src="Assets/app/core/04-trial-terms.js?v=20261111-access2"></script>
+  <script defer src="Assets/app/core/05-limited-access.js?v=20261111-access2"></script>
   <script defer src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001&accounting=149001&audit=154&ai=158&team=168001&amp;teamfix=20260917-169&insurancefix=171001&contact=20260922-001&amp;offline=20261104-001&amp;store=20261106-001&amp;bgmotion=20261110-001&amp;inv2=20261110-215"></script>
   <script defer src="Assets/app/auth/03-two-factor.js?v=20260904-account-security138&security=146"></script>
   <script defer src="Assets/app/auth/04-account-recovery.js?v=20260904-reliability139&amp;r=20261105-desktop350"></script>
@@ -980,16 +983,16 @@
   <script defer src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/expenses/03-expense-audit-pagination.js?v=20260908-server-pagination-155&uifix=20260915-001"></script>
   <script defer src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-executive-sections-158"></script>
-  <script defer src="Assets/app/ai/02-triplem-ai.js?v=20260912-timeline-openfix-167&amp;report=20261106-001"></script>
-  <script defer src="Assets/app/ai/03-ai-report.js?v=20261106-aireport001"></script>
+  <script defer src="Assets/app/ai/02-triplem-ai.js?v=20260912-timeline-openfix-167&amp;report=20261111-store1"></script>
+  <script defer src="Assets/app/ai/03-ai-report.js?v=20261111-store1"></script>
   <script defer src="Assets/app/attachments/02-attachments.js?v=20261110-att3"></script>
   <script defer src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001&pagination=155&help=20260922-001&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/ui/03-section-shortcuts.js?v=20261106-sections380"></script>
   <script defer src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
-  <script defer src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157&idle=20261031-005&amp;report=20261106-001"></script>
+  <script defer src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157&idle=20261031-005&amp;report=20261111-store1"></script>
   <script defer src="Assets/app/auth/02-auth-welcome-trial.js?v=20260913-wallet-selector-lazyfix1&regional=156&currency=001&workspacehome=20260916-001&amp;offline=20261104-001&amp;desktop=20261105-360&amp;store=20261106-001&amp;inv2=20261110-215"></script>
   <script defer src="Assets/app/bitcoin/01-bitcoin.js?v=20261009-bitcoin-critical-fixes&currency=002&build010=001&build011=001&amp;offline=20261104-001"></script>
-  <script defer src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001&build011=001&build012=notes002&accounting=149001&amp;coalesce=20261110-001"></script>
+  <script defer src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001&build011=001&build012=notes002&accounting=149001&amp;coalesce=20261110-001&amp;store=20261111-store1"></script>
   <script defer src="Assets/app/dashboard/01-financial-timeline.js?v=20260912-timeline-clean002"></script>
   <script defer src="Assets/app/assets/01-assets.js?v=20261009-assets-critical-fixes&build011=001&build013=filter001&build016=assets-wallet-currency002"></script>
   <script defer src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2&build010=001&build013=filter001&build016=dep-wallet002"></script>
@@ -1194,19 +1197,19 @@
               <span class="landing-brand-name" aria-label="Triplem VIP">TRIPLE<span class="brand-m-triple">M</span> VIP</span>
               <span class="landing-tagline">Accounting software for business finance and double-entry books.</span>
             </h1>
-            <p class="landing-lead">Move from operational records to formal books without abandoning the tools you already use. Triplem VIP combines expenses and wallets, inventory, loans, asset and depreciation tracking, notes with reminders and client-side Bitcoin tools with a separate Accounting ERP for Chart of Accounts, balanced journals, customer and supplier ledgers, reconciliation, VAT analysis and owner-ready reports. Accounting access remains controllable per user by the main administrator.</p>
+            <p class="landing-lead" data-store-text="Move from operational records to formal books without abandoning the tools you already use. Triplem VIP combines expenses and wallets, inventory, loans, installments, asset and depreciation tracking and notes with reminders with a separate Accounting ERP for Chart of Accounts, balanced journals, customer and supplier ledgers, reconciliation, VAT analysis and owner-ready reports. Accounting access remains controllable per user by the main administrator.">Move from operational records to formal books without abandoning the tools you already use. Triplem VIP combines expenses and wallets, inventory, loans, asset and depreciation tracking, notes with reminders and client-side Bitcoin tools with a separate Accounting ERP for Chart of Accounts, balanced journals, customer and supplier ledgers, reconciliation, VAT analysis and owner-ready reports. Accounting access remains controllable per user by the main administrator.</p>
             <div class="landing-hero-actions">
               <button type="button" class="btn soft landing-cta landing-cta--hero-signup" id="landingHeroTrialBtn" data-landing-trial>
                 <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
                 <span><strong>Free Sign-up</strong><small>14 days · full access · no card</small></span>
               </button>
-              <a class="btn ghost landing-cta landing-cta--public" href="Demo/">
+              <a class="btn ghost landing-cta landing-cta--public" href="Demo/" data-store-remove>
                 <i class="fa-solid fa-circle-play" aria-hidden="true"></i> Explore Demo
               </a>
-              <a class="btn ghost landing-cta landing-cta--public" href="/Security/">
+              <a class="btn ghost landing-cta landing-cta--public" href="/Security/" data-store-remove>
                 <i class="fa-solid fa-shield" aria-hidden="true"></i> Security Architecture
               </a>
-              <a class="btn ghost landing-cta landing-cta--public landing-cta--founder" href="Founder/">
+              <a class="btn ghost landing-cta landing-cta--public landing-cta--founder" href="Founder/" data-store-remove>
                 <i class="fa-solid fa-user-tie" aria-hidden="true"></i> Founder
               </a>
               <button type="button" class="btn soft landing-cta landing-live-chat-mobile-cta" data-live-chat-open>
@@ -1217,6 +1220,25 @@
             <button type="button" class="landing-member-login" data-landing-signin>
               <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Already registered? <strong>Login</strong>
             </button>
+            <!-- Microsoft Store edition only (shown by 00-store-edition.js): what this edition is, its requirements, the trial and its limits. -->
+            <section class="store-only store-edition-card" hidden aria-labelledby="storeEditionTitle">
+              <h2 id="storeEditionTitle"><i class="fa-brands fa-microsoft" aria-hidden="true"></i> Triplem VIP for Windows · Microsoft Store edition</h2>
+              <ul>
+                <li><b>Requires a Triplem VIP account</b> and an internet connection. Create one here with a <b>free 14-day trial</b>: no card, no automatic charge.</li>
+                <li><b>Trial and its limits:</b> full access to the modules you choose for 14 days, then a 3-day grace period with full access. After that the account has limited access: it stays active and you can view and download every record, but new entries are paused until a plan is approved. Nothing is deleted. Triplem AI and Insurance are enabled on request.</li>
+                <li><b>Plans</b> are bought from Triplem VIP by bank transfer, not from Microsoft, and do not renew automatically.</li>
+                <li><b>Updates</b> come only from the Microsoft Store.</li>
+                <li data-store-keep>The Microsoft Store edition does not include cryptocurrency features.</li>
+                <li><b>AI:</b> the assistants use generative AI (Google Gemini); every answer can be reported.</li>
+              </ul>
+              <p class="store-edition-links">
+                <button type="button" class="signup-terms-link" data-open-terms="trial">Free Trial Terms</button> ·
+                <button type="button" class="signup-terms-link" data-open-terms="terms">Terms and Conditions</button> ·
+                <a href="/windows-store/privacy.html">Privacy Policy</a> ·
+                <a href="/windows-store/ai.html">AI features</a> ·
+                <a href="/windows-store/">About this edition</a>
+              </p>
+            </section>
             <p class="landing-hero-trust">
               <span><i class="fa-solid fa-lock" aria-hidden="true"></i> Isolated accounts</span>
               <span class="landing-hero-trust-sep" aria-hidden="true">·</span>
@@ -1283,7 +1305,7 @@
             <div class="landing-trial-banner-copy">
               <p class="landing-trial-badge landing-trial-badge--blink"><i class="fa-solid fa-gift" aria-hidden="true"></i> Limited intro offer — blink &amp; grab it</p>
               <h2 id="landingTrialBannerTitle">14 days free. Full access. No card.</h2>
-              <p>Explore Accounting ERP, wallets, inventory, loans, assets and depreciation, notes and reminders, Bitcoin wallet tools, invoices and finance tools today. Accounting access can be enabled per user by the main administrator.</p>
+              <p data-store-text="Explore Accounting ERP, wallets, inventory, loans, installments, assets and depreciation, notes and reminders, invoices and finance tools today. Accounting access can be enabled per user by the main administrator.">Explore Accounting ERP, wallets, inventory, loans, assets and depreciation, notes and reminders, Bitcoin wallet tools, invoices and finance tools today. Accounting access can be enabled per user by the main administrator.</p>
               <ul class="landing-trial-points">
                 <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Double-entry Accounting ERP &amp; financial reports</li>
                 <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Sales, purchases, receivables &amp; payables</li>
@@ -1339,7 +1361,7 @@
             <article class="landing-convince-card landing-surface-card">
               <span class="landing-convince-icon" aria-hidden="true"><i class="fa-solid fa-user-lock"></i></span>
               <h3>Serious about privacy</h3>
-              <p>Isolated accounts + Bitcoin keys that stay in your browser. Keys don’t leave your device.</p>
+              <p data-store-text="Isolated private accounts, encrypted connections and layered sign-in protection. Your records stay in your own workspace.">Isolated accounts + Bitcoin keys that stay in your browser. Keys don’t leave your device.</p>
             </article>
             <article class="landing-convince-card landing-surface-card">
               <span class="landing-convince-icon" aria-hidden="true"><i class="fa-solid fa-print"></i></span>
@@ -1353,7 +1375,7 @@
           <header class="landing-seo-pillar-head">
             <p class="section-kicker">What is Triplem VIP?</p>
             <h2 id="seoWhatIsTitle">Triplem AI intelligence, Accounting ERP and operational finance in one private workspace.</h2>
-            <p id="seoWhatIsBody">
+            <p id="seoWhatIsBody" data-store-text="Triplem VIP, formerly known as Triplem and also searched as Triple M or Triple-M, is accounting and business finance software. Triplem AI adds permission-scoped intelligence over the signed-in workspace, with verified record references, clickable source entries and reviewable AI Drafts for supported actions. The platform also combines double-entry Accounting ERP, detailed Expenses and Wallets, Inventory, Loans, Installments, Assets and Depreciation, Notes, VAT analysis, Financial Audit controls and multi-currency reporting.">
               <strong>Triplem VIP</strong>, formerly known as Triplem and also searched as Triple M or Triple-M, is browser-based accounting and business finance software. Triplem AI adds permission-scoped intelligence over the signed-in workspace, with verified record references, clickable source entries and reviewable AI Drafts for supported actions. The platform also combines double-entry Accounting ERP, detailed Expenses and Wallets, Inventory, Loans, Assets and Depreciation, Notes, Bitcoin tools, VAT analysis, Financial Audit controls and multi-currency reporting.
             </p>
           </header>
@@ -1427,7 +1449,7 @@
             <a class="landing-seo-card landing-surface-card" href="seo/finance-software.html">
               <span class="landing-seo-card-icon" aria-hidden="true"><i class="fa-solid fa-chart-pie"></i></span>
               <h3>Finance software</h3>
-              <p>Inventory, assets, loans, Bitcoin tools, and reports—finance software that stays private.</p>
+              <p data-store-text="Inventory, assets, loans, installments and reports—finance software that stays private.">Inventory, assets, loans, Bitcoin tools, and reports—finance software that stays private.</p>
               <span class="landing-seo-card-cta">Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
             </a>
             <a class="landing-seo-card landing-surface-card" href="seo/security-and-support.html">
@@ -1488,7 +1510,7 @@
         <section class="landing-accounting-suite" id="operationalFinanceSuite" aria-labelledby="landingOperationalSuiteTitle" data-landing-reveal>
           <header class="landing-accounting-suite-head">
             <p class="section-kicker">Operational finance &amp; records</p>
-            <h2 id="landingOperationalSuiteTitle">Accounting is one pillar. Loans, assets, notes and Bitcoin remain first-class Triplem VIP tools.</h2>
+            <h2 id="landingOperationalSuiteTitle" data-store-text="Accounting is one pillar. Loans, assets, installments and notes remain first-class Triplem VIP tools.">Accounting is one pillar. Loans, assets, notes and Bitcoin remain first-class Triplem VIP tools.</h2>
             <p>The wider workspace is designed for practical records that may not belong in a formal journal. These modules remain independently usable even when Accounting is disabled for a user, preserving the workflows Triplem VIP users already rely on.</p>
           </header>
           <div class="landing-accounting-suite-grid" data-landing-stagger>
@@ -1535,7 +1557,7 @@
             <a href="seo/double-entry-accounting.html"><i class="fa-solid fa-scale-balanced"></i> Double-entry guide</a>
             <a href="seo/financial-reports.html"><i class="fa-solid fa-file-lines"></i> Reports guide</a>
           </div>
-          <p class="landing-accounting-suite-note"><strong>Controlled rollout:</strong> the main administrator can turn Accounting access on or off per user. Existing Expenses, Wallets, Inventory, Loans, Assets and Depreciation Assets, Notes and Bitcoin tools remain available independently, so introducing formal Accounting does not require rewriting legacy operational records.</p>
+          <p class="landing-accounting-suite-note" data-store-text="Controlled rollout: the main administrator can turn Accounting access on or off per user. Existing Expenses, Wallets, Inventory, Loans, Installments, Assets and Depreciation Assets and Notes remain available independently, so introducing formal Accounting does not require rewriting legacy operational records."><strong>Controlled rollout:</strong> the main administrator can turn Accounting access on or off per user. Existing Expenses, Wallets, Inventory, Loans, Assets and Depreciation Assets, Notes and Bitcoin tools remain available independently, so introducing formal Accounting does not require rewriting legacy operational records.</p>
         </section>
 
         <section class="landing-owner-questions" id="accountingSoftwareQuestions" aria-labelledby="landingOwnerQuestionsTitle" data-landing-reveal>
@@ -1599,7 +1621,7 @@
             </details>
             <details class="landing-question-card landing-surface-card">
               <summary>What is the difference between Expenses and Accounting ERP?</summary>
-              <p>The existing operational areas, including Expenses, Wallets, Inventory, Loans, Assets, Notes and Bitcoin tools, manage practical day-to-day records. Accounting ERP is the formal double-entry book with Chart of Accounts, journals, receivables, payables, tax and financial statements. They remain separate so existing user data and routines are not silently rewritten.</p>
+              <p data-store-text="The existing operational areas, including Expenses, Wallets, Inventory, Loans, Installments, Assets and Notes, manage practical day-to-day records. Accounting ERP is the formal double-entry book with Chart of Accounts, journals, receivables, payables, tax and financial statements. They remain separate so existing user data and routines are not silently rewritten.">The existing operational areas, including Expenses, Wallets, Inventory, Loans, Assets, Notes and Bitcoin tools, manage practical day-to-day records. Accounting ERP is the formal double-entry book with Chart of Accounts, journals, receivables, payables, tax and financial statements. They remain separate so existing user data and routines are not silently rewritten.</p>
             </details>
             <details class="landing-question-card landing-surface-card">
               <summary>Can the administrator control who sees Accounting?</summary>
@@ -1774,7 +1796,7 @@
               <button type="button" class="landing-footer-link" data-landing-section="policies">Privacy Policy</button>
               <button type="button" class="landing-footer-link" data-landing-section="policies">Terms of Use</button>
             </div>
-            <p class="landing-footer-security"><i class="fa-solid fa-lock" aria-hidden="true"></i> TLS encrypted connection · Isolated private accounts · Client-side Bitcoin key control</p>
+            <p class="landing-footer-security"><i class="fa-solid fa-lock" aria-hidden="true"></i> TLS encrypted connection · Isolated private accounts<span class="store-hide-crypto"> · Client-side Bitcoin key control</span></p>
           </div>
           <p class="landing-footer-copy">&copy; <span id="landingFooterYear"></span> Triplem VIP · Money Management Module</p>
         </div>
@@ -1844,14 +1866,14 @@
                   <div class="showcase-bar"><span></span><span></span><span></span></div>
                   <div class="showcase-metric"><small>Available Balance</small><strong>AED 48,250.00</strong></div>
                   <div class="showcase-lines"><span style="width:92%"></span><span style="width:68%"></span><span style="width:81%"></span></div>
-                  <div class="showcase-stack"><span>Inventory invoices</span><span>Asset P/L</span><span>Loan settlements</span><span>BTC blockchain records</span></div>
+                  <div class="showcase-stack"><span>Inventory invoices</span><span>Asset P/L</span><span>Loan settlements</span><span class="store-hide-crypto">BTC blockchain records</span></div>
                 </div>
               </div>
 
               <div class="landing-section-block landing-product-demo" aria-labelledby="aboutWalletsDemoTitle">
                 <p class="section-kicker">Sample wallets</p>
                 <h3 id="aboutWalletsDemoTitle">Multi-currency wallets for real business money.</h3>
-                <p class="landing-product-demo-lead">Fictional demo wallets — the same layout owners use for banks, cash, cards, and crypto inside a private Triplem VIP workspace.</p>
+                <p class="landing-product-demo-lead" data-store-text="Fictional demo wallets — the same layout owners use for banks, cash and cards inside a private Triplem VIP workspace.">Fictional demo wallets — the same layout owners use for banks, cash, cards, and crypto inside a private Triplem VIP workspace.</p>
                 <div class="landing-demo-wallet-grid" role="list" aria-label="Sample about wallets">
                   <article class="landing-demo-wallet" role="listitem">
                     <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/Emirates%20NBD.png" alt="Emirates NBD wallet logo" width="40" height="40" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';" />
@@ -1997,7 +2019,7 @@
               <div class="landing-section-block landing-product-demo" aria-labelledby="featuresWalletDemoTitle">
                 <p class="section-kicker">Product demo</p>
                 <h3 id="featuresWalletDemoTitle">Multi-wallet board for personal and business money.</h3>
-                <p class="landing-product-demo-lead">Fictional sample wallets — the same layout you use for cash, banks, cards, and crypto in one private workspace.</p>
+                <p class="landing-product-demo-lead" data-store-text="Fictional sample wallets — the same layout you use for cash, banks and cards in one private workspace.">Fictional sample wallets — the same layout you use for cash, banks, cards, and crypto in one private workspace.</p>
                 <div class="landing-demo-wallet-grid" role="list" aria-label="Sample expense wallets">
                   <article class="landing-demo-wallet" role="listitem">
                     <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/Emirates%20NBD.png" alt="Emirates NBD wallet logo" width="40" height="40" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';" />
@@ -2180,7 +2202,7 @@
               <h2 id="servicesTitle">Setup, reporting and support that follows the whole customer journey.</h2>
               <div class="landing-service-row">
                 <article><h3>Workspace setup</h3><p>Account preparation, configuration, and supported currency selection for your business workflow.</p></article>
-                <article><h3>Financial reporting</h3><p>PDF statements and reports for loans, expenses, inventory, assets, invoices, receipts, BTC transactions, customer balances, and full history exports.</p></article>
+                <article><h3>Financial reporting</h3><p data-store-text="PDF statements and reports for loans, expenses, inventory, assets, invoices, receipts, customer balances, and full history exports.">PDF statements and reports for loans, expenses, inventory, assets, invoices, receipts, BTC transactions, customer balances, and full history exports.</p></article>
                 <article><h3>Live &amp; in-app care</h3><p>Website visitors can begin with guided AI assistance and request a live Agent. Signed-in businesses and individuals can continue through the authenticated in-app support channel, with WhatsApp retained for direct assistance.</p></article>
               </div>
 
@@ -2450,7 +2472,7 @@
                 <h3 id="securityPracticeTitle">Keep your private access path in your hands.</h3>
                 <div class="landing-card-grid three">
                   <article class="landing-card"><i class="fa-solid fa-eye-slash"></i><h3>Never share credentials</h3><p>Do not share your username, password, or Smart PIN with other users. Each account is meant for its own private workspace.</p></article>
-                  <article class="landing-card"><i class="fa-solid fa-mobile-screen"></i><h3>Trusted devices only</h3><p>Sign in and handle Bitcoin private-key workflows only on devices you trust, especially when exporting backups or statements.</p></article>
+                  <article class="landing-card"><i class="fa-solid fa-mobile-screen"></i><h3>Trusted devices only</h3><p data-store-text="Sign in only on devices you trust, especially when exporting backups or statements.">Sign in and handle Bitcoin private-key workflows only on devices you trust, especially when exporting backups or statements.</p></article>
                   <article class="landing-card"><i class="fa-solid fa-rotate"></i><h3>Rotate when needed</h3><p>If you suspect exposure, change your password and Smart PIN promptly, then review recent session activity in your workspace.</p></article>
                 </div>
               </div>
@@ -2559,13 +2581,13 @@
             <section id="faq" class="landing-section landing-content-panel hide" data-landing-panel="faq" aria-labelledby="faqTitle" hidden>
               <p class="section-kicker">FAQ</p>
               <h2 id="faqTitle">Clear answers before you dive in.</h2>
-              <p>Practical questions about Triplem VIP access, Authenticator 2FA, Web Push notifications, AI and Agent support, accounting workflows, wallets, inventory, assets, Bitcoin, security, and exports. <a href="/seo/faq.html">Browse the complete Triplem VIP FAQ.</a></p>
+              <p data-store-text="Practical questions about Triplem VIP access, Authenticator 2FA, AI and Agent support, accounting workflows, wallets, inventory, assets, security, and exports.">Practical questions about Triplem VIP access, Authenticator 2FA, Web Push notifications, AI and Agent support, accounting workflows, wallets, inventory, assets, Bitcoin, security, and exports. <a href="/seo/faq.html">Browse the complete Triplem VIP FAQ.</a></p>
               <div class="faq-list">
                 <p class="faq-group-label">Getting started</p>
                 <details>
                   <summary>What is Triplem VIP?</summary>
                   <div class="faq-answer">
-                    <p>Triplem VIP is a private accounting and money-management workspace for owners and careful operators. It brings income and expense tracking, wallets, loans, inventory, asset management, invoices, receipts, customer balances, notes, Bitcoin wallets, searchable history, and PDF reports into one calm dashboard.</p>
+                    <p data-store-text="Triplem VIP is a private accounting and money-management workspace for owners and careful operators. It brings income and expense tracking, wallets, loans, installments, inventory, asset management, invoices, receipts, customer balances, notes, searchable history, and PDF reports into one calm dashboard.">Triplem VIP is a private accounting and money-management workspace for owners and careful operators. It brings income and expense tracking, wallets, loans, inventory, asset management, invoices, receipts, customer balances, notes, Bitcoin wallets, searchable history, and PDF reports into one calm dashboard.</p>
                     <p>It is built to replace messy spreadsheets with structured day-to-day books you can actually trust.</p>
                   </div>
                 </details>
@@ -2598,7 +2620,7 @@
                 <details>
                   <summary>Does it support multiple currencies?</summary>
                   <div class="faq-answer">
-                    <p>Yes. Triplem VIP currently supports business finance workflows in AED, SAR, PKR, USD, EUR and INR, with BTC available for supported Bitcoin workflows. Each wallet keeps its own currency, balances and statement history. If your local currency is not yet available, contact Triplem VIP and its addition can be reviewed for your country.</p>
+                    <p data-store-text="Yes. Triplem VIP currently supports business finance workflows in AED, SAR, PKR, USD, EUR and INR. Each wallet keeps its own currency, balances and statement history. If your local currency is not yet available, contact Triplem VIP and its addition can be reviewed for your country.">Yes. Triplem VIP currently supports business finance workflows in AED, SAR, PKR, USD, EUR and INR, with BTC available for supported Bitcoin workflows. Each wallet keeps its own currency, balances and statement history. If your local currency is not yet available, contact Triplem VIP and its addition can be reviewed for your country.</p>
                   </div>
                 </details>
                 <details>
@@ -2668,7 +2690,7 @@
                 <details>
                   <summary>Can I download statements and reports?</summary>
                   <div class="faq-answer">
-                    <p>Yes. Export PDF statements, receipts, inventory invoices, customer records, asset summaries, BTC statements, and backup-style exports from the dashboard.</p>
+                    <p data-store-text="Yes. Export PDF statements, receipts, inventory invoices, customer records, asset summaries and backup-style exports from the dashboard.">Yes. Export PDF statements, receipts, inventory invoices, customer records, asset summaries, BTC statements, and backup-style exports from the dashboard.</p>
                     <p>Always review exports before using them for formal accounting decisions.</p>
                   </div>
                 </details>
@@ -2697,7 +2719,7 @@
                   <summary>Will my data sync across devices?</summary>
                   <div class="faq-answer">
                     <p>Yes, when you are signed into your cloud workspace. Wallets, inventory order, categories, assets, and other saved records stay available on another device after they sync.</p>
-                    <p>Bitcoin private keys remain a device/browser-side concern—treat each trusted device carefully and never paste keys into untrusted places.</p>
+                    <p class="store-hide-crypto">Bitcoin private keys remain a device/browser-side concern—treat each trusted device carefully and never paste keys into untrusted places.</p>
                   </div>
                 </details>
 
@@ -2758,7 +2780,7 @@
               <h3 id="policyTitle">Clear terms for responsible use and private data handling.</h3>
               <div class="landing-policy-grid">
                 <article><h3>Terms and conditions</h3><p>Access is provided to approved users only. Users are responsible for entering accurate records, protecting their login credentials, reviewing exported reports, and requesting support when a setup or data concern appears.</p></article>
-                <article><h3>Privacy policy summary</h3><p>Financial records are used to operate the dashboard features requested by the user. Passwords, Smart PINs, Authenticator enrollment secrets and recovery codes should never be shared with support or posted publicly. Bitcoin private-key workflows are client-side: keys remain in the browser and should only be used on trusted devices.</p></article>
+                <article><h3>Privacy policy summary</h3><p>Financial records are used to operate the dashboard features requested by the user. Passwords, Smart PINs, Authenticator enrollment secrets and recovery codes should never be shared with support or posted publicly. <span class="store-hide-crypto">Bitcoin private-key workflows are client-side: keys remain in the browser and should only be used on trusted devices.</span></p></article>
                 <article><h3>Full Privacy Policy</h3><p>Read what data Triplem VIP collects, which providers process it, how long it is kept and how to export or delete it: <a href="/seo/privacy-policy.html">triplem.vip/seo/privacy-policy.html</a>.</p></article>
                 <article><h3>Data responsibility</h3><p>Backups and exports are available so users can keep copies of important finance data. Browser-notification permission remains device-specific, while safe presentation preferences such as the authenticated workspace theme may follow the account across devices.</p></article>
               </div>
@@ -3020,6 +3042,7 @@
       </div>
       <div class="landing-live-chat-head-actions">
         <button id="landingLiveChatAgentButton" type="button" class="landing-live-chat-agent-top hide" data-live-chat-aziz-agent-top aria-label="Connect to a Triplem VIP Live Agent" title="Live Agent"><i class="fa-solid fa-headset" aria-hidden="true"></i><span>Live Agent</span></button>
+        <button type="button" class="ai-report-head-btn landing-live-chat-report" data-ai-report-general="aziz" data-ai-report-surface="live_chat" title="Report an issue with an AI response" aria-label="Report an issue with an AI response"><i class="fa-regular fa-flag" aria-hidden="true"></i><span>Report</span></button>
         <button type="button" class="landing-live-chat-close" data-live-chat-close aria-label="Minimize live chat"><i class="fa-solid fa-minus"></i></button>
       </div>
     </div>
@@ -3028,6 +3051,7 @@
 
     <div id="landingLiveChatStartView" class="landing-live-chat-start">
       <p class="landing-live-chat-intro">Start with the Triplem VIP AI Assistant for instant product guidance. It answers only about Triplem VIP and will transfer you to a real support agent whenever you ask. Your browser keeps this conversation available for two hours after you start.</p>
+      <p class="ai-disclosure" data-ai-disclosure><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>The assistant's answers are generated by AI (Google Gemini) and can be wrong or incomplete. Every AI answer has a Report button, and you can report an issue at any time.</span><button type="button" class="ai-disclosure-report" data-ai-report-general="aziz" data-ai-report-surface="live_chat">Report an issue</button></p>
       <form id="landingLiveChatStartForm" autocomplete="on">
         <div class="landing-live-chat-fields">
           <label><span>Name</span><input id="landingLiveChatName" class="input" type="text" autocomplete="name" required placeholder="Your name" /></label>
@@ -3043,6 +3067,7 @@
     <div id="landingLiveChatConversation" class="landing-live-chat-conversation hide">
       <div id="landingLiveChatMessages" class="landing-live-chat-messages" role="log" aria-live="polite"></div>
       <div id="landingLiveChatGuided" class="landing-live-chat-guided hide" aria-live="polite"></div>
+      <p class="ai-disclosure is-compact" data-ai-disclosure><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>AI-generated answers can be wrong.</span><button type="button" class="ai-disclosure-report" data-ai-report-general="aziz" data-ai-report-surface="live_chat">Report an issue</button></p>
       <div class="landing-live-chat-expiry"><i class="fa-regular fa-clock"></i><span id="landingLiveChatExpiryText">Temporary chat</span></div>
       <form id="landingLiveChatReplyForm" class="landing-live-chat-reply hide">
         <textarea id="landingLiveChatReply" rows="1" placeholder="Write a message to your support Agent…" aria-label="Support chat message"></textarea>
@@ -3217,7 +3242,7 @@
                 <strong>Triplem VIP</strong> (Money Management Module) is a comprehensive financial tracking application designed and developed by Nadeem Shahzad Fida. This powerful tool helps individuals and businesses manage their finances with precision and ease.
               </p>
               <p style="margin: 0; line-height: 1.6; color: var(--text);">
-                The application provides a secure cloud-based solution with server storage for expenses, loans, and goods transactions, ensuring data safety and accessibility. Additionally, it offers cryptocurrency management through Bitcoin wallet integration with local backup options.
+                The application provides a secure cloud-based solution with server storage for expenses, loans, and goods transactions, ensuring data safety and accessibility. <span class="store-hide-crypto">Additionally, it offers cryptocurrency management through Bitcoin wallet integration with local backup options.</span>
               </p>
             </div>
           </div>
@@ -3241,7 +3266,7 @@
               <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
                 <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-coins"></i> International Multi-Currency Support</h5>
                 <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
-                  Multi-currency support for AED, SAR, PKR, USD, EUR, INR and BTC, with separate wallet and record context for each supported currency. Additional currencies can be added as international demand expands.
+                  Multi-currency support for AED, SAR, PKR, USD, EUR, INR<span class="store-hide-crypto"> and BTC</span>, with separate wallet and record context for each supported currency. Additional currencies can be added as international demand expands.
                 </p>
               </div>
             </div>
@@ -3354,7 +3379,7 @@
           <div style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 1px solid rgba(6, 118, 71, 0.3); border-radius: 16px; padding: 24px; text-align: center;">
             <h3 style="margin: 0 0 12px; font-size: 1.5rem; font-weight: 700; color: var(--primary);">Professional Financial Management Solution</h3>
             <p style="margin: 0 0 16px; line-height: 1.6; color: var(--text); font-size: 1rem;">
-              Empower your business with comprehensive expense tracking, loan management, inventory control, asset management, and Bitcoin integration.
+              Empower your business with comprehensive expense tracking, loan management, inventory control<span class="store-hide-crypto">, asset management, and Bitcoin integration.</span><span class="store-only" hidden> and asset management.</span>
             </p>
             <div style="display: inline-flex; align-items: center; gap: 8px; background: var(--success); color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600;">
               <i class="fa-solid fa-gift"></i> Monthly: 1 Month Free + Free Installation | Yearly: 2 Months Free + Free Installation (14 Months Total)
@@ -3653,6 +3678,11 @@
       <div>
         <strong id="accessBannerTitle">Trial access</strong>
         <span id="accessBannerMessage">Your free trial is active.</span>
+        <button type="button" id="accessBannerTerms" class="access-banner-terms" data-open-terms="trial">Trial Terms and Conditions</button>
+      </div>
+      <div id="accessBannerActions" class="access-banner-actions hide">
+        <button type="button" class="btn primary tiny" data-banner-plan><i class="fa-solid fa-crown" aria-hidden="true"></i> Choose a plan</button>
+        <button type="button" class="btn ghost tiny" data-banner-details>What this means</button>
       </div>
       <a id="accessBannerContact" href="https://wa.me/923339004564" target="_blank" rel="noopener">Need full access? Contact admin</a>
     </div>
@@ -3668,7 +3698,7 @@
         <div class="guest-restriction-icon"><i class="fa-solid fa-lock"></i></div>
         <div class="guest-restriction-copy">
           <h3 id="trialExpiredTitle">Your access period has ended</h3>
-          <p id="trialExpiredMessage">Your grace period has ended and the workspace is locked for one day. Request a renewal below — the account auto-disables after this lock day unless renewed.</p>
+          <p id="trialExpiredMessage">Your access period has ended. Choose a plan below to continue with full access.</p>
           <div class="trial-renewal-box" id="trialExpiredRenewalBox">
             <strong>Renew with Pro Monthly or Pro Yearly</strong>
             <p class="settings-status">Choose your plan, transfer to the available bank account, and submit the private receipt for approval.</p>
@@ -5079,7 +5109,7 @@
                   <strong>Triplem VIP</strong> (Money Management Module) is a comprehensive financial tracking application designed and developed by Nadeem Shahzad Fida. This powerful tool helps individuals and businesses manage their finances with precision and ease.
                 </p>
                 <p style="margin: 0; line-height: 1.6; color: var(--text);">
-                  The application provides a secure cloud-based solution with server storage for expenses, loans, and goods transactions, ensuring data safety and accessibility. Additionally, it offers cryptocurrency management through Bitcoin wallet integration with local backup options.
+                  The application provides a secure cloud-based solution with server storage for expenses, loans, and goods transactions, ensuring data safety and accessibility. <span class="store-hide-crypto">Additionally, it offers cryptocurrency management through Bitcoin wallet integration with local backup options.</span>
                 </p>
               </div>
             </div>
@@ -5118,7 +5148,7 @@
                     Track owned assets such as cars, property, equipment, and investments with purchase cost, ownership duration, maintenance, revenue, sale or disposal, net profit/loss, charts, and PDF reports. Admins can enable the Assets tab per user.
                   </p>
                 </div>
-                <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                <div class="store-hide-crypto" style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
                   <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-brands fa-bitcoin"></i> Bitcoin Integration</h5>
                   <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
                     Client-side Bitcoin control: send and receive from Triplem VIP, review per-wallet transaction statements, and keep private keys in the browser. Sensitive key material does not leave your device.
@@ -5134,7 +5164,7 @@
                 <p style="margin: 0 0 10px; line-height: 1.6; color: var(--text);">
                   <strong style="color: var(--primary);">Secure Server Storage:</strong> Your financial data (expenses, loans, goods) is securely stored on our protected servers with enterprise-grade encryption and regular backups, ensuring data safety and accessibility from any device.
                 </p>
-                <p style="margin: 0 0 10px; line-height: 1.6; color: var(--text);">
+                <p class="store-hide-crypto" style="margin: 0 0 10px; line-height: 1.6; color: var(--text);">
                   <strong style="color: var(--primary);">Bitcoin Privacy:</strong> Bitcoin control is client-side. Private keys and sensitive key material never leave your browser. You can send and receive Bitcoin from Triplem VIP and review transaction statements for each wallet.
                 </p>
                 <p style="margin: 0; line-height: 1.6; color: var(--text);">

@@ -115,7 +115,7 @@ test('sitemap freshness comes only from explicit content dates, never deployment
   assert.equal(sitemapBuilder.extractModified('<html><head></head><body>no explicit date</body></html>', 'test.html'), '');
 
   const entries = sitemapBuilder.buildEntries();
-  assert.equal(entries.length, 50);
+  assert.equal(entries.length, 55); // + 5 windows-store/ pages (2026-11-11)
   assert.equal(new Set(entries.map(entry => entry.loc)).size, entries.length);
   assert.ok(entries.every(entry => entry.loc.startsWith('https://triplem.vip/')));
   assert.ok(entries.every(entry => !entry.loc.endsWith('/Demo/')));
@@ -172,7 +172,7 @@ test('public SEO metadata, manifest icons and FAQ schema stay complete', () => {
   const { buildEntries, publicHtmlFiles } = require('../scripts/build_sitemap');
   const files = publicHtmlFiles().filter(file => file !== 'Demo/index.html');
   const manifest = JSON.parse(read('site.webmanifest'));
-  assert.equal(files.length, 50);
+  assert.equal(files.length, 55); // + 5 windows-store/ pages (2026-11-11)
   assert.ok(files.every(file => fs.existsSync(path.join(root, file))));
   for (const file of files) {
     const html = read(file);
