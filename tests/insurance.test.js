@@ -75,7 +75,7 @@ test('insurance is wired into Home navigation without changing Inventory module 
   const nav = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'ui', '01-render-navigation.js'), 'utf8');
   const auth = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'auth', '01-auth-session.js'), 'utf8');
   assert.match(nav, /insurance:\s*"insurance"/);
-  assert.match(nav, /insurance:\s*"insurance\.png"/);
+  assert.match(nav, /WORKSPACE_HOME_ICON_KEYS = \[[^\]]*"insurance"/); // Home v2 icons (Assets/logo/icons/home/insurance.svg)
   assert.match(auth, /insurance:\s*"insurance"/);
 });
 
