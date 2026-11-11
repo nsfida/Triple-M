@@ -38,7 +38,7 @@ function publicPathExists(rawUrl, fromFile) {
   return candidates.some(c => fs.existsSync(path.join(ROOT, c)));
 }
 
-const pages=['index.html','Founder/index.html','Security/index.html',...fs.readdirSync(path.join(ROOT,'seo')).filter(x=>x.endsWith('.html')).sort().map(x=>'seo/'+x),...fs.readdirSync(path.join(ROOT,'regions')).filter(x=>x.endsWith('.html')).sort().map(x=>'regions/'+x)];
+const pages=['index.html','Founder/index.html','Security/index.html',...fs.readdirSync(path.join(ROOT,'seo')).filter(x=>x.endsWith('.html')).sort().map(x=>'seo/'+x),...fs.readdirSync(path.join(ROOT,'regions')).filter(x=>x.endsWith('.html')).sort().map(x=>'regions/'+x),...(fs.existsSync(path.join(ROOT,'windows-store'))?fs.readdirSync(path.join(ROOT,'windows-store')).filter(x=>x.endsWith('.html')).sort().map(x=>'windows-store/'+x):[])];
 function expectedCanonicalFor(file){ if(file==='index.html') return `${BASE}/`; if(path.posix.basename(file)==='index.html') return `${BASE}/${path.posix.dirname(file)}/`; return `${BASE}/${file}`; }
 const canonicals=new Map();
 const sitemap=read('sitemap.xml');

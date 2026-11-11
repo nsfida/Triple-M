@@ -29,7 +29,7 @@ function tags(html, name) {
 
 function publicHtmlFiles() {
   const files = ['index.html', 'Demo/index.html', 'Founder/index.html', 'Security/index.html'];
-  for (const directory of ['seo', 'regions']) {
+  for (const directory of ['seo', 'regions', 'windows-store']) {
     const absolute = path.join(ROOT, directory);
     if (!fs.existsSync(absolute)) continue;
     for (const name of fs.readdirSync(absolute).filter(entry => entry.endsWith('.html')).sort()) {
