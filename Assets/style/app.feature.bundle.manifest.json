@@ -171,8 +171,13 @@
       "path": "Assets/style/65-signup-trial-terms.css",
       "bytes": 14556,
       "sha256": "e2b153eaa67760d5b14f043e94ec35ba09239bd61cc27c221c200be782280fc3"
+    },
+    {
+      "path": "Assets/style/66-workspace-home-v2.css",
+      "bytes": 12476,
+      "sha256": "fb7aa58c54d7cd02a662be6cf2bdf6b7ecc9b38a948a37ab74ee78d53f873c97"
     }
   ],
-  "bytes": 708186,
-  "sha256": "12e6a0eb964c1908960e3eb1c4c2836328e32e53b00807a6ced8a76df50f013a"
+  "bytes": 720727,
+  "sha256": "a9b8387e06dfbd164c5c13bb2e6162a7153c323cd63057f5f5de81ed89bede47"
 }
