@@ -9,14 +9,20 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const read = rel => fs.readFileSync(path.join(root, rel), "utf8");
 
-test("every Home section has its own icon tile with the gold rim", () => {
-  for (const key of ["dashboard", "expenses", "inventory2", "goods", "accounting", "audit", "assets", "loans", "installments", "notes", "triplem-ai", "insurance", "bitcoin", "admin", "messages"]) {
+test("every Home section has a safe SVG icon", () => {
+  // The icons may be replaced with any artwork (2026-11-11: owner's own icon set), so only the
+  // file itself is checked: present, a real SVG, and nothing that can run or load from elsewhere.
+  const nav = read("Assets/app/ui/01-render-navigation.js");
+  const keys = JSON.parse(nav.match(/const WORKSPACE_HOME_ICON_KEYS = (\[[^\]]*\]);/)[1]);
+  assert.ok(keys.length >= 10);
+  for (const key of keys) {
     const svg = read(`Assets/logo/icons/home/${key}.svg`);
-    assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 100 100"/, key);
-    assert.match(svg, /stroke="url\(#r\)"/, `${key}: gold rim`);
-    assert.doesNotMatch(svg, /<script|href=/i, `${key}: no scripts or links`);
+    assert.match(svg, /<svg[\s>][^>]*viewBox="[^"]+"/i, `${key}: SVG with a viewBox`);
+    assert.doesNotMatch(svg, /<script|<foreignObject|\son[a-z]+\s*=|javascript:/i, `${key}: no scripts`);
+    for (const m of svg.matchAll(/(?:xlink:)?href\s*=\s*"([^"]*)"/gi)) {
+      assert.match(m[1], /^(#|data:image\/(png|webp|jpeg|gif|svg\+xml);base64,)/, `${key}: no external links (${m[1].slice(0, 40)})`);
+    }
   }
-  assert.match(read("scripts/build_home_icons.js"), /Assets\/logo\/icons\/home/);
 });
 
 test("Home cards: no frame, no open icon, a ⋮ menu, names under the icon", () => {
