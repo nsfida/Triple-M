@@ -37,7 +37,7 @@ test("attachment settings: only a confirmed server answer for this session is ke
   assert.match(att, /return bestCfg\(\); \/\/ not remembered/);
   assert.doesNotMatch(att, /return \(S\.cfg = cachedCfg\(\)/, "a stand-in answer must never be cached for the page life");
   assert.match(att, /function entryById/);
-  assert.match(read("index.html"), /02-attachments\.js\?v=20261110-att3/);
+  assert.match(read("index.html"), /02-attachments\.js\?v=20261112-att4/);
 });
 
 test("Windows build: release executables are stripped of debug sections; signing keys never in the project", { skip: !exists("scripts/windows_app/build_windows_app.sh") }, () => {
