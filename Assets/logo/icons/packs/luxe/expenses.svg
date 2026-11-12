@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2aa397"/><stop offset=".55" stop-color="#11706a"/><stop offset="1" stop-color="#062f2d"/></linearGradient>
+    <radialGradient id="l" cx=".28" cy=".18" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset=".55" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".34"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".45" stop-color="#e9b949"/><stop offset="1" stop-color="#9c6a14"/></linearGradient>
+    <linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dbe5f3"/></linearGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0b3"/><stop offset=".5" stop-color="#f2c14e"/><stop offset="1" stop-color="#b8821c"/></linearGradient>
+    <filter id="f" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2.2" stdDeviation="1.8" flood-color="#000" flood-opacity=".32"/></filter>
+    <clipPath id="c"><rect x="2" y="2" width="96" height="96" rx="26"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect x="2" y="2" width="96" height="96" fill="url(#t)"/>
+    <rect x="2" y="2" width="96" height="96" fill="url(#l)"/>
+    <circle cx="86" cy="92" r="30" fill="#000" opacity=".12"/>
+    <path d="M2 2 H98 V40 C70 50 30 50 2 40 Z" fill="url(#s)" opacity=".55"/>
+  </g>
+  <rect x="2.6" y="2.6" width="94.8" height="94.8" rx="25.4" fill="none" stroke="url(#r)" stroke-width="1.4" opacity=".85"/>
+  <rect x="4.4" y="4.4" width="91.2" height="91.2" rx="23.8" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
+  <g filter="url(#f)">
+    <rect x="32" y="22" width="34" height="22" rx="4" transform="rotate(-12 49 33)" fill="url(#g)"/>
+    <path d="M36 30 l22 -4.6" stroke="#9a6a12" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+    <rect x="22" y="34" width="56" height="42" rx="9" fill="url(#w)"/>
+    <path d="M22 44 a9 9 0 0 1 9 -10 h38" fill="none" stroke="#c9d6ea" stroke-width="2"/>
+    <rect x="58" y="47" width="24" height="17" rx="6" fill="url(#g)"/>
+    <circle cx="66" cy="55.5" r="3.4" fill="#fff8dc"/>
+  </g>
+</svg>
