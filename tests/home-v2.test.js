@@ -79,25 +79,50 @@ test("card names: cleaned, limited, saved to the account settings (HomeNames)", 
   assert.match(src, /const SETTINGS_KEY = "HomeNames";/);
 });
 
-test("Home Icons (Theme menu): New by default, Classic restores the earlier Home, saved to the account", () => {
+test("Home Style: 6 icon packs, 4 layouts, size and spacing, saved to the account", () => {
   const theme = read("Assets/app/core/07-theme.js");
-  // selector sits below the Background Bubbles switch
   const menu = theme.slice(theme.indexOf("function renderThemeDropdown()"));
-  assert.ok(menu.indexOf('data-bg-motion-toggle aria-checked') < menu.indexOf('data-home-pack="new"'));
-  assert.match(menu, /role="radiogroup" aria-labelledby="homeIconPackLabel"/);
-  assert.match(menu, /data-home-pack="classic"/);
-  assert.match(theme, /return local\?\.pack \|\| "new";/, "New is the default");
-  assert.match(theme, /supabaseRpc\("app_update_own_settings", \{ p_settings: \{ HomeIconPack: local\.pack \} \}/);
-  assert.match(theme, /const TRIPLEM_HOME_PACKS = Object\.freeze\(\["new", "classic"\]\);/);
-  const nav = read("Assets/app/ui/01-render-navigation.js");
-  assert.match(nav, /if \(pack === "classic"\) return `Assets\/logo\/icons\/\$\{WORKSPACE_CLASSIC_ICON_FILES\[k\] \|\| "dashboard\.png"\}`;/);
-  assert.match(nav, /workspace-home-card--classic/);
-  assert.match(nav, /classList\.toggle\("home-pack-classic", pack === "classic"\)/);
-  for (const f of ["dashboard", "expenses", "accounting", "assets", "loans", "audit", "admin", "bitcoin", "triplem_ai", "inventory", "insurance", "installments", "notes"]) {
-    assert.ok(fs.existsSync(path.join(root, `Assets/logo/icons/${f}.png`)), `classic icon ${f}.png`);
+  assert.ok(menu.indexOf("data-bg-motion-toggle aria-checked") < menu.indexOf("data-home-customize"), "below the bubbles switch");
+  assert.match(menu, /window\.TriplemHomeStyle\?\.open\?\.\(\)/);
+  const src = read("Assets/app/ui/07-home-style.js");
+  assert.match(src, /const SETTINGS_KEY = "HomeStyle";/);
+  assert.match(src, /supabaseRpc\("app_update_own_settings", \{ p_settings: \{ \[SETTINGS_KEY\]: value, HomeIconPack: legacy \} \}/);
+  assert.match(read("index.html"), /<script defer src="Assets\/app\/ui\/07-home-style\.js\?v=[^"]+"><\/script>/);
+  // behaviour
+  const store = {};
+  const g = {
+    localStorage: { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); } },
+    addEventListener() {}, dispatchEvent() {}, CustomEvent: class {},
+    navigator: { onLine: true }, document: { getElementById: () => null, querySelectorAll: () => [] },
+    state: { unlocked: true, sessionUser: { id: "u1", settings: {} } }
+  };
+  g.window = g;
+  vm.createContext(g);
+  vm.runInContext(src, g);
+  const H = g.TriplemHomeStyle;
+  assert.equal(JSON.stringify(H.PACKS.map(p => p.id)), JSON.stringify(["standard", "classic", "jewel", "pastel", "neon", "luxe"]));
+  assert.equal(JSON.stringify(H.LAYOUTS.map(l => l.id)), JSON.stringify(["grid", "cards", "list", "compact"]));
+  assert.equal(JSON.stringify(H.get()), JSON.stringify({ pack: "standard", layout: "grid", size: 100, gap: 100 }), "defaults");
+  assert.equal(JSON.stringify(H.normalize({ pack: "x", layout: "y", size: 999, gap: 3 })), JSON.stringify({ pack: "standard", layout: "grid", size: 140, gap: 40 }));
+  g.state.sessionUser.settings.HomeIconPack = "classic";
+  assert.equal(H.get().pack, "classic"); assert.equal(H.get().layout, "cards");
+  g.state.sessionUser.settings.HomeStyle = { pack: "neon", layout: "compact", size: 120, gap: 80, at: Date.now() + 1000 };
+  assert.equal(H.get().pack, "neon");
+  assert.equal(H.iconSrc("notes", "neon"), "Assets/logo/icons/packs/neon/notes.svg?v=20261112");
+  assert.equal(H.iconSrc("notes", "classic"), "Assets/logo/icons/notes.png");
+  assert.match(H.iconSrc("notes", "standard"), /^Assets\/logo\/icons\/home\/notes\.svg/);
+  for (const pack of ["jewel", "pastel", "neon", "luxe"]) {
+    for (const key of ["dashboard", "expenses", "inventory2", "goods", "accounting", "audit", "assets", "loans", "installments", "notes", "triplem-ai", "insurance", "bitcoin", "admin", "messages"]) {
+      const svg = read(`Assets/logo/icons/packs/${pack}/${key}.svg`);
+      assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 100 100"/, `${pack}/${key}`);
+      assert.doesNotMatch(svg, /<script|href=/i);
+    }
   }
+  const nav = read("Assets/app/ui/01-render-navigation.js");
+  assert.match(nav, /if \(layout === "cards"\) \{/);
   const css = read("Assets/style/66-workspace-home-v2.css");
-  assert.match(css, /#workspaceHome:not\(\.home-pack-classic\) #workspaceHomeGrid\{/);
-  assert.match(css, /#workspaceHome\.home-pack-classic \.workspace-home-title/);
-  assert.match(css, /\.theme-menu-segment button\.is-selected/);
+  for (const l of ["list", "compact", "cards"]) assert.match(css, new RegExp(`#workspaceHome\\.home-layout-${l} #workspaceHomeGrid\\{`));
+  assert.match(css, /width:calc\(92px \* var\(--wh-icon-scale,1\)\)/);
+  assert.match(css, /column-gap:calc\(clamp\(10px,1\.6vw,22px\) \* var\(--wh-gap-scale,1\)\)/);
+  assert.match(css, /\.home-style-panel\{/);
 });
