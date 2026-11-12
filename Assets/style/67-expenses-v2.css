@@ -1,0 +1,498 @@
+/* Triplem VIP Expenses v2 — 2026-11-12
+   Wallets/Accounts first; "Expenses History" swaps the wallets for the expenses list.
+   Compact wallet cards (2 per row on phones), hover zoom, spent bar, wallet overlay hero,
+   restyled history, Expenses Style options (ev-*), and lighter animation.
+   Scoped to #walletsOverviewSection.ev2, #expensesPanel and the wallet details overlay. */
+
+/* ── Section frame: no outer card ── */
+html body #app #walletsOverviewSection.ev2{
+  background:transparent !important;border:0 !important;box-shadow:none !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+  padding:2px 0 0 !important;overflow:visible !important;
+}
+html body #app #walletsOverviewSection.ev2::before,
+html body #app #walletsOverviewSection.ev2::after{content:none !important;display:none !important}
+#walletsOverviewSection.ev2 #walletsBanner{display:none !important}
+html body #app #walletsOverviewSection.ev2 .wallets-content{display:block !important;max-height:none !important;opacity:1 !important;overflow:visible !important;padding:0 !important;margin:0 !important;background:transparent !important;border:0 !important;box-shadow:none !important}
+html body #app #walletsOverviewSection.ev2 #expenseOverviewWallets{background:transparent !important;border:0 !important;box-shadow:none !important}
+
+/* ── Head ── */
+.ev2-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 2px 12px}
+.ev2-title{margin:0;font-size:clamp(1.2rem,2vw,1.5rem);font-weight:850;letter-spacing:-.03em;color:var(--text);line-height:1.15}
+.ev2-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.ev2-btn{
+  appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:0 14px;
+  border:1px solid var(--line);border-radius:999px;background:var(--surface-elevated,var(--panel));
+  color:var(--text);font:inherit;font-size:.82rem;font-weight:750;cursor:pointer;white-space:nowrap;
+  box-shadow:0 1px 2px rgba(15,23,42,.06);
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+.ev2-btn i{font-size:.8rem;color:var(--primary)}
+.ev2-btn--icon{width:38px;padding:0}
+.ev2-btn:hover{border-color:color-mix(in srgb,var(--primary) 45%,var(--line));transform:translateY(-1px);box-shadow:0 6px 16px rgba(15,23,42,.12)}
+.ev2-btn:active{transform:none}
+.ev2-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%,transparent);outline-offset:2px}
+.ev2-btn.is-on,.ev2-btn[aria-pressed="true"],.ev2-btn[aria-expanded="true"]{background:color-mix(in srgb,var(--primary) 12%,var(--panel));border-color:color-mix(in srgb,var(--primary) 60%,var(--line));color:var(--primary)}
+.ev2-btn--primary{background:linear-gradient(180deg,color-mix(in srgb,var(--primary) 88%,#fff),var(--primary));border-color:transparent;color:#fff}
+.ev2-btn--primary i{color:#fff}
+.ev2-btn--primary:hover{border-color:transparent;box-shadow:0 8px 20px color-mix(in srgb,var(--primary) 35%,transparent)}
+
+/* ── Wallets or History (one at a time) ── */
+body:not(.ev2-history-open) #expensesPanel{display:none !important}
+html body.ev2-history-open #app #walletsOverviewSection.ev2 .wallets-content{display:none !important}
+body.ev2-history-open #expensesPanel.active{animation:ev2In .22s ease-out both}
+html body:not(.ev2-history-open) #app #walletsOverviewSection.ev2 .wallets-content{animation:ev2In .22s ease-out both}
+@keyframes ev2In{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── Layout ── */
+#walletsOverviewSection.ev2 .wallets-desktop-layout{display:grid !important;grid-template-columns:minmax(230px,280px) minmax(0,1fr) !important;gap:14px !important;align-items:start !important}
+#walletsOverviewSection.ev2 .summary-column{position:sticky;top:12px;width:auto !important;max-width:none !important;min-width:0 !important}
+#walletsOverviewSection.ev2 .wallets-column{min-width:0 !important;width:auto !important}
+#walletsOverviewSection.ev2 .wallets-grid{display:grid !important;grid-template-columns:repeat(auto-fill,minmax(212px,1fr)) !important;gap:12px !important}
+#walletsOverviewSection.ev2 .wallets-full-width .wallets-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr)) !important}
+#walletsOverviewSection.ev2.ev-no-summary .wallets-desktop-layout{grid-template-columns:minmax(0,1fr) !important}
+#walletsOverviewSection.ev2.ev-no-summary .summary-column,
+#walletsOverviewSection.ev2.ev-no-summary #expenseOverviewWallets > .summary.expense-overview{display:none !important}
+
+/* ── Wallet card ── */
+html body #app #walletsOverviewSection.ev2 .summary.wallet-details-card{
+  --wallet-accent:var(--primary);
+  position:relative;display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0;
+  margin:0 !important;padding:12px 13px 11px !important;border-radius:18px !important;
+  border:1px solid color-mix(in srgb,var(--wallet-accent) 22%,var(--line)) !important;
+  background:
+    linear-gradient(90deg,var(--wallet-accent),color-mix(in srgb,var(--wallet-accent) 25%,transparent)) top / 100% 3px no-repeat,
+    radial-gradient(130% 90% at 100% 0%,color-mix(in srgb,var(--wallet-accent) 15%,transparent),transparent 60%),
+    var(--surface-elevated,var(--panel)) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.06),0 8px 22px -14px rgba(15,23,42,.28) !important;
+  cursor:pointer;zoom:var(--ev-card-zoom,1);
+  transition:transform .3s cubic-bezier(.34,1.4,.64,1),box-shadow .25s ease,border-color .25s ease !important;
+}
+@media (hover:hover){
+  html body #app #walletsOverviewSection.ev2:not(.ev-motion-none) #expenseOverviewWallets:not(.expense-wallet-reordering) .summary.wallet-details-card:hover{
+    transform:scale(1.04) !important;z-index:2;
+    border-color:color-mix(in srgb,var(--wallet-accent) 55%,var(--line)) !important;
+    box-shadow:0 2px 4px rgba(15,23,42,.08),0 20px 36px -18px color-mix(in srgb,var(--wallet-accent) 55%,rgba(15,23,42,.45)) !important;
+  }
+  html body #app #walletsOverviewSection.ev2.ev-motion-lift #expenseOverviewWallets:not(.expense-wallet-reordering) .summary.wallet-details-card:hover{transform:translateY(-5px) !important}
+}
+html body #app #walletsOverviewSection.ev2 .summary.wallet-details-card:focus-visible{outline:2px solid var(--wallet-accent);outline-offset:3px}
+html body #app #walletsOverviewSection.ev2 .summary.wallet-details-card:active{transform:scale(.985) !important}
+
+#walletsOverviewSection.ev2 .wallet-details-card .currency-head{font-size:.92rem !important;gap:7px !important;margin:0 22px 4px 0 !important;min-width:0}
+#walletsOverviewSection.ev2 .wallet-details-card .currency-head > span:last-child{font-size:.86rem !important;font-weight:800 !important;letter-spacing:-.01em;color:var(--text)}
+#walletsOverviewSection.ev2 .wallet-details-card .currency-head img{width:24px !important;height:24px !important;border-radius:7px;object-fit:cover;box-shadow:0 2px 5px rgba(15,23,42,.16)}
+#walletsOverviewSection.ev2 .wallet-details-card .summary-line{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 !important;padding:0 !important;font-size:.74rem}
+#walletsOverviewSection.ev2 .wallet-details-card .summary-line-one-label{color:var(--muted);font-weight:650}
+#walletsOverviewSection.ev2 .wallet-details-card .summary-line-one-value{font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
+#walletsOverviewSection.ev2 .wallet-details-card .summary-line:has(.available-amount){margin-top:3px !important;padding-top:6px !important;border-top:1px dashed color-mix(in srgb,var(--line) 85%,transparent)}
+#walletsOverviewSection.ev2 .wallet-details-card .available-label{font-size:.76rem;font-weight:800 !important}
+html body #app #walletsOverviewSection.ev2 .wallet-details-card .summary-line-one-value.available-amount,
+html body #app #walletsOverviewSection.ev2 .wallet-details-card .summary-line-one-value.available-amount .money,
+html body #app #walletsOverviewSection.ev2 .wallet-details-card .summary-line-one-value.available-amount .amount{font-size:1.06rem !important;font-weight:850 !important;letter-spacing:-.02em}
+html body #app #walletsOverviewSection.ev2 .wallet-details-card .summary-line-one-value.available-amount .symbol{font-size:.86rem !important}
+
+.ev2-meter{position:relative;height:5px;margin:7px 0 1px;border-radius:999px;background:color-mix(in srgb,var(--muted,#667085) 18%,transparent);overflow:hidden}
+.ev2-meter i{position:absolute;inset:0 auto 0 0;width:var(--p,0%);border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--wallet-accent,var(--primary)) 70%,#fff),var(--wallet-accent,var(--primary)));transition:width .5s ease}
+.ev2-meter.is-high i{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+.ev2-meter.is-empty i{background:linear-gradient(90deg,#fb7185,#e11d48)}
+#walletsOverviewSection.ev2.ev-no-meter .ev2-meter{display:none}
+
+#walletsOverviewSection.ev2 .wallet-details-card .overview-card-actions{margin-top:8px !important;gap:5px !important;align-items:center}
+#walletsOverviewSection.ev2 .wallet-details-card .overview-card-actions .tiny{
+  min-height:28px;padding:0 9px;border-radius:999px;font-size:.7rem;font-weight:750;display:inline-flex;align-items:center;gap:5px;
+  border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 60%,transparent);
+}
+#walletsOverviewSection.ev2 .wallet-details-card .ev2-act i{font-size:.66rem}
+#walletsOverviewSection.ev2 .wallet-details-card .ev2-act--in i{color:#16a34a}
+#walletsOverviewSection.ev2 .wallet-details-card .ev2-act--out i{color:#e11d48}
+#walletsOverviewSection.ev2 .wallet-details-card .ev2-act--move i{color:var(--primary)}
+#walletsOverviewSection.ev2 .wallet-details-card .ev2-act:hover{border-color:color-mix(in srgb,var(--wallet-accent) 50%,var(--line));background:color-mix(in srgb,var(--wallet-accent) 10%,var(--panel))}
+#walletsOverviewSection.ev2 .wallet-details-card .overview-card-actions .tiny:not(.ev2-act){width:28px;padding:0;justify-content:center}
+#walletsOverviewSection.ev2 .wallet-details-card .overview-card-actions .walletDownloadPdfBtn{margin-left:auto}
+
+/* ── Summary card ── */
+html body #app #walletsOverviewSection.ev2 .summary.expense-overview{
+  position:relative;margin:0 !important;padding:15px !important;border-radius:20px !important;overflow:hidden;zoom:var(--ev-card-zoom,1);
+  border:1px solid rgba(231,181,77,.35) !important;color:#eef6f5;
+  background:radial-gradient(120% 80% at 100% 0%,rgba(242,193,78,.22),transparent 55%),linear-gradient(155deg,#16756d 0%,#0d4c48 48%,#0a2a33 100%) !important;
+  box-shadow:0 16px 36px -20px rgba(6,40,38,.75) !important;
+}
+#walletsOverviewSection.ev2 .summary.expense-overview .currency-head{justify-content:flex-start !important;gap:7px;font-size:.98rem !important;font-weight:850 !important;color:#fff !important;margin-bottom:8px !important}
+#walletsOverviewSection.ev2 .summary.expense-overview .summary-line{display:flex;justify-content:space-between;gap:8px;margin:0 !important;padding:2px 0 !important;font-size:.76rem;color:rgba(255,255,255,.82)}
+#walletsOverviewSection.ev2 .summary.expense-overview .summary-line *{color:inherit}
+#walletsOverviewSection.ev2 .summary.expense-overview .summary-line-one-value{font-weight:750;font-variant-numeric:tabular-nums;color:#fff}
+#walletsOverviewSection.ev2 .summary.expense-overview .available-label{margin-top:3px !important;padding-top:7px !important;border-top:1px solid rgba(255,255,255,.16)}
+#walletsOverviewSection.ev2 .summary.expense-overview .available-label,
+#walletsOverviewSection.ev2 .summary.expense-overview .available-label *{color:#fde68a !important}
+#walletsOverviewSection.ev2 .summary.expense-overview .available-amount,
+#walletsOverviewSection.ev2 .summary.expense-overview .available-amount *{font-size:1.14rem !important;font-weight:850 !important;color:#fff !important;letter-spacing:-.02em}
+#walletsOverviewSection.ev2 .summary.expense-overview .currency-separator{height:1px;margin:8px 0 !important;background:rgba(255,255,255,.14) !important;border:0 !important}
+#walletsOverviewSection.ev2 .summary.expense-overview .overview-card-actions{margin-top:12px !important}
+#walletsOverviewSection.ev2 .summary.expense-overview .overview-card-actions .tiny{min-height:28px;border-radius:999px;padding:0 10px;font-weight:750;font-size:.7rem;color:#fff !important;border:1px solid rgba(255,255,255,.28) !important;background:rgba(255,255,255,.08) !important}
+#walletsOverviewSection.ev2 .summary.expense-overview .overview-card-actions .tiny:hover{background:rgba(255,255,255,.18) !important}
+#walletsOverviewSection.ev2 .summary.expense-overview .wallet-float-logo{opacity:.07 !important}
+
+/* ── Phones: two compact cards per row ── */
+@media (max-width:768px){
+  html body #app #walletsOverviewSection.ev2 #expenseOverviewWallets{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:10px !important}
+  html body #app #walletsOverviewSection.ev2.ev-phone-1 #expenseOverviewWallets{grid-template-columns:minmax(0,1fr) !important}
+  html body #app #walletsOverviewSection.ev2 #expenseOverviewWallets > *{margin:0 !important;width:auto !important;max-width:none !important;min-width:0 !important}
+  #walletsOverviewSection.ev2 #expenseOverviewWallets > .summary.expense-overview{grid-column:1 / -1}
+  .ev2-head{margin:0 0 10px}
+  .ev2-actions{width:100%;display:grid;grid-template-columns:1fr auto auto 1fr}
+  .ev2-btn{min-height:42px;padding:0 10px}
+  .ev2-btn--icon{width:42px}
+  html body #app #walletsOverviewSection.ev2 .summary.wallet-details-card{padding:10px 10px 9px !important;border-radius:16px !important}
+  #walletsOverviewSection.ev2 .wallet-details-card .currency-head{margin-right:18px !important}
+  #walletsOverviewSection.ev2 .wallet-details-card .currency-head > span:last-child{font-size:.78rem !important}
+  #walletsOverviewSection.ev2 .wallet-details-card .currency-head img{width:20px !important;height:20px !important}
+  #walletsOverviewSection.ev2 .wallet-details-card .summary-line{font-size:.68rem}
+  html body #app #walletsOverviewSection.ev2 .wallet-details-card .summary-line-one-value.available-amount,
+  html body #app #walletsOverviewSection.ev2 .wallet-details-card .summary-line-one-value.available-amount .money,
+  html body #app #walletsOverviewSection.ev2 .wallet-details-card .summary-line-one-value.available-amount .amount{font-size:.94rem !important}
+  #walletsOverviewSection.ev2:not(.ev-phone-1) .wallet-details-card .available-label{font-size:.66rem}
+  /* two per row: action buttons become one row of icons */
+  #walletsOverviewSection.ev2:not(.ev-phone-1) .wallet-details-card .overview-card-actions{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px !important}
+  #walletsOverviewSection.ev2:not(.ev-phone-1) .wallet-details-card .overview-card-actions .tiny{width:auto !important;min-height:32px;padding:0 !important;justify-content:center;font-size:0 !important;gap:0;margin:0 !important}
+  #walletsOverviewSection.ev2:not(.ev-phone-1) .wallet-details-card .overview-card-actions .tiny i{font-size:.78rem !important}
+  #walletsOverviewSection.ev2.ev-phone-1 .wallet-details-card .overview-card-actions .ev2-act{flex:1 1 28%;justify-content:center;min-height:34px}
+}
+@media (max-width:360px){ .ev2-btn span{font-size:.74rem} }
+
+/* ── Expenses Style: card look / colours ── */
+html body #app #walletsOverviewSection.ev2.ev-look-solid .summary.wallet-details-card{background:linear-gradient(90deg,var(--wallet-accent),var(--wallet-accent)) top / 100% 3px no-repeat,var(--surface-elevated,var(--panel)) !important}
+html body #app #walletsOverviewSection.ev2.ev-look-vivid .summary.wallet-details-card{
+  border-color:transparent !important;color:#fff;
+  background:radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.22),transparent 55%),linear-gradient(150deg,var(--wallet-accent),color-mix(in srgb,var(--wallet-accent) 55%,#0b1220)) !important;
+}
+html body #app #walletsOverviewSection.ev2.ev-look-vivid .wallet-details-card :is(.summary-line-one-label,.summary-line-one-value,.currency-head > span,.available-label,.available-amount,.available-amount *, .symbol){color:#fff !important}
+html body #app #walletsOverviewSection.ev2.ev-look-vivid .wallet-details-card .overview-card-actions .tiny{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff}
+html body #app #walletsOverviewSection.ev2.ev-look-vivid .wallet-details-card .ev2-act i{color:#fff !important}
+html body #app #walletsOverviewSection.ev2.ev-look-vivid .ev2-meter{background:rgba(255,255,255,.25)}
+html body #app #walletsOverviewSection.ev2.ev-look-vivid .ev2-meter i{background:#fff}
+html body #app #walletsOverviewSection.ev2.ev-accent-brand .summary.wallet-details-card{--wallet-accent:#11877b !important}
+html body #app #walletsOverviewSection.ev2.ev-accent-mono .summary.wallet-details-card{--wallet-accent:#64748b !important}
+
+/* ── Hide amounts (privacy): blurred until the pointer or focus is on the card ── */
+html.ev-privacy #walletsOverviewSection .money,
+html.ev-privacy #expensesPanel .money,
+html.ev-privacy #sectionDetailsModal[data-details-kind="wallet"] .money{filter:blur(6px);transition:filter .15s ease}
+html.ev-privacy #walletsOverviewSection .summary:hover .money,
+html.ev-privacy #walletsOverviewSection .summary:focus-within .money,
+html.ev-privacy #expensesPanel .expense-item-row:hover .money,
+html.ev-privacy #sectionDetailsModal[data-details-kind="wallet"] .wd-hero:hover .money{filter:none}
+
+/* ── Expenses History ── */
+html body #app #expensesPanel > .card.section{background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important}
+#expensesPanel .section-head-top .title-group h3{display:none}
+#expensesPanel .section-head-top .title-row{gap:6px;flex-wrap:wrap}
+#expensesPanel .section-head-top .title-row .tiny{min-height:32px;padding:0 12px;border-radius:999px;font-weight:750;font-size:.76rem}
+#expensesPanel .section-head{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+#expensesPanel .section-head-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#expensesPanel .compact-filter-row{
+  padding:10px 12px;border-radius:16px;border:1px solid var(--line);
+  background:var(--surface-elevated,var(--panel));box-shadow:0 1px 2px rgba(15,23,42,.05);
+}
+#expensesPanel .compact-filter-main{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#expensesPanel .compact-filter-row .input,#expensesPanel .compact-filter-row .select{min-height:38px;border-radius:12px}
+#expensesPanel .compact-filter-search{flex:1 1 240px;min-width:0}
+#expensesPanel .compact-filter-search .input{width:100%;padding-left:34px;background:var(--control-bg,transparent) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.4' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>") 11px 50% / 15px no-repeat}
+#expensesPanel .filter-inline-label{font-size:.66rem;letter-spacing:.08em}
+#expensesPanel .expense-date-range-control.ev2-replaced{display:none !important}
+#expensesPanel .ev2-seg-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1 1 100%}
+
+.ev2-seg{display:inline-flex;gap:3px;padding:3px;border-radius:12px;background:color-mix(in srgb,var(--muted,#667085) 14%,transparent);flex-wrap:wrap}
+.ev2-seg button{appearance:none;min-height:32px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--muted);font:inherit;font-size:.76rem;font-weight:750;cursor:pointer;white-space:nowrap;transition:background-color .15s ease,color .15s ease}
+.ev2-seg button:hover{color:var(--text)}
+.ev2-seg button[aria-checked="true"]{background:var(--surface-elevated,var(--panel));color:var(--primary);box-shadow:0 1px 3px rgba(15,23,42,.14),0 0 0 1px color-mix(in srgb,var(--primary) 22%,transparent)}
+.ev2-seg button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 45%,transparent);outline-offset:1px}
+#expensesPanel .expense-record-view-control.ev2-replaced{display:none !important}
+
+#expensesPanel .expense-collapsible-section{border-radius:18px !important;border:1px solid var(--line) !important;background:var(--surface-elevated,var(--panel)) !important;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+#expensesPanel .expense-collapsible-header{padding:12px 14px !important}
+#expensesPanel .expense-collapsible-content{padding:4px 10px 12px !important}
+#expensesPanel .expense-item-row{margin:6px 0 !important;border-radius:14px !important;border:1px solid color-mix(in srgb,var(--line) 85%,transparent) !important;background:color-mix(in srgb,var(--panel) 55%,transparent) !important;transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease}
+#expensesPanel .expense-item-row:hover{border-color:color-mix(in srgb,var(--primary) 35%,var(--line)) !important;box-shadow:0 6px 18px -12px rgba(15,23,42,.35)}
+#expensesPanel .expense-item-row > summary{padding:10px 12px !important}
+#expensesPanel .expense-item-row .loan-top{display:grid !important;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:12px}
+.ev2-item-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--primary);background:color-mix(in srgb,var(--primary) 12%,transparent);font-size:.9rem}
+#expensesPanel .expense-item-row .loan-name{font-size:.92rem;font-weight:800;letter-spacing:-.01em}
+#expensesPanel .expense-item-row .loan-sub{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--muted);margin-top:2px}
+#expensesPanel .expense-item-row .expense-item-total small{font-size:.66rem;color:var(--muted)}
+#expensesPanel .expense-item-row .expense-item-total strong{font-size:1rem;font-weight:850;font-variant-numeric:tabular-nums}
+#expensesPanel .expense-item-row .table-wrap{border-radius:12px;overflow:auto}
+#expensesPanel .expense-tx-row:hover td{background:color-mix(in srgb,var(--primary) 6%,transparent)}
+#expensesPanel.ev2-loading .expense-collapsible-content{opacity:.55;transition:opacity .2s ease}
+@media (max-width:700px){
+  #expensesPanel .expense-item-row .loan-top{grid-template-columns:auto minmax(0,1fr) auto;gap:10px}
+  #expensesPanel .expense-item-row .lt-action{display:none}
+  .ev2-item-ico{width:34px;height:34px;border-radius:10px}
+  #expensesPanel .compact-filter-main > *{flex:1 1 45%}
+  #expensesPanel .compact-filter-search{flex-basis:100%}
+  .ev2-seg{width:100%;display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
+  .ev2-seg button{padding:0 6px;font-size:.72rem}
+  .ev2-seg.ev2-seg--dates{grid-auto-flow:row;grid-template-columns:repeat(3,1fr)}
+}
+
+/* ── Wallet details overlay ── */
+#sectionDetailsModal[data-details-kind="wallet"] .modal-dialog{max-width:min(940px,calc(100vw - 24px)) !important;border-radius:24px !important}
+#sectionDetailsModal[data-details-kind="wallet"] .section-details-head-text h3{font-size:1.15rem;font-weight:850;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+#sectionDetailsModal[data-details-kind="wallet"] .section-details-head-text h3 img{width:34px !important;height:34px !important;border-radius:10px;object-fit:cover;box-shadow:0 3px 8px rgba(15,23,42,.18)}
+#sectionDetailsModal[data-details-kind="wallet"] .section-details-actions .btn{border-radius:999px;min-height:34px}
+.wd-hero{
+  --wallet-accent:var(--primary);
+  display:grid;gap:12px;margin-bottom:14px;padding:16px 18px;border-radius:20px;color:#fff;
+  background:radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.22),transparent 55%),linear-gradient(150deg,var(--wallet-accent),color-mix(in srgb,var(--wallet-accent) 50%,#0b1220));
+  box-shadow:0 18px 36px -22px color-mix(in srgb,var(--wallet-accent) 70%,#000);
+}
+.wd-balance{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.wd-balance small{font-size:.74rem;font-weight:750;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.wd-balance strong{font-size:clamp(1.6rem,3.6vw,2.2rem);font-weight:850;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.wd-balance strong *{color:#fff !important}
+.wd-chip{margin-left:auto;padding:4px 10px;border-radius:999px;font-size:.7rem;font-weight:800;background:rgba(255,255,255,.18)}
+.wd-chip.is-open::before{content:"";display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:#4ade80;vertical-align:1px}
+.wd-hero .ev2-meter{margin:0;height:6px;background:rgba(255,255,255,.25)}
+.wd-hero .ev2-meter i{background:#fff}
+.wd-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.wd-kpi{padding:9px 11px;border-radius:14px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);min-width:0}
+.wd-kpi small{display:block;font-size:.66rem;font-weight:700;opacity:.85}
+.wd-kpi strong{display:block;margin-top:2px;font-size:.92rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wd-kpi strong *{color:#fff !important}
+.wd-quick{display:flex;gap:8px;flex-wrap:wrap}
+.wd-q{appearance:none;display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.14);color:#fff;font:inherit;font-size:.8rem;font-weight:750;cursor:pointer;transition:background-color .15s ease,transform .15s ease}
+.wd-q:hover{background:rgba(255,255,255,.26);transform:translateY(-1px)}
+.wd-q--icon{width:36px;padding:0;justify-content:center;margin-left:auto}
+#sectionDetailsModal[data-details-kind="wallet"] .section-details-chart-card{border-radius:18px !important}
+#sectionDetailsModal[data-details-kind="wallet"] .wallet-transaction-row{border-radius:14px !important}
+.ev2-wait{display:grid;place-items:center;min-height:160px;color:var(--muted);font-size:1.3rem}
+@media (max-width:700px){
+  .wd-hero{padding:14px;border-radius:18px}
+  .wd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .wd-kpis .wd-kpi:last-child{grid-column:1 / -1}
+  .wd-q{flex:1 1 28%;justify-content:center}
+  .wd-q--icon{flex:0 0 36px}
+}
+
+/* ── Performance ── */
+html.triplem-bg-off #walletsOverviewSection .wallet-float-logo,
+html.triplem-low-power #walletsOverviewSection .wallet-float-logo,
+html.triplem-bg-off #walletsOverviewSection .summary-watermark-wallet-logo,
+html.triplem-low-power #walletsOverviewSection .summary-watermark-wallet-logo,
+html.triplem-bg-off #walletsOverviewSection .summary-watermark-wallet-logo img,
+html.triplem-low-power #walletsOverviewSection .summary-watermark-wallet-logo img{animation:none !important}
+#expensesList .expense-item-row:not([open]){content-visibility:auto;contain-intrinsic-size:auto 76px}
+@media (prefers-reduced-motion:reduce){
+  html body #app #walletsOverviewSection.ev2 .summary.wallet-details-card,.ev2-btn,.ev2-meter i,.wd-q{transition:none !important}
+  body.ev2-history-open #expensesPanel.active,html body:not(.ev2-history-open) #app #walletsOverviewSection.ev2 .wallets-content{animation:none !important}
+}
+
+/* ── Wallet logo picker ── */
+.wl-legacy-field{display:none !important}
+.wl-pick-btn{
+  appearance:none;width:100%;display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:14px;
+  border:1px solid var(--line);background:var(--surface-elevated,var(--panel));color:var(--text);font:inherit;text-align:left;cursor:pointer;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.wl-pick-btn:hover{border-color:color-mix(in srgb,var(--primary) 45%,var(--line));box-shadow:0 6px 16px -10px rgba(15,23,42,.35)}
+.wl-pick-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%,transparent);outline-offset:2px}
+.wl-pick-img{width:42px;height:42px;flex:0 0 42px;border-radius:12px;display:grid;place-items:center;background:#fff;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);overflow:hidden}
+.wl-pick-img img{width:34px;height:34px;object-fit:contain}
+.wl-pick-text{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+.wl-pick-text strong{font-size:.9rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-pick-text small{font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-pick-cta{font-size:.76rem;font-weight:750;color:var(--primary);white-space:nowrap}
+.wl-pick-cta i{font-size:.66rem;margin-left:3px}
+
+.modal.wl-picker-modal{z-index:9700}
+.wl-picker-dialog{width:min(640px,calc(100vw - 24px)) !important;max-width:min(640px,calc(100vw - 24px)) !important;max-height:min(720px,calc(100dvh - 24px));display:flex !important;flex-direction:column;border-radius:22px !important;overflow:hidden}
+.wl-picker-head{display:flex !important;align-items:center;gap:12px}
+.wl-picker-titles{flex:1 1 auto;min-width:0}
+.wl-picker-titles h3{margin:0;font-size:1.05rem;font-weight:850}
+.wl-picker-titles .help{margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-preview{width:52px;height:52px;flex:0 0 52px;border-radius:15px;display:grid;place-items:center;background:#fff;border:1px solid var(--line);box-shadow:0 4px 12px -6px rgba(15,23,42,.35);overflow:hidden}
+.wl-preview img{width:42px;height:42px;object-fit:contain}
+.wl-picker-body{flex:1 1 auto;min-height:0;overflow:auto;padding-top:4px !important}
+.wl-tools{display:flex;gap:8px;margin-bottom:12px;position:sticky;top:0;z-index:1;padding:2px 0 8px;background:inherit}
+.wl-tools .input{flex:1 1 auto;min-width:0;min-height:40px;border-radius:12px}
+.wl-upload-btn{display:inline-flex;align-items:center;gap:7px;min-height:40px;border-radius:12px;white-space:nowrap;cursor:pointer}
+.wl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.wl-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px 8px;border-radius:14px;border:1px solid color-mix(in srgb,var(--line) 85%,transparent);background:color-mix(in srgb,var(--panel) 60%,transparent);cursor:pointer;min-width:0;transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease}
+.wl-tile[hidden]{display:none}
+@media (hover:hover){.wl-tile:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--primary) 40%,var(--line));box-shadow:0 8px 18px -12px rgba(15,23,42,.4)}}
+.wl-tile:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%,transparent);outline-offset:2px}
+.wl-tile.is-selected{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 30%,transparent);background:color-mix(in srgb,var(--primary) 8%,var(--panel))}
+.wl-tile-img{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:#fff;overflow:hidden;border:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.wl-tile-img img{width:40px;height:40px;object-fit:contain}
+.wl-tile-name{max-width:100%;font-size:.7rem;font-weight:700;text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.wl-tile--auto .wl-tile-name::after{content:" ✦";color:var(--primary)}
+.wl-picker-actions{border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.wl-picker-actions .btn.primary:disabled{opacity:.5;cursor:not-allowed}
+@media (max-width:560px){
+  .wl-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .wl-tile{padding:8px 4px 6px;border-radius:12px}
+  .wl-tile-img{width:40px;height:40px}
+  .wl-tile-img img{width:32px;height:32px}
+  .wl-tile-name{font-size:.64rem}
+  .wl-upload-btn span{display:none}
+}
+
+/* ── Fixes after review (overlay text contrast, phone head, card name) ── */
+#sectionDetailsModal .wd-legacy-metrics{display:none !important}
+html body #sectionDetailsModal .wd-hero,
+html body #sectionDetailsModal .wd-hero :is(small,strong,span,b,.money,.amount,.symbol){color:#fff !important}
+html body #sectionDetailsModal .wd-hero small{color:rgba(255,255,255,.82) !important;text-shadow:none !important}
+html body #sectionDetailsModal .wd-hero .wd-chip{color:#fff !important}
+@media (max-width:768px){
+  .ev2-actions{grid-template-columns:minmax(0,1fr) auto auto minmax(0,1fr)}
+  .ev2-actions .ev2-btn{min-width:0;font-size:.78rem;gap:5px}
+  .ev2-actions .ev2-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  #walletsOverviewSection.ev2 .wallet-details-card .currency-head{margin-right:26px !important}
+  #walletsOverviewSection.ev2:not(.ev-phone-1) .wallet-details-card .overview-card-actions .tiny{min-height:30px}
+}
+@media (max-width:768px){ .ev2-actions .ev2-long{display:none} }
+.wl-picker-actions{display:flex !important;justify-content:flex-end;gap:8px;padding:12px 16px !important}
+
+/* ════ Round 3 (12 Nov 2026 evening) ════════════════════════════════════════════
+   Ids are doubled on purpose: the theme layer (20-themes-performance.css) styles
+   .overview, .section-head, .expense-collapsible-* etc. with an id inside :is(),
+   which beats a single-id selector even with !important. */
+
+/* No frame behind the head row or the wallets */
+html body #app #walletsOverviewSection#walletsOverviewSection.ev2,
+html[data-triplem-theme] body #app #walletsOverviewSection#walletsOverviewSection.ev2{
+  background:none !important;background-color:transparent !important;background-image:none !important;
+  border:0 !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+}
+html body #app #walletsOverviewSection#walletsOverviewSection.ev2 :is(.wallets-content,#expenseOverviewWallets,.wallets-desktop-layout,.summary-column,.wallets-column,.wallets-grid,.ev2-head,.ev2-actions){
+  background:none !important;border:0 !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+}
+.ev2-actions{gap:8px}
+
+/* Lighter painting: no live blur behind cards (the background bubbles move, so a blur
+   behind every card had to be recomputed on every frame), no endless card animations. */
+html body #app #walletsOverviewSection#walletsOverviewSection.ev2 .summary,
+html body #app #expensesPanel#expensesPanel :is(.card.section,.section-head,.section-head-top,.compact-filter-row,.filter-inline-section,.expense-collapsible-section,.expense-collapsible-header,.expense-item-row){
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+}
+html body #app #walletsOverviewSection#walletsOverviewSection.ev2 :is(.wallet-float-logo,.summary-watermark,.summary-watermark-wallet-logo,.summary-watermark-wallet-logo img){animation:none !important}
+html body #app #walletsOverviewSection#walletsOverviewSection.ev2 .summary.wallet-details-card{contain:layout style}
+
+/* ── Summary: no currency symbols beside the title, centred text ── */
+html body #app #walletsOverviewSection.ev2 .summary.expense-overview .currency-head{justify-content:center !important;text-align:center;font-weight:500 !important;letter-spacing:.01em}
+#walletsOverviewSection.ev2:not(.ev-sum-classic) .summary.expense-overview .summary-line{justify-content:center !important;gap:8px;text-align:center;flex-wrap:wrap}
+#walletsOverviewSection.ev2:not(.ev-sum-classic) .summary.expense-overview .summary-line.available-label{flex-direction:column;align-items:center;gap:2px}
+#walletsOverviewSection.ev2:not(.ev-sum-classic) .summary.expense-overview .summary-line-one-label{justify-content:center}
+#walletsOverviewSection.ev2:not(.ev-sum-classic) .summary.expense-overview .overview-card-actions{justify-content:center}
+
+/* ── Weights: regular by default, bold when chosen in Expenses Style ── */
+html body #app #walletsOverviewSection.ev2 .wallet-details-card .currency-head > span:last-child{font-weight:500 !important}
+html body #app #walletsOverviewSection.ev2.ev-wt-bold .wallet-details-card .currency-head > span:last-child{font-weight:800 !important}
+html body #app #walletsOverviewSection.ev2 .wallet-details-card :is(.available-label,.summary-line-one-value.available-amount,.summary-line-one-value.available-amount .money,.summary-line-one-value.available-amount .amount){font-weight:500 !important}
+html body #app #walletsOverviewSection.ev2.ev-bal-bold .wallet-details-card :is(.available-label,.summary-line-one-value.available-amount,.summary-line-one-value.available-amount .money,.summary-line-one-value.available-amount .amount){font-weight:850 !important}
+html body #app #walletsOverviewSection.ev2.ev-st-bold .summary.expense-overview .currency-head{font-weight:850 !important}
+html body #app #walletsOverviewSection.ev2 .summary.expense-overview :is(.available-label,.available-label *,.available-amount,.available-amount *){font-weight:500 !important}
+html body #app #walletsOverviewSection.ev2.ev-sb-bold .summary.expense-overview :is(.available-label,.available-label *,.available-amount,.available-amount *){font-weight:850 !important}
+html body #app #walletsOverviewSection.ev2 .summary.expense-overview .summary-line-one-value{font-weight:500}
+html body #app #walletsOverviewSection.ev2.ev-sl-bold .summary.expense-overview .summary-line-one-value{font-weight:800}
+
+/* ── More Expenses Style options ── */
+html body #app #walletsOverviewSection.ev2.ev-corners-soft :is(.summary.wallet-details-card,.summary.expense-overview){border-radius:12px !important}
+html body #app #walletsOverviewSection.ev2.ev-corners-square :is(.summary.wallet-details-card,.summary.expense-overview){border-radius:5px !important}
+html body #app #walletsOverviewSection.ev2.ev-density-compact .summary.wallet-details-card{padding:9px 11px 9px !important;gap:2px}
+html body #app #walletsOverviewSection.ev2.ev-density-compact .wallet-details-card .overview-card-actions{margin-top:5px !important}
+html body #app #walletsOverviewSection.ev2.ev-density-compact .ev2-meter{margin:5px 0 0}
+@media (min-width:769px){
+  #walletsOverviewSection.ev2.ev-labels-icons .wallet-details-card .ev2-act{font-size:0 !important;gap:0;width:30px;padding:0 !important;justify-content:center}
+  #walletsOverviewSection.ev2.ev-labels-icons .wallet-details-card .ev2-act i{font-size:.72rem}
+}
+#walletsOverviewSection.ev2.ev-no-logo .wallet-details-card .currency-head img,
+#walletsOverviewSection.ev2.ev-no-logo .wallet-details-card .wallet-icon-inline{display:none !important}
+html body #app #walletsOverviewSection.ev2.ev-no-shadow :is(.summary.wallet-details-card,.summary.expense-overview){box-shadow:none !important}
+html.ev-no-hicons #expensesPanel .ev2-item-ico{display:none}
+html.ev-no-hicons #expensesPanel .expense-item-row .loan-top{grid-template-columns:minmax(0,1fr) auto auto}
+
+/* ── Expenses History: directly on the page (no open/close banners) ── */
+html body #app #expensesPanel#expensesPanel :is(.card.section,.section-head,.section-head-top,.compact-filter-row,.filter-inline-section,.expense-collapsible-section,.expense-collapsible-header,.expense-history-header,.expense-collapsible-content,.expense-wallet-block){
+  background:none !important;background-color:transparent !important;border:0 !important;box-shadow:none !important;
+}
+html body #app #expensesPanel#expensesPanel > .card.section{padding:0 !important;margin:0 !important}
+html body #app #expensesPanel#expensesPanel .section-head{margin:0 0 6px !important;padding:0 !important;gap:10px}
+html body #app #expensesPanel#expensesPanel .section-head-top{padding:0 !important}
+html body #app #expensesPanel#expensesPanel .compact-filter-row{padding:0 !important;margin:0 !important}
+html body #app #expensesPanel#expensesPanel .compact-filter-main{gap:8px 10px}
+html body #app #expensesPanel#expensesPanel .filter-inline-section{padding:0 !important;gap:6px}
+#expensesPanel .filter-inline-label{display:none}
+html body #app #expensesPanel#expensesPanel .compact-filter-row :is(.input,.select){
+  min-height:40px;border-radius:999px !important;border:1px solid var(--line) !important;
+  background-color:var(--surface-elevated,var(--panel)) !important;box-shadow:0 1px 2px rgba(15,23,42,.05) !important;
+  padding-left:14px;font-size:.84rem;
+}
+html body #app #expensesPanel#expensesPanel .compact-filter-search .input{padding-left:36px !important;background-position:13px 50% !important}
+html body #app #expensesPanel#expensesPanel .compact-filter-row :is(.input,.select):focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--line)) !important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 16%,transparent) !important;outline:0}
+#expensesPanel .compact-filter-search{flex:1 1 260px}
+#expensesPanel .ev2-seg{border-radius:999px;padding:3px;background:color-mix(in srgb,var(--muted,#667085) 12%,transparent)}
+#expensesPanel .ev2-seg button{border-radius:999px}
+#expensesPanel .section-head-top .title-row .tiny,#expensesPanel .section-head-top .title-row .btn{border-radius:999px !important}
+
+/* each block: a plain heading on the page, list below; never collapses */
+html body #app #expensesPanel#expensesPanel .expense-collapsible-section{margin:14px 0 0 !important;padding:0 !important;overflow:visible !important;border-radius:0 !important}
+html body #app #expensesPanel#expensesPanel .expense-collapsible-header{
+  display:flex !important;align-items:center;justify-content:space-between;gap:10px;
+  padding:4px 2px 8px !important;margin:0 !important;border-radius:0 !important;cursor:default;list-style:none;
+  border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent) !important;
+}
+#expensesPanel .expense-collapsible-header::-webkit-details-marker{display:none}
+#expensesPanel .expense-collapsible-header .expand-icon{display:none !important}
+#expensesPanel .expense-collapsible-header .expense-section-title{margin:0;font-size:1rem;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+#expensesPanel .expense-collapsible-header .expense-section-title i{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-size:.8rem;color:var(--primary);background:color-mix(in srgb,var(--primary) 12%,transparent)}
+html body #app #expensesPanel#expensesPanel .expense-collapsible-content{padding:8px 0 0 !important}
+#expensesPanel .expense-collapsible-content > .empty{padding:28px 12px !important;text-align:center;color:var(--muted);border:1px dashed color-mix(in srgb,var(--line) 90%,transparent);border-radius:16px}
+
+/* rows: separate cards on the page */
+html body #app #expensesPanel#expensesPanel .expense-item-row{
+  margin:0 0 8px !important;border-radius:16px !important;
+  border:1px solid color-mix(in srgb,var(--line) 85%,transparent) !important;
+  background:var(--surface-elevated,var(--panel)) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.05),0 8px 20px -18px rgba(15,23,42,.35) !important;
+  transition:border-color .15s ease,box-shadow .15s ease !important;
+}
+@media (hover:hover){html body #app #expensesPanel#expensesPanel .expense-item-row:hover{border-color:color-mix(in srgb,var(--primary) 35%,var(--line)) !important;box-shadow:0 2px 4px rgba(15,23,42,.06),0 14px 26px -18px rgba(15,23,42,.45) !important}}
+html body #app #expensesPanel#expensesPanel .expense-item-row[open]{border-color:color-mix(in srgb,var(--primary) 45%,var(--line)) !important}
+html body #app #expensesPanel#expensesPanel .expense-item-row > summary{background:none !important;border:0 !important;box-shadow:none !important;padding:11px 14px !important;border-radius:16px}
+#expensesPanel .expense-item-row .loan-top{background:none !important;border:0 !important;box-shadow:none !important;padding:0 !important}
+#expensesPanel .expense-item-row .expense-item-total strong{color:var(--text)}
+#expensesPanel .expense-item-row .badge,#expensesPanel .expense-item-row .pill{border-radius:999px}
+
+@media (max-width:700px){
+  /* date range: a dropdown on phones */
+  html body #app #expensesPanel#expensesPanel .expense-date-range-control.ev2-replaced{display:flex !important}
+  #expensesPanel .ev2-seg.ev2-seg--dates{display:none !important}
+  #expensesPanel .compact-filter-main > *{flex:1 1 calc(50% - 6px);min-width:0}
+  #expensesPanel .compact-filter-search{flex-basis:100% !important}
+  #expensesPanel .compact-filter-main .select{width:100%}
+  html body #app #expensesPanel#expensesPanel .expense-item-row > summary{padding:10px 11px !important}
+}
+@media (max-width:768px){ .ev2-actions{grid-template-columns:minmax(0,1fr) auto auto auto} }
+#expensesPanel .compact-filter-main > .compact-filter-search{flex:2 1 320px}
+#expensesPanel .compact-filter-main > :is(.expense-wallet-select-control,.expense-status-control){flex:0 1 200px}
+@media (max-width:700px){
+  html body #app #expensesPanel#expensesPanel .section-head-top{display:flex !important;flex-direction:column;align-items:stretch;gap:8px}
+  html body #app #expensesPanel#expensesPanel .expenses-head-tools{width:100%;display:flex;margin:0}
+  html body #app #expensesPanel#expensesPanel .expenses-head-tools .ev2-seg{flex:1 1 auto}
+  html body #app #expensesPanel#expensesPanel .expense-item-row .loan-top{display:grid !important;grid-template-columns:auto minmax(0,1fr) auto !important;gap:10px !important;align-items:center !important;flex-wrap:nowrap !important}
+  html body #app #expensesPanel#expensesPanel .expense-item-row .loan-top > *{order:0 !important;margin:0 !important}
+  html body #app #expensesPanel#expensesPanel .expense-item-row .ev2-item-ico{grid-column:1}
+  html body #app #expensesPanel#expensesPanel .expense-item-row .lt-main{grid-column:2;width:auto !important;min-width:0}
+  html body #app #expensesPanel#expensesPanel .expense-item-row .loan-name{font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  html body #app #expensesPanel#expensesPanel .expense-item-row .expense-item-total{grid-column:3;width:auto !important;display:flex !important;flex-direction:column;align-items:flex-end;text-align:right;border:0 !important;padding:0 !important;background:none !important}
+  html body #app #expensesPanel#expensesPanel .expense-item-row .expense-item-total strong{font-size:.9rem}
+  html body #app #expensesPanel#expensesPanel .expense-item-row .lt-action{display:none !important}
+  html.ev-no-hicons body #app #expensesPanel#expensesPanel .expense-item-row .loan-top{grid-template-columns:minmax(0,1fr) auto !important}
+  html.ev-no-hicons body #app #expensesPanel#expensesPanel .expense-item-row .lt-main{grid-column:1}
+  html.ev-no-hicons body #app #expensesPanel#expensesPanel .expense-item-row .expense-item-total{grid-column:2}
+}
+@media (max-width:700px){
+  html body #app #expensesPanel#expensesPanel .expenses-head-tools{position:static !important;order:2}
+  html body #app #expensesPanel#expensesPanel .title-row{padding-right:0 !important}
+}

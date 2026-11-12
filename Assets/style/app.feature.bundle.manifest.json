@@ -176,8 +176,13 @@
       "path": "Assets/style/66-workspace-home-v2.css",
       "bytes": 33286,
       "sha256": "5da317712a9dbf21789e7ac28b5be9db5a9d060e3bd391befa2b90b0a0eb2894"
+    },
+    {
+      "path": "Assets/style/67-expenses-v2.css",
+      "bytes": 46793,
+      "sha256": "79b1f866e5dcb915a6f3a0d1521d1ef934c43c93a62743edea36ab304db4a23c"
     }
   ],
-  "bytes": 741537,
-  "sha256": "722e98bb1b8e39aa8131646a98227a64bd6581bc99429807d067c382582f1e0c"
+  "bytes": 788389,
+  "sha256": "800a7e7d5be92bd4e1619a56c594e220c85a3ab303cfee806299634cc9b39dc8"
 }
