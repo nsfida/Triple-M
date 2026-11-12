@@ -28,8 +28,9 @@ test("every Home section has a safe SVG icon", () => {
 test("Home cards: no frame, no open icon, a ⋮ menu, names under the icon", () => {
   const nav = read("Assets/app/ui/01-render-navigation.js");
   const fn = nav.slice(nav.indexOf("function workspaceHomeCardHtml("), nav.indexOf("window.workspaceHomeCardHtml = workspaceHomeCardHtml;"));
-  assert.doesNotMatch(fn, /workspace-card-open|arrow-up-right-from-square/);
-  assert.match(fn, /class="wh2-menu" type="button" aria-label="Options for/);
+  assert.doesNotMatch(fn, /arrow-up-right-from-square/, "no open icon in either style");
+  assert.match(fn, /<button class="\$\{cls\} home-card-menu-btn" type="button" aria-label="Options for/);
+  assert.match(fn, /\$\{menu\("wh2-menu"\)\}/);
   assert.match(fn, /fa-ellipsis-vertical/);
   assert.match(fn, /role="button" tabindex="0"/);
   assert.match(nav, /Assets\/logo\/icons\/home\/\$\{k\}\.svg/);
@@ -76,4 +77,27 @@ test("card names: cleaned, limited, saved to the account settings (HomeNames)", 
   const src = read("Assets/app/ui/06-home-names.js");
   assert.match(src, /supabaseRpc\("app_update_own_settings", \{ p_settings: \{ \[SETTINGS_KEY\]: rec \} \}/);
   assert.match(src, /const SETTINGS_KEY = "HomeNames";/);
+});
+
+test("Home Icons (Theme menu): New by default, Classic restores the earlier Home, saved to the account", () => {
+  const theme = read("Assets/app/core/07-theme.js");
+  // selector sits below the Background Bubbles switch
+  const menu = theme.slice(theme.indexOf("function renderThemeDropdown()"));
+  assert.ok(menu.indexOf('data-bg-motion-toggle aria-checked') < menu.indexOf('data-home-pack="new"'));
+  assert.match(menu, /role="radiogroup" aria-labelledby="homeIconPackLabel"/);
+  assert.match(menu, /data-home-pack="classic"/);
+  assert.match(theme, /return local\?\.pack \|\| "new";/, "New is the default");
+  assert.match(theme, /supabaseRpc\("app_update_own_settings", \{ p_settings: \{ HomeIconPack: local\.pack \} \}/);
+  assert.match(theme, /const TRIPLEM_HOME_PACKS = Object\.freeze\(\["new", "classic"\]\);/);
+  const nav = read("Assets/app/ui/01-render-navigation.js");
+  assert.match(nav, /if \(pack === "classic"\) return `Assets\/logo\/icons\/\$\{WORKSPACE_CLASSIC_ICON_FILES\[k\] \|\| "dashboard\.png"\}`;/);
+  assert.match(nav, /workspace-home-card--classic/);
+  assert.match(nav, /classList\.toggle\("home-pack-classic", pack === "classic"\)/);
+  for (const f of ["dashboard", "expenses", "accounting", "assets", "loans", "audit", "admin", "bitcoin", "triplem_ai", "inventory", "insurance", "installments", "notes"]) {
+    assert.ok(fs.existsSync(path.join(root, `Assets/logo/icons/${f}.png`)), `classic icon ${f}.png`);
+  }
+  const css = read("Assets/style/66-workspace-home-v2.css");
+  assert.match(css, /#workspaceHome:not\(\.home-pack-classic\) #workspaceHomeGrid\{/);
+  assert.match(css, /#workspaceHome\.home-pack-classic \.workspace-home-title/);
+  assert.match(css, /\.theme-menu-segment button\.is-selected/);
 });
