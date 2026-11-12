@@ -106,6 +106,12 @@ fs.rmSync(output, { recursive: true, force: true });
 fs.mkdirSync(output, { recursive: true });
 for (const rel of rootFiles) copyFile(rel);
 for (const rel of runtimeDirs) copyTree(rel);
+// Wallet logo picker list: always written from the logo files actually being published.
+{
+  const { buildManifest } = require("./build_wallet_logo_manifest.js");
+  const logoDir = path.join(output, "Assets", "logo", "wallet_logos");
+  if (fs.existsSync(logoDir)) fs.writeFileSync(path.join(logoDir, "manifest.json"), JSON.stringify(buildManifest(logoDir), null, 2) + "\n");
+}
 fingerprintHtmlTree(output);
 
 const files = [];

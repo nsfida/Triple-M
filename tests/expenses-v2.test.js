@@ -86,9 +86,14 @@ test("wallet overlay: hero, quick actions, Chart.js bundled locally", () => {
 });
 
 test("wallet logos: picker manifest is current; uploads go to Cloudflare R2; old logos untouched", () => {
+  // The list is rebuilt automatically (npm run build:styles / verify and the production
+  // build), so a logo added to the folder never breaks the checks.
   const { buildManifest } = require("../scripts/build_wallet_logo_manifest.js");
-  const saved = JSON.parse(read("Assets/logo/wallet_logos/manifest.json"));
-  assert.deepEqual(saved, buildManifest(), "run: node scripts/build_wallet_logo_manifest.js");
+  const built = buildManifest();
+  assert.ok(built.logos.length >= 1 && built.logos.every(l => exists(`Assets/logo/wallet_logos/${l.file}`)));
+  assert.ok(built.logos.some(l => l.file === "triplem_default_wallet.png"));
+  assert.match(JSON.parse(read("package.json")).scripts["build:styles"], /build_wallet_logo_manifest\.js/);
+  assert.match(read("scripts/build_production.js"), /build_wallet_logo_manifest\.js/);
   const js = read("Assets/app/expenses/06-wallet-logos.js");
   assert.match(js, /const MODULE = "wallet_logo";/);
   assert.match(js, /directUpload\(/);

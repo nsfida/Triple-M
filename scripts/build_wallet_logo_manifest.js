@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /* Writes Assets/logo/wallet_logos/manifest.json: the built-in wallet logos offered by the
- * wallet logo picker (a browser cannot list a folder). Run after adding or removing a
- * logo file:  node scripts/build_wallet_logo_manifest.js   (tests check it is current). */
+ * wallet logo picker (a browser cannot list a folder). Runs automatically in
+ * "npm run build:styles" (so in "npm run verify") and in the production build, so a logo
+ * added to Assets/logo/wallet_logos (for example on GitHub) appears in the picker without
+ * editing the list by hand. Can also be run on its own: node scripts/build_wallet_logo_manifest.js */
 "use strict";
 const fs = require("fs");
 const path = require("path");

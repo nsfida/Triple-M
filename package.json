@@ -12,7 +12,7 @@
     "seo:audit:live": "node scripts/audit_live_seo.js",
     "seo:prepare": "node scripts/build_sitemap.js && node scripts/audit_seo.js",
     "seo:postdeploy": "node scripts/seo_postdeploy.js",
-    "build:styles": "node scripts/build_feature_css_bundle.js",
+    "build:styles": "node scripts/build_feature_css_bundle.js && node scripts/build_wallet_logo_manifest.js",
     "audit:frontend": "node scripts/audit_frontend.js",
     "verify": "npm run build:styles && npm run audit:frontend && npm run audit:syntax && npm run audit:security && npm test",
     "audit:syntax": "node scripts/audit_active_javascript.js",
