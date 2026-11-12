@@ -240,6 +240,7 @@ const CANONICAL_MIGRATION_FILES = [
   "222_inventory_v2_reports_labels.sql",
   "223_signup_modules_and_trial_terms.sql",
   "224_limited_access_after_trial_and_v2_only_signups.sql",
+  "225_wallet_logo_r2_storage.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
