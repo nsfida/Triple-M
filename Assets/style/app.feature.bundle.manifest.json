@@ -174,10 +174,10 @@
     },
     {
       "path": "Assets/style/66-workspace-home-v2.css",
-      "bytes": 16925,
-      "sha256": "106ac7e3c5ee572f077f9e59f8ea7ed6ee445333fd3a513842b83ffe75b4528a"
+      "bytes": 26759,
+      "sha256": "053d32b83ba19ae6ba393ee0083f60e42267c228cd890db0139c29cfcad0f4e0"
     }
   ],
-  "bytes": 725176,
-  "sha256": "1f80fac787d53f8d9e2b841c0229bbd5aeff39290a4ba36c6d6c5213196d2d02"
+  "bytes": 735010,
+  "sha256": "bda8159bd612b3656bf83108387d48ac1ccd7bbb05d0de2cfe74a830fb49cf60"
 }
