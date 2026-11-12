@@ -3037,7 +3037,7 @@ function ensureChartLibLoaded(){
       return;
     }
     const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js";
+    s.src = "Assets/app/lib/chartjs-4.4.7/chart.umd.min.js"; // bundled (2026-11-12), no CDN wait
     s.async = true;
     s.dataset.chartjsLoader = "1";
     s.onload = () => resolve(!!window.Chart);
@@ -5546,9 +5546,37 @@ function renderWalletDetailsOverlay(groupId, serverChart = null){
     sectionDetailsMetricHtml("Movements", escapeHtml(String(m.topupCount + m.spendCount)))
   ].join("");
 
+  // Expenses v2 (2026-11-12): wallet hero with balance, totals, spent meter and quick actions.
+  const accent = typeof walletAccentColor === "function" ? walletAccentColor(groupId, data.account?.person_name || "") : "var(--primary)";
+  const inTotal = Number(m.toppedUp || 0);
+  const spentPct = inTotal > 0 ? Math.max(0, Math.min(100, (Number(m.spent || 0) / inTotal) * 100)) : 0;
+  const gid = escapeHtml(String(groupId || ""));
+  const quick = data.isBtcLive ? "" : `
+      <div class="wd-quick">
+        <button type="button" class="wd-q wd-q--in" data-wd-act="topup"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i>Receive</button>
+        <button type="button" class="wd-q wd-q--out" data-wd-act="expense"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i>Spend</button>
+        <button type="button" class="wd-q wd-q--move" data-wd-act="transfer"><i class="fa-solid fa-right-left" aria-hidden="true"></i>Transfer</button>
+        <button type="button" class="wd-q wd-q--icon" data-wd-act="pdf" title="Download PDF" aria-label="Download PDF"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i></button>
+      </div>`;
+  const kpi = (label, value, tone = "") => `<div class="wd-kpi${tone ? ` is-${tone}` : ""}"><small>${escapeHtml(label)}</small><strong>${value}</strong></div>`;
   els.sectionDetailsBody.innerHTML = `
-    <p class="section-details-note">${isExpenseLazyMode() && !serverChart ? "Loading compact all-date chart totals…" : "Live totals for this wallet only (all dates). Charts use compact aggregates; transaction rows are loaded separately on demand."}</p>
-    <div class="section-details-metrics">${metricsHtml}</div>
+    <section class="wd-hero" style="--wallet-accent:${accent}">
+      <div class="wd-balance">
+        <small>Available</small>
+        <strong class="${Number(m.balance || 0) <= 0 ? "is-low" : ""}">${money(m.balance, cur)}</strong>
+        <span class="wd-chip${m.status === "Open" ? " is-open" : ""}">${escapeHtml(m.status || "")}</span>
+      </div>
+      <div class="ev2-meter" style="--p:${spentPct.toFixed(1)}%;--wallet-accent:${accent}" role="img" aria-label="${Math.round(spentPct)}% spent"><i></i></div>
+      <div class="wd-kpis">
+        ${kpi(inLabel, money(m.toppedUp, cur), "in")}
+        ${kpi(outLabel, money(m.spent, cur), "out")}
+        ${kpi("Transfers in", money(m.transferIn, cur))}
+        ${kpi("Transfers out", money(m.transferOut, cur))}
+        ${kpi("Movements", escapeHtml(String(m.topupCount + m.spendCount)))}
+      </div>
+      ${quick}
+    </section>
+    <div class="section-details-metrics wd-legacy-metrics" hidden>${metricsHtml}</div>
     <div class="section-details-charts">
       <div class="section-details-chart-card">
         <h4>Money mix</h4>
@@ -5564,6 +5592,16 @@ function renderWalletDetailsOverlay(groupId, serverChart = null){
       </div>
     </div>
   `;
+
+  els.sectionDetailsBody.querySelector(".wd-quick")?.addEventListener("click", e => {
+    const act = e.target.closest("[data-wd-act]")?.dataset.wdAct;
+    if (!act) return;
+    const name = data.account?.person_name || "Wallet";
+    if (act === "pdf") { if (typeof downloadExpenseAccountPDF === "function") downloadExpenseAccountPDF(String(groupId)); return; }
+    if (typeof closeModal === "function") closeModal("sectionDetailsModal");
+    if (act === "transfer") { if (typeof openTransferModal === "function") openTransferModal(String(groupId), name, cur); }
+    else if (typeof openExpenseModal === "function") openExpenseModal(act, String(groupId));
+  });
 
   // Defer Chart.js work so metrics + activity paint on this click frame.
   const chartToken = String(groupId || "");
@@ -5771,7 +5809,7 @@ async function renderWalletTransactionsPage(groupId, page = 1){
   destroySectionDetailsCharts();
   els.sectionDetailsModal.dataset.walletView = "transactions";
   renderWalletDetailsActions(id, "transactions");
-  if (els.sectionDetailsDesc) els.sectionDetailsDesc.textContent = "Transaction history · loaded eight records at a time";
+  if (els.sectionDetailsDesc) els.sectionDetailsDesc.textContent = "Transactions";
   els.sectionDetailsBody.innerHTML = `<div class="wallet-transactions-loading" role="status" aria-live="polite"><span class="wallet-transactions-spinner"></span><strong>Loading transactions…</strong><small>Requesting page ${requestedPage} from your wallet records.</small></div>`;
 
   try {
@@ -5796,7 +5834,7 @@ async function renderWalletTransactionsPage(groupId, page = 1){
       ? `${rangeStart}–${rangeEnd} of ${total}`
       : (items.length ? `${rangeStart}–${rangeEnd}${result?.hasMore ? " · more available" : ""}` : "0 transactions");
     els.sectionDetailsBody.innerHTML = `<section class="wallet-transactions-view">
-      <header class="wallet-transactions-head"><div><span>Wallet activity</span><strong>${escapeHtml(countText)}</strong></div><small>Only this page is loaded from the database.</small></header>
+      <header class="wallet-transactions-head"><div><span>Wallet activity</span><strong>${escapeHtml(countText)}</strong></div></header>
       ${walletTransactionRowsHtml(items)}
       ${walletTransactionPaginationHtml(requestedPage, totalPages, result?.hasMore === true)}
     </section>`;
@@ -5840,11 +5878,17 @@ async function openWalletDetailsOverlay(groupId){
     }
     if (els.sectionDetailsDesc) {
       const typeBit = account.accountType ? `${account.accountType} · ` : "";
-      els.sectionDetailsDesc.innerHTML = `${escapeHtml(typeBit)}${escapeHtml(account.currency || "—")} · Balance ${money(account.balance, account.currency)}`;
+      els.sectionDetailsDesc.innerHTML = `${escapeHtml(typeBit)}${escapeHtml(account.currency || "—")}`;
     }
     renderWalletDetailsActions(id, "overview");
     if (!sectionDetailsEnsureChartLib()) {
-      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
+      // Charts load with the page (bundled since 2026-11-12); if not ready yet, wait and paint.
+      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty ev2-wait"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i></div>`;
+      ensureChartLibLoaded().then(ok => {
+        if (!ok || !els.sectionDetailsModal || els.sectionDetailsModal.classList.contains("hide")) return;
+        if (els.sectionDetailsModal.dataset.walletDetailsId !== id || els.sectionDetailsModal.dataset.walletView !== "overview") return;
+        paintWalletDetails(serverChart);
+      });
       return true;
     }
     renderWalletDetailsOverlay(id, serverChart);

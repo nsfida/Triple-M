@@ -690,7 +690,22 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { startOnce(); } });
   setTimeout(startOnce, 6000);
 
+  // ---- direct use (wallet logos): one file, uploaded now, no queue ------------------------
+  async function directUpload({ module, recordId, blob, mime, name }) {
+    if (!signedIn()) throw Object.assign(new Error("Sign in required."), { code: "signed_out" });
+    const cfg = await clientConfig();
+    if (!cfg.enabled) throw Object.assign(new Error("File storage is not enabled."), { code: "disabled" });
+    const type = String(mime || blob?.type || "");
+    if (Array.isArray(cfg.allowed) && !cfg.allowed.includes(type)) throw Object.assign(new Error("This file type is not allowed."), { code: "type" });
+    const id = uuid();
+    await callFn(null, { upload: { blob, meta: { id, module, record_id: String(recordId).toLowerCase(), mime: type, original_name: String(name || "logo").slice(0, 200), original_mime: type, original_size: blob.size } } });
+    return id;
+  }
+  async function directLink(id) { return (await callFn({ action: "download", id, disposition: "inline" })).url; }
+  async function directDelete(id) { return callFn({ action: "delete", id }); }
+
   window.TriplemAttachments = Object.freeze({
+    directUpload, directLink, directDelete,
     mount, prepare, reset, showExisting, busy, take, restore, commit, capture, reportSaved, saveWithAttachments,
     refForEntry, iconHtml, iconForEntry, iconForId, autoPrepare, openViewer, loadIndex, process, clientConfig,
     _test: Object.freeze({ pickRef, qAll, counts, MODULE_BY_TABLE })

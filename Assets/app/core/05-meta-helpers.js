@@ -266,8 +266,9 @@ function invalidateExpenseAccountsSyncCache(){
   expenseAccountsSyncCache = null;
 }
 
-/** Instantly adjust lazy wallet summaries so UI balances update before SQL reload. */
-function applyOptimisticExpenseLazySummaryForRows(rows){
+/** Instantly adjust lazy wallet summaries so UI balances update before SQL reload.
+ *  sign: 1 for a new row, -1 for a deleted row; an edit is -1 (old row) then 1 (new row). */
+function applyOptimisticExpenseLazySummaryForRows(rows, sign = 1){
   if (!isExpenseLazyMode() || !state.expenseLazy?.summaryByGroupId) return;
   let touched = false;
   for (const row of asEntryArray(rows)) {
@@ -280,8 +281,8 @@ function applyOptimisticExpenseLazySummaryForRows(rows){
     if (!gid) continue;
     const prev = state.expenseLazy.summaryByGroupId.get(gid);
     if (!prev) continue;
-    const amt = finiteMoney(row.action_amount);
-    if (!(amt > 0)) continue;
+    const amt = finiteMoney(row.action_amount) * (sign < 0 ? -1 : 1);
+    if (!amt) continue;
     const next = { ...prev };
     if (rowType === "TOPUP") {
       next.topup_total = finiteMoney(prev.topup_total) + amt;
@@ -347,6 +348,10 @@ function customLogoForWalletName(walletName){
 
 function resolveWalletLogoSrc(walletName, customLogoUrl = ""){
   const custom = String(customLogoUrl || "").trim();
+  // "r2:<id>": a logo in the Cloudflare file storage (see 06-wallet-logos.js).
+  if (/^r2:/i.test(custom)) {
+    return window.TriplemWalletLogos?.srcFor ? window.TriplemWalletLogos.srcFor(custom) : DEFAULT_WALLET_LOGO_PATH;
+  }
   if (custom) return custom;
   return walletLogoFilePath(walletName);
 }
@@ -354,7 +359,8 @@ function resolveWalletLogoSrc(walletName, customLogoUrl = ""){
 function walletLogoOnErrorHandler(){
   const fallback = DEFAULT_WALLET_LOGO_PATH.replace(/'/g, "\\'");
   // One fallback attempt only — never leave onerror attached after switching to default.
-  return `if(this.dataset.fallbackApplied==='1'){this.onerror=null;return;}this.dataset.fallbackApplied='1';this.onerror=null;this.src='${fallback}';`;
+  // Keeps a "#wl-<id>" marker (file-storage logos) so the real logo can still replace it.
+  return `if(this.dataset.fallbackApplied==='1'){this.onerror=null;return;}this.dataset.fallbackApplied='1';this.onerror=null;var m=String(this.getAttribute('src')||'').match(/#wl-[0-9a-f-]+$/i);this.src='${fallback}'+(m?m[0]:'');`;
 }
 
 function overviewWatermarkWallet(walletName, currency, customLogoUrl = ""){
@@ -404,6 +410,7 @@ function walletLogoPhotoMenuHtml(groupId, walletName = "Wallet", options = {}){
 
 function isStoredWalletLogoUrl(url){
   const u = String(url || "").trim();
+  if (/^r2:[0-9a-f-]{36}$/i.test(u)) return true;
   if (!u || u.startsWith("data:") || u.startsWith("Assets/")) return false;
   return /\/storage\/v1\/object\/(?:public\/)?company-logos\//i.test(u);
 }
@@ -600,6 +607,28 @@ function overviewWatermarkFloatingWalletLogos(accounts){
   return `<div class="wallet-float-watermark" aria-hidden="true">${logos.join("")}</div>`;
 }
 
+/** Expenses v2: one stable accent colour per wallet (cards, overlay). */
+const WALLET_ACCENTS = ["#2563eb", "#0f9f72", "#7c4ddb", "#e11d58", "#d97a10", "#0891b2", "#11877b", "#5048e5"];
+function walletAccentColor(groupId, name){
+  return WALLET_ACCENTS[Math.floor(hash01(`${groupId || name || "wallet"}:accent`) * WALLET_ACCENTS.length) % WALLET_ACCENTS.length];
+}
+/** Expenses v2: an icon for an expense type (history list). */
+function expenseTypeIconClass(type){
+  const t = String(type || "").toLowerCase();
+  const map = [
+    [/salar|payroll|wage|staff/, "fa-user-tie"], [/rent|lease|office/, "fa-building"], [/utilit|electric|water|dewa|power/, "fa-bolt"],
+    [/internet|fibre|fiber|phone|mobile|telecom/, "fa-wifi"], [/transport|fuel|petrol|taxi|car|van|delivery|courier/, "fa-truck"],
+    [/software|subscription|saas|cloud/, "fa-laptop-code"], [/market|advert|promo/, "fa-bullhorn"], [/food|meal|restaurant|grocery/, "fa-utensils"],
+    [/travel|flight|hotel|visa/, "fa-plane"], [/medical|health|clinic|pharma/, "fa-heart-pulse"], [/supplies|stationery|office supplies/, "fa-paperclip"],
+    [/tax|vat|government|fee|licen/, "fa-landmark"], [/insurance/, "fa-shield-halved"], [/bank|charge|commission/, "fa-building-columns"],
+    [/maint|repair/, "fa-screwdriver-wrench"], [/education|training|course/, "fa-graduation-cap"], [/transfer/, "fa-right-left"]
+  ];
+  for (const [re, icon] of map) if (re.test(t)) return icon;
+  return "fa-receipt";
+}
+window.walletAccentColor = walletAccentColor;
+window.expenseTypeIconClass = expenseTypeIconClass;
+
 function expenseOverviewWalletCardHtml(a){
   const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
   const isBtcLive = a.currency === "BTC";
@@ -626,16 +655,21 @@ function expenseOverviewWalletCardHtml(a){
         ${walletDeleteBtn}
       `
     : `
-        <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Receive</button>
-        <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Spend</button>
-        <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
+        <button class="tiny ghost ev2-act ev2-act--in" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i>Receive</button>
+        <button class="tiny ghost ev2-act ev2-act--out" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i>Spend</button>
+        <button class="tiny ghost ev2-act ev2-act--move" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')"><i class="fa-solid fa-right-left" aria-hidden="true"></i>Transfer</button>
         <button class="tiny ghost walletDownloadPdfBtn" title="Download wallet transactions PDF" aria-label="Download wallet transactions PDF" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-file-pdf"></i></button>
         ${walletEditBtn}
         ${walletDeleteBtn}
       `;
 
+  // Expenses v2 (2026-11-12): accent colour per wallet and a spent / received meter
+  const accent = walletAccentColor(a.group_id, a.person_name);
+  const spentPct = totalTopup > 0 ? Math.max(0, Math.min(100, (Number(a.spentMoney || 0) / totalTopup) * 100)) : 0;
+  const meterTone = Number(a.balance || 0) <= 0 ? " is-empty" : spentPct >= 90 ? " is-high" : "";
+  const meter = isBtcLive ? "" : `<div class="ev2-meter${meterTone}" role="img" aria-label="${Math.round(spentPct)}% spent" title="${Math.round(spentPct)}% spent" style="--p:${spentPct.toFixed(1)}%"><i></i></div>`;
   return `
-    <div class="summary currency-summary wallet-details-card" data-wallet-details="${escapeHtml(a.group_id)}" data-group-id="${escapeHtml(a.group_id)}" role="button" tabindex="0" title="View wallet details · Long-press to reorder">
+    <div class="summary currency-summary wallet-details-card" data-wallet-details="${escapeHtml(a.group_id)}" data-group-id="${escapeHtml(a.group_id)}" role="button" tabindex="0" title="View wallet details · Long-press to reorder" style="--wallet-accent:${accent}">
       ${walletLogoPhotoMenuHtml(a.group_id, a.person_name || "Wallet", { hasCustomLogo: !!String(a.customLogoUrl || "").trim() })}
       ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency, a.customLogoUrl || "")}
       <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
@@ -647,6 +681,7 @@ function expenseOverviewWalletCardHtml(a){
       ${overviewOneLine(isBtcLive ? "Received:" : "Top-up:", money(totalTopup, a.currency))}
       ${overviewOneLine(isBtcLive ? "Sent:" : "Spent:", money(a.spentMoney, a.currency))}
       ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
+      ${meter}
       <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
         ${actions}
       </div>

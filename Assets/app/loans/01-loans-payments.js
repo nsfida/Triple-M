@@ -600,6 +600,10 @@ async function submitEdit(){
     const updatedEntry = { ...currentEntry, action_amount: amt, action_date: dt, notes: editedNotes };
     const patchBody = { action_amount: amt, action_date: dt, notes: editedNotes };
     state.entries = state.entries.map(entry => entry.id === id ? updatedEntry : entry);
+    if (!isBackupMode() && hasExpenseAccountTag(currentEntry.notes) && typeof applyOptimisticExpenseLazySummaryForRows === "function") {
+      applyOptimisticExpenseLazySummaryForRows([currentEntry], -1); // old amount out
+      applyOptimisticExpenseLazySummaryForRows([updatedEntry], 1);  // new amount in
+    }
     if (!isBackupMode()) queueDatabasePatch(id, patchBody, "Entry", updatedEntry);
   }
 
@@ -786,7 +790,9 @@ async function deleteEntry(id){
     if (isBackupMode()){
       refreshBackupView();
     } else {
-      persistDeleteGroup(entry.group_id, { entries: groupEntries, label: "Delete" }).catch(err => {
+      const groupDelete = persistDeleteGroup(entry.group_id, { entries: groupEntries, label: "Delete" });
+      if (isExpenseWallet && typeof trackExpenseWrite === "function") trackExpenseWrite(groupDelete);
+      groupDelete.catch(err => {
         console.error("Delete group sync failed.", err);
         if (typeof showEntryConfirmation === "function") showEntryConfirmation(`Delete sync failed: ${err?.message || err}`, "error");
         alert("Item was moved to recycle bin on this screen, but database sync failed. Please refresh after the connection improves.");
@@ -809,8 +815,13 @@ async function deleteEntry(id){
     addToRecycleBin(entry);
     unmarkDbSnapshotRows([entry]);
     state.entries = state.entries.filter(e => e.id !== id);
+    if (!isBackupMode() && hasExpenseAccountTag(entry.notes) && typeof applyOptimisticExpenseLazySummaryForRows === "function") {
+      applyOptimisticExpenseLazySummaryForRows([entry], -1); // wallet figures change at once
+    }
     if (!isBackupMode()) {
-      persistDeleteEntry(entry, { label: "Delete" }).catch(err => {
+      const entryDelete = persistDeleteEntry(entry, { label: "Delete" });
+      if (hasExpenseAccountTag(entry.notes) && typeof trackExpenseWrite === "function") trackExpenseWrite(entryDelete);
+      entryDelete.catch(err => {
         console.error("Delete sync failed.", err);
         if (typeof showEntryConfirmation === "function") showEntryConfirmation(`Delete sync failed: ${err?.message || err}`, "error");
         alert("Item was moved to recycle bin on this screen, but database sync failed. Please refresh after the connection improves.");
@@ -910,7 +921,10 @@ async function deleteTransfer(entry) {
     if (isBackupMode()) {
       refreshBackupView();
     } else {
-      persistDeleteEntry(entry, { label: "Delete" }).catch(err => console.error(err));
+      if (typeof applyOptimisticExpenseLazySummaryForRows === "function") applyOptimisticExpenseLazySummaryForRows([entry], -1);
+      const del = persistDeleteEntry(entry, { label: "Delete" });
+      if (typeof trackExpenseWrite === "function") trackExpenseWrite(del);
+      del.catch(err => console.error(err));
     }
     logCompanyActivity("delete", "expenses", `Deleted transfer record on "${entry.person_name}" (${moneyText(entry.action_amount || 0, entry.currency)})`, {
       entityType: "transfer",
@@ -936,7 +950,8 @@ async function deleteTransfer(entry) {
   if (isBackupMode()) {
     refreshBackupView();
   } else {
-    (async () => {
+    if (typeof applyOptimisticExpenseLazySummaryForRows === "function") applyOptimisticExpenseLazySummaryForRows([entry, transferPartner], -1);
+    const pairDelete = (async () => {
       if (window.ExpenseAudit && ExpenseAudit.isAuditableEntry(entry) && ExpenseAudit.isAuditableEntry(transferPartner)) {
         await ExpenseAudit.softDeleteIds([entry.id, transferPartner.id]);
         await Promise.all([entry, transferPartner].map(row =>
@@ -950,7 +965,9 @@ async function deleteTransfer(entry) {
           persistDeleteEntry(transferPartner, { label: "Delete" })
         ]);
       }
-    })().catch(err => console.error(err));
+    })();
+    if (typeof trackExpenseWrite === "function") trackExpenseWrite(pairDelete);
+    pairDelete.catch(err => console.error(err));
   }
   const fromName = transferType === "expense" ? entry.person_name : transferPartner.person_name;
   const toName = transferType === "expense" ? transferPartner.person_name : entry.person_name;

@@ -7,6 +7,24 @@ function enqueueDatabaseWrite(task){
   return run;
 }
 
+/* Expenses figures (2026-11-12): wallet balances are reloaded from the server only after the
+   writes that change them have finished. Earlier a fixed 280 ms delay could read the totals
+   before a save or delete reached the database, and the old figure stayed until a page refresh. */
+const pendingExpenseWrites = new Set();
+function trackExpenseWrite(promise){
+  if (!promise || typeof promise.then !== "function") return promise;
+  const p = Promise.resolve(promise).catch(() => {});
+  pendingExpenseWrites.add(p);
+  p.finally(() => pendingExpenseWrites.delete(p));
+  return promise;
+}
+function waitForExpenseWrites(timeoutMs = 15000){
+  const all = Promise.allSettled([databaseWriteChain, ...pendingExpenseWrites]);
+  return Promise.race([all, new Promise(resolve => setTimeout(resolve, timeoutMs))]);
+}
+window.trackExpenseWrite = trackExpenseWrite;
+window.waitForExpenseWrites = waitForExpenseWrites;
+
 /**
  * Persist one ledger-shaped row exactly the way an online save does (domain
  * table first, legacy ledger fallback). Shared by live saves and offline replay
@@ -228,14 +246,8 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
           })
           .catch(() => {});
       };
-      if (options.awaitSync) {
-        syncPromise.then(() => scheduleRefresh()).catch(() => {});
-      } else {
-        Promise.resolve()
-          .then(() => new Promise(resolve => setTimeout(resolve, 280)))
-          .then(() => scheduleRefresh())
-          .catch(() => {});
-      }
+      // Reload the server totals once this save has reached the database (not after a guess).
+      rawSync.catch(() => {}).then(() => scheduleRefresh()).catch(() => {});
     }
     if (touchesGoods && state.inventoryLazy.rpcAvailable !== false && !options.awaitSync) {
       Promise.resolve()
@@ -320,7 +332,9 @@ function queueDatabasePatch(id, body, label = "Entry", snapshotRow = null, optio
   const run = async () => writeLedgerPatchToDatabase(id, body, entry, label);
 
   let queuedOffline = false;
-  enqueueDatabaseWrite(run)
+  const patchWrite = enqueueDatabaseWrite(run);
+  if (entry && (hasExpenseAccountTag(entry.notes) || entryBelongsToLedgerScope(entry, LEDGER_SCOPE_EXPENSES))) trackExpenseWrite(patchWrite);
+  patchWrite
     .then(serverRow => {
       rememberServerUpdatedAt(id, serverRow);
       if (snapshotRow) markDbSnapshotRows([snapshotRow]);

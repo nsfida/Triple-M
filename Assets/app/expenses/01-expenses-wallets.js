@@ -422,6 +422,17 @@ async function loadExpenseWalletSummaries({ force = false } = {}){
     state.expenseLazy.summaryByGroupId = new Map(
       items.map(item => [String(item.group_id), item])
     );
+    // Rows saved on this screen that are not in the database yet (still sending, or kept
+    // offline) stay counted in the wallet totals.
+    try {
+      const pendingRows = state.entries.filter(entry => entry?.id && state.pendingDbSyncIds.has(entry.id)
+        && entry.entry_kind !== "principal" && !entry._expenseLazyActivity
+        && (hasExpenseAccountTag(entry.notes) || entryBelongsToLedgerScope(entry, LEDGER_SCOPE_EXPENSES)));
+      if (pendingRows.length && typeof applyOptimisticExpenseLazySummaryForRows === "function") {
+        state.expenseLazy.enabled = true;
+        applyOptimisticExpenseLazySummaryForRows(pendingRows, 1);
+      }
+    } catch (_) {}
     const principals = items.map(expenseSummaryToPrincipalEntry);
     const existingActions = state.entries.filter(entry =>
       entryBelongsToLedgerScope(entry, LEDGER_SCOPE_EXPENSES)
@@ -550,8 +561,29 @@ async function ensureExpenseWalletDetailLoaded(groupId, { force = false } = {}){
   return detail;
 }
 
+/** Expenses History open (Expenses v2)? Without the v2 module the history is always shown. */
+function expenseHistoryIsOpen(){
+  try { return window.TriplemExpensesV2 ? window.TriplemExpensesV2.isHistoryOpen() : true; } catch (_) { return true; }
+}
+
+/** Loads the records the first time Expenses History is opened (or after they were skipped). */
+async function ensureExpenseHistoryActivityLoaded(){
+  if (state.expenseLazy.rpcAvailable === false || !isExpenseLazyMode()) return false;
+  if (!state.expenseLazy.activityDeferred && state.expenseLazy.activityQueryKey) return false;
+  state.expenseLazy.activityDeferred = false;
+  const activity = await loadExpenseActivityForCurrentQuery({ force: true });
+  return activity !== null;
+}
+window.ensureExpenseHistoryActivityLoaded = ensureExpenseHistoryActivityLoaded;
+
+let expenseLazyRefreshSeq = 0;
 async function invalidateAndRefreshExpenseLazy({ refreshActivity = true } = {}){
   if (state.expenseLazy.rpcAvailable === false) return false;
+  // Read the totals only after the saves/deletes that change them are in the database; when
+  // several refreshes are requested together only the newest one runs.
+  const seq = ++expenseLazyRefreshSeq;
+  try { if (typeof waitForExpenseWrites === "function") await waitForExpenseWrites(15000); } catch (_) {}
+  if (seq !== expenseLazyRefreshSeq) return false;
   state.expenseLazy.activityQueryKey = "";
   state.expenseLazy.detailCache = new Map();
   state.expenseLazy.itemSummaryQueryKey = "";
@@ -560,6 +592,10 @@ async function invalidateAndRefreshExpenseLazy({ refreshActivity = true } = {}){
   try {
     const summaries = await loadExpenseWalletSummaries({ force: true });
     if (summaries === null) return false;
+    if (refreshActivity && !expenseHistoryIsOpen()) {
+      state.expenseLazy.activityDeferred = true; // loaded when the history is opened
+      refreshActivity = false;
+    }
     if (refreshActivity) {
       const activity = await loadExpenseActivityForCurrentQuery({ force: true });
       if (activity === null) return false;
@@ -583,8 +619,15 @@ async function loadExpensesScopeLazyOrFull(options = {}){
     if (typeof renderExpenseWalletBar === "function" && getActiveTabKey() === "expenses") {
       try { renderExpensesList(); } catch (_) {}
     }
+    // Expenses v2: the records are requested only when Expenses History is opened.
+    if (!expenseHistoryIsOpen()) {
+      state.expenseLazy.enabled = true;
+      state.expenseLazy.activityDeferred = true;
+      return { usedLazy: true };
+    }
     const activity = await loadExpenseActivityForCurrentQuery({ force: true });
     if (activity === null) return { usedLazy: false };
+    state.expenseLazy.activityDeferred = false;
     state.expenseLazy.enabled = true;
     return { usedLazy: true };
   } catch (err) {
@@ -3224,6 +3267,7 @@ function openExpenseModal(mode, presetGroupId = ""){
     syncExpenseBtcAccountFields(els.expenseAccountForm);
     bindExpenseAccountCustomLogoUi(els.expenseAccountForm);
     syncExpenseAccountCustomLogoFields(els.expenseAccountForm);
+    window.TriplemWalletLogos?.resetForm?.(els.expenseAccountForm);
     if (accountDate) accountDate.value = todayISO();
     defaultDateInputs(els.expenseAccountForm);
     if (accountDate && !accountDate.value) accountDate.value = todayISO();
@@ -3435,6 +3479,7 @@ async function uploadWalletLogoToStorage(userId, groupId, file){
 }
 
 async function deleteWalletLogoFromStorage(url){
+  if (window.TriplemWalletLogos?.isR2Ref?.(url)) return window.TriplemWalletLogos.remove(url);
   const path = typeof walletLogoStorageObjectPath === "function" ? walletLogoStorageObjectPath(url) : "";
   if (!path) return false;
   if (typeof isStoredWalletLogoUrl === "function" && !isStoredWalletLogoUrl(url)) return false;
@@ -3602,6 +3647,10 @@ function startExpenseWalletLogoChange(groupId){
     alert("You do not have permission to change wallet logos.");
     return;
   }
+  if (window.TriplemWalletLogos?.openForWallet) {
+    window.TriplemWalletLogos.openForWallet(groupId);
+    return;
+  }
   const input = ensureWalletLogoFileInput();
   input.dataset.groupId = String(groupId || "");
   input.click();
@@ -3611,22 +3660,26 @@ async function changeExpenseWalletLogo(groupId, file){
   const gid = String(groupId || "").trim();
   if (!gid) throw new Error("Wallet not found.");
   if (!file) throw new Error("Choose a logo image.");
-  const principal = findExpenseWalletPrincipal(gid);
-  if (!principal) throw new Error("Wallet account not found.");
+  if (!findExpenseWalletPrincipal(gid)) throw new Error("Wallet account not found.");
+  if (!String(file.type || "").startsWith("image/")) throw new Error("Wallet logo must be an image file (PNG, JPG, or WebP).");
+  // Shown straight away as a compact image saved with the wallet; then moved to the
+  // Cloudflare file storage in the background (Supabase storage is no longer used for new logos).
+  const dataUrl = await compressWalletLogoDataUrl(file);
+  setExpenseWalletLogoValue(gid, dataUrl);
+  if (window.TriplemWalletLogos?.promote) window.TriplemWalletLogos.promote(gid, dataUrl);
+}
 
+/** Sets a wallet's logo reference ("" = automatic, built-in path, data URL or r2:<id>).
+ *  onlyIfCurrent: change only when the wallet still has that logo (background updates). */
+function setExpenseWalletLogoValue(groupId, nextLogo, { onlyIfCurrent = null } = {}){
+  const gid = String(groupId || "").trim();
+  const principal = findExpenseWalletPrincipal(gid);
+  if (!principal) return false;
   const prevMeta = expenseMetaFromNotes(principal.notes || "");
   const previousLogo = String(prevMeta.customLogoUrl || "").trim();
-  const ownerId = state.sessionUser?.id || "";
-
-  let nextLogo = "";
-  if (!isGuestMode() && ownerId) {
-    try {
-      nextLogo = await uploadWalletLogoToStorage(ownerId, gid, file);
-    } catch (err) {
-      console.warn("Wallet logo storage upload failed; using embedded image.", err);
-    }
-  }
-  if (!nextLogo) nextLogo = await compressWalletLogoDataUrl(file);
+  nextLogo = String(nextLogo || "").trim();
+  if (onlyIfCurrent != null && previousLogo !== String(onlyIfCurrent).trim()) return false;
+  if (previousLogo === nextLogo) return true;
 
   const nextNotes = upsertExpenseMetaInNote(principal.notes || null, {
     ...prevMeta,
@@ -3647,7 +3700,8 @@ async function changeExpenseWalletLogo(groupId, file){
   renderExpenseWalletBar(getExpenseAccounts());
   if (typeof renderExpensesList === "function") renderExpensesList();
 
-  // Only delete previous logos that live in Supabase storage — never touch default/predefined files.
+  // Only uploaded logos (Supabase storage or Cloudflare file storage) are deleted —
+  // never built-in logo files or images saved with the wallet.
   if (
     previousLogo
     && previousLogo !== nextLogo
@@ -3656,6 +3710,7 @@ async function changeExpenseWalletLogo(groupId, file){
   ) {
     deleteWalletLogoFromStorage(previousLogo).catch(() => {});
   }
+  return true;
 }
 
 function ensureWalletLogoDefaultConfirmModal(){
@@ -3781,37 +3836,9 @@ async function resetExpenseWalletLogoToDefault(groupId){
   if (!gid) throw new Error("Wallet not found.");
   const principal = findExpenseWalletPrincipal(gid);
   if (!principal) throw new Error("Wallet account not found.");
-
-  const prevMeta = expenseMetaFromNotes(principal.notes || "");
-  const previousLogo = String(prevMeta.customLogoUrl || "").trim();
+  const previousLogo = String(expenseMetaFromNotes(principal.notes || "").customLogoUrl || "").trim();
   if (!previousLogo) return;
-
-  const nextNotes = upsertExpenseMetaInNote(principal.notes || null, {
-    ...prevMeta,
-    customLogoUrl: ""
-  });
-  principal.notes = nextNotes;
-  if (typeof queueDatabasePatch === "function") {
-    queueDatabasePatch(principal.id, { notes: nextNotes }, "Wallet logo", principal);
-  }
-
-  if (state.expenseLazy?.summaryByGroupId?.has?.(gid)) {
-    const prev = state.expenseLazy.summaryByGroupId.get(gid) || {};
-    state.expenseLazy.summaryByGroupId.set(gid, { ...prev, custom_logo_url: "" });
-  }
-
-  invalidateExpenseAccountsSyncCache();
-  renderExpenseOverviewWallets();
-  renderExpenseWalletBar(getExpenseAccounts());
-  if (typeof renderExpensesList === "function") renderExpensesList();
-
-  if (
-    previousLogo
-    && typeof isStoredWalletLogoUrl === "function"
-    && isStoredWalletLogoUrl(previousLogo)
-  ) {
-    deleteWalletLogoFromStorage(previousLogo).catch(() => {});
-  }
+  setExpenseWalletLogoValue(gid, "");
 }
 
 function syncWalletLogoMenuDefaultVisibility(panel, groupId){
@@ -4100,19 +4127,21 @@ async function fileOrCompressedForUpload(file, options = {}){
 }
 
 async function resolveWalletCustomLogoFromForm(form, groupId){
-  const useCustom = !!form.querySelector('[name="use_custom_logo"]')?.checked;
-  if (!useCustom) return "";
-  const file = form.querySelector('[name="custom_logo_file"]')?.files?.[0];
-  if (!file) throw new Error("Choose a logo image, or uncheck Use custom logo.");
-  const ownerId = state.sessionUser?.id || "";
-  if (!isGuestMode() && ownerId) {
-    try {
-      return await uploadWalletLogoToStorage(ownerId, groupId, file);
-    } catch (err) {
-      console.warn("Wallet logo storage upload failed; using embedded image.", err);
-    }
+  form._walletLogoPending = null;
+  const choice = form._walletLogoChoice || null;
+  if (choice?.kind === "builtin" && choice.path) return choice.path;
+  let file = choice?.kind === "upload" ? choice.file : null;
+  if (!file) {
+    const useCustom = !!form.querySelector('[name="use_custom_logo"]')?.checked;
+    if (!useCustom) return "";
+    file = form.querySelector('[name="custom_logo_file"]')?.files?.[0];
+    if (!file) throw new Error("Choose a logo image, or uncheck Use custom logo.");
   }
-  return compressWalletLogoDataUrl(file);
+  // Saved with the wallet as a compact image first; moved to the Cloudflare file storage
+  // in the background once the wallet is saved (see TriplemWalletLogos.promote).
+  const dataUrl = await compressWalletLogoDataUrl(file);
+  form._walletLogoPending = { groupId, dataUrl };
+  return dataUrl;
 }
 
 function syncExpenseAccountCustomLogoFields(form = els.expenseAccountForm){
@@ -4208,6 +4237,10 @@ async function saveExpenseAccount(form){
   validateCurrencyForForm(fd);
   if (currency === "BTC") state.expenseWalletFilter = payload.group_id;
   saveEntriesImmediately(payload, { label: "Expense account" });
+  const pendingLogo = form._walletLogoPending;
+  form._walletLogoPending = null;
+  form._walletLogoChoice = null;
+  if (pendingLogo?.dataUrl && window.TriplemWalletLogos?.promote) window.TriplemWalletLogos.promote(groupId, pendingLogo.dataUrl);
   closeModal("expenseModal");
 }
 
@@ -4689,6 +4722,13 @@ function restoreExpenseDetailsOpenState(openDetails){
 }
 
 function renderExpensesList(){
+  // Expenses v2: the list is built only while Expenses History is on screen; otherwise it is
+  // marked to be built when the history opens (saves work on every save and screen change).
+  if (window.TriplemExpensesV2 && (!expenseHistoryIsOpen() || (typeof getActiveTabKey === "function" && getActiveTabKey() !== "expenses"))) {
+    state.expenseLazy.listDirty = true;
+    return;
+  }
+  state.expenseLazy.listDirty = false;
   if (window.ExpensePagination) ExpensePagination.prepare();
   // Currency is no longer a visible Expenses filter. Clear any value persisted by older builds
   // so users cannot inherit a hidden currency scope after upgrading.
@@ -5002,6 +5042,7 @@ function renderExpensesList(){
       <details class="loan expense-item-row" data-expense-details-id="history-${escapeHtml(item.key)}" data-expense-item-key="${escapeHtml(item.key)}" data-expense-item-complete="${item.detailComplete === false ? "0" : "1"}">
         <summary>
           <div class="loan-top">
+            <span class="ev2-item-ico" aria-hidden="true"><i class="fa-solid ${typeof expenseTypeIconClass === "function" ? expenseTypeIconClass(`${item.expenseType || ""} ${item.displayName || ""}`) : "fa-receipt"}"></i></span>
             <div class="lt-main">
               <div class="loan-name">${escapeHtml(item.displayName)}</div>
               <div class="loan-sub">
@@ -6061,8 +6102,16 @@ async function ensureInventoryItemCodesForRows(rows){
 function renderExpenseOverviewWallets(){
   const container = document.getElementById("expenseOverviewWallets");
   if (!container) return;
+  // Expenses v2: built when Expenses is on screen; marked otherwise and built on opening.
+  if (window.TriplemExpensesV2 && typeof getActiveTabKey === "function" && getActiveTabKey() !== "expenses") {
+    state.expenseLazy.walletsDirty = true;
+    return;
+  }
+  state.expenseLazy.walletsDirty = false;
+  try { window.TriplemExpensesStyle?.apply?.(); } catch (_) {}
   closeAllWalletLogoMenus();
-  const accounts = getExpenseAccounts({ applyUiFilters: false });
+  let accounts = getExpenseAccounts({ applyUiFilters: false });
+  try { if (window.TriplemExpensesStyle?.sortAccounts) accounts = window.TriplemExpensesStyle.sortAccounts(accounts); } catch (_) {}
   if (!accounts.length){
     container.innerHTML = `
       <div class="empty" style="grid-column:1/-1; display:flex; flex-direction:column; align-items:center; gap:10px; padding:18px 12px;">
@@ -6079,7 +6128,7 @@ function renderExpenseOverviewWallets(){
   const expenseSummaryCard = expenseCurrencies.length ? `
       <div class="summary currency-summary expense-overview">
         ${overviewWatermarkFloatingWalletLogos(accounts)}
-        <div class="currency-head">Summary ${expenseCurrencies.map(currency => currencySymbolHtml(currency)).join(' ')}</div>
+        <div class="currency-head ev2-sum-title">Summary</div>
         ${expenseCurrencies.map((currency, index) => {
           const s = summarizeExpenseByCurrency(currency);
           const isLastCurrency = index === expenseCurrencies.length - 1;
@@ -6109,7 +6158,7 @@ function renderExpenseOverviewWallets(){
           `;
         }).join("")}
         <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-          <button class="tiny ghost" onclick="window.location.href='#expensesPanel'">View Expenses</button>
+          <button class="tiny ghost" onclick="window.TriplemExpensesV2 ? window.TriplemExpensesV2.openHistory() : (window.location.href='#expensesPanel')">View Expenses</button>
           <button class="tiny ghost" onclick="openExpenseModal('account')">Add Account</button>
           <button class="tiny ghost" onclick="downloadExpensesPDF()"><i class="fa-solid fa-file-pdf"></i></button>
         </div>
@@ -6190,88 +6239,17 @@ function ensureExpenseOverviewWalletDelegation(){
   });
 }
 
-// Function to update wallets layout on window resize
+// Re-render the wallets only when the layout really changes (desktop <-> phone), 2026-11-12.
+// Earlier every resize rebuilt every card and lost the logo menus and reordering.
+let lastWalletsLayoutDesktop = null;
 function updateWalletsLayoutOnResize() {
   const container = document.getElementById("expenseOverviewWallets");
   if (!container || !container.accounts) return;
-  
-  // Re-render with current screen width
   const isDesktop = window.innerWidth > 768;
-  const accounts = container.accounts;
-  
-  // Recalculate expense summary card
-  const expenseCurrencies = [...new Set(accounts.map(account => account.currency).filter(Boolean))];
-  const expenseSummaryCard = expenseCurrencies.length ? `
-      <div class="summary currency-summary expense-overview">
-        ${overviewWatermarkFloatingWalletLogos(accounts)}
-        <div class="currency-head">Summary ${expenseCurrencies.map(currency => currencySymbolHtml(currency)).join(' ')}</div>
-        ${expenseCurrencies.map((currency, index) => {
-          const s = summarizeExpenseByCurrency(currency);
-          const isLastCurrency = index === expenseCurrencies.length - 1;
-          
-          // Calculate USD equivalent for BTC available balance
-          let btcUsdEquivalent = "";
-          if (currency === "BTC") {
-            const btcBalance = Number(s.availableBalance || 0);
-            if (btcBalance > 0 && state.bitcoin.btcPrice) {
-              const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              btcUsdEquivalent = usdValue;
-            }
-          }
-          
-          return `
-            ${overviewExpenseLine(currency, "Total Amount:", money(s.totalAmount, currency))}
-            ${overviewExpenseLine(currency, "Total Expenses:", money(s.totalExpenses, currency))}
-            <div class="summary-line summary-line-one available-label">
-              <span class="summary-line-one-label summary-line-one-label--with-symbol strong-success">
-                <span class="summary-currency-mark">${currencySymbolHtml(currency)}</span>
-                <span class="summary-label-suffix strong-success">Available Balance:</span>
-              </span>
-              <span class="summary-line-one-value available-amount strong-success">${money(s.availableBalance, currency)}</span>
-            </div>
-            ${btcUsdEquivalent ? `<div class="summary-line summary-line-one" style="margin-top: 2px;"><span class="summary-line-one-label"></span><span class="summary-line-one-value" style="color: var(--muted); font-size: 0.8rem; font-weight: 600;">≈ ${currencySymbolHtml("USD")}${btcUsdEquivalent}</span></div>` : ''}
-            ${!isLastCurrency ? '<div class="currency-separator"></div>' : ''}
-          `;
-        }).join("")}
-        <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-          <button class="tiny ghost" onclick="window.location.href='#expensesPanel'">View Expenses</button>
-          <button class="tiny ghost" onclick="openExpenseModal('account')">Add Account</button>
-          <button class="tiny ghost" onclick="downloadExpensesPDF()"><i class="fa-solid fa-file-pdf"></i></button>
-        </div>
-      </div>
-  ` : "";
-
-  if (isDesktop) {
-    // Desktop layout: two columns
-    const walletCardsHtml = accounts.map(expenseOverviewWalletCardHtml).join("");
-    
-    if (expenseSummaryCard) {
-      container.innerHTML = `
-        <div class="wallets-desktop-layout">
-          <div class="summary-column">
-            ${expenseSummaryCard}
-          </div>
-          <div class="wallets-column">
-            <div class="wallets-grid">
-              ${walletCardsHtml}
-            </div>
-          </div>
-        </div>
-      `;
-    } else {
-      container.innerHTML = `
-        <div class="wallets-full-width">
-          <div class="wallets-grid">
-            ${walletCardsHtml}
-          </div>
-        </div>
-      `;
-    }
-  } else {
-    // Mobile layout: original simple grid
-    container.innerHTML = expenseSummaryCard + accounts.map(expenseOverviewWalletCardHtml).join("");
-  }
-  ensureExpenseOverviewWalletDelegation();
+  if (lastWalletsLayoutDesktop === null) lastWalletsLayoutDesktop = !!container.querySelector(".wallets-desktop-layout, .wallets-full-width");
+  if (isDesktop === lastWalletsLayoutDesktop) return;
+  lastWalletsLayoutDesktop = isDesktop;
+  renderExpenseOverviewWallets();
 }
 
 function renderSearchResults(key){

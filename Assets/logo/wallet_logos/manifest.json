@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "logos": [
+    {
+      "file": "ADCB.png",
+      "name": "ADCB"
+    },
+    {
+      "file": "Bitcoin.png",
+      "name": "Bitcoin"
+    },
+    {
+      "file": "Cash.png",
+      "name": "Cash"
+    },
+    {
+      "file": "Cryptocurrency.png",
+      "name": "Cryptocurrency"
+    },
+    {
+      "file": "Easypaisa.png",
+      "name": "Easypaisa"
+    },
+    {
+      "file": "Emirates Islamic.png",
+      "name": "Emirates Islamic"
+    },
+    {
+      "file": "Emirates NBD.png",
+      "name": "Emirates NBD"
+    },
+    {
+      "file": "Faysal Bank.png",
+      "name": "Faysal Bank"
+    },
+    {
+      "file": "HBL.png",
+      "name": "HBL"
+    },
+    {
+      "file": "Meezan Bank.png",
+      "name": "Meezan Bank"
+    },
+    {
+      "file": "NayaPay.png",
+      "name": "NayaPay"
+    },
+    {
+      "file": "NOL Card (Classic).png",
+      "name": "NOL Card (Classic)"
+    },
+    {
+      "file": "NOL Card (Gold).png",
+      "name": "NOL Card (Gold)"
+    },
+    {
+      "file": "Rak Bank.png",
+      "name": "Rak Bank"
+    },
+    {
+      "file": "Tabby Cash.png",
+      "name": "Tabby Cash"
+    },
+    {
+      "file": "Tabby.png",
+      "name": "Tabby"
+    },
+    {
+      "file": "UBL.png",
+      "name": "UBL"
+    },
+    {
+      "file": "UPaisa.png",
+      "name": "UPaisa"
+    },
+    {
+      "file": "triplem_default_wallet.png",
+      "name": "Triplem VIP"
+    }
+  ]
+}
