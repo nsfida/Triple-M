@@ -700,7 +700,8 @@ function bindWorkspaceHomeGrid(grid){
         defaultLabel,
         currentLabel: workspaceDisplayLabel(key, defaultLabel),
         icon: workspaceSectionIcon(key),
-        onOpen: () => openWorkspaceHomeCard(card)
+        onOpen: () => openWorkspaceHomeCard(card),
+        onHide: window.TriplemHomeStyle?.hide ? () => window.TriplemHomeStyle.hide(key) : null
       });
       return;
     }
@@ -772,6 +773,13 @@ function renderWorkspaceHome(){
   }
   bindWorkspaceHomeGrid(grid);
   try { window.TriplemInventoryV2?.decorateHome?.(grid); } catch (_) {}
+  // Cards hidden with ⋮ › Hide from Home (Home Style); the sections stay in the section switcher.
+  const hidden = Array.isArray(style.hidden) ? style.hidden : [];
+  if (hidden.length) grid.querySelectorAll(".workspace-home-card[data-home-key]").forEach(card => { if (hidden.includes(card.dataset.homeKey)) card.remove(); });
+  if (!grid.querySelector(".workspace-home-card")) {
+    grid.innerHTML = `<div class="workspace-home-empty"><i class="fa-regular fa-eye-slash" aria-hidden="true"></i><b>All cards are hidden</b><span>Open any section from the menu at the top, or show the cards again.</span><button type="button" class="btn primary" data-home-show-all>Show all cards</button></div>`;
+    grid.querySelector("[data-home-show-all]")?.addEventListener("click", e => { e.stopPropagation(); window.TriplemHomeStyle?.show?.(""); });
+  }
   try { window.bindHomeReorder?.(grid); } catch (_) {}
   try { window.TriplemHomeNames?.retrySoon?.(); } catch (_) {}
   try { window.TriplemHomeStyle?.pushPending?.(); } catch (_) {}

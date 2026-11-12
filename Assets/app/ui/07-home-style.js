@@ -1,20 +1,22 @@
-/* Triplem VIP Home Style (2026-11-12): icon pack, layout, icon size and spacing of Home.
+/* Triplem VIP Home Style (2026-11-12): icon pack, layout, sizes, text and cards of Home.
  *
  * Theme menu › Home Style opens a side panel (a bottom sheet on phones) next to Home, so every
  * change is seen at once. The choice is saved to the user's own account settings with the
- * existing app_update_own_settings RPC (key HomeStyle: { pack, layout, size, gap, at }), so
+ * existing app_update_own_settings RPC (key HomeStyle: { pack, layout, size, gap, weight,
+ * captions, text, backdrop, motion, greeting, tips, hidden, at }), so
  * every device shows the same Home. A copy on this device applies it at start-up and keeps an
  * offline change until it reaches the account. Size and spacing only change two CSS variables
  * (no re-render); pack and layout re-render the Home cards once. No database migration.
  *
- * Older value HomeIconPack ("new" / "classic", 12 Nov 2026 morning) is still read.
+ * Nothing is written until the person changes something: everyone starts with the Standard
+ * icons (the owner's pack) at normal size. Older value HomeIconPack ("new" / "classic") is read.
  */
 (function initTriplemHomeStyle(global){
   "use strict";
 
   const SETTINGS_KEY = "HomeStyle";
   const LOCAL_PREFIX = "triplem-home-style-v1:";
-  const ICON_VERSION = "20261112";
+  const ICON_VERSION = "20261112b";
   const SAMPLE_KEYS = ["dashboard", "expenses", "inventory2", "notes"];
   const CLASSIC_FILES = {
     dashboard: "dashboard.png", expenses: "expenses.png", accounting: "accounting.png", assets: "assets.png",
@@ -38,7 +40,21 @@
   ];
   const SIZE = { min: 70, max: 140, step: 5, def: 100 };
   const GAP = { min: 40, max: 180, step: 10, def: 100 };
-  const DEFAULTS = Object.freeze({ pack: "standard", layout: "grid", size: SIZE.def, gap: GAP.def });
+  // Choices shown as small segmented buttons: [value, label]
+  const CHOICES = {
+    weight: [["bold", "Bold"], ["normal", "Normal"]],
+    text: [["s", "Small"], ["m", "Medium"], ["l", "Large"]],
+    backdrop: [["none", "None"], ["circle", "Circle"], ["square", "Square"]],
+    motion: [["zoom", "Zoom"], ["lift", "Lift"], ["none", "None"]]
+  };
+  const SWITCHES = ["captions", "greeting", "tips"];
+  const TEXT_SCALE = { s: 0.9, m: 1, l: 1.12 };
+  const DEFAULTS = Object.freeze({
+    pack: "standard", layout: "grid", size: SIZE.def, gap: GAP.def,
+    weight: "bold", captions: true, text: "m", backdrop: "none", motion: "zoom",
+    greeting: true, tips: true, hidden: Object.freeze([])
+  });
+  const KEY_RE = /^[a-z][a-z0-9-]{0,39}$/;
 
   const packIds = PACKS.map(p => p.id);
   const layoutIds = LAYOUTS.map(l => l.id);
@@ -53,13 +69,23 @@
   function signedIn(){ const s = st(); return !!(s?.unlocked && s?.sessionToken && s?.sessionUser && !isGuest()); }
   function userId(){ const s = st(); return String(s?.sessionUser?.id || s?.currentUsername || "device").trim() || "device"; }
 
+  const pick = (v, name) => (CHOICES[name].some(c => c[0] === v) ? v : DEFAULTS[name]);
   function normalize(value){
     const v = value && typeof value === "object" ? value : {};
+    const hidden = Array.isArray(v.hidden) ? [...new Set(v.hidden.map(String).filter(k => KEY_RE.test(k)))].slice(0, 40) : [];
     return {
       pack: packIds.includes(v.pack) ? v.pack : DEFAULTS.pack,
       layout: layoutIds.includes(v.layout) ? v.layout : DEFAULTS.layout,
       size: clampNum(v.size ?? SIZE.def, SIZE),
-      gap: clampNum(v.gap ?? GAP.def, GAP)
+      gap: clampNum(v.gap ?? GAP.def, GAP),
+      weight: pick(v.weight, "weight"),
+      captions: v.captions !== false,
+      text: pick(v.text, "text"),
+      backdrop: pick(v.backdrop, "backdrop"),
+      motion: pick(v.motion, "motion"),
+      greeting: v.greeting !== false,
+      tips: v.tips !== false,
+      hidden
     };
   }
   function readServer(){
@@ -90,7 +116,7 @@
       if (!local || local.at !== server.at || !local.synced) writeLocal({ style: server.style, at: server.at, synced: true });
       return server.style;
     }
-    return local ? local.style : { ...DEFAULTS };
+    return local ? local.style : normalize({});
   }
 
   // ── saving ──────────────────────────────────────────────────────────────
@@ -147,6 +173,13 @@
     home.dataset.homePack = style.pack;
     home.style.setProperty("--wh-icon-scale", String(style.size / 100));
     home.style.setProperty("--wh-gap-scale", String(style.gap / 100));
+    home.style.setProperty("--wh-text-scale", String(TEXT_SCALE[style.text] || 1));
+    home.classList.toggle("home-title-normal", style.weight === "normal");
+    home.classList.toggle("home-no-captions", !style.captions);
+    home.classList.toggle("home-no-greeting", !style.greeting);
+    home.classList.toggle("home-no-tips", !style.tips);
+    for (const [b] of CHOICES.backdrop) home.classList.toggle(`home-backdrop-${b}`, style.backdrop === b && b !== "none");
+    for (const [m] of CHOICES.motion) home.classList.toggle(`home-motion-${m}`, style.motion === m && m !== "zoom");
     return style;
   }
 
@@ -166,10 +199,11 @@
   function set(patch){
     const before = get();
     const next = normalize({ ...before, ...patch });
+    const hiddenChanged = JSON.stringify(next.hidden) !== JSON.stringify(before.hidden);
     const prev = readLocal();
     const at = Math.max(Date.now(), (prev?.at || 0) + 1, (readServer()?.at || 0) + 1);
     writeLocal({ style: next, at, synced: !signedIn() });
-    if (next.pack !== before.pack || next.layout !== before.layout) rerender();
+    if (next.pack !== before.pack || next.layout !== before.layout || hiddenChanged) rerender();
     else applyFrame(next);
     syncControls(next);
     updateSummary(next);
@@ -177,7 +211,11 @@
     if (signedIn()) schedulePush();
     return next;
   }
-  function reset(){ return set({ ...DEFAULTS }); }
+  /** Reset keeps the hidden cards (they have their own "Show all"). */
+  function reset(){ const { hidden } = get(); return set({ ...normalize({}), hidden }); }
+  function isHidden(key){ return get().hidden.includes(String(key || "")); }
+  function hide(key){ key = String(key || ""); if (!KEY_RE.test(key)) return get(); const h = get().hidden; return h.includes(key) ? get() : set({ hidden: [...h, key] }); }
+  function show(key){ return set({ hidden: key ? get().hidden.filter(k => k !== key) : [] }); }
 
   function summaryText(style = get()){
     const p = PACKS.find(x => x.id === style.pack)?.label || "Standard";
@@ -199,6 +237,29 @@
     compact: '<svg viewBox="0 0 48 32" aria-hidden="true"><g fill="currentColor"><rect x="3" y="4" width="7" height="7" rx="2"/><rect x="12.5" y="4" width="7" height="7" rx="2"/><rect x="22" y="4" width="7" height="7" rx="2"/><rect x="31.5" y="4" width="7" height="7" rx="2"/><rect x="41" y="4" width="4" height="7" rx="2"/><rect x="3" y="13" width="7" height="7" rx="2"/><rect x="12.5" y="13" width="7" height="7" rx="2"/><rect x="22" y="13" width="7" height="7" rx="2"/><rect x="31.5" y="13" width="7" height="7" rx="2"/><rect x="41" y="13" width="4" height="7" rx="2"/><rect x="3" y="22" width="7" height="7" rx="2"/><rect x="12.5" y="22" width="7" height="7" rx="2"/><rect x="22" y="22" width="7" height="7" rx="2"/></g></svg>'
   };
 
+  const seg = (name, label, style) => `
+          <div class="hs-row">
+            <span class="hs-row-label" id="hs-${name}-l">${esc(label)}</span>
+            <div class="hs-seg" role="radiogroup" aria-labelledby="hs-${name}-l">
+              ${CHOICES[name].map(([v, t]) => `<button type="button" role="radio" data-hs-set="${name}" data-hs-value="${v}" aria-checked="${style[name] === v}">${esc(t)}</button>`).join("")}
+            </div>
+          </div>`;
+  const sw = (name, label, note, style) => `
+          <button type="button" class="hs-switch" role="switch" data-hs-toggle="${name}" aria-checked="${!!style[name]}">
+            <span class="hs-switch-copy"><b>${esc(label)}</b><small>${esc(note)}</small></span>
+            <span class="hs-switch-track" aria-hidden="true"><i></i></span>
+          </button>`;
+
+  function hiddenHtml(style){
+    if (!style.hidden.length) return `<p class="hs-empty">No hidden cards. Use a card's <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i> menu › Hide from Home.</p>`;
+    let label = k => k;
+    try { label = k => (typeof workspaceDisplayLabel === "function" ? workspaceDisplayLabel(k) : k); } catch (_) {}
+    return `<div class="hs-hidden-list">${style.hidden.map(k => `
+              <span class="hs-hidden-item"><img src="${esc(iconSrc(k, style.pack))}" alt="" aria-hidden="true"><b>${esc(label(k))}</b>
+                <button type="button" data-hs-show="${esc(k)}">Show</button></span>`).join("")}</div>
+            <button type="button" class="hs-link" data-hs-show-all>Show all cards</button>`;
+  }
+
   function panelHtml(style){
     return `
       <div class="hs-head">
@@ -212,7 +273,7 @@
             ${PACKS.map(p => `
               <button type="button" class="hs-pack hs-pack--${p.id}" role="radio" data-hs-pack="${p.id}" aria-checked="${style.pack === p.id}">
                 <span class="hs-pack-icons">${SAMPLE_KEYS.map(k => `<img src="${esc(iconSrc(k, p.id))}" alt="" aria-hidden="true" loading="lazy" decoding="async" draggable="false">`).join("")}</span>
-                <span class="hs-pack-name"><b>${esc(p.label)}</b><small>${esc(p.note)}</small></span>
+                <span class="hs-pack-name"><b>${esc(p.label)}${p.id === "standard" ? ' <em class="hs-default">Default</em>' : ""}</b><small>${esc(p.note)}</small></span>
                 <i class="fa-solid fa-circle-check hs-check" aria-hidden="true"></i>
               </button>`).join("")}
           </div>
@@ -227,6 +288,7 @@
           </div>
         </section>
         <section class="hs-section">
+          <h3>Icons</h3>
           <label class="hs-range" for="hsSize">
             <span class="hs-range-head"><b>Icon size</b><output data-hs-size-out>${style.size}%</output></span>
             <span class="hs-range-row"><i class="fa-solid fa-minus" aria-hidden="true"></i>
@@ -239,10 +301,24 @@
               <input id="hsGap" type="range" min="${GAP.min}" max="${GAP.max}" step="${GAP.step}" value="${style.gap}" data-hs-gap aria-valuetext="${style.gap}%">
             <i class="fa-solid fa-expand" aria-hidden="true"></i></span>
           </label>
+          ${seg("backdrop", "Icon background", style)}
+          ${seg("motion", "Hover effect", style)}
+        </section>
+        <section class="hs-section">
+          <h3>Text</h3>
+          ${seg("weight", "Titles", style)}
+          ${seg("text", "Text size", style)}
+          ${sw("captions", "Descriptions", "Short text under each title", style)}
+          ${sw("greeting", "Greeting and date", "“Good morning” heading at the top", style)}
+          ${sw("tips", "Help line", "“Hold a card to move it” under the cards", style)}
+        </section>
+        <section class="hs-section">
+          <h3>Hidden cards</h3>
+          <div data-hs-hidden>${hiddenHtml(style)}</div>
         </section>
       </div>
       <div class="hs-foot">
-        <button type="button" class="btn ghost" data-hs-reset><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset to default</button>
+        <button type="button" class="btn ghost" data-hs-reset title="Standard icons, Icons layout, normal size (hidden cards stay hidden)"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset to default</button>
         <button type="button" class="btn primary" data-hs-close>Done</button>
       </div>`;
   }
@@ -251,6 +327,11 @@
     if (!panel) return;
     panel.querySelectorAll("[data-hs-pack]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.hsPack === style.pack)));
     panel.querySelectorAll("[data-hs-layout]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.hsLayout === style.layout)));
+    panel.querySelectorAll("[data-hs-set]").forEach(b => b.setAttribute("aria-checked", String(style[b.dataset.hsSet] === b.dataset.hsValue)));
+    panel.querySelectorAll("[data-hs-toggle]").forEach(b => b.setAttribute("aria-checked", String(!!style[b.dataset.hsToggle])));
+    const hiddenBox = panel.querySelector("[data-hs-hidden]");
+    const hiddenSig = style.hidden.join(",") + "|" + style.pack;
+    if (hiddenBox && hiddenBox.dataset.sig !== hiddenSig) { hiddenBox.innerHTML = hiddenHtml(style); hiddenBox.dataset.sig = hiddenSig; }
     const size = panel.querySelector("[data-hs-size]"); const gap = panel.querySelector("[data-hs-gap]");
     if (size && Number(size.value) !== style.size) size.value = String(style.size);
     if (gap && Number(gap.value) !== style.gap) gap.value = String(style.gap);
@@ -261,8 +342,21 @@
     for (const r of [size, gap]) if (r) r.style.setProperty("--hs-fill", `${((Number(r.value) - Number(r.min)) / (Number(r.max) - Number(r.min))) * 100}%`);
   }
 
+  /** Desktop: start the panel just under the header buttons (and the Windows app bar). */
+  function placePanel(){
+    if (!panel) return;
+    if (global.innerWidth <= 700) { panel.style.top = ""; return; }
+    let bottom = 60;
+    for (const sel of ["#themeSettingsBtn", ".desktop-appbar"]) {
+      const r = document.querySelector(sel)?.getBoundingClientRect();
+      if (r && r.height && r.bottom > 0 && r.bottom < global.innerHeight / 2) bottom = Math.max(bottom, r.bottom);
+    }
+    panel.style.top = `${Math.round(bottom + 12)}px`;
+  }
+
   function close(){
     if (!panel) return;
+    global.removeEventListener("resize", placePanel);
     const el = panel;
     panel = null;
     el.classList.remove("is-open");
@@ -277,7 +371,7 @@
   function onKey(e){
     if (!panel) return;
     if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); close(); return; }
-    const radio = e.target.closest?.("[data-hs-pack],[data-hs-layout]");
+    const radio = e.target.closest?.("[data-hs-pack],[data-hs-layout],[data-hs-set]");
     if (radio && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
       e.preventDefault();
       const group = [...radio.parentElement.children];
@@ -311,12 +405,18 @@
     panel.setAttribute("aria-labelledby", "hsTitle");
     panel.innerHTML = panelHtml(style);
     document.body.appendChild(panel);
+    placePanel();
+    global.addEventListener("resize", placePanel);
     syncControls(style);
     panel.addEventListener("click", e => {
       const b = e.target.closest("button");
       if (!b) return;
       if (b.dataset.hsPack) set({ pack: b.dataset.hsPack });
       else if (b.dataset.hsLayout) set({ layout: b.dataset.hsLayout });
+      else if (b.dataset.hsSet) set({ [b.dataset.hsSet]: b.dataset.hsValue });
+      else if (b.dataset.hsToggle) set({ [b.dataset.hsToggle]: !get()[b.dataset.hsToggle] });
+      else if (b.dataset.hsShow) show(b.dataset.hsShow);
+      else if (b.hasAttribute("data-hs-show-all")) show("");
       else if (b.hasAttribute("data-hs-reset")) reset();
       else if (b.hasAttribute("data-hs-close")) close();
     });
@@ -342,7 +442,7 @@
 
   global.TriplemHomeStyle = {
     get, set, reset, open, close, applyFrame, iconSrc, updateSummary, summaryText, pushPending,
-    PACKS, LAYOUTS, SIZE, GAP, DEFAULTS, normalize
+    isHidden, hide, show, PACKS, LAYOUTS, CHOICES, SIZE, GAP, DEFAULTS, normalize
   };
   // earlier name used by Inventory 2.0 and older code
   global.triplemHomeIconPack = () => (get().layout === "cards" ? "classic" : "new");

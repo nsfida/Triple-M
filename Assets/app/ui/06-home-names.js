@@ -151,7 +151,8 @@
     menuEl.innerHTML = `
       <button type="button" role="menuitem" data-act="open"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>Open</button>
       <button type="button" role="menuitem" data-act="rename"><i class="fa-solid fa-pen" aria-hidden="true"></i>Rename</button>
-      ${renamed ? `<button type="button" role="menuitem" data-act="reset"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i>Restore “${esc(opts.defaultLabel)}”</button>` : ""}`;
+      ${renamed ? `<button type="button" role="menuitem" data-act="reset"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i>Restore “${esc(opts.defaultLabel)}”</button>` : ""}
+      ${opts.onHide ? `<button type="button" role="menuitem" data-act="hide"><i class="fa-regular fa-eye-slash" aria-hidden="true"></i>Hide from Home</button>` : ""}`;
     document.body.appendChild(menuEl);
     menuFor = button;
     button.setAttribute("aria-expanded", "true");
@@ -172,6 +173,7 @@
       if (act === "open") opts.onOpen?.();
       else if (act === "rename") openRename(opts);
       else if (act === "reset") reset(key);
+      else if (act === "hide") opts.onHide?.();
     });
     document.addEventListener("pointerdown", onOutside, true);
     document.addEventListener("keydown", onMenuKey, true);
