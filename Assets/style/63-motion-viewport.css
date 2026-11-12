@@ -1,0 +1,47 @@
+/* Triplem VIP - Background animation preference and mobile viewport stability (2026-11-10). */
+
+/* ---- Background Bubbles & Animations: OFF ------------------------------------------
+   JavaScript also removes the elements; this guarantees nothing animates or
+   composites even before that runs. */
+html.triplem-bg-off .floating-circles,
+html.triplem-bg-off .page-currency-bg{display:none !important;animation:none !important}
+
+/* Theme menu switch */
+html[data-triplem-theme] #app .theme-menu-divider{height:1px;margin:4px 2px;background:var(--line)}
+html[data-triplem-theme] #app .theme-menu-toggle{
+  appearance:none;width:100%;min-height:40px;display:grid;grid-template-columns:18px minmax(0,1fr) 32px;align-items:center;gap:9px;
+  padding:7px 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text);text-align:left;cursor:pointer;
+  transition:background-color .12s ease,border-color .12s ease;
+}
+html[data-triplem-theme] #app .theme-menu-toggle:hover{background:var(--surface-hover);border-color:var(--line)}
+html[data-triplem-theme] #app .theme-menu-toggle:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 32%,transparent);outline-offset:1px}
+html[data-triplem-theme] #app .theme-menu-toggle-icon{font-size:.78rem;color:var(--primary);text-align:center}
+html[data-triplem-theme] #app .theme-menu-toggle .theme-menu-copy strong{white-space:normal;font-size:.74rem;line-height:1.25}
+html[data-triplem-theme] #app .theme-menu-toggle .theme-menu-copy small{display:block;font-size:.62rem;color:var(--muted);margin-top:1px}
+html[data-triplem-theme] #app .theme-menu-switch{
+  position:relative;width:32px;height:18px;border-radius:999px;justify-self:end;
+  background:color-mix(in srgb,var(--muted,#667085) 30%,transparent);transition:background-color .15s ease;
+}
+html[data-triplem-theme] #app .theme-menu-switch i{
+  position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 2px rgba(15,23,42,.25);transition:transform .15s ease;
+}
+html[data-triplem-theme] #app .theme-menu-toggle[aria-checked="true"] .theme-menu-switch{background:var(--primary)}
+html[data-triplem-theme] #app .theme-menu-toggle[aria-checked="true"] .theme-menu-switch i{transform:translateX(14px)}
+@media (prefers-reduced-motion:reduce){
+  html[data-triplem-theme] #app .theme-menu-switch,html[data-triplem-theme] #app .theme-menu-switch i{transition:none}
+}
+
+/* ---- Phones and tablets: no automatic zoom when a field is focused ------------------
+   Cause (measured 2026-11-10): form fields render at 10-12.5px on phones. iOS Safari
+   (and iOS WebViews) zoom the page in whenever a field under 16px receives focus,
+   and do not zoom back out, so the layout appears "stuck" enlarged. Pinch-zoom stays
+   enabled (the viewport tag is not restricted); only the field text is raised to the
+   16px threshold on touch screens. Desktop and the Windows app are unchanged. */
+@media (hover:none) and (pointer:coarse){
+  /* The :not(#...) parts only raise priority above the existing id-scoped compact
+     form rules (some use !important); they match every page. */
+  html:not(#tm-zoom-a):not(#tm-zoom-b):not(#tm-zoom-c) :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
+    select,textarea,[contenteditable="true"]){font-size:16px !important}
+}
