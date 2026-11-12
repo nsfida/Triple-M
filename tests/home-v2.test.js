@@ -102,13 +102,13 @@ test("Home Style: 6 icon packs, 4 layouts, size and spacing, saved to the accoun
   const H = g.TriplemHomeStyle;
   assert.equal(JSON.stringify(H.PACKS.map(p => p.id)), JSON.stringify(["standard", "classic", "jewel", "pastel", "neon", "luxe"]));
   assert.equal(JSON.stringify(H.LAYOUTS.map(l => l.id)), JSON.stringify(["grid", "cards", "list", "compact"]));
-  assert.equal(JSON.stringify(H.get()), JSON.stringify({ pack: "standard", layout: "grid", size: 100, gap: 100 }), "defaults");
-  assert.equal(JSON.stringify(H.normalize({ pack: "x", layout: "y", size: 999, gap: 3 })), JSON.stringify({ pack: "standard", layout: "grid", size: 140, gap: 40 }));
+  { const g0 = H.get(); assert.equal(JSON.stringify([g0.pack, g0.layout, g0.size, g0.gap]), JSON.stringify(["standard", "grid", 100, 100]), "defaults: Standard icons at normal size"); }
+  { const n0 = H.normalize({ pack: "x", layout: "y", size: 999, gap: 3 }); assert.equal(JSON.stringify([n0.pack, n0.layout, n0.size, n0.gap]), JSON.stringify(["standard", "grid", 140, 40])); }
   g.state.sessionUser.settings.HomeIconPack = "classic";
   assert.equal(H.get().pack, "classic"); assert.equal(H.get().layout, "cards");
   g.state.sessionUser.settings.HomeStyle = { pack: "neon", layout: "compact", size: 120, gap: 80, at: Date.now() + 1000 };
   assert.equal(H.get().pack, "neon");
-  assert.equal(H.iconSrc("notes", "neon"), "Assets/logo/icons/packs/neon/notes.svg?v=20261112");
+  assert.equal(H.iconSrc("notes", "neon"), "Assets/logo/icons/packs/neon/notes.svg?v=20261112b");
   assert.equal(H.iconSrc("notes", "classic"), "Assets/logo/icons/notes.png");
   assert.match(H.iconSrc("notes", "standard"), /^Assets\/logo\/icons\/home\/notes\.svg/);
   for (const pack of ["jewel", "pastel", "neon", "luxe"]) {
@@ -118,11 +118,21 @@ test("Home Style: 6 icon packs, 4 layouts, size and spacing, saved to the accoun
       assert.doesNotMatch(svg, /<script|href=/i);
     }
   }
+  // new options (2026-11-12): defaults and limits
+  const d = H.normalize({});
+  assert.equal(JSON.stringify([d.weight, d.captions, d.text, d.backdrop, d.motion, d.greeting, d.tips, d.hidden.length]), JSON.stringify(["bold", true, "m", "none", "zoom", true, true, 0]));
+  const n = H.normalize({ weight: "heavy", captions: false, text: "xl", backdrop: "circle", motion: "lift", greeting: false, tips: false, hidden: ["notes", "notes", "Bad Key", "loans"] });
+  assert.equal(JSON.stringify([n.weight, n.captions, n.text, n.backdrop, n.motion, n.greeting, n.tips, n.hidden]), JSON.stringify(["bold", false, "m", "circle", "lift", false, false, ["notes", "loans"]]));
+  assert.match(src, /function reset\(\)\{ const \{ hidden \} = get\(\); return set\(\{ \.\.\.normalize\(\{\}\), hidden \}\); \}/);
+  assert.match(read("Assets/app/ui/06-home-names.js"), /data-act="hide"/);
   const nav = read("Assets/app/ui/01-render-navigation.js");
   assert.match(nav, /if \(layout === "cards"\) \{/);
+  assert.match(nav, /class="workspace-home-empty"/);
   const css = read("Assets/style/66-workspace-home-v2.css");
   for (const l of ["list", "compact", "cards"]) assert.match(css, new RegExp(`#workspaceHome\\.home-layout-${l} #workspaceHomeGrid\\{`));
   assert.match(css, /width:calc\(92px \* var\(--wh-icon-scale,1\)\)/);
   assert.match(css, /column-gap:calc\(clamp\(10px,1\.6vw,22px\) \* var\(--wh-gap-scale,1\)\)/);
   assert.match(css, /\.home-style-panel\{/);
+  for (const c of ["home-title-normal", "home-no-captions", "home-no-greeting", "home-no-tips", "home-backdrop-circle", "home-motion-lift"]) assert.match(css, new RegExp(`#workspaceHome\\.${c}`));
+  assert.match(css, /font-size:calc\(\.95rem \* var\(--wh-text-scale,1\)\)/);
 });
