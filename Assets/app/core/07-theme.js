@@ -94,101 +94,6 @@ window.addEventListener("storage", e => {
   if (e.key === TRIPLEM_BG_MOTION_KEY) applyTriplemBackgroundMotion(triplemBackgroundMotionEnabled());
 });
 
-/* Home icon style (2026-11-12). "new" (default): the frameless Home with the current icon
-   set. "classic": the earlier Home (cards with the glass icon tiles). Saved to the user's own
-   account settings (HomeIconPack) with the existing app_update_own_settings RPC, so every
-   device shows the same style; a copy on this device applies it instantly at start-up and keeps
-   an offline change until it reaches the account. No database migration is needed. */
-const TRIPLEM_HOME_PACK_KEY = "triplem-home-icons-v1";
-const TRIPLEM_HOME_PACKS = Object.freeze(["new", "classic"]);
-function normalizeTriplemHomePack(value){
-  const v = String(value || "").trim().toLowerCase();
-  return TRIPLEM_HOME_PACKS.includes(v) ? v : "";
-}
-function triplemHomePackStorageKey(){
-  let uid = "";
-  try { uid = String(state?.sessionUser?.id || state?.currentUsername || "").trim(); } catch (_) {}
-  return `${TRIPLEM_HOME_PACK_KEY}:${uid || "device"}`;
-}
-function readTriplemLocalHomePack(){
-  try {
-    const raw = JSON.parse(localStorage.getItem(triplemHomePackStorageKey()) || "null");
-    const pack = normalizeTriplemHomePack(raw?.pack);
-    return pack ? { pack, synced: raw.synced === true } : null;
-  } catch (_) { return null; }
-}
-function writeTriplemLocalHomePack(pack, synced){
-  try { localStorage.setItem(triplemHomePackStorageKey(), JSON.stringify({ pack, synced: !!synced })); } catch (_) {}
-}
-function readTriplemAccountHomePack(){
-  try { return normalizeTriplemHomePack(state?.sessionUser?.settings?.HomeIconPack); } catch (_) { return ""; }
-}
-/** The Home icon style in use: an unsynced change on this device, else the account, else this device, else "new". */
-function triplemHomeIconPack(){
-  const local = readTriplemLocalHomePack();
-  if (local && !local.synced) return local.pack;
-  const account = readTriplemAccountHomePack();
-  if (account) {
-    if (!local || local.pack !== account) writeTriplemLocalHomePack(account, true);
-    return account;
-  }
-  return local?.pack || "new";
-}
-window.triplemHomeIconPack = triplemHomeIconPack;
-
-let triplemHomePackSyncQueue = Promise.resolve();
-function syncTriplemHomePackToAccount(){
-  triplemHomePackSyncQueue = triplemHomePackSyncQueue.catch(() => false).then(async () => {
-    const local = readTriplemLocalHomePack();
-    if (!local || local.synced || !isTriplemWorkspaceAuthenticated() || typeof supabaseRpc !== "function") return false;
-    if (navigator.onLine === false) return false;
-    try {
-      const updated = await supabaseRpc("app_update_own_settings", { p_settings: { HomeIconPack: local.pack } }, { offlineCache: false });
-      if (updated && typeof updated === "object" && typeof applyUserProfileToConfig === "function") applyUserProfileToConfig(updated);
-      if (state?.sessionUser) state.sessionUser.settings = { ...(state.sessionUser.settings || {}), HomeIconPack: local.pack };
-      const now = readTriplemLocalHomePack();
-      if (now && now.pack === local.pack) writeTriplemLocalHomePack(local.pack, true);
-      return true;
-    } catch (err) {
-      console.warn("Home icon style will be saved to the account later:", err?.message || err);
-      return false;
-    }
-  });
-  return triplemHomePackSyncQueue;
-}
-window.syncTriplemHomePackToAccount = syncTriplemHomePackToAccount;
-window.addEventListener("online", () => { syncTriplemHomePackToAccount().catch(() => {}); });
-
-function updateTriplemHomePackControls(pack = triplemHomeIconPack()){
-  document.querySelectorAll("[data-home-pack]").forEach(btn => {
-    const on = btn.dataset.homePack === pack;
-    btn.classList.toggle("is-selected", on);
-    btn.setAttribute("aria-checked", on ? "true" : "false");
-    btn.tabIndex = on ? 0 : -1;
-  });
-}
-
-/** Switches the Home icon style; re-renders Home only when it is on screen. */
-function setTriplemHomeIconPack(value){
-  const pack = normalizeTriplemHomePack(value) || "new";
-  const before = triplemHomeIconPack();
-  // Signed out (or guest): kept on this device only, nothing to send.
-  writeTriplemLocalHomePack(pack, !isTriplemWorkspaceAuthenticated());
-  updateTriplemHomePackControls(pack);
-  if (pack !== before) {
-    const home = document.getElementById("workspaceHome");
-    if (home && !home.classList.contains("hide") && typeof renderWorkspaceHome === "function") {
-      home.classList.add("home-pack-switching");
-      renderWorkspaceHome();
-      requestAnimationFrame(() => requestAnimationFrame(() => home.classList.remove("home-pack-switching")));
-    }
-    window.dispatchEvent(new CustomEvent("triplem:home-pack-changed", { detail: { pack } }));
-  }
-  syncTriplemHomePackToAccount().catch(() => {});
-  return pack;
-}
-window.setTriplemHomeIconPack = setTriplemHomeIconPack;
-
 const TRIPLEM_THEME_STORAGE_KEY = "triplem-theme-v1";
 const TRIPLEM_THEME_REGISTRY = window.TRIPLEM_THEME_REGISTRY || {};
 const TRIPLEM_THEMES = Object.freeze(
@@ -355,34 +260,21 @@ function renderThemeDropdown(){
         <span class="theme-menu-copy"><strong>Background Bubbles &amp; Animations</strong><small data-bg-motion-state>On</small></span>
         <span class="theme-menu-switch" aria-hidden="true"><i></i></span>
       </button>
-      <div class="theme-menu-iconpack">
-        <div class="theme-menu-iconpack-head">
-          <span class="theme-menu-toggle-icon" aria-hidden="true"><i class="fa-solid fa-icons"></i></span>
-          <span class="theme-menu-copy" id="homeIconPackLabel"><strong>Home Icons</strong><small>Style of the Home screen</small></span>
-        </div>
-        <div class="theme-menu-segment" role="radiogroup" aria-labelledby="homeIconPackLabel">
-          <button type="button" role="radio" data-home-pack="new" aria-checked="false"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>New</button>
-          <button type="button" role="radio" data-home-pack="classic" aria-checked="false"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i>Classic</button>
-        </div>
-      </div>`;
+      <button class="theme-menu-toggle theme-menu-home" type="button" data-home-customize aria-haspopup="dialog" title="Icon pack, layout, icon size and spacing of the Home screen">
+        <span class="theme-menu-toggle-icon" aria-hidden="true"><i class="fa-solid fa-icons"></i></span>
+        <span class="theme-menu-copy"><strong>Home Style</strong><small data-home-style-summary>Icons, layout, size and spacing</small></span>
+        <i class="fa-solid fa-chevron-right theme-menu-home-go" aria-hidden="true"></i>
+      </button>`;
     dropdown.dataset.themeRendered = "1";
     dropdown.querySelector("[data-bg-motion-toggle]")?.addEventListener("click", event => {
       event.stopPropagation();
       applyTriplemBackgroundMotion(!triplemBackgroundMotionEnabled(), { persist: true });
     });
-    dropdown.querySelectorAll("[data-home-pack]").forEach(button => {
-      button.addEventListener("click", event => {
-        event.stopPropagation();
-        setTriplemHomeIconPack(button.dataset.homePack);
-      });
-      button.addEventListener("keydown", event => {
-        if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        const next = button.dataset.homePack === "new" ? "classic" : "new";
-        setTriplemHomeIconPack(next);
-        dropdown.querySelector(`[data-home-pack="${next}"]`)?.focus();
-      });
+    dropdown.querySelector("[data-home-customize]")?.addEventListener("click", event => {
+      event.stopPropagation();
+      dropdown.classList.remove("open");
+      document.getElementById("themeSettingsBtn")?.setAttribute("aria-expanded", "false");
+      window.TriplemHomeStyle?.open?.();
     });
     dropdown.querySelectorAll("[data-theme-choice]").forEach(button => {
       button.addEventListener("click", event => {
@@ -400,7 +292,7 @@ function renderThemeDropdown(){
     });
   }
   applyTriplemBackgroundMotion(triplemBackgroundMotionEnabled(), { rebuild: false });
-  updateTriplemHomePackControls();
+  try { window.TriplemHomeStyle?.updateSummary?.(); } catch (_) {}
   const activeTheme = isTriplemWorkspaceAuthenticated() ? readTriplemTheme() : "default";
   dropdown.querySelectorAll("[data-theme-choice]").forEach(button => {
     const selected = button.dataset.themeChoice === activeTheme;

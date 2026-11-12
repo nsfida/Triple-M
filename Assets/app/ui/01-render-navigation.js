@@ -617,31 +617,24 @@ function workspaceSectionCopy(key){
   return copy[key] || "Open this Triplem VIP workspace section.";
 }
 
-/* Home section icons. Two styles (Theme menu > Home Icons, 2026-11-12):
-   "new"     Assets/logo/icons/home/<key>.svg (frameless Home, default)
-   "classic" Assets/logo/icons/<file>.png     (the earlier Home with glass icon cards) */
+/* Home section icons and layout come from Home Style (07-home-style.js, Theme menu › Home Style):
+   packs standard | classic | jewel | pastel | neon | luxe, layouts grid | cards | list | compact. */
 const WORKSPACE_HOME_ICON_KEYS = ["dashboard", "expenses", "inventory2", "goods", "accounting", "audit", "assets", "loans", "installments", "notes", "triplem-ai", "insurance", "bitcoin", "admin", "messages"];
-const WORKSPACE_CLASSIC_ICON_FILES = {
-  dashboard: "dashboard.png", expenses: "expenses.png", accounting: "accounting.png", assets: "assets.png",
-  loans: "loans.png", audit: "audit.png", admin: "admin.png", bitcoin: "bitcoin.png", "triplem-ai": "triplem_ai.png",
-  goods: "inventory.png", inventory2: "inventory.png", insurance: "insurance.png", installments: "installments.png",
-  notes: "notes.png", messages: "message.png"
-};
-function workspaceHomePack(){
-  try { return window.triplemHomeIconPack?.() === "classic" ? "classic" : "new"; } catch (_) { return "new"; }
+function workspaceHomeStyle(){
+  try { return window.TriplemHomeStyle?.get?.() || { pack: "standard", layout: "grid" }; } catch (_) { return { pack: "standard", layout: "grid" }; }
 }
+function workspaceHomePack(){ return workspaceHomeStyle().pack; }
 function workspaceSectionIcon(key, pack = workspaceHomePack()){
+  if (window.TriplemHomeStyle?.iconSrc) return window.TriplemHomeStyle.iconSrc(key, pack);
   let k = String(key || "").trim();
   if (k === "inventory") k = "goods";
-  if (k === "message") k = "messages";
-  if (pack === "classic") return `Assets/logo/icons/${WORKSPACE_CLASSIC_ICON_FILES[k] || "dashboard.png"}`;
   if (!WORKSPACE_HOME_ICON_KEYS.includes(k)) k = "dashboard";
   return `Assets/logo/icons/home/${k}.svg?v=20261111`;
 }
 
-function workspaceSectionIconHtml(key, label, pack = workspaceHomePack()){
+function workspaceSectionIconHtml(key, label, pack = workspaceHomePack(), layout = workspaceHomeStyle().layout){
   const src = workspaceSectionIcon(key, pack);
-  const cls = pack === "classic" ? "workspace-card-icon" : "wh2-img";
+  const cls = layout === "cards" ? "workspace-card-icon" : "wh2-img";
   return `<img class="${cls}" src="${escapeHtml(src)}" alt="" aria-hidden="true" loading="eager" decoding="async" draggable="false">`;
 }
 
@@ -653,16 +646,17 @@ function workspaceDisplayLabel(tab, fallback){
 }
 
 /** One Home card (also used by Inventory 2.0 for its own card), in the chosen icon style. */
-function workspaceHomeCardHtml({ key, rawKey, label, copy, index = 0, badge = "", pack = workspaceHomePack() }){
+function workspaceHomeCardHtml({ key, rawKey, label, copy, index = 0, badge = "", pack, layout }){
+  if (!pack || !layout) { const st = workspaceHomeStyle(); pack = pack || st.pack; layout = layout || st.layout; }
   const shown = workspaceDisplayLabel(key, label);
   const renamed = shown !== label;
   const desc = renamed ? label : (copy || workspaceSectionCopy(key));
   const attrs = `role="button" tabindex="0" data-workspace-tab="${escapeHtml(rawKey || key)}" data-home-key="${escapeHtml(key)}" data-default-label="${escapeHtml(label)}" aria-label="Open ${escapeHtml(shown)}" style="--workspace-card-index:${index}"`;
   const menu = cls => `<button class="${cls} home-card-menu-btn" type="button" aria-label="Options for ${escapeHtml(shown)}" aria-haspopup="menu" aria-expanded="false" title="Options"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></button>`;
-  if (pack === "classic") {
+  if (layout === "cards") {
     return `
       <div class="workspace-home-card workspace-home-card--classic workspace-home-card--${escapeHtml(key)}" ${attrs}>
-        <span class="workspace-card-art">${workspaceSectionIconHtml(key, shown, pack)}${badge ? `<span class="inv2-card-badge" aria-hidden="true">${escapeHtml(badge)}</span>` : ""}</span>
+        <span class="workspace-card-art">${workspaceSectionIconHtml(key, shown, pack, layout)}${badge ? `<span class="inv2-card-badge" aria-hidden="true">${escapeHtml(badge)}</span>` : ""}</span>
         <span class="workspace-card-copy">
           <strong>${escapeHtml(shown)}</strong>
           <small>${escapeHtml(desc)}</small>
@@ -672,7 +666,7 @@ function workspaceHomeCardHtml({ key, rawKey, label, copy, index = 0, badge = ""
   }
   return `
       <div class="workspace-home-card wh2-card workspace-home-card--${escapeHtml(key)}" ${attrs}>
-        <span class="wh2-icon">${workspaceSectionIconHtml(key, shown, pack)}</span>
+        <span class="wh2-icon">${workspaceSectionIconHtml(key, shown, pack, layout)}</span>
         <span class="wh2-text">
           <strong class="wh2-label">${escapeHtml(shown).replace(/\//g, "/<wbr>")}</strong>
           <small class="wh2-desc">${escapeHtml(desc)}</small>
@@ -761,13 +755,14 @@ function renderWorkspaceHome(){
   const grid = document.getElementById("workspaceHomeGrid");
   if (!grid) return;
   const tabs = getWorkspaceOrderedTabButtons();
-  const pack = workspaceHomePack();
-  document.getElementById("workspaceHome")?.classList.toggle("home-pack-classic", pack === "classic");
+  const style = workspaceHomeStyle();
+  try { window.TriplemHomeStyle?.applyFrame?.(style); } catch (_) {}
+  const { pack, layout } = style;
   grid.dataset.homePack = pack;
   grid.innerHTML = tabs.map((btn, index) => {
     const key = workspaceTabKey(btn.dataset.tab);
     const rawKey = String(btn.dataset.tab || key);
-    return workspaceHomeCardHtml({ key, rawKey, label: getWorkspaceSectionLabel(key), index, pack });
+    return workspaceHomeCardHtml({ key, rawKey, label: getWorkspaceSectionLabel(key), index, pack, layout });
   }).join("");
   const title = document.getElementById("workspaceHomeTitle");
   if (title) title.textContent = workspaceHomeGreeting();
@@ -779,7 +774,7 @@ function renderWorkspaceHome(){
   try { window.TriplemInventoryV2?.decorateHome?.(grid); } catch (_) {}
   try { window.bindHomeReorder?.(grid); } catch (_) {}
   try { window.TriplemHomeNames?.retrySoon?.(); } catch (_) {}
-  try { window.syncTriplemHomePackToAccount?.(); } catch (_) {}
+  try { window.TriplemHomeStyle?.pushPending?.(); } catch (_) {}
 }
 
 if (!window.__wh2NamesListener) {

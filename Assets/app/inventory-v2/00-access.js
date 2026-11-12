@@ -80,7 +80,7 @@
     if (grid.querySelector('[data-workspace-tab="inventory2"]')) return;
     const tpl = document.createElement("template");
     if (typeof window.workspaceHomeCardHtml === "function") {
-      tpl.innerHTML = window.workspaceHomeCardHtml({ key: "inventory2", rawKey: "inventory2", label: "Inventory 2.0", copy: "POS, stock, purchases, customers and suppliers.", badge: (typeof window.triplemHomeIconPack === "function" && window.triplemHomeIconPack() === "classic") ? "2.0" : "" }).trim();
+      tpl.innerHTML = window.workspaceHomeCardHtml({ key: "inventory2", rawKey: "inventory2", label: "Inventory 2.0", copy: "POS, stock, purchases, customers and suppliers.", badge: (window.TriplemHomeStyle?.get?.().layout === "cards") ? "2.0" : "" }).trim();
     } else {
       tpl.innerHTML = `<div class="workspace-home-card wh2-card workspace-home-card--inventory2" role="button" tabindex="0" data-workspace-tab="inventory2" data-home-key="inventory2" data-default-label="Inventory 2.0"><span class="wh2-icon"><img class="wh2-img" src="Assets/logo/icons/home/inventory2.svg" alt="" aria-hidden="true"></span><span class="wh2-text"><strong class="wh2-label">Inventory 2.0</strong></span></div>`;
     }
