@@ -167,6 +167,9 @@ function svg(key) {
 `;
 }
 
+module.exports = { TILES, GLYPHS, svg };
+if (require.main !== module) return;
+
 fs.mkdirSync(OUT, { recursive: true });
 // Never replaces an icon that is already there (the owner may use their own artwork);
 // pass --force to regenerate every icon.
