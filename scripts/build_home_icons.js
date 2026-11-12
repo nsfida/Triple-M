@@ -140,7 +140,7 @@ const GLYPHS = {
     <path d="M78 52 a7 7 0 0 0 -7 -7 h-7 v5 a12 12 0 0 1 -12 12 h-4 v4 a7 7 0 0 0 7 7 h12 l9 7 v-7 a7 7 0 0 0 2 -5 Z" fill="${G}"/>`
 };
 
-function svg(key) {
+function svg(key, glyphs = GLYPHS) {
   const [a, b, c] = TILES[key];
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-hidden="true">
   <defs>
@@ -161,7 +161,7 @@ function svg(key) {
   </g>
   <rect x="2.6" y="2.6" width="94.8" height="94.8" rx="25.4" fill="none" stroke="url(#r)" stroke-width="1.4" opacity=".85"/>
   <rect x="4.4" y="4.4" width="91.2" height="91.2" rx="23.8" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1"/>
-  <g filter="url(#f)">${GLYPHS[key]}
+  <g filter="url(#f)">${glyphs[key]}
   </g>
 </svg>
 `;
