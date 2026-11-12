@@ -144,6 +144,9 @@
       visibility: visible;
       pointer-events: auto;
     }
+    /* Hidden splash: no endless animations running in the background. */
+    html:not(.auth-resuming) #authResumeSplash,
+    html:not(.auth-resuming) #authResumeSplash * { animation: none !important; }
     #authResumeSplash {
       position: fixed;
       inset: 0;
@@ -887,7 +890,7 @@
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145&themes=20260906-centralized001&expensesrefine=20260908-003&signupseo=20260911-001&uifix=20260915-001&amp;motion=20260915-overlay-001&inventory=20260915-standards-001&customerux=20260915-002&carttheme=20260915-002&notesui=20260915-001&notesband=20260915-004&amp;teamfix=20260917-169&contact=20260922-001&expensepdf=20261020-001&amp;dedupe=20261105-001&amp;oneeye=20261110-212" />
-  <link rel="stylesheet" href="Assets/style/app.feature.bundle.css?v=20261003-commission-tabs001&amp;home=20261112-style2&amp;teamfix=20260917-169&amp;insurance=20261008-refundstab196&amp;apps=20260921-windows001&amp;contact=20260922-001&amp;offline=20261104-001&amp;inbox=20261105-001&amp;backup=20261105-001&amp;cardorder=20261106-001&amp;sysbackup=20261110-212&amp;motion=20261110-001&amp;openingedit=213&amp;inv2=20261110-p6" />
+  <link rel="stylesheet" href="Assets/style/app.feature.bundle.css?v=20261003-commission-tabs001&amp;home=20261112-ev2&amp;teamfix=20260917-169&amp;insurance=20261008-refundstab196&amp;apps=20260921-windows001&amp;contact=20260922-001&amp;offline=20261104-001&amp;inbox=20261105-001&amp;backup=20261105-001&amp;cardorder=20261106-001&amp;sysbackup=20261110-212&amp;motion=20261110-001&amp;openingedit=213&amp;inv2=20261110-p6" />
   <!-- Maintained source-style manifest. These inert references document the exact source order used by npm run build:styles.
   <link rel="stylesheet" href="Assets/style/52-workspace-section-home.css?v=20260916-004&shellclean=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&iconv2=20260916-008&iconfix=20260916-009&pngicons=20260916-010&iconglass=20260916-011&mobilecenter=20260916-012" />
   <link rel="stylesheet" href="Assets/style/35-build011-refinements.css?v=20260906-build011-001" />
@@ -928,7 +931,7 @@
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script defer data-chartjs-loader="1" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script defer data-chartjs-loader="1" src="Assets/app/lib/chartjs-4.4.7/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
@@ -961,7 +964,7 @@
   <script defer src="Assets/app/auth/06-auth-ui.js?v=20261110-oneeye212"></script>
   <script defer src="Assets/app/core/04-entries-api.js?v=20261104-offline-patch001"></script>
   <script defer src="Assets/app/utils/01-currency-money.js?v=20260911-001&regional=158&currency=005"></script>
-  <script defer src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1&currency=002&walletactions=20260915-001&workspacehome=20260916-003"></script>
+  <script defer src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1&currency=002&walletactions=20260915-001&workspacehome=20260916-003&amp;ev2=20261112"></script>
   <script defer src="Assets/app/core/06-app-loading.js?v=20260902-startup-loading1"></script>
   <script defer src="Assets/app/core/07-theme.js?v=20261112-homestyle-001"></script>
   <script defer src="Assets/app/core/08-offline-sync.js?v=20261104-offline-reliability001"></script>
@@ -970,9 +973,9 @@
   <script defer src="Assets/app/inventory/02-inventory-sales-drafts.js?build011=001&v=20260901-offline-confirm-sync1&customerid=20260915-001&memberentry=20261017-002"></script>
   <script defer src="Assets/app/inventory/03-inventory-overlays.js?v=20260901-auth-resume-fix2&inventory=20260915-standards-001&customerid=20260915-001"></script>
   <script defer src="Assets/app/inventory/04-inventory-barcodes-scanner.js?v=20260915-inventory-standards-001&amp;r=20261105-desktop350"></script>
-  <script defer src="Assets/app/expenses/01-expenses-wallets.js?v=20260912-wallet-transactions-167&currency=002&build011=003&uifix=20260915-001"></script>
+  <script defer src="Assets/app/expenses/01-expenses-wallets.js?v=20260912-wallet-transactions-167&currency=002&build011=003&uifix=20260915-001&amp;ev2=20261112b"></script>
   <script defer src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001&amp;store=20261106-001&amp;inv2=20261110-215&amp;home=20261112-style2"></script>
+  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001&amp;store=20261106-001&amp;inv2=20261110-215&amp;home=20261112-ev2"></script>
   <script defer src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script defer src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
   <script defer src="Assets/app/installments/02-bought-sold-plans.js?v=20260915-installment-amount-mode-001"></script>
@@ -982,10 +985,13 @@
   <script defer src="Assets/app/accounting/01-accounting-suite.js?v=20261106-accounting380"></script>
   <script defer src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/expenses/03-expense-audit-pagination.js?v=20260908-server-pagination-155&uifix=20260915-001"></script>
+  <script defer src="Assets/app/expenses/04-expenses-v2.js?v=20261112-ev2-005"></script>
+  <script defer src="Assets/app/expenses/05-expenses-style.js?v=20261112-es-002"></script>
+  <script defer src="Assets/app/expenses/06-wallet-logos.js?v=20261112-wl-001"></script>
   <script defer src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-executive-sections-158"></script>
   <script defer src="Assets/app/ai/02-triplem-ai.js?v=20260912-timeline-openfix-167&amp;report=20261111-store1"></script>
   <script defer src="Assets/app/ai/03-ai-report.js?v=20261111-store1"></script>
-  <script defer src="Assets/app/attachments/02-attachments.js?v=20261110-att3"></script>
+  <script defer src="Assets/app/attachments/02-attachments.js?v=20261112-att4"></script>
   <script defer src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001&pagination=155&help=20260922-001&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/ui/03-section-shortcuts.js?v=20261106-sections380"></script>
   <script defer src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
@@ -3792,8 +3798,17 @@
     </section>
 
     <!-- Wallets Overview Section -->
-    <section class="overview wallets-overview-section collapsed" id="walletsOverviewSection">
-      <div class="overview-top" id="walletsBanner">
+    <section class="overview wallets-overview-section expanded ev2" id="walletsOverviewSection">
+      <div class="ev2-head">
+        <h3 class="ev2-title">Wallets/Accounts</h3>
+        <div class="ev2-actions">
+          <button type="button" class="ev2-btn" id="ev2HistoryBtn" aria-pressed="false" aria-controls="expensesPanel"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>Expenses History</span></button>
+          <button type="button" class="ev2-btn ev2-btn--icon" id="ev2PrivacyBtn" aria-pressed="false" title="Hide amounts" aria-label="Hide amounts"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+          <button type="button" class="ev2-btn ev2-btn--icon" id="ev2StyleBtn" aria-haspopup="dialog" aria-expanded="false" title="Expenses Style" aria-label="Expenses Style"><i class="fa-solid fa-palette" aria-hidden="true"></i></button>
+          <button type="button" class="ev2-btn ev2-btn--primary" id="ev2AddExpenseBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add<span class="ev2-long"> Expense</span></span></button>
+        </div>
+      </div>
+      <div class="overview-top hide" id="walletsBanner" hidden>
         <div>
           <h3>Wallets Overview</h3>
           <p>Account balances and expense tracking by wallet.</p>
@@ -4558,7 +4573,7 @@
                     </div>
                   </div>
                 </div>
-                <p>Wallets show top-up, spent, and balance. The list is an expense statement by item; open an item for wallet-level transactions.</p>
+
               </div>
               <div class="tools expenses-head-tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="expenses" title="Move all meta-tag expense rows into section tables">Fix all on this page</button>
@@ -6446,13 +6461,21 @@
               <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional note" />
             </div>
-            <div class="field w12">
+            <div class="field w12 wl-pick-field">
+              <label for="expenseLogoPickBtn">Logo</label>
+              <button type="button" class="wl-pick-btn" id="expenseLogoPickBtn" aria-haspopup="dialog">
+                <span class="wl-pick-img"><img id="expenseLogoPickImg" src="Assets/logo/wallet_logos/triplem_default_wallet.png" alt="" /></span>
+                <span class="wl-pick-text"><strong id="expenseLogoPickName">Automatic</strong><small id="expenseLogoPickHint">Matched to the wallet name</small></span>
+                <span class="wl-pick-cta">Change <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
+              </button>
+            </div>
+            <div class="field w12 wl-legacy-field" hidden>
               <label class="admin-check-item expense-custom-logo-check">
                 <input type="checkbox" name="use_custom_logo" value="1" />
                 Use custom logo
               </label>
             </div>
-            <div class="field w12 hide" id="expenseCustomLogoField">
+            <div class="field w12 hide wl-legacy-field" id="expenseCustomLogoField" hidden>
               <label>Custom logo <span class="optional-label">PNG / JPG</span></label>
               <input class="input" name="custom_logo_file" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" />
               <img id="expenseCustomLogoPreview" class="expense-custom-logo-preview hide" src="" alt="Custom wallet logo preview" />
