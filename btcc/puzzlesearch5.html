@@ -25,7 +25,7 @@ button{flex:1;background:var(--pan);border:1px solid var(--bd);color:var(--fg);b
 button:hover:not(:disabled){border-color:var(--ac2)}button:disabled{opacity:.4;cursor:default}
 #start{border-color:#1f3a2e;color:var(--ac)}#stop{color:var(--err)}
 #gen{flex:0 0 auto;padding:9px 16px;border-color:#1f3a2e;color:var(--ac)}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
 .st{background:var(--pan);border:1px solid var(--bd);border-radius:6px;padding:8px}
 .st .k{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
 .st .v{font-size:14px;margin-top:2px;font-variant-numeric:tabular-nums;word-break:break-all}
@@ -78,8 +78,8 @@ tbody tr.scan td:first-child{box-shadow:inset 3px 0 0 var(--ac2)}
   <p class="sub">Pollard's Kangaroo over secp256k1. Split a range into fixed-size clusters, page through them, pick one, and sweep: scan each cluster for a set time, then auto-advance to the next — until you stop it or the key is found.</p>
 
   <div class="grid">
-    <div class="f wide"><label>Start of range — hex (≤64)</label><input id="lo" spellcheck="false" placeholder="e.g. 0000…0001"></div>
-    <div class="f wide"><label>End of range — hex (≤64)</label><input id="hi" spellcheck="false" placeholder="e.g. 0000…ffff"></div>
+    <div class="f"><label>Start of range — hex (≤64)</label><input id="lo" spellcheck="false" placeholder="e.g. 0000…0001"></div>
+    <div class="f"><label>End of range — hex (≤64)</label><input id="hi" spellcheck="false" placeholder="e.g. 0000…ffff"></div>
     <div class="f wide"><label>Public key — 66 hex (compressed 02/03…) or 130 hex (uncompressed 04…)</label><input id="pub" spellcheck="false" placeholder="02/03 + X  or  04 + X + Y"><div class="hint" id="pubhint"></div></div>
   </div>
   <div class="row5">
@@ -99,22 +99,22 @@ tbody tr.scan td:first-child{box-shadow:inset 3px 0 0 var(--ac2)}
 
   <div class="btns">
     <button id="gen">GENERATE CLUSTERS</button>
-    <button id="clear">CLEAR</button>
   </div>
 
   <div class="btns">
     <button id="start" disabled>START SWEEP</button>
     <button id="pause" disabled>PAUSE</button>
     <button id="stop" disabled>STOP</button>
+    <button id="clear">CLEAR</button>
   </div>
 
   <div class="stats">
     <div class="st"><div class="k">Speed</div><div class="v" id="sp">0 /s</div></div>
     <div class="st"><div class="k">Total jumps</div><div class="v" id="jt">0</div></div>
-    <div class="st"><div class="k">Distinguished pts (cluster)</div><div class="v" id="dpc">0</div></div>
     <div class="st"><div class="k">Elapsed</div><div class="v" id="el">0s</div></div>
-    <div class="st"><div class="k">Cluster</div><div class="v" id="cur">—</div></div>
     <div class="st"><div class="k">Time left in cluster</div><div class="v" id="left">—</div></div>
+    <div class="st"><div class="k">Distinguished pts (cluster)</div><div class="v" id="dpc">0</div></div>
+    <div class="st"><div class="k">Cluster</div><div class="v" id="cur">—</div></div>
   </div>
 
   <div id="result">
@@ -405,6 +405,7 @@ function onRowClick(e){
   var idx=BigInt(e.currentTarget.dataset.idx);
   selectedIdx=idx;
   renderTable();
+  previewIndependent(idx);
   var r=clusterRange(idx);
   status('Selected cluster #'+(idx+1n)+' — sweep will start here ('+hex64U(r[0]).replace(/^0+/,'')+' … '+hex64U(r[1]).replace(/^0+/,'')+').');
 }
@@ -438,6 +439,7 @@ function generate(){
   $('go').disabled=false;
   $('start').disabled=false;
   setPage(1n);
+  previewIndependent(0n);
   status('Generated '+fmt(totalClusters)+' cluster'+(totalClusters>1n?'s':'')+' ('+totalValues.toString()+' keys). Click a row to choose where the sweep starts, then press START.');
 }
 
@@ -509,13 +511,14 @@ function scanCluster(idx){
   currentScanIdx=idx;
   var r=clusterRange(idx);curLo=r[0];curHi=r[1];
   var cores=Math.max(1,Math.min(64,parseInt($('cores').value)||1));
-  var clu=Math.max(1,Math.min(1024,parseInt($('clu').value)||1));
   var dpOv=Math.max(0,Math.min(40,parseInt($('dp').value)||0));
   var mode=$('mode').value;if(['random','sequence','reverse'].indexOf(mode)<0)mode='random';
   var span=curHi-curLo+1n;
   // number of independent kangaroo tables for this cluster, capped by how many keys it holds
-  var parts=clu; if(span<BigInt(parts))parts=Number(span); if(parts<1)parts=1;
+  var parts=currentParts(span);
   buildInternal(curLo,curHi,parts,dpOv,mode);
+  renderIndependent(clusters);
+  $('indepHd').textContent='Independent clusters — scanning #'+(currentScanIdx+1n)+' · '+clusters.length+' table'+(clusters.length>1?'s':'');
   // spread the independent clusters across the available cores (round-robin)
   var nc=clusters.length;
   var usedCores=Math.min(cores,nc);
@@ -603,7 +606,7 @@ function onFound(k,clusterIdx){
 
 function tick(final){
   var now=performance.now();
-  var dps=0;for(var i=0;i<maps.length;i++)dps+=maps[i].size;
+  var dps=0;for(var i=0;i<maps.length;i++){dps+=maps[i].size;var el=$('idp_'+i);if(el)el.textContent='DP '+fmt(maps[i].size);}
   $('dpc').textContent=fmt(dps);$('jt').textContent=fmt(totalJumps);
   if(!paused&&running){var dt=(now-lastT)/1000;if(dt>0){$('sp').textContent=fmt(Math.round((totalJumps-lastJumps)/dt))+' /s';lastJumps=totalJumps;lastT=now;}}
   var e=(now-t0)/1000;$('el').textContent=(e<60?e.toFixed(0)+'s':Math.floor(e/60)+'m'+Math.floor(e%60)+'s');
@@ -671,6 +674,7 @@ function clearAll(){
   $('result').classList.remove('show');
   cfgFirst=cfgLast=0n;cfgSize=1n;totalClusters=totalPages=0n;currentPage=1n;selectedIdx=null;genPub=null;currentScanIdx=0n;
   $('rows').innerHTML='<tr><td colspan="3" class="empty">No clusters yet — set a range + cluster size and press Generate.</td></tr>';
+  $('indep').innerHTML='';$('indepHd').textContent='Independent clusters';
   $('page').value='1';$('pageInfo').textContent='Page 0 of 0';
   ['prev','next','go','rand'].forEach(function(id){$(id).disabled=true;});
   $('start').disabled=true;
@@ -708,6 +712,7 @@ $('rand').addEventListener('click',function(){
   setPage(cand+1n);
 });
 
+$('clu').addEventListener('input',function(){if(!running&&totalClusters>0n)previewIndependent(selectedIdx!==null?selectedIdx:0n);});
 $('cores').value=Math.min(8,navigator.hardwareConcurrency||4);
 $('note').innerHTML='<b>How the sweep works.</b> The range is cut into fixed-size clusters (by <i>cluster size</i>). Pick a starting cluster (click a row), press START, and each cluster is searched by Kangaroo for <i>scan time</i> seconds, then it auto-advances to the next cluster, and the next — until you STOP or the key is found. Within a cluster the search is split across your CPU cores for speed (independent DP tables, same proven engine).<br><br>'+
   '<b>Modes.</b> <b>Random</b> seeds every kangaroo at a fresh unbiased start; <b>Sequence</b>/<b>Reverse</b> spread the herd from the bottom up / top down. All three are correctness-equivalent.<br><br>'+
