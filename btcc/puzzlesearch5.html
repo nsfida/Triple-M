@@ -38,16 +38,22 @@ button:hover:not(:disabled){border-color:var(--ac2)}button:disabled{opacity:.4;c
 .pager input{width:80px}
 .pager button{flex:0 0 auto;padding:7px 11px}
 .pager .info{color:var(--mut);font-size:11px;margin-left:auto}
-.tbl{border:1px solid var(--bd);border-radius:6px;overflow:hidden;margin-bottom:6px}
+.tbl{border:1px solid var(--bd);border-radius:6px;overflow:auto;max-height:150px;margin-bottom:6px}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
 th,td{padding:7px 10px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:left;vertical-align:middle}
 th:last-child,td:last-child{border-right:none}
-th{color:var(--mut);font-size:10px;font-weight:600;background:#111925;text-transform:uppercase;letter-spacing:.4px}
+th{color:var(--mut);font-size:10px;font-weight:600;background:#111925;text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;z-index:2}
 td{font-size:11px}
-th:first-child,td:first-child{width:130px;overflow:hidden;text-overflow:ellipsis}
+th:first-child,td:first-child{width:190px;overflow:hidden;text-overflow:ellipsis}
+th:nth-child(2),td:nth-child(2){padding-left:16px}
 td:first-child{color:#cdd9ec}
 .pill{display:inline-block;margin:3px 0 0;font-size:10px;color:var(--ac2);border:1px solid #1d3147;border-radius:4px;padding:1px 6px}
 .hex{overflow-wrap:anywhere;word-break:break-all;color:#cdd9ec}
+.indepHd{font-size:11px;color:var(--mut);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.4px}
+.indep{display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto;margin-bottom:8px}
+.crow{border:1px solid var(--bd);border-radius:5px;background:var(--pan);padding:6px 8px;display:flex;justify-content:space-between;gap:8px;font-size:11px}
+.crow .rng{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crow .dp{color:var(--fg);font-variant-numeric:tabular-nums;white-space:nowrap}
 tbody tr{cursor:pointer}
 tbody tr:hover td{background:#192332}
 tbody tr.sel td{background:#13261d}
@@ -102,6 +108,21 @@ tbody tr.scan td:first-child{box-shadow:inset 3px 0 0 var(--ac2)}
     <button id="stop" disabled>STOP</button>
   </div>
 
+  <div class="stats">
+    <div class="st"><div class="k">Speed</div><div class="v" id="sp">0 /s</div></div>
+    <div class="st"><div class="k">Total jumps</div><div class="v" id="jt">0</div></div>
+    <div class="st"><div class="k">Distinguished pts (cluster)</div><div class="v" id="dpc">0</div></div>
+    <div class="st"><div class="k">Elapsed</div><div class="v" id="el">0s</div></div>
+    <div class="st"><div class="k">Cluster</div><div class="v" id="cur">—</div></div>
+    <div class="st"><div class="k">Time left in cluster</div><div class="v" id="left">—</div></div>
+  </div>
+
+  <div id="result">
+    <div class="lbl">◆ PRIVATE KEY FOUND</div>
+    <div class="key" id="rkey"></div>
+    <div class="meta" id="rmeta"></div>
+  </div>
+
   <div class="pager">
     <button id="prev" disabled>← Prev</button>
     <input id="page" type="number" min="1" value="1">
@@ -117,20 +138,8 @@ tbody tr.scan td:first-child{box-shadow:inset 3px 0 0 var(--ac2)}
     </table>
   </div>
 
-  <div class="stats">
-    <div class="st"><div class="k">Speed</div><div class="v" id="sp">0 /s</div></div>
-    <div class="st"><div class="k">Total jumps</div><div class="v" id="jt">0</div></div>
-    <div class="st"><div class="k">Distinguished pts (cluster)</div><div class="v" id="dpc">0</div></div>
-    <div class="st"><div class="k">Elapsed</div><div class="v" id="el">0s</div></div>
-    <div class="st"><div class="k">Cluster</div><div class="v" id="cur">—</div></div>
-    <div class="st"><div class="k">Time left in cluster</div><div class="v" id="left">—</div></div>
-  </div>
-
-  <div id="result">
-    <div class="lbl">◆ PRIVATE KEY FOUND</div>
-    <div class="key" id="rkey"></div>
-    <div class="meta" id="rmeta"></div>
-  </div>
+  <div class="indepHd" id="indepHd">Independent clusters</div>
+  <div class="indep" id="indep"></div>
 
   <p id="status">Enter a range + target public key, choose a cluster size, and generate.</p>
 
@@ -447,21 +456,52 @@ function setRunBtns(s){
 }
 function status(m,k){$('status').textContent=m;$('status').className=k||'';}
 
-function buildInternal(lo,hi,parts,dpOv,mode){
-  clusters=[];maps=[];
-  var span=hi-lo+1n,cc=BigInt(parts),csz=span/cc,rem=span%cc,cur=lo;
+// Split a [lo,hi] range into `parts` contiguous sub-ranges (the independent clusters).
+function splitRanges(lo,hi,parts){
+  var out=[],span=hi-lo+1n,cc=BigInt(parts),csz=span/cc,rem=span%cc,cur=lo;
   for(var i=0;i<parts;i++){
     var e=cur+csz-1n;if(BigInt(i)<rem)e+=1n;if(e>hi)e=hi;
-    var W=e-cur+1n;if(W<1n){continue;}
-    var rb=bitlen(W);
-    var dpBits=dpOv>0?dpOv:Math.max(0,Math.floor(rb/2)-7);
-    var L=Math.min(rb+2,Math.ceil(rb/2)+5);
-    var Q=add(Ppt,neg(mul(cur)));
-    clusters.push({idx:clusters.length,lo:cur,hi:e,W:W,rb:rb,L:L,dpBits:dpBits,B:512,mode:mode,
-      Qx:'0x'+Q[0].toString(16),Qy:'0x'+Q[1].toString(16)});
-    maps.push(new Map());
+    var W=e-cur+1n;if(W<1n)break;
+    out.push({idx:out.length,lo:cur,hi:e,W:W,rb:bitlen(W)});
     cur=e+1n;
   }
+  return out;
+}
+// How many independent clusters for a range of this span (requested count, capped by keys).
+function currentParts(span){
+  var clu=Math.max(1,Math.min(1024,parseInt($('clu').value)||1));
+  var parts=clu; if(span<BigInt(parts))parts=Number(span); if(parts<1)parts=1;
+  return parts;
+}
+function buildInternal(lo,hi,parts,dpOv,mode){
+  clusters=[];maps=[];
+  var rngs=splitRanges(lo,hi,parts);
+  for(var i=0;i<rngs.length;i++){
+    var r=rngs[i],rb=r.rb;
+    var dpBits=dpOv>0?dpOv:Math.max(0,Math.floor(rb/2)-7);
+    var L=Math.min(rb+2,Math.ceil(rb/2)+5);
+    var Q=add(Ppt,neg(mul(r.lo)));
+    clusters.push({idx:clusters.length,lo:r.lo,hi:r.hi,W:r.W,rb:rb,L:L,dpBits:dpBits,B:512,mode:mode,
+      Qx:'0x'+Q[0].toString(16),Qy:'0x'+Q[1].toString(16)});
+    maps.push(new Map());
+  }
+}
+// Render the independent-cluster list (ranges only; DP counts fill in live during a scan).
+function renderIndependent(list){
+  if(!list||list.length===0){$('indep').innerHTML='<div class="crow"><span class="rng">— generate clusters, then pick one —</span></div>';return;}
+  var h='';
+  for(var i=0;i<list.length;i++){var c=list[i];
+    h+='<div class="crow"><span class="rng">#'+i+'  '+hex64U(c.lo).replace(/^0+/,'')+' … '+hex64U(c.hi).replace(/^0+/,'')+'  ('+c.rb+'b)</span><span class="dp" id="idp_'+i+'">DP 0</span></div>';
+  }
+  $('indep').innerHTML=h;
+}
+// Preview how a chosen (not-yet-running) search cluster would split into independent clusters.
+function previewIndependent(idx){
+  if(totalClusters===0n){$('indep').innerHTML='';$('indepHd').textContent='Independent clusters';return;}
+  var r=clusterRange(idx),span=r[1]-r[0]+1n;
+  var list=splitRanges(r[0],r[1],currentParts(span));
+  renderIndependent(list);
+  $('indepHd').textContent='Independent clusters — search cluster #'+(idx+1n)+' · '+list.length+' table'+(list.length>1?'s':'');
 }
 
 function scanCluster(idx){
