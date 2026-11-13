@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kangaroo ECDLP · Cluster Sweep</title>
+<style>
+:root{--bg:#0d1016;--pan:#151a23;--bd:#232c3a;--fg:#d7e0ee;--mut:#7f8ca3;--ac:#36d399;--ac2:#3b82f6;--warn:#f59e0b;--err:#ef4444;--fnt:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 var(--fnt);-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:14px}
+h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.3px}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.badge{font-size:11px;padding:2px 7px;border-radius:5px;border:1px solid var(--bd);color:var(--mut)}
+.badge.ok{color:var(--ac);border-color:#1f3a2e}.badge.bad{color:var(--err);border-color:#3a1f1f}
+.sub{color:var(--mut);font-size:11px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.f{display:flex;flex-direction:column;gap:3px}.f.wide{grid-column:1/3}
+label{font-size:11px;color:var(--mut)}
+input,select{background:var(--pan);border:1px solid var(--bd);color:var(--fg);border-radius:6px;padding:7px 8px;font:12px var(--fnt);outline:none;width:100%}
+input:focus,select:focus{border-color:var(--ac2)}input.err{border-color:var(--err)}
+.row5{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:8px}
+.btns{display:flex;gap:7px;margin:12px 0}
+button{flex:1;background:var(--pan);border:1px solid var(--bd);color:var(--fg);border-radius:6px;padding:9px;font:600 12px var(--fnt);cursor:pointer;transition:.12s}
+button:hover:not(:disabled){border-color:var(--ac2)}button:disabled{opacity:.4;cursor:default}
+#start{border-color:#1f3a2e;color:var(--ac)}#stop{color:var(--err)}
+#gen{flex:0 0 auto;padding:9px 16px;border-color:#1f3a2e;color:var(--ac)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.st{background:var(--pan);border:1px solid var(--bd);border-radius:6px;padding:8px}
+.st .k{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.st .v{font-size:14px;margin-top:2px;font-variant-numeric:tabular-nums;word-break:break-all}
+#result{display:none;background:#0f1a14;border:1px solid #1f3a2e;border-radius:6px;padding:10px;margin-bottom:10px}
+#result.show{display:block}
+#result .lbl{color:var(--ac);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+#result .key{word-break:break-all;font-size:13px;color:#eafff5;background:#0a140f;padding:7px;border-radius:5px;border:1px solid #163026}
+#result .meta{color:var(--mut);font-size:11px;margin-top:6px;word-break:break-all}
+.pager{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:10px 0 6px}
+.pager input{width:80px}
+.pager button{flex:0 0 auto;padding:7px 11px}
+.pager .info{color:var(--mut);font-size:11px;margin-left:auto}
+.tbl{border:1px solid var(--bd);border-radius:6px;overflow:hidden;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th,td{padding:7px 10px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:left;vertical-align:middle}
+th:last-child,td:last-child{border-right:none}
+th{color:var(--mut);font-size:10px;font-weight:600;background:#111925;text-transform:uppercase;letter-spacing:.4px}
+td{font-size:11px}
+th:first-child,td:first-child{width:120px;white-space:nowrap}
+.hex{overflow-wrap:anywhere;word-break:break-all;color:#cdd9ec}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:#192332}
+tbody tr.sel td{background:#13261d}
+tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--ac)}
+tbody tr.scan td{background:#102033}
+tbody tr.scan td:first-child{box-shadow:inset 3px 0 0 var(--ac2)}
+.empty{color:var(--mut);text-align:center;padding:20px}
+#status{color:var(--mut);font-size:12px;min-height:16px;margin:6px 0}
+#status.ok{color:var(--ac)}#status.err{color:var(--err)}
+.note{color:var(--warn);font-size:11px;border:1px solid #3a2f14;background:#1a160c;border-radius:6px;padding:8px;margin-top:10px;line-height:1.5}
+.hint{color:var(--mut);font-size:10.5px;margin-top:3px}
+.pill{font-size:10px;color:var(--ac2);border:1px solid #1d3147;border-radius:4px;padding:1px 6px;margin-left:6px}
+@media(max-width:700px){.grid,.stats{grid-template-columns:1fr}.row5{grid-template-columns:1fr 1fr}.f.wide{grid-column:1/2}th:first-child,td:first-child{width:72px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>KANGAROO · CLUSTER SWEEP</h1>
+    <span id="core" class="badge">core…</span>
+    <span id="thr" class="badge"></span>
+  </div>
+  <p class="sub">Pollard's Kangaroo over secp256k1. Split a range into fixed-size clusters, page through them, pick one, and sweep: scan each cluster for a set time, then auto-advance to the next — until you stop it or the key is found.</p>
+
+  <div class="grid">
+    <div class="f wide"><label>Start of range — hex (≤64)</label><input id="lo" spellcheck="false" placeholder="e.g. 0000…0001"></div>
+    <div class="f wide"><label>End of range — hex (≤64)</label><input id="hi" spellcheck="false" placeholder="e.g. 0000…ffff"></div>
+    <div class="f wide"><label>Public key — 66 hex (compressed 02/03…) or 130 hex (uncompressed 04…)</label><input id="pub" spellcheck="false" placeholder="02/03 + X  or  04 + X + Y"><div class="hint" id="pubhint"></div></div>
+  </div>
+  <div class="row5">
+    <div class="f"><label>Cluster size (keys each)</label><input id="csize" spellcheck="false" value="1000000000000" placeholder="e.g. 1000000"></div>
+    <div class="f"><label>Independent clusters</label><input id="clu" type="number" min="1" max="1024" value="4"></div>
+    <div class="f"><label>Scan time / cluster (s)</label><input id="stime" type="number" min="1" max="86400" value="30"></div>
+    <div class="f"><label>CPU cores (threads)</label><input id="cores" type="number" min="1" max="64" value="4"></div>
+    <div class="f"><label>Mode</label>
+      <select id="mode">
+        <option value="random" selected>Random</option>
+        <option value="sequence">Sequence</option>
+        <option value="reverse">Reverse</option>
+      </select>
+    </div>
+    <div class="f"><label>DP bits (0 = auto)</label><input id="dp" type="number" min="0" max="40" value="0"></div>
+  </div>
+
+  <div class="btns">
+    <button id="gen">GENERATE CLUSTERS</button>
+    <button id="clear">CLEAR</button>
+  </div>
+
+  <div class="pager">
+    <button id="prev" disabled>← Prev</button>
+    <input id="page" type="number" min="1" value="1">
+    <button id="go" disabled>Go</button>
+    <button id="rand" disabled>🎲 Random</button>
+    <button id="next" disabled>Next →</button>
+    <span class="info" id="pageInfo">Page 0 of 0</span>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Cluster</th><th>Start (hex)</th><th>End (hex)</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="3" class="empty">No clusters yet — set a range + cluster size and press Generate.</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="btns">
+    <button id="start" disabled>START SWEEP</button>
+    <button id="pause" disabled>PAUSE</button>
+    <button id="stop" disabled>STOP</button>
+  </div>
+
+  <div class="stats">
+    <div class="st"><div class="k">Speed</div><div class="v" id="sp">0 /s</div></div>
+    <div class="st"><div class="k">Total jumps</div><div class="v" id="jt">0</div></div>
+    <div class="st"><div class="k">Distinguished pts (cluster)</div><div class="v" id="dpc">0</div></div>
+    <div class="st"><div class="k">Elapsed</div><div class="v" id="el">0s</div></div>
+    <div class="st"><div class="k">Cluster</div><div class="v" id="cur">—</div></div>
+    <div class="st"><div class="k">Time left in cluster</div><div class="v" id="left">—</div></div>
+  </div>
+
+  <div id="result">
+    <div class="lbl">◆ PRIVATE KEY FOUND</div>
+    <div class="key" id="rkey"></div>
+    <div class="meta" id="rmeta"></div>
+  </div>
+
+  <p id="status">Enter a range + target public key, choose a cluster size, and generate.</p>
+
+  <div class="note" id="note"></div>
+</div>
+
+<!-- ===================== WORKER ENGINE (unchanged) ===================== -->
+<script type="text/js-worker" id="engine">
+"use strict";
+const P  = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
+const Gx = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n;
+const Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n;
+
+function mod(a){a%=P;return a<0n?a+P:a;}
+function inv(a){let lm=1n,hm=0n,low=mod(a),high=P;while(low>1n){const r=high/low,nm=hm-lm*r,nw=high-low*r;hm=lm;lm=nm;high=low;low=nw;}return mod(lm);}
+function add(p,q){if(!p)return q;if(!q)return p;if(p[0]===q[0]){if(mod(p[1]+q[1])===0n)return null;return dbl(p);}const s=mod((q[1]-p[1])*inv(q[0]-p[0]));const x=mod(s*s-p[0]-q[0]);return[x,mod(s*(p[0]-x)-p[1])];}
+function dbl(p){if(!p)return null;const s=mod(3n*p[0]*p[0]*inv(2n*p[1]));const x=mod(s*s-2n*p[0]);return[x,mod(s*(p[0]-x)-p[1])];}
+function mul(k){let r=null,a=[Gx,Gy];k=((k%P)+P)%P;while(k>0n){if(k&1n)r=add(r,a);a=dbl(a);k>>=1n;}return r;}
+function neg(p){return p?[p[0],mod(P-p[1])]:null;}
+
+/* uniform in [0, W) via rejection sampling — no modulo bias ("very random") */
+function randBelow(W){
+  if(W<=1n)return 0n;
+  const bits=W.toString(2).length, by=(bits+7)>>3, mask=(1n<<BigInt(bits))-1n;
+  const buf=new Uint8Array(by);
+  for(;;){
+    crypto.getRandomValues(buf);
+    let v=0n;for(let i=0;i<by;i++)v=(v<<8n)|BigInt(buf[i]);
+    v&=mask;
+    if(v<W)return v;
+  }
+}
+
+let active=false, paused=false;
+let clusters=[];          // independent kangaroo states, one per cluster
+let ci=0;                 // round-robin index
+let scratchN=0;
+let DX=[],JXs=[],JYs=[],JD=[],PRE=[];
+function ensureScratch(n){ if(n>scratchN){DX=new Array(n);JXs=new Array(n);JYs=new Array(n);JD=new Array(n);PRE=new Array(n);scratchN=n;} }
+
+function seedCluster(c){
+  // jump table: jdist=2^i, point=(2^i)*G
+  c.jpx=[];c.jpy=[];c.jdist=[];
+  let jp=[Gx,Gy],jd=1n;
+  for(let i=0;i<c.L;i++){c.jdist.push(jd);c.jpx.push(jp[0]);c.jpy.push(jp[1]);jp=dbl(jp);jd<<=1n;}
+  c.dpMask=(1n<<BigInt(c.dpBits))-1n;
+
+  const Q=[c.Qx,c.Qy];
+  const B=c.B, half=B>>1, wildN=B-half, W=c.W;
+  const mode=c.mode||'random';
+  c.KX=new Array(B);c.KY=new Array(B);c.KD=new Array(B);c.KT=new Array(B);
+
+  function seedRandom(start,n,t,O){
+    for(let i=0;i<n;i++){
+      const d=randBelow(W), k=start+i;
+      c.KT[k]=t;c.KD[k]=d;
+      const p=O?add(O,mul(d)):mul(d);
+      c.KX[k]=p[0];c.KY[k]=p[1];
+    }
+  }
+  function seedHerd(start,n,t,O){
+    if(n<=0)return;
+    if(mode==='random'){seedRandom(start,n,t,O);return;}
+    let step=W/BigInt(n);
+    if(step<1n){seedRandom(start,n,t,O);return;}
+    const stepG=mul(step);
+    if(mode==='reverse'){
+      const inc=neg(stepG);
+      let d=W-1n, cur=O?add(O,mul(d)):mul(d);
+      for(let i=0;i<n;i++){
+        const k=start+i;c.KT[k]=t;c.KD[k]=d;
+        c.KX[k]=cur[0];c.KY[k]=cur[1];
+        d-=step;if(d<1n)d=1n;cur=add(cur,inc);
+      }
+    }else{
+      let d=1n, cur=O?add(O,mul(d)):mul(d);
+      for(let i=0;i<n;i++){
+        const k=start+i;c.KT[k]=t;c.KD[k]=d;
+        c.KX[k]=cur[0];c.KY[k]=cur[1];
+        d+=step;cur=add(cur,stepG);
+      }
+    }
+  }
+
+  seedHerd(0,half,0,null);     // tame herd: d*G
+  seedHerd(half,wildN,1,Q);    // wild herd: Q + d*G
+  c.jumps=0;
+}
+
+let outDps=[], jumpsSincePost=0, lastPost=0;
+
+function stepCluster(c){
+  const B=c.B,jpx=c.jpx,jpy=c.jpy,jdist=c.jdist,L=c.L,dpMask=c.dpMask;
+  const KX=c.KX,KY=c.KY,KD=c.KD,KT=c.KT;
+  ensureScratch(B);
+  for(let i=0;i<B;i++){
+    let idx=Number(KX[i]&0xffffffffn)%L;
+    let d=mod(jpx[idx]-KX[i]);
+    if(d===0n){idx=(idx+1)%L;d=mod(jpx[idx]-KX[i]);if(d===0n){idx=(idx+2)%L;d=mod(jpx[idx]-KX[i]);}}
+    JXs[i]=jpx[idx];JYs[i]=jpy[idx];JD[i]=jdist[idx];DX[i]=d;
+  }
+  PRE[0]=DX[0];
+  for(let i=1;i<B;i++)PRE[i]=mod(PRE[i-1]*DX[i]);
+  let acc=inv(PRE[B-1]);
+  for(let i=B-1;i>=0;i--){
+    const di=(i>0)?mod(acc*PRE[i-1]):acc;
+    acc=mod(acc*DX[i]);
+    const s=mod((JYs[i]-KY[i])*di);
+    const nx=mod(s*s-KX[i]-JXs[i]);
+    const ny=mod(s*(KX[i]-nx)-KY[i]);
+    KX[i]=nx;KY[i]=ny;KD[i]+=JD[i];
+    if((nx&dpMask)===0n){
+      outDps.push({c:c.idx,x:'0x'+nx.toString(16),d:'0x'+KD[i].toString(16),t:KT[i]});
+    }
+  }
+  c.jumps+=B;
+}
+
+function runSlice(){
+  if(!active)return;
+  if(paused)return;
+  if(clusters.length===0)return;
+  const deadline=performance.now()+55;
+  while(performance.now()<deadline){
+    stepCluster(clusters[ci]);
+    jumpsSincePost+=clusters[ci].B;
+    ci=(ci+1)%clusters.length;
+  }
+  const now=performance.now();
+  if(outDps.length>0 || now-lastPost>200){
+    self.postMessage({type:'dps',list:outDps,jumps:jumpsSincePost});
+    outDps=[];jumpsSincePost=0;lastPost=now;
+  }
+  if(active&&!paused)setTimeout(runSlice,0);
+}
+
+self.onmessage=function(ev){
+  const d=ev.data||{};
+  if(d.type==='stop'){active=false;clusters=[];return;}
+  if(d.type==='pause'){paused=true;return;}
+  if(d.type==='resume'){if(paused){paused=false;if(active)setTimeout(runSlice,0);}return;}
+  if(d.type!=='start')return;
+  try{
+    clusters=d.clusters.map(c=>({
+      idx:c.idx, W:BigInt(c.W), rb:c.rb, L:c.L, dpBits:c.dpBits, B:c.B,
+      Qx:BigInt(c.Qx), Qy:BigInt(c.Qy), mode:c.mode||'random'
+    }));
+    for(const c of clusters)seedCluster(c);
+    ci=0;active=true;paused=false;outDps=[];jumpsSincePost=0;lastPost=performance.now();
+    setTimeout(runSlice,0);
+  }catch(e){self.postMessage({type:'error',message:e.message||String(e)});}
+};
+self.postMessage({type:'ready'});
+</script>
+
+<script>
+'use strict';
+var $=function(id){return document.getElementById(id);};
+/* ---- secp256k1 (main thread) ---- */
+var P=0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
+var Gx=0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n;
+var Gy=0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n;
+var Nn=0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+function mod(a){a%=P;return a<0n?a+P:a;}
+function inv(a){let lm=1n,hm=0n,low=mod(a),high=P;while(low>1n){const r=high/low,nm=hm-lm*r,nw=high-low*r;hm=lm;lm=nm;high=low;low=nw;}return mod(lm);}
+function add(p,q){if(!p)return q;if(!q)return p;if(p[0]===q[0]){if(mod(p[1]+q[1])===0n)return null;return dbl(p);}const s=mod((q[1]-p[1])*inv(q[0]-p[0]));const x=mod(s*s-p[0]-q[0]);return[x,mod(s*(p[0]-x)-p[1])];}
+function dbl(p){if(!p)return null;const s=mod(3n*p[0]*p[0]*inv(2n*p[1]));const x=mod(s*s-2n*p[0]);return[x,mod(s*(p[0]-x)-p[1])];}
+function mul(k){let r=null,a=[Gx,Gy];k=((k%P)+P)%P;while(k>0n){if(k&1n)r=add(r,a);a=dbl(a);k>>=1n;}return r;}
+function powmod(b,e,m){let r=1n;b%=m;while(e>0n){if(e&1n)r=r*b%m;b=b*b%m;e>>=1n;}return r;}
+function neg(p){return[p[0],mod(P-p[1])];}
+function onCurve(p){return mod(p[1]*p[1])===mod(mod(mod(p[0]*p[0])*p[0])+7n);}
+function parsePub(h){
+  h=h.trim().toLowerCase().replace(/^0x/,'').replace(/\s+/g,'');
+  if(h.length===130&&h.slice(0,2)==='04'){const p=[BigInt('0x'+h.slice(2,66)),BigInt('0x'+h.slice(66))];if(!onCurve(p))throw new Error('point not on curve');return p;}
+  if(h.length===66&&(h.slice(0,2)==='02'||h.slice(0,2)==='03')){
+    const x=BigInt('0x'+h.slice(2));const rhs=mod(mod(mod(x*x)*x)+7n);let y=powmod(rhs,(P+1n)/4n,P);
+    if(mod(y*y)!==rhs)throw new Error('X has no valid Y (bad pubkey)');
+    const odd=(y&1n)===1n,want=h.slice(0,2)==='03';if(odd!==want)y=mod(P-y);
+    return[x,y];
+  }
+  throw new Error('pubkey must be 66 hex (02/03…) or 130 hex (04…)');
+}
+function pad64(x){let s=x.toString(16);while(s.length<64)s='0'+s;return s;}
+function hex64U(n){return n.toString(16).toUpperCase().padStart(64,'0');}
+function bitlen(x){return x.toString(2).length;}
+function isHex(s,n){return new RegExp('^[0-9a-fA-F]{'+n+'}$').test(s);}
+function fmt(n){return n.toLocaleString('en-US');}
+
+var engineURL=URL.createObjectURL(new Blob([$('engine').textContent],{type:'text/javascript'}));
+
+/* ---- self test ---- */
+(function selfTest(){
+  try{
+    var k=12345n, lo=12000n, hi=13000n;
+    var Ppt0=mul(k), W=hi-lo+1n, rb=bitlen(W);
+    var Q=add(Ppt0,neg(mul(lo)));
+    var spec={idx:0,W:'0x'+W.toString(16),rb:rb,L:Math.ceil(rb/2)+5,dpBits:2,B:128,mode:'random',
+              Qx:'0x'+Q[0].toString(16),Qy:'0x'+Q[1].toString(16)};
+    var w=new Worker(engineURL), map=new Map(), done=false;
+    var to=setTimeout(function(){if(!done){$('core').textContent='core ?';w.terminate();}},4000);
+    w.onmessage=function(e){
+      var d=e.data; if(d.type==='ready'){w.postMessage({type:'start',clusters:[spec]});return;}
+      if(d.type!=='dps')return;
+      for(var i=0;i<d.list.length;i++){var dp=d.list[i],prev=map.get(dp.x);
+        if(prev===undefined){map.set(dp.x,{d:BigInt(dp.d),t:dp.t});continue;}
+        if(prev.t===dp.t)continue;
+        var tD=prev.t===0?prev.d:BigInt(dp.d),wD=prev.t===0?BigInt(dp.d):prev.d;
+        var cand=((lo+(tD-wD))%Nn+Nn)%Nn;
+        if(cand>=lo&&cand<=hi){var c=mul(cand);if(c[0]===Ppt0[0]&&c[1]===Ppt0[1]&&cand===k){done=true;clearTimeout(to);w.terminate();$('core').textContent='core ✓';$('core').className='badge ok';return;}}
+      }
+    };
+    w.onerror=function(){$('core').textContent='core ✗';$('core').className='badge bad';};
+  }catch(e){$('core').textContent='no worker';$('core').className='badge bad';}
+})();
+
+/* ================= CLUSTER MODEL (paginated, lazy) ================= */
+var PAGE_SIZE=100;
+var cfgFirst=0n,cfgLast=0n,cfgSize=1n,totalClusters=0n,totalPages=0n,currentPage=1n;
+var selectedIdx=null;           // chosen starting cluster (BigInt, 0-based)
+var genPub=null;                // parsed pubkey for current generation
+
+function clusterRange(idx){
+  var s=cfgFirst+idx*cfgSize;
+  var e=s+cfgSize-1n; if(e>cfgLast)e=cfgLast;
+  return [s,e];
+}
+function pageOfIndex(idx){return idx/BigInt(PAGE_SIZE)+1n;}
+
+function setPage(p){
+  if(totalPages===0n)return;
+  currentPage=p<1n?1n:(p>totalPages?totalPages:p);
+  $('page').value=currentPage.toString();
+  renderTable();
+}
+function renderTable(){
+  var body=$('rows'); body.textContent='';
+  if(totalClusters===0n){body.innerHTML='<tr><td colspan="3" class="empty">No clusters yet.</td></tr>';return;}
+  var firstIndex=(currentPage-1n)*BigInt(PAGE_SIZE);
+  var count=totalClusters-firstIndex<BigInt(PAGE_SIZE)?totalClusters-firstIndex:BigInt(PAGE_SIZE);
+  var frag=document.createDocumentFragment();
+  for(var i=0n;i<count;i++){
+    var index=firstIndex+i;
+    var r=clusterRange(index);
+    var tr=document.createElement('tr');
+    tr.dataset.idx=index.toString();
+    if(selectedIdx!==null&&index===selectedIdx)tr.className='sel';
+    if(running&&index===currentScanIdx)tr.className=(tr.className?tr.className+' ':'')+'scan';
+    var n=document.createElement('td');
+    n.innerHTML='#'+(index+1n).toString()+(running&&index===currentScanIdx?' <span class="pill">scanning</span>':'');
+    var sc=document.createElement('td');sc.className='hex';sc.textContent=hex64U(r[0]);
+    var ec=document.createElement('td');ec.className='hex';ec.textContent=hex64U(r[1]);
+    tr.append(n,sc,ec);
+    tr.addEventListener('click',onRowClick);
+    frag.append(tr);
+  }
+  body.append(frag);
+  $('pageInfo').textContent='Page '+currentPage+' of '+totalPages;
+  var atStart=currentPage===1n, atEnd=currentPage===totalPages;
+  $('prev').disabled=atStart; $('next').disabled=atEnd; $('rand').disabled=totalPages<=1n;
+}
+function onRowClick(e){
+  if(running)return; // don't change selection mid-sweep
+  var idx=BigInt(e.currentTarget.dataset.idx);
+  selectedIdx=idx;
+  renderTable();
+  var r=clusterRange(idx);
+  status('Selected cluster #'+(idx+1n)+' — sweep will start here ('+hex64U(r[0]).replace(/^0+/,'')+' … '+hex64U(r[1]).replace(/^0+/,'')+').');
+}
+
+function validateInputs(){
+  var lo=$('lo').value.trim().replace(/^0x/,''),hi=$('hi').value.trim().replace(/^0x/,'');
+  var ok=true;
+  if(!isHex(lo,lo.length)||lo.length===0||lo.length>64){$('lo').classList.add('err');ok=false;}else $('lo').classList.remove('err');
+  if(!isHex(hi,hi.length)||hi.length===0||hi.length>64){$('hi').classList.add('err');ok=false;}else $('hi').classList.remove('err');
+  if(!ok){status('Start/End must be hex (≤64 digits).','err');return null;}
+  var L=BigInt('0x'+lo),H=BigInt('0x'+hi);
+  if(L<1n||H>=Nn){status('Range must be within the curve order.','err');return null;}
+  if(L>=H){$('lo').classList.add('err');$('hi').classList.add('err');status('Start must be < End.','err');return null;}
+  var pt;try{pt=parsePub($('pub').value);}catch(e){$('pub').classList.add('err');status('Public key: '+e.message,'err');return null;}
+  $('pub').classList.remove('err');
+  var raw=$('csize').value.trim().replace(/[, _]/g,'');
+  if(!/^[0-9]+$/.test(raw)||BigInt(raw)<1n){$('csize').classList.add('err');status('Cluster size must be a positive whole number.','err');return null;}
+  $('csize').classList.remove('err');
+  return {a:L,b:H,P:pt,size:BigInt(raw)};
+}
+
+function generate(){
+  stop();
+  var v=validateInputs();if(!v)return;
+  cfgFirst=v.a;cfgLast=v.b;cfgSize=v.size;genPub=v.P;Ppt=v.P;
+  var totalValues=cfgLast-cfgFirst+1n;
+  totalClusters=(totalValues+cfgSize-1n)/cfgSize;
+  totalPages=(totalClusters+BigInt(PAGE_SIZE)-1n)/BigInt(PAGE_SIZE);
+  $('lo').value=hex64U(cfgFirst);$('hi').value=hex64U(cfgLast);
+  selectedIdx=0n; currentScanIdx=0n;
+  $('go').disabled=false;
+  $('start').disabled=false;
+  setPage(1n);
+  status('Generated '+fmt(totalClusters)+' cluster'+(totalClusters>1n?'s':'')+' ('+totalValues.toString()+' keys). Click a row to choose where the sweep starts, then press START.');
+}
+
+/* ================= SWEEP ENGINE ================= */
+var workers=[],clusters=[],maps=[],running=false,paused=false,found=false;
+var t0=0,pausedAt=0,timer=null,lastJumps=0,lastT=0,totalJumps=0,Ppt=null;
+var currentScanIdx=0n,curLo=0n,curHi=0n;
+var scanTimeout=null,clusterScanStart=0,clusterScanDuration=0,scanSeconds=30;
+
+function setRunBtns(s){
+  $('start').disabled=(s!=='idle');
+  $('gen').disabled=(s!=='idle');
+  $('pause').disabled=(s==='idle');
+  $('stop').disabled=(s==='idle');
+  $('pause').textContent=(s==='pause')?'RESUME':'PAUSE';
+}
+function status(m,k){$('status').textContent=m;$('status').className=k||'';}
+
+function buildInternal(lo,hi,parts,dpOv,mode){
+  clusters=[];maps=[];
+  var span=hi-lo+1n,cc=BigInt(parts),csz=span/cc,rem=span%cc,cur=lo;
+  for(var i=0;i<parts;i++){
+    var e=cur+csz-1n;if(BigInt(i)<rem)e+=1n;if(e>hi)e=hi;
+    var W=e-cur+1n;if(W<1n){continue;}
+    var rb=bitlen(W);
+    var dpBits=dpOv>0?dpOv:Math.max(0,Math.floor(rb/2)-7);
+    var L=Math.min(rb+2,Math.ceil(rb/2)+5);
+    var Q=add(Ppt,neg(mul(cur)));
+    clusters.push({idx:clusters.length,lo:cur,hi:e,W:W,rb:rb,L:L,dpBits:dpBits,B:512,mode:mode,
+      Qx:'0x'+Q[0].toString(16),Qy:'0x'+Q[1].toString(16)});
+    maps.push(new Map());
+    cur=e+1n;
+  }
+}
+
+function scanCluster(idx){
+  stopWorkers();
+  currentScanIdx=idx;
+  var r=clusterRange(idx);curLo=r[0];curHi=r[1];
+  var cores=Math.max(1,Math.min(64,parseInt($('cores').value)||1));
+  var clu=Math.max(1,Math.min(1024,parseInt($('clu').value)||1));
+  var dpOv=Math.max(0,Math.min(40,parseInt($('dp').value)||0));
+  var mode=$('mode').value;if(['random','sequence','reverse'].indexOf(mode)<0)mode='random';
+  var span=curHi-curLo+1n;
+  // number of independent kangaroo tables for this cluster, capped by how many keys it holds
+  var parts=clu; if(span<BigInt(parts))parts=Number(span); if(parts<1)parts=1;
+  buildInternal(curLo,curHi,parts,dpOv,mode);
+  // spread the independent clusters across the available cores (round-robin)
+  var nc=clusters.length;
+  var usedCores=Math.min(cores,nc);
+  var assign=[];for(var w=0;w<usedCores;w++)assign.push([]);
+  for(var c=0;c<nc;c++)assign[c%usedCores].push(c);
+  workers=[];
+  for(var wi=0;wi<usedCores;wi++){
+    (function(idxs){
+      if(idxs.length===0)return;
+      var worker;try{worker=new Worker(engineURL);}catch(e){status('Worker failed: '+e.message,'err');return;}
+      var specs=idxs.map(function(k){var cl=clusters[k];return {idx:cl.idx,W:'0x'+cl.W.toString(16),rb:cl.rb,L:cl.L,dpBits:cl.dpBits,B:cl.B,mode:cl.mode,Qx:cl.Qx,Qy:cl.Qy};});
+      worker.onmessage=function(e){var d=e.data;
+        if(d.type==='ready'){worker.postMessage({type:'start',clusters:specs});}
+        else if(d.type==='dps'){onDps(d);}
+        else if(d.type==='error'){status('Worker error: '+d.message,'err');}
+      };
+      workers.push(worker);
+    })(assign[wi]);
+  }
+  $('thr').textContent=workers.length+(workers.length>1?' threads':' thread');
+  // jump the page to the scanning cluster so progress is visible
+  setPage(pageOfIndex(idx));
+  clusterScanStart=performance.now();
+  clusterScanDuration=scanSeconds*1000;
+  scheduleAdvance(clusterScanDuration);
+  status('Sweeping cluster #'+(idx+1n)+' of '+totalClusters+' · '+scanSeconds+'s each — auto-advancing.');
+}
+
+function scheduleAdvance(ms){
+  if(scanTimeout)clearTimeout(scanTimeout);
+  scanTimeout=setTimeout(function(){
+    if(found||!running||paused)return;
+    advanceCluster();
+  },Math.max(0,ms));
+}
+function advanceCluster(){
+  stopWorkers();
+  var nextIdx=currentScanIdx+1n;
+  if(nextIdx>=totalClusters){ finishSweep(); return; }
+  scanCluster(nextIdx);
+}
+function finishSweep(){
+  running=false;paused=false;stopWorkers();
+  if(scanTimeout){clearTimeout(scanTimeout);scanTimeout=null;}
+  if(timer){clearInterval(timer);timer=null;}
+  setRunBtns('idle');
+  $('left').textContent='—';
+  tick(true);
+  status('Reached the last cluster ('+totalClusters+'). Key not found in this range.','err');
+}
+
+function onDps(d){
+  if(found)return;
+  totalJumps+=d.jumps;
+  var list=d.list;
+  for(var i=0;i<list.length;i++){
+    var dp=list[i],map=maps[dp.c];if(!map)continue;
+    var prev=map.get(dp.x);
+    if(prev===undefined){map.set(dp.x,{d:dp.d,t:dp.t});continue;}
+    if(prev.t===dp.t)continue;
+    var tD=prev.t===0?BigInt(prev.d):BigInt(dp.d);
+    var wD=prev.t===0?BigInt(dp.d):BigInt(prev.d);
+    var cand=((clusters[dp.c].lo+(tD-wD))%Nn+Nn)%Nn;
+    if(cand>=curLo&&cand<=curHi){
+      var chk=mul(cand);
+      if(chk&&chk[0]===Ppt[0]&&chk[1]===Ppt[1]){ onFound(cand,currentScanIdx); return; }
+    }
+  }
+}
+
+function onFound(k,clusterIdx){
+  if(found)return;found=true;running=false;paused=false;
+  stopWorkers();
+  if(scanTimeout){clearTimeout(scanTimeout);scanTimeout=null;}
+  $('rkey').textContent=pad64(k);
+  $('rmeta').textContent='decimal '+k.toString()+'  ·  found in cluster #'+(clusterIdx+1n)+'  ·  mode '+$('mode').value+'  ·  verified k·G = target pubkey';
+  $('result').classList.add('show');
+  setRunBtns('idle');
+  if(timer){clearInterval(timer);timer=null;}
+  $('left').textContent='—';
+  tick(true);
+  renderTable();
+  status('Private key found and verified.','ok');
+}
+
+function tick(final){
+  var now=performance.now();
+  var dps=0;for(var i=0;i<maps.length;i++)dps+=maps[i].size;
+  $('dpc').textContent=fmt(dps);$('jt').textContent=fmt(totalJumps);
+  if(!paused&&running){var dt=(now-lastT)/1000;if(dt>0){$('sp').textContent=fmt(Math.round((totalJumps-lastJumps)/dt))+' /s';lastJumps=totalJumps;lastT=now;}}
+  var e=(now-t0)/1000;$('el').textContent=(e<60?e.toFixed(0)+'s':Math.floor(e/60)+'m'+Math.floor(e%60)+'s');
+  if(running)$('cur').textContent='#'+(currentScanIdx+1n)+' / '+totalClusters;
+  if(running&&!paused){
+    var leftMs=clusterScanDuration-(now-clusterScanStart);
+    $('left').textContent=(leftMs>0?(leftMs/1000).toFixed(0):'0')+'s';
+  }
+}
+
+function stopWorkers(){workers.forEach(function(w){try{w.postMessage({type:'stop'});w.terminate();}catch(e){}});workers=[];}
+
+function startSweep(){
+  if(totalClusters===0n){status('Generate clusters first.','err');return;}
+  if(!genPub){status('Generate clusters first.','err');return;}
+  // re-read scan time
+  var sec=parseInt($('stime').value);if(!(sec>0))sec=30;sec=Math.min(86400,sec);scanSeconds=sec;
+  Ppt=genPub;
+  stopWorkers();
+  found=false;paused=false;running=true;totalJumps=0;lastJumps=0;
+  $('result').classList.remove('show');
+  var startIdx=(selectedIdx!==null)?selectedIdx:0n;
+  currentScanIdx=startIdx;
+  t0=performance.now();lastT=t0;
+  setRunBtns('run');
+  if(timer)clearInterval(timer);
+  timer=setInterval(tick,250);
+  scanCluster(startIdx);
+}
+
+function pauseToggle(){
+  if(!running||found)return;
+  paused=!paused;
+  workers.forEach(function(w){w.postMessage({type:paused?'pause':'resume'});});
+  setRunBtns(paused?'pause':'run');
+  if(paused){
+    pausedAt=performance.now();
+    if(scanTimeout){clearTimeout(scanTimeout);scanTimeout=null;}
+    $('left').textContent='paused';
+    status('Paused on cluster #'+(currentScanIdx+1n)+'.');
+  }else{
+    var delta=performance.now()-pausedAt;
+    t0+=delta; clusterScanStart+=delta; lastT=performance.now();
+    var remaining=clusterScanDuration-(performance.now()-clusterScanStart);
+    scheduleAdvance(remaining);
+    status('Resumed on cluster #'+(currentScanIdx+1n)+'.');
+  }
+}
+
+function stop(){
+  if(!running&&!workers.length){ /* still clear UI below */ }
+  running=false;paused=false;
+  stopWorkers();
+  if(scanTimeout){clearTimeout(scanTimeout);scanTimeout=null;}
+  if(timer){clearInterval(timer);timer=null;}
+  setRunBtns('idle');
+  $('left').textContent='—';
+  if(totalClusters>0n){renderTable();}
+  status('Stopped.');
+}
+
+function clearAll(){
+  stop();
+  $('lo').value='';$('hi').value='';$('pub').value='';$('pubhint').textContent='';
+  $('result').classList.remove('show');
+  cfgFirst=cfgLast=0n;cfgSize=1n;totalClusters=totalPages=0n;currentPage=1n;selectedIdx=null;genPub=null;currentScanIdx=0n;
+  $('rows').innerHTML='<tr><td colspan="3" class="empty">No clusters yet — set a range + cluster size and press Generate.</td></tr>';
+  $('page').value='1';$('pageInfo').textContent='Page 0 of 0';
+  ['prev','next','go','rand'].forEach(function(id){$(id).disabled=true;});
+  $('start').disabled=true;
+  $('sp').textContent='0 /s';$('jt').textContent='0';$('dpc').textContent='0';$('el').textContent='0s';$('cur').textContent='—';$('left').textContent='—';
+  ['lo','hi','pub','csize'].forEach(function(id){$(id).classList.remove('err');});
+  status('Cleared.');
+}
+
+/* ---- wiring ---- */
+$('pub').addEventListener('input',function(){
+  var v=$('pub').value.trim();if(!v){$('pubhint').textContent='';return;}
+  try{var p=parsePub(v);$('pubhint').textContent='✓ on curve · X='+pad64(p[0]).slice(0,16)+'…';$('pubhint').style.color='var(--ac)';}
+  catch(e){$('pubhint').textContent='✗ '+e.message;$('pubhint').style.color='var(--err)';}
+});
+$('gen').onclick=generate;
+$('clear').onclick=clearAll;
+$('start').onclick=startSweep;
+$('pause').onclick=pauseToggle;
+$('stop').onclick=stop;
+$('prev').addEventListener('click',function(){setPage(currentPage-1n);});
+$('next').addEventListener('click',function(){setPage(currentPage+1n);});
+$('go').addEventListener('click',function(){
+  var v=$('page').value.trim();if(!/^[0-9]+$/.test(v)||BigInt(v)<1n){status('Enter a valid page number (≥1).','err');return;}
+  setPage(BigInt(v));
+});
+$('page').addEventListener('keydown',function(e){if(e.key==='Enter')$('go').click();});
+$('rand').addEventListener('click',function(){
+  if(totalPages<=1n)return setPage(1n);
+  var bits=totalPages.toString(2).length,bytes=Math.ceil(bits/8),excess=bytes*8-bits,cand;
+  do{
+    var rbts=new Uint8Array(bytes);crypto.getRandomValues(rbts);
+    if(excess)rbts[0]&=(255>>>excess);
+    cand=0n;for(var i=0;i<rbts.length;i++)cand=(cand<<8n)|BigInt(rbts[i]);
+  }while(cand>=totalPages);
+  setPage(cand+1n);
+});
+
+$('cores').value=Math.min(8,navigator.hardwareConcurrency||4);
+$('note').innerHTML='<b>How the sweep works.</b> The range is cut into fixed-size clusters (by <i>cluster size</i>). Pick a starting cluster (click a row), press START, and each cluster is searched by Kangaroo for <i>scan time</i> seconds, then it auto-advances to the next cluster, and the next — until you STOP or the key is found. Within a cluster the search is split across your CPU cores for speed (independent DP tables, same proven engine).<br><br>'+
+  '<b>Modes.</b> <b>Random</b> seeds every kangaroo at a fresh unbiased start; <b>Sequence</b>/<b>Reverse</b> spread the herd from the bottom up / top down. All three are correctness-equivalent.<br><br>'+
+  '<b>Reality check.</b> Kangaroo needs ≈ 2·√W elliptic-curve ops <i>per cluster</i>. This CPU build does ~0.3–0.6M jumps/sec per core. A fixed per-cluster time only finds the key if that key actually lies in the cluster being scanned and the time is enough for its √W — so size clusters to roughly what one scan window can clear. Great for learning the method and modest ranges; full-size puzzles (#135+, √W≈2⁶⁷) are out of reach for any browser/CPU.';
+</script>
+</body>
+</html>
