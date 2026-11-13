@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f4f7fb">
-<title>Registration Status - Khawrai Marathon Season Three</title>
+<title>Player Registration - Khawrai Marathon Season Three</title>
+<meta name="description" content="Official player registration for Khawrai Marathon Race Season Three. The race has been postponed; registration remains open until the rescheduled race date.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/style.css?v=20261106-eventinfo-2">
@@ -52,6 +53,7 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 <link rel="stylesheet" href="../assets/header-layout.css?v=20261106-eventinfo-1">
 <link rel="stylesheet" href="../assets/event-info.css?v=20261106-eventinfo-1">
 <link rel="stylesheet" href="../assets/admin-accounts-dialog.css?v=20261029-2">
+<link rel="stylesheet" href="../assets/postponement.css?v=20261113-1">
 </head>
 <body>
 <div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
@@ -66,16 +68,16 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 </div>
 <div class="registration-notice" id="registrationNotice" role="status" aria-live="polite">
   <div class="registration-notice-viewport" aria-hidden="true">
-    <div class="registration-notice-track" id="registrationAnnouncementOpen" hidden>
-      <span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span>
-      <span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span>
+    <div class="registration-notice-track" id="registrationAnnouncementOpen">
+      <span>OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION REMAINS OPEN</span>
+      <span>OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION REMAINS OPEN</span>
     </div>
-    <div class="registration-notice-track" id="registrationAnnouncementClosed">
-      <span>REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026</span>
-      <span>REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026</span>
+    <div class="registration-notice-track" id="registrationAnnouncementClosed" hidden>
+      <span>OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION IS CLOSED</span>
+      <span>OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION IS CLOSED</span>
     </div>
   </div>
-  <span class="sr-only" id="registrationNoticeAccessible">Online registration is closed. Registered runners must arrive at Railway Phatak, Khawrai Road by 3:00 PM Pakistan Time on 15 November 2026. The race starts at 4:00 PM.</span>
+  <span class="sr-only" id="registrationNoticeAccessible">Official notice: Khawrai Marathon Race Season Three has been postponed due to unavoidable circumstances. It will be rescheduled at the same venue and the new date will be announced. Online registration remains open until the rescheduled race date.</span>
 </div>
 <header class="top">
   <div class="in">
@@ -93,6 +95,11 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
   </div>
 </nav>
 <div class="sheet">
+<aside class="pp-strip register-pp-strip" aria-label="Official race postponement notice">
+  <span class="pp-strip-logos"><img src="../assets/logo-left.png" alt="District Administration Nowshera emblem" width="46" height="46"><img src="../assets/logo-right.png" alt="Directorate General of Sports Khyber Pakhtunkhwa logo" width="46" height="46"></span>
+  <div class="pp-strip-copy"><span class="pp-strip-kicker"><i aria-hidden="true"></i>OFFICIAL NOTICE · 13 NOVEMBER 2026</span><strong>The race has been postponed due to unavoidable circumstances.</strong><p>Khawrai Marathon Race Season Three will be rescheduled at the same venue. The new date will be announced officially. Registration remains open until the rescheduled date.</p></div>
+  <div class="pp-strip-actions"><button type="button" class="pp-strip-primary" data-pp-open>Read notice</button><a data-pp-pdf href="../assets/notice/KMR-S3-Postponement-Notice.pdf" download="KMR-S3-Postponement-Notice.pdf">Download PDF</a></div>
+</aside>
 <div id="done" class="ok" hidden>
   <h2>Registration received</h2>
   <div class="n" id="regno"></div>
@@ -105,9 +112,9 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 <div id="registrationClosed" class="ok registration-closed-card" hidden>
   <h2>Online Registration Closed</h2>
   <div class="n">Thank you for your interest</div>
-  <p class="closed-deadline">The registration deadline passed on 5 November 2026 at 11:59 PM Pakistan Time.</p>
-  <p>Online player registration is now closed. This event is open only to participants whose registrations have already been submitted. All registered runners must reach <strong>Railway Phatak, Khawrai Road, by 3:00 PM PKT on Sunday, 15 November 2026</strong>. The race starts at <strong>4:00 PM PKT</strong>.</p>
-  <p><a class="btn" href="../event-info/">Event Info &amp; Route Guide</a> <a class="btn ghost" href="../participants/">View participants</a> <a class="btn ghost" href="../results/">Race results</a></p>
+  <p class="closed-deadline">The public registration period has ended.</p>
+  <p>Online player registration is now closed. Khawrai Marathon Race Season Three has been postponed and will be rescheduled at the same venue. Runners who have already registered keep their entries. Please follow the official notice for the new race date and further updates.</p>
+  <p><a class="btn" href="../notice/">Official Notice</a> <a class="btn ghost" href="../event-info/">Event Info &amp; Route Guide</a> <a class="btn ghost" href="../participants/">View participants</a> <a class="btn ghost" href="../results/">Race results</a></p>
   <p class="registration-admin-note">Verified administrators can continue to use the registration form through their authorised account.</p>
 </div>
 <form id="f" novalidate>
@@ -118,6 +125,7 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
   </div>
   <div class="meta"><span>Registration No:<b>Assigned when you submit</b></span><span>Date of Registration:<b id="today"></b></span></div>
   <div class="form-note" role="note" aria-label="Form instructions">
+    <p><strong>Registration remains open until the rescheduled race date.</strong> If you have already registered, you do not need to register again.</p>
     <p>Please write names and addresses in English letters so they print correctly on your registration form.</p>
   </div>
 
@@ -179,7 +187,7 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
   <a class="btn ghost" href="../participants/">Back to participants</a> <a class="btn ghost" href="../results/">Race results</a>
 </form></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261105-5"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js?v=20261106-eventinfo-1"></script><script src="../js/image-optimization.js?v=20261031-1"></script>
+<script src="../js/config.js?v=20261113-1"></script><script src="../js/common.js?v=20261113-1"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js?v=20261113-1"></script><script src="../js/postponement-notice.js?v=20261113-1"></script><script src="../js/image-optimization.js?v=20261031-1"></script>
 <script>
 const $ = id => document.getElementById(id), err = $("err");
 $("today").textContent = fmtDate(new Date());

@@ -14,8 +14,10 @@
   const registration = window.KMRRegistration;
   if (!registration || !document.body) return;
 
-  const OPEN_COPY = "REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME (PKT) · REGISTER BEFORE THE DEADLINE";
-  const CLOSED_COPY = "REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026";
+  // Race postponed (DSO Nowshera notice, 13 Nov 2026). Registration continues
+  // until the rescheduled date; the new date will be announced officially.
+  const OPEN_COPY = "OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION REMAINS OPEN";
+  const CLOSED_COPY = "OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION IS CLOSED";
 
   let isVerifiedAdmin = false;
   // Do not briefly apply public-only restrictions while the saved session is being
@@ -33,7 +35,7 @@
 
   function rootPath() {
     let path = window.location.pathname || "/";
-    const routed = path.replace(/\/(?:results\/manage|participants|results|about|register|admin|event-info)(?:\/index\.html)?\/?$/i, "/");
+    const routed = path.replace(/\/(?:results\/manage|participants|results|about|register|admin|event-info|notice)(?:\/index\.html)?\/?$/i, "/");
     if (routed !== path) path = routed;
     else path = path.replace(/\/index\.html$/i, "/");
     if (!path.endsWith("/")) path = path.slice(0, path.lastIndexOf("/") + 1);
@@ -162,13 +164,20 @@
     if (noticeClosedTrack) noticeClosedTrack.hidden = open;
     if (noticeAccessible) {
       noticeAccessible.textContent = open
-        ? "Registration closes on 05 November 2026 at 11:59 PM Pakistan Standard Time (PKT)."
-        : "Online registration is closed. Registered runners must arrive by 3:00 PM Pakistan Time on 15 November 2026. The race starts at 4:00 PM.";
+        ? "Official notice: Khawrai Marathon Race Season Three has been postponed due to unavoidable circumstances. It will be rescheduled at the same venue and the new date will be announced. Online registration remains open" + (registration.hasDeadline && registration.hasDeadline() ? " until " + registration.cutoffPKT() + "." : " until the rescheduled race date.")
+        : "Official notice: Khawrai Marathon Race Season Three has been postponed due to unavoidable circumstances. It will be rescheduled at the same venue and the new date will be announced. Online registration is closed.";
     }
   }
 
   function updateCountdown() {
     if (!countdownNode) return;
+    if (registration.hasDeadline && !registration.hasDeadline()) {
+      // Open until further notice: show a calm static label instead of a timer.
+      const label = "OPEN TILL NEW RACE DATE";
+      if (countdownNode.textContent !== label) countdownNode.textContent = label;
+      countdownNode.hidden = false;
+      return;
+    }
     const remaining = registration.remainingMs();
     if (remaining <= 0) {
       countdownNode.hidden = true;
@@ -184,7 +193,8 @@
   }
 
   function syncCountdownTimer(open) {
-    if (open && countdownTimer === null) {
+    const ticking = open && !(registration.hasDeadline && !registration.hasDeadline());
+    if (ticking && countdownTimer === null) {
       countdownTimer = window.setInterval(() => {
         if (registration.isOpen()) {
           updateCountdown();
@@ -194,7 +204,7 @@
         countdownTimer = null;
         applyRegistrationState();
       }, 1000);
-    } else if (!open && countdownTimer !== null) {
+    } else if (!ticking && countdownTimer !== null) {
       window.clearInterval(countdownTimer);
       countdownTimer = null;
     }

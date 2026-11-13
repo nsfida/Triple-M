@@ -4,7 +4,8 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 
 | File | Purpose |
 |---|---|
-| `index.html` | Official home page with key race details, quick links, prize information, Season Two photos and live registration-deadline banner (`/`) |
+| `index.html` | Official home page with key race details, quick links, prize information, Season Two photos and the postponement notice (`/`) |
+| `notice/index.html` | Official postponement notice (13 Nov 2026) with print and PDF download (`/notice/`) |
 | `participants/index.html` | Public runner directory, clickable player detail overlay, and admin-only player-list PDF exports (`/participants/`) |
 | `results/index.html` | Public live race status, official leaderboard, podium prizes, and results PDF download (`/results/`) |
 | `about/index.html` | Detailed race story, Season One to Three timeline, invited communities, Season Two gallery and organiser contacts (`/about/`) |
@@ -27,6 +28,24 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 2. **Authentication > Sign In / Providers**: turn **off** "Allow new users to sign up".
 3. Upload the whole folder to any static host (Netlify, Vercel, GitHub Pages, cPanel). Opening via `https://` is required for camera/photo upload on phones.
 4. Share `/register/` with participants; keep `/admin/` for the organisers. The root URL `/` serves the official home page directly, without redirecting visitors to the participants list.
+
+## Race postponement and reopened registration (13 November 2026)
+District Sports Office Nowshera postponed the race originally scheduled for 15 November 2026 "due to unavoidable circumstances". It will be rescheduled at the same venue (Khawrai, Tehsil Jehangira), and registration continues until the new date.
+
+**What changed on the website**
+- **Official notice everywhere.** `js/postponement-notice.js` + `assets/postponement.css` show a "paper" notice with both partner logos (District Administration Nowshera and Directorate General of Sports KP) as an overlay when a page loads (every load on public pages; once per browser session on `/admin/` and `/results/manage/`). A floating **Official notice** button and the scrolling top strip reopen it. Add `?notice=0` to a URL to suppress the automatic overlay (for screenshots).
+- **New page `/notice/`** with the full notice, Print and Download buttons.
+- **Downloadable PDF**: `assets/notice/KMR-S3-Postponement-Notice.pdf` (A4, both logos, signed "District Sports Officer, Nowshera").
+- **Race date removed** from Home, Event Info, Results, About, Participants, Register, Admin and Manage Results. Dates and times now read "Postponed / To be announced / To be confirmed". The notice itself still says the race was "previously scheduled for 15 November 2026".
+- **Results page timer removed.** The pre-race countdown is gone; the status card shows **Race Postponed** with links to the notice and the PDF. Live race mode, leaderboard and results PDF are unchanged (the results PDF header no longer prints a date).
+- **Manage Results** has a new announcement preset "Race postponed (official notice)"; the registration and arrival presets no longer mention the old date.
+- To retire the notice once the new date is published, set `POSTPONEMENT.ENABLED: false` in `js/config.js` and update page text with the new date.
+
+**Registration reopened (needs one SQL step)**
+- `js/config.js` now has `REGISTRATION_CUTOFF: null`, meaning open until further notice: no countdown, and the header shows "OPEN TILL NEW RACE DATE".
+- **Run `sql/migrations/20261113_020_reopen_registration_postponement.sql` in the Supabase SQL Editor**, then `sql/verify_registration_reopen.sql` (all rows must show PASS). Until you run it, the database keeps rejecting public submissions and uploads with "Registration has closed", even though the form is visible.
+- The migration replaces the fixed 06 Nov 2026 cutoff with a one-row table `public.registration_window` (`closes_at` null = open). It does not modify existing registrations, results, funds or files; admin rights are unchanged.
+- To close registration later: `update public.registration_window set closes_at = '<PKT timestamp>' where id;` and set `REGISTRATION_CUTOFF` in `js/config.js` to the same moment, so the countdown and closed page return.
 
 ## Who can do what (enforced by the database, not just the screens)
 | | Public | waseemfida | nsfida |

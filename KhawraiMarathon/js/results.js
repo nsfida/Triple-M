@@ -8,7 +8,9 @@
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
-  const scheduledFallback = '2026-11-15T16:00:00+05:00';
+  // Race postponed (DSO Nowshera notice, 13 Nov 2026): no fixed race date, so the
+  // public pre-race countdown has been removed. The new date will be announced.
+  const POSTPONED = !!(window.KMR && window.KMR.POSTPONEMENT && window.KMR.POSTPONEMENT.ENABLED !== false);
   const TOP_LIMIT = 25;                       // rows shown before "Show all"
   const MOVE_MS = 8000;                       // how long a position-change marker stays visible
   const PRIZES = ['Rs. 15,000 + Winning Trophy', 'Rs. 10,000 + Trophy', 'Rs. 5,000 + Trophy'];
@@ -83,14 +85,19 @@
 
     // hero card (scheduled)
     const badge = $('raceStatusBadge');
-    if (badge) { badge.textContent = statusLabel(status); badge.className = 'results-status' + (status === 'in_progress' ? ' live' : status === 'completed' ? ' done' : ''); }
-    if ($('raceCountdownWrap')) $('raceCountdownWrap').hidden = status !== 'scheduled';
+    const postponedNow = POSTPONED && status === 'scheduled';
+    if (badge) {
+      badge.textContent = postponedNow ? 'Race Postponed' : statusLabel(status);
+      badge.className = 'results-status' + (postponedNow ? ' postponed' : status === 'in_progress' ? ' live' : status === 'completed' ? ' done' : '');
+    }
     if ($('raceLiveNote')) {
+      const postponedNote = 'The race has been postponed due to unavoidable circumstances. The new date will be announced by District Sports Office Nowshera.';
+      // Ignore any stale organiser message that still mentions the original race date.
+      const organiserMessage = /15\s*nov/i.test(String(ctl.public_message || '')) ? '' : String(ctl.public_message || '').trim();
       $('raceLiveNote').textContent = status === 'scheduled'
-        ? safeText(ctl.public_message, 'The race is scheduled for 15 November 2026 at 04:00 PM Pakistan Time. The official start will be announced by organisers.')
+        ? (postponedNow ? postponedNote + (organiserMessage ? ' Organiser update: ' + organiserMessage : '') : safeText(organiserMessage, 'The official start will be announced by the organisers.'))
         : safeText(ctl.public_message, status === 'in_progress' ? 'The race is in progress.' : 'The race has been completed.');
     }
-    updateCountdown();
 
     // live banner
     if (live && mode !== 'scheduled') {
@@ -124,17 +131,6 @@
       pdfBtn.disabled = !pdfAllowed;
       pdfBtn.title = pdfAllowed ? 'Download official results PDF' : 'PDF download is only available after the race is completed';
     }
-  }
-
-  function updateCountdown() {
-    const ctl = S.ctl || {};
-    if ((ctl.race_status || 'scheduled') !== 'scheduled' || !$('raceCountdown')) return;
-    const target = new Date(ctl.scheduled_at || scheduledFallback).getTime();
-    const remaining = Math.max(0, target - nowServer());
-    const values = [Math.floor(remaining / 86400000), Math.floor((remaining % 86400000) / 3600000), Math.floor((remaining % 3600000) / 60000), Math.floor((remaining % 60000) / 1000)];
-    const cells = $('raceCountdown').querySelectorAll('.time-cell strong');
-    if (cells.length === 4) values.forEach((n, i) => { const t = String(n).padStart(2, '0'); if (cells[i].textContent !== t) cells[i].textContent = t; });
-    else $('raceCountdown').innerHTML = values.map((n, i) => `<div class="time-cell"><strong>${String(n).padStart(2, '0')}</strong><small>${['Days', 'Hours', 'Minutes', 'Seconds'][i]}</small></div>`).join('');
   }
 
   function renderClock() {
@@ -304,7 +300,7 @@
   function applyBundle(b) {
     if (!b || typeof b !== 'object') return false;
     if (Number(b.bv || 0) < S.bv) return false;                       // an older snapshot never replaces a newer one
-    S.ctl = b.ctl && b.ctl.race_status ? b.ctl : (S.ctl || { race_status: 'scheduled', scheduled_at: scheduledFallback, public_message: '' });
+    S.ctl = b.ctl && b.ctl.race_status ? b.ctl : (S.ctl || { race_status: 'scheduled', scheduled_at: null, public_message: '' });
     if (Number(b.v || 0) >= S.v) { S.v = Number(b.v || 0); S.banner = b.banner && b.banner.top ? b.banner : S.banner; }
     S.bv = Number(b.bv || 0);
     S.updatedAt = b.updated_at || S.updatedAt;
@@ -620,7 +616,7 @@
         doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(18, 54, 45);
         doc.text('KHAWRAI MARATHON RACE', titleX, 33);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70, 91, 82);
-        doc.text('SEASON THREE  ·  15 NOVEMBER 2026  ·  ' + subtitle.toUpperCase(), titleX, 47);
+        doc.text('SEASON THREE  ·  ' + subtitle.toUpperCase(), titleX, 47);
         // ── Divider ───────────────────────────────────────────────────────
         doc.setDrawColor(180, 210, 196); doc.setLineWidth(0.8);
         doc.line(M, 66, A4W - M, 66);
@@ -886,7 +882,7 @@
   wire();
   fetchBundle().then(() => { schedulePoll(); });
   subscribe();
-  setInterval(() => { updateCountdown(); renderClock(); }, 1000);
+  setInterval(renderClock, 1000);
   // exposed for automated tests only
   window.__kmrLive = { S, applyBundle, applyState, scheduleRender, requestBoard, syncPresence, leavePresence };
 })();

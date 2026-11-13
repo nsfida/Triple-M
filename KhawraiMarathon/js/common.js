@@ -11,26 +11,31 @@
   //     correct UTC epoch regardless of which timezone the visitor's device is set to.
   //   • The countdown therefore always counts down to 11:59:59 PM Pakistan Standard
   //     Time, even when the device is set to Dubai, UTC, or any other zone.
-  const _rawCutoff = C.REGISTRATION_CUTOFF || "2026-11-05T23:59:59+05:00";
-  const registrationCutoff = Date.parse(_rawCutoff);
-  // Sanity-check: if the browser somehow NaN'd the parse, fall back to hardcoded UTC.
-  // 2026-11-05T23:59:59+05:00 = 2026-11-05T18:59:59Z = 1762873199000 ms
-  const _cutoffMs = isNaN(registrationCutoff) ? 1762873199000 : registrationCutoff;
+  //   • REGISTRATION_CUTOFF null/empty means "open until further notice" (race
+  //     postponed, registration continues until the rescheduled date). In that case
+  //     there is no countdown and isOpen() is always true; the database registration
+  //     window (migration 20261113_020) remains the authoritative check.
+  const _rawCutoff = C.REGISTRATION_CUTOFF;
+  const _hasDeadline = !!_rawCutoff && !isNaN(Date.parse(_rawCutoff));
+  const _cutoffMs = _hasDeadline ? Date.parse(_rawCutoff) : Infinity;
   window.KMRRegistration = {
     cutoffMs: _cutoffMs,
-    // Returns true only while the PKT deadline has not passed.
+    // False while registration is open until further notice (no fixed cutoff).
+    hasDeadline() { return _hasDeadline; },
+    // Returns true only while the PKT deadline has not passed (always true without one).
     isOpen() { return Date.now() < _cutoffMs; },
-    // Milliseconds remaining until PKT deadline (0 once passed).
-    remainingMs() { return Math.max(0, _cutoffMs - Date.now()); },
+    // Milliseconds remaining until PKT deadline (Infinity without a deadline, 0 once passed).
+    remainingMs() { return _hasDeadline ? Math.max(0, _cutoffMs - Date.now()) : Infinity; },
     // Human-readable PKT time string for display (e.g. "11:59 PM PKT").
     cutoffPKT() {
+      if (!_hasDeadline) return '';
       try {
         return new Intl.DateTimeFormat('en-US', {
           timeZone: 'Asia/Karachi',
           day: '2-digit', month: 'long', year: 'numeric',
           hour: '2-digit', minute: '2-digit', hour12: true
         }).format(new Date(_cutoffMs)) + ' PKT';
-      } catch (_) { return '11:59 PM PKT, 05 Nov 2026'; }
+      } catch (_) { return new Date(_cutoffMs).toUTCString(); }
     }
   };
 

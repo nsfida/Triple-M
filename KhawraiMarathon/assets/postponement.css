@@ -1,0 +1,183 @@
+/* KMR-S3 race postponement notice (DSO Nowshera, 13 Nov 2026).
+   Shared by every route: page-load overlay ("paper" notice with both partner logos),
+   inline postponement strips, the floating "Official notice" button and /notice/. */
+:root{
+  --pp-green:#0b5a3f;
+  --pp-green-dark:#103f34;
+  --pp-gold:#b8892b;
+  --pp-red:#a31f2e;
+  --pp-red-soft:#fff1f2;
+  --pp-paper:#fffdf8;
+  --pp-ink:#1b2733;
+  --pp-muted:#5b6976;
+}
+
+/* ---------- Paper notice (overlay + /notice/ page) ---------- */
+.pp-paper{position:relative;overflow:hidden;padding:clamp(20px,4vw,40px) clamp(18px,4.2vw,46px) clamp(20px,3.6vw,34px);border:2px solid var(--pp-green);outline:1px solid var(--pp-gold);outline-offset:-7px;border-radius:6px;background:var(--pp-paper);color:var(--pp-ink);font-family:"Times New Roman",Times,Georgia,serif;box-shadow:0 30px 70px rgba(8,30,22,.28)}
+.pp-paper:before{content:"POSTPONED";position:absolute;left:50%;top:56%;z-index:0;transform:translate(-50%,-50%) rotate(-28deg);color:rgba(11,90,63,.045);font:700 clamp(3.6rem,13vw,7.4rem)/1 "Times New Roman",Times,serif;letter-spacing:.06em;pointer-events:none;white-space:nowrap}
+.pp-paper>*{position:relative;z-index:1}
+.pp-letterhead{display:grid;grid-template-columns:clamp(54px,11vw,92px) minmax(0,1fr) clamp(54px,11vw,92px);align-items:center;gap:clamp(8px,2vw,18px);padding-bottom:12px;border-bottom:2px solid var(--pp-green);box-shadow:0 4px 0 -3px var(--pp-gold)}
+.pp-letterhead img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:contain;mix-blend-mode:multiply}
+.pp-letterhead-text{min-width:0;text-align:center}
+.pp-gov{color:var(--pp-green-dark);font-size:clamp(.7rem,1.9vw,.98rem);font-weight:700;letter-spacing:.04em}
+.pp-dso{margin-top:2px;color:var(--pp-green);font-size:clamp(.92rem,2.9vw,1.38rem);font-weight:700;letter-spacing:.015em;line-height:1.15}
+.pp-dept{margin-top:4px;color:var(--pp-muted);font-size:clamp(.66rem,1.65vw,.84rem);line-height:1.35}
+.pp-refline{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 18px;margin:14px 0 0;font-size:clamp(.78rem,1.9vw,.92rem)}
+.pp-refline b{font-weight:700}
+.pp-title{display:flex;justify-content:center;margin:18px 0 12px}
+.pp-title span{display:inline-block;padding:7px 26px;border-radius:4px;background:var(--pp-green-dark);color:#fff;font-size:clamp(1rem,2.6vw,1.3rem);font-weight:700;letter-spacing:.42em;text-indent:.42em}
+.pp-subject{margin:0 0 14px;text-align:center;font-size:clamp(.82rem,2.1vw,1rem);font-weight:700;letter-spacing:.01em;text-decoration:underline;text-underline-offset:4px;text-transform:uppercase}
+.pp-body p{margin:0 0 10px;font-size:clamp(.88rem,2.05vw,1.02rem);line-height:1.66;text-align:justify;text-indent:2em;hyphens:manual}
+.pp-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:16px 0 4px;border:1px solid var(--pp-green);border-radius:4px;overflow:hidden;font-family:"Manrope",system-ui,sans-serif}
+.pp-facts>div{display:grid;align-content:start;gap:4px;padding:10px 9px;border-left:1px solid #b9cfc2;background:#f4f8f2;text-align:center}
+.pp-facts>div:first-child{border-left:0}
+.pp-facts small{color:var(--pp-green);font-size:.56rem;font-weight:900;letter-spacing:.12em}
+.pp-facts strong{color:var(--pp-ink);font-size:.78rem;font-weight:800;line-height:1.3}
+.pp-facts .pp-fact-status strong{color:var(--pp-red)}
+.pp-sign{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-top:20px}
+.pp-circ{font-size:.8rem;line-height:1.55;color:var(--pp-ink)}
+.pp-circ b{display:block;color:var(--pp-green-dark)}
+.pp-signature{min-width:190px;text-align:left;font-size:.95rem;line-height:1.35}
+.pp-signature .pp-regards{margin-bottom:26px}
+.pp-signature strong{display:block;padding-top:6px;border-top:1px solid #8a96a2;font-size:1rem}
+.pp-paper-foot{margin-top:18px;padding-top:9px;border-top:1px solid var(--pp-gold);color:var(--pp-muted);font-size:.74rem;font-style:italic;text-align:center}
+
+/* ---------- Overlay ---------- */
+.pp-overlay{position:fixed;inset:0;z-index:10200;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:clamp(12px,3.5vh,40px) 12px 28px;background:radial-gradient(circle at 50% 0%,rgba(28,92,68,.55),rgba(6,24,18,.82));backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);opacity:0;transition:opacity .22s ease;overscroll-behavior:contain}
+.pp-overlay.is-open{opacity:1}
+.pp-overlay[hidden]{display:none!important}
+.pp-dialog{width:min(780px,100%);margin:auto 0;transform:translateY(14px) scale(.985);transition:transform .26s cubic-bezier(.2,.8,.2,1)}
+.pp-overlay.is-open .pp-dialog{transform:none}
+.pp-ribbon{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding:0 2px;color:#e7f6dc;font:900 .64rem/1.2 "Manrope",system-ui,sans-serif;letter-spacing:.14em}
+.pp-ribbon-live{display:inline-flex;align-items:center;gap:8px}
+.pp-ribbon-live i{width:8px;height:8px;border-radius:50%;background:#ff7b88;box-shadow:0 0 0 4px rgba(255,123,136,.2);animation:pp-pulse 1.6s ease-in-out infinite}
+.pp-close-x{display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:rgba(255,255,255,.1);color:#fff;font:700 1.2rem/1 system-ui,sans-serif;cursor:pointer}
+.pp-close-x:hover{background:rgba(255,255,255,.2)}
+.pp-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:9px;margin-top:14px;font-family:"Manrope",system-ui,sans-serif}
+.pp-overlay .pp-actions{position:sticky;bottom:-28px;z-index:2;margin:12px -12px 0;padding:14px 12px 30px;background:linear-gradient(180deg,rgba(6,24,18,0) 0%,rgba(6,24,18,.86) 34%,rgba(6,24,18,.95) 100%)}
+.pp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid transparent;border-radius:11px;font:800 .82rem/1 "Manrope",system-ui,sans-serif;text-decoration:none;cursor:pointer;transition:transform .15s,background .15s,box-shadow .15s}
+.pp-btn:hover{transform:translateY(-1px)}
+.pp-btn-primary{background:#c9f56a;color:#123a2c;box-shadow:0 8px 20px rgba(201,245,106,.25)}
+.pp-btn-primary:hover{background:#d6fa86}
+.pp-btn-light{border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff}
+.pp-btn-light:hover{background:rgba(255,255,255,.18)}
+.pp-btn-solid{background:var(--pp-green-dark);color:#fff}
+.pp-btn-solid:hover{background:#0d3329}
+.pp-btn-outline{border-color:#c6d9cd;background:#fff;color:var(--pp-green-dark)}
+.pp-btn-outline:hover{border-color:#8db79f;background:#f6fbf7}
+.pp-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+html.pp-lock,html.pp-lock body{overflow:hidden}
+
+/* ---------- Floating reopen button ---------- */
+.pp-fab{position:fixed;left:14px;bottom:14px;z-index:985;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px 0 10px;border:1px solid rgba(163,31,46,.25);border-radius:999px;background:#fff;color:var(--pp-red);box-shadow:0 10px 26px rgba(22,40,66,.16);font:900 .7rem/1 "Manrope",system-ui,sans-serif;letter-spacing:.06em;cursor:pointer}
+.pp-fab:hover{background:var(--pp-red-soft)}
+.pp-fab i{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--pp-red);color:#fff;font-style:normal;font-size:.8rem}
+@media print{.pp-fab,.pp-overlay{display:none!important}}
+
+/* ---------- Clickable announcement strip ---------- */
+.registration-notice.pp-clickable{cursor:pointer}
+.registration-notice.pp-clickable:hover{filter:brightness(1.06)}
+
+/* ---------- Inline postponement strip (replaces race-day reminders) ---------- */
+.pp-strip{display:flex;align-items:center;gap:16px;width:calc(100% - 40px);max-width:1160px;margin:16px auto 18px;padding:14px 16px;border:1px solid #f0c9cf;border-left:5px solid var(--pp-red);border-radius:16px;background:linear-gradient(105deg,#fff4f5 0%,#fffdf8 60%,#fff 100%);box-shadow:0 8px 24px rgba(120,20,34,.06);color:var(--pp-ink)}
+.pp-strip-logos{display:flex;flex:0 0 auto;align-items:center;gap:6px}
+.pp-strip-logos img{width:46px;height:46px;object-fit:contain;border-radius:50%;background:#fff;box-shadow:0 0 0 1px #eadfd2}
+.pp-strip-copy{min-width:0;flex:1}
+.pp-strip-kicker{display:inline-flex;align-items:center;gap:7px;color:var(--pp-red);font-size:.6rem;font-weight:950;letter-spacing:.14em}
+.pp-strip-kicker i{width:7px;height:7px;border-radius:50%;background:var(--pp-red);animation:pp-pulse 1.6s ease-in-out infinite}
+.pp-strip strong{display:block;margin-top:3px;color:#5c1520;font-size:.88rem;font-weight:900;line-height:1.35}
+.pp-strip p{margin:3px 0 0;color:#6b5a5e;font-size:.72rem;line-height:1.55}
+.pp-strip-actions{display:flex;flex:0 0 auto;flex-wrap:wrap;gap:7px}
+.pp-strip-actions a,.pp-strip-actions button{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:1px solid #e7c2c8;border-radius:9px;background:#fff;color:#7d1a27;font:900 .69rem/1 "Manrope",system-ui,sans-serif;text-decoration:none;white-space:nowrap;cursor:pointer}
+.pp-strip-actions .pp-strip-primary{border-color:var(--pp-red);background:var(--pp-red);color:#fff}
+.pp-strip-actions a:hover,.pp-strip-actions button:hover{filter:brightness(.97)}
+.about-page .pp-strip,.event-info-page .pp-strip,.home-main .pp-strip{width:100%;max-width:none}
+
+/* Status pill variants used in page heroes */
+.pp-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid rgba(255,170,178,.35);border-radius:999px;background:rgba(163,31,46,.28);color:#ffe1e5;font-size:.6rem;font-weight:950;letter-spacing:.11em}
+.pp-pill b{width:7px;height:7px;border-radius:50%;background:#ff8995;animation:pp-pulse 1.6s ease-in-out infinite}
+.pp-pill.pp-pill-open{border-color:rgba(201,245,106,.4);background:rgba(201,245,106,.15);color:#e8fbc4}
+.pp-pill.pp-pill-open b{background:#c9f56a;animation:none}
+
+/* ---------- Results page: postponed state (timer removed) ---------- */
+.results-postponed-card{gap:0}
+.results-postponed-card .pp-mini-logos{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+.results-postponed-card .pp-mini-logos img{width:46px;height:46px;object-fit:contain;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+.results-postponed-card .pp-mini-logos span{color:#c5e2d5;font-size:.6rem;font-weight:850;letter-spacing:.1em;line-height:1.35}
+.results-status.postponed{border-color:rgba(255,160,170,.4);background:rgba(163,31,46,.35);color:#ffe3e7}
+.results-status.postponed::before{background:#ff8995;box-shadow:0 0 0 5px rgba(255,137,149,.16);animation:pp-pulse 1.6s ease-in-out infinite}
+.results-postponed-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:0 0 12px}
+.results-postponed-grid div{padding:9px 10px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.08)}
+.results-postponed-grid small{display:block;color:#c5e2d5;font-size:.55rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.results-postponed-grid strong{display:block;margin-top:3px;color:#fff;font-size:.78rem;font-weight:850;line-height:1.3}
+.results-postponed-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.results-postponed-actions .pp-btn{flex:1 1 auto;min-height:38px;padding:0 12px;font-size:.72rem}
+
+/* ---------- Home page postponed accents ---------- */
+.home-date-pill.home-date-pill-postponed{border-color:rgba(255,160,170,.35);background:rgba(163,31,46,.26)}
+.home-date-pill-postponed .home-date-icon{background:#ff8995;color:#4d0d16;font-size:1.2rem}
+.home-date-pill-postponed small{color:#ffd0d6}
+.home-fact.home-fact-postponed{border-color:#f0c9cf;background:linear-gradient(160deg,#fff5f6,#fff 70%)}
+.home-fact-postponed .home-fact-icon{background:#ffe3e7;color:var(--pp-red)}
+.home-fact-postponed strong{color:#7d1a27}
+.home-fact-postponed a{color:var(--pp-red)}
+
+/* ---------- Event Info postponed accents ---------- */
+.event-count-card.event-count-card-postponed{border-color:rgba(255,160,170,.34);background:rgba(163,31,46,.24)}
+.event-count-card-postponed .event-count-label{color:#ffd0d6}
+.event-fact-card.event-fact-postponed{border-color:#f0c9cf;background:linear-gradient(145deg,#fff4f5,#fff)}
+.event-fact-postponed .event-fact-icon{background:#ffe3e7;color:var(--pp-red)}
+.event-fact-card.event-fact-postponed>strong{color:#8b1d2b}
+.event-status-section.event-status-open{border-color:#cfe6d9;background:linear-gradient(105deg,#f1faf4,#fff)}
+.event-status-section.event-status-open h2{color:#176044}
+.event-status-links{display:flex;flex-wrap:wrap;align-items:center;gap:9px 18px}
+.event-status-links .event-secondary-link:first-child{min-height:38px;padding:0 14px;border-radius:10px;background:#103f34;color:#fff}
+.event-info-hero .pp-pill{margin:18px 0 0}
+@media (max-width:640px){.event-status-section.event-status-open{flex-direction:column;align-items:flex-start}}
+
+/* ---------- Page placement tweaks ---------- */
+.form-note p+p{margin-top:6px}
+.sheet .pp-strip.register-pp-strip{width:100%;max-width:none;margin:0 0 16px}
+.admin-pp-strip{margin-top:12px}
+
+/* ---------- /notice/ page ---------- */
+.notice-page{width:min(880px,calc(100% - 28px));margin:26px auto 60px}
+.notice-page-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+.notice-page-head h2{font-size:clamp(1.35rem,3vw,1.9rem)}
+.notice-page-head p{margin:5px 0 0;color:var(--muted,#68778c);font-size:.84rem}
+.notice-page-kicker{color:var(--pp-red);font-size:.64rem;font-weight:950;letter-spacing:.14em}
+.notice-page-actions{display:flex;flex-wrap:wrap;gap:8px}
+.notice-page .pp-paper{box-shadow:0 16px 44px rgba(22,40,66,.12)}
+.notice-help{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px}
+.notice-help a{display:grid;gap:4px;padding:15px 16px;border:1px solid var(--line,#e2e8f0);border-radius:15px;background:#fff;color:var(--ink,#17263b);text-decoration:none;box-shadow:var(--shadow)}
+.notice-help a:hover{border-color:#a9cdb9}
+.notice-help small{color:var(--pp-green);font-size:.6rem;font-weight:950;letter-spacing:.13em}
+.notice-help strong{font-size:.92rem}
+.notice-help span{color:var(--muted,#68778c);font-size:.74rem}
+
+@keyframes pp-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.pp-overlay,.pp-dialog{transition:none}.pp-ribbon-live i,.pp-strip-kicker i,.pp-pill b,.results-status.postponed::before{animation:none}}
+
+@media (max-width:760px){
+  .pp-strip{flex-wrap:wrap;gap:11px;width:calc(100% - 24px);padding:13px}
+  .pp-strip-logos img{width:38px;height:38px}
+  .pp-strip-copy{flex:1 1 calc(100% - 110px)}
+  .pp-strip-actions{width:100%}
+  .pp-strip-actions a,.pp-strip-actions button{flex:1;justify-content:center}
+  .pp-facts{grid-template-columns:1fr 1fr}
+  .pp-facts>div:nth-child(3){border-left:0}
+  .pp-facts>div:nth-child(n+3){border-top:1px solid #b9cfc2}
+  .pp-sign{flex-direction:column-reverse;align-items:flex-end}
+  .pp-circ{align-self:flex-start}
+  .notice-help{grid-template-columns:1fr}
+  .pp-fab span{display:none}
+  .pp-fab{padding:0 8px}
+}
+@media (max-width:420px){
+  .pp-body p{text-align:left;text-indent:1.2em}
+  .pp-title span{letter-spacing:.28em;text-indent:.28em;padding:6px 18px}
+  .pp-actions{gap:7px}
+  .pp-actions .pp-btn{flex:1 1 calc(50% - 4px);min-height:40px;padding:0 10px;font-size:.74rem}
+  .pp-actions .pp-btn-primary{flex-basis:100%}
+  .pp-overlay .pp-actions{padding-top:10px}
+}

@@ -16,13 +16,14 @@
 <link rel="stylesheet" href="../../assets/results-manage.css?v=20261105-4">
 <link rel="stylesheet" href="../../assets/results-live-admin.css?v=20261105-1">
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/results/manage/">
+<link rel="stylesheet" href="../../assets/postponement.css?v=20261113-1">
 </head>
 <body class="admin-page results-manage-route">
 <div class="registration-notice" id="registrationNotice" role="status" aria-live="polite">
   <div class="registration-notice-viewport" aria-hidden="true">
-    <div class="registration-notice-track" id="registrationAnnouncementOpen" hidden><span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span><span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span></div>
-    <div class="registration-notice-track" id="registrationAnnouncementClosed"><span>REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026</span><span>REGISTRATION CLOSED · REGISTERED RUNNERS MUST ARRIVE BY 3:00 PM PKT · RACE STARTS AT 4:00 PM PKT ON 15 NOVEMBER 2026</span></div>
-  </div><span class="sr-only" id="registrationNoticeAccessible">Online registration is closed. Registered runners must arrive at Railway Phatak, Khawrai Road by 3:00 PM Pakistan Time on 15 November 2026. The race starts at 4:00 PM.</span>
+    <div class="registration-notice-track" id="registrationAnnouncementOpen"><span>OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION REMAINS OPEN</span><span>OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION REMAINS OPEN</span></div>
+    <div class="registration-notice-track" id="registrationAnnouncementClosed" hidden><span>OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION IS CLOSED</span><span>OFFICIAL NOTICE: KHAWRAI MARATHON RACE SEASON THREE HAS BEEN POSTPONED DUE TO UNAVOIDABLE CIRCUMSTANCES · THE RACE WILL BE RESCHEDULED AT THE SAME VENUE · NEW DATE TO BE ANNOUNCED · ONLINE REGISTRATION IS CLOSED</span></div>
+  </div><span class="sr-only" id="registrationNoticeAccessible">Official notice: Khawrai Marathon Race Season Three has been postponed due to unavoidable circumstances. It will be rescheduled at the same venue and the new date will be announced. Online registration remains open until the rescheduled race date.</span>
 </div>
 <header class="top"><div class="in">
   <a class="logo-link" href="../../" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
@@ -40,10 +41,10 @@
   <div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="./" aria-current="page"><span class="nav-label-full">Manage Results</span><span class="nav-label-mobile">Manage<br>Results</span></a></div>
 </div></div></nav>
 
-<aside class="race-guidance-strip admin-guidance-strip" aria-label="Race-day information">
-  <span class="race-guidance-icon" aria-hidden="true">◷</span>
-  <div><strong>Race day: 15 November 2026 · 4:00 PM PKT</strong><p>Registered runners should report to Railway Phatak by 3:00 PM. Course distance: approximately 07 KM.</p></div>
-  <a href="../../event-info/">Public Event Info <span aria-hidden="true">→</span></a>
+<aside class="pp-strip admin-pp-strip" aria-label="Official race postponement notice">
+  <span class="pp-strip-logos"><img src="../../assets/logo-left.png" alt="District Administration Nowshera emblem" width="46" height="46"><img src="../../assets/logo-right.png" alt="Directorate General of Sports Khyber Pakhtunkhwa logo" width="46" height="46"></span>
+  <div class="pp-strip-copy"><span class="pp-strip-kicker"><i aria-hidden="true"></i>OFFICIAL NOTICE · 13 NOVEMBER 2026</span><strong>The race has been postponed due to unavoidable circumstances.</strong><p>Khawrai Marathon Race Season Three will be rescheduled at the same venue. The new date will be announced officially. Registration remains open until the rescheduled date.</p></div>
+  <div class="pp-strip-actions"><button type="button" class="pp-strip-primary" data-pp-open>Read notice</button><a data-pp-pdf href="../../assets/notice/KMR-S3-Postponement-Notice.pdf" download="KMR-S3-Postponement-Notice.pdf">Download PDF</a></div>
 </aside>
 
 <!-- ACCESS DENIED -->
@@ -99,6 +100,7 @@
           <span>Public announcement</span>
           <select id="raceAnnouncementPreset" aria-label="Choose a preset announcement">
             <option value="">— choose preset —</option>
+            <option value="race_postponed">Race postponed (official notice)</option>
             <option value="registration_reminder">Registration reminder</option>
             <option value="race_day_arrival">Race-day arrival reminder</option>
             <option value="race_starting_soon">Race starting soon</option>
@@ -232,9 +234,9 @@
 </dialog>
 
 </main>
-<footer>Khawrai Marathon Race Season Three · <a href="../../">Home</a> · <a href="../">Public results</a> · <a href="../../about/">About the race</a> · <a href="../../event-info/">Event Info</a></footer>
+<footer>Khawrai Marathon Race Season Three · <a href="../../">Home</a> · <a href="../../notice/">Official notice</a> · <a href="../">Public results</a> · <a href="../../about/">About the race</a> · <a href="../../event-info/">Event Info</a></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../../js/config.js"></script><script src="../../js/common.js?v=20261105-5"></script><script src="../../js/admin-accounts.js?v=20261031-1"></script><script src="../../js/storage-tools.js?v=20261031-1"></script><script src="../../js/backup-tools.js?v=20261101-1"></script><script src="../../js/registration-ui.js?v=20261106-eventinfo-1"></script><script src="../../js/admin-race.js?v=20261106-eventinfo-1"></script>
+<script src="../../js/config.js?v=20261113-1"></script><script src="../../js/common.js?v=20261113-1"></script><script src="../../js/admin-accounts.js?v=20261031-1"></script><script src="../../js/storage-tools.js?v=20261031-1"></script><script src="../../js/backup-tools.js?v=20261101-1"></script><script src="../../js/registration-ui.js?v=20261113-1"></script><script src="../../js/postponement-notice.js?v=20261113-1"></script><script src="../../js/admin-race.js?v=20261113-1"></script>
 <script>
 (function(){
   const app=document.getElementById('app'), denied=document.getElementById('resultsManageDenied');
