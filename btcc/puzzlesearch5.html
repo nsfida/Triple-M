@@ -8,7 +8,7 @@
 :root{--bg:#0d1016;--pan:#151a23;--bd:#232c3a;--fg:#d7e0ee;--mut:#7f8ca3;--ac:#36d399;--ac2:#3b82f6;--warn:#f59e0b;--err:#ef4444;--fnt:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 var(--fnt);-webkit-font-smoothing:antialiased}
-.wrap{max-width:980px;margin:0 auto;padding:14px}
+.wrap{width:100%;margin:0 auto;padding:14px}
 h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.3px}
 .top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .badge{font-size:11px;padding:2px 7px;border-radius:5px;border:1px solid var(--bd);color:var(--mut)}
@@ -44,7 +44,9 @@ th,td{padding:7px 10px;border-bottom:1px solid var(--bd);border-right:1px solid 
 th:last-child,td:last-child{border-right:none}
 th{color:var(--mut);font-size:10px;font-weight:600;background:#111925;text-transform:uppercase;letter-spacing:.4px}
 td{font-size:11px}
-th:first-child,td:first-child{width:120px;white-space:nowrap}
+th:first-child,td:first-child{width:130px;overflow:hidden;text-overflow:ellipsis}
+td:first-child{color:#cdd9ec}
+.pill{display:inline-block;margin:3px 0 0;font-size:10px;color:var(--ac2);border:1px solid #1d3147;border-radius:4px;padding:1px 6px}
 .hex{overflow-wrap:anywhere;word-break:break-all;color:#cdd9ec}
 tbody tr{cursor:pointer}
 tbody tr:hover td{background:#192332}
@@ -57,7 +59,6 @@ tbody tr.scan td:first-child{box-shadow:inset 3px 0 0 var(--ac2)}
 #status.ok{color:var(--ac)}#status.err{color:var(--err)}
 .note{color:var(--warn);font-size:11px;border:1px solid #3a2f14;background:#1a160c;border-radius:6px;padding:8px;margin-top:10px;line-height:1.5}
 .hint{color:var(--mut);font-size:10.5px;margin-top:3px}
-.pill{font-size:10px;color:var(--ac2);border:1px solid #1d3147;border-radius:4px;padding:1px 6px;margin-left:6px}
 @media(max-width:700px){.grid,.stats{grid-template-columns:1fr}.row5{grid-template-columns:1fr 1fr}.f.wide{grid-column:1/2}th:first-child,td:first-child{width:72px}}
 </style>
 </head>
@@ -95,6 +96,12 @@ tbody tr.scan td:first-child{box-shadow:inset 3px 0 0 var(--ac2)}
     <button id="clear">CLEAR</button>
   </div>
 
+  <div class="btns">
+    <button id="start" disabled>START SWEEP</button>
+    <button id="pause" disabled>PAUSE</button>
+    <button id="stop" disabled>STOP</button>
+  </div>
+
   <div class="pager">
     <button id="prev" disabled>← Prev</button>
     <input id="page" type="number" min="1" value="1">
@@ -108,12 +115,6 @@ tbody tr.scan td:first-child{box-shadow:inset 3px 0 0 var(--ac2)}
       <thead><tr><th>Cluster</th><th>Start (hex)</th><th>End (hex)</th></tr></thead>
       <tbody id="rows"><tr><td colspan="3" class="empty">No clusters yet — set a range + cluster size and press Generate.</td></tr></tbody>
     </table>
-  </div>
-
-  <div class="btns">
-    <button id="start" disabled>START SWEEP</button>
-    <button id="pause" disabled>PAUSE</button>
-    <button id="stop" disabled>STOP</button>
   </div>
 
   <div class="stats">
