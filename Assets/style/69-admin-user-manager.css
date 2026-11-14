@@ -1,0 +1,193 @@
+/* Triplem VIP · Admin user manager panel (2026-11-14)
+   Admin → click a user. The Home Style side-panel design: one surface, a calm header, underline
+   tabs, small uppercase section labels, regular text, primary-coloured icons and switches.
+   Colours come from the theme tokens, so every light and dark theme works. The panel sits just
+   below the app's dialogs, so a confirmation or the records viewer opens on top of it. */
+
+.aum-root{position:fixed;inset:0;z-index:2147482000;pointer-events:none;visibility:hidden}
+.aum-root.is-open{pointer-events:auto;visibility:visible}
+.aum-backdrop{position:absolute;inset:0;background:rgba(8,15,30,.38);opacity:0;transition:opacity .2s ease}
+.aum-root.is-open .aum-backdrop{opacity:1}
+.aum-panel{
+  position:absolute;top:12px;right:12px;bottom:12px;width:min(600px,calc(100vw - 24px));
+  display:flex;flex-direction:column;overflow:hidden;
+  border:1px solid var(--line,rgba(15,23,42,.12));border-radius:22px;
+  background:linear-gradient(var(--surface-elevated,#fff),var(--surface-elevated,#fff)),var(--bg,#fff);color:var(--text,#0f172a);
+  box-shadow:0 30px 70px rgba(8,15,30,.28),0 2px 8px rgba(8,15,30,.08);
+  opacity:0;transform:translateX(28px);transition:opacity .2s ease,transform .24s cubic-bezier(.22,.75,.22,1);
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:400;font-size:13px;line-height:1.45;
+}
+.aum-root.is-open .aum-panel{opacity:1;transform:none}
+.aum-frame{display:flex;flex-direction:column;min-height:0;flex:1}
+html.aum-open body{overflow:hidden}
+
+/* header */
+.aum-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start;padding:16px 16px 10px}
+.aum-avatar{width:46px;height:46px;border-radius:14px;object-fit:contain;background:color-mix(in srgb,var(--primary,#2563eb) 8%,transparent);padding:4px}
+.aum-id strong{display:block;font-size:1.05rem;font-weight:500;letter-spacing:-.01em;line-height:1.25;overflow-wrap:anywhere}
+.aum-id small{display:block;margin-top:1px;color:var(--muted,#64748b);font-size:.74rem;overflow-wrap:anywhere}
+.aum-pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.aum-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:.68rem;line-height:1.3;color:var(--muted,#64748b);
+  background:color-mix(in srgb,var(--muted,#64748b) 11%,transparent)}
+.aum-pill i{font-size:.62rem}
+.aum-pill.is-ok{color:#15803d;background:color-mix(in srgb,#16a34a 13%,transparent)}
+.aum-pill.is-warn{color:#b45309;background:color-mix(in srgb,#f59e0b 16%,transparent)}
+.aum-pill.is-bad{color:#b91c1c;background:color-mix(in srgb,#dc2626 13%,transparent)}
+.aum-pill.is-info{color:var(--primary,#2563eb);background:color-mix(in srgb,var(--primary,#2563eb) 12%,transparent)}
+html[data-triplem-theme-mode="dark"] .aum-pill.is-ok{color:#4ade80}
+html[data-triplem-theme-mode="dark"] .aum-pill.is-warn{color:#fbbf24}
+html[data-triplem-theme-mode="dark"] .aum-pill.is-bad{color:#f87171}
+.aum-close{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;background:transparent;color:var(--text);cursor:pointer}
+.aum-close:hover{background:color-mix(in srgb,var(--primary) 8%,transparent)}
+
+/* tabs */
+.aum-tabs{display:flex;gap:2px 14px;overflow-x:auto;scrollbar-width:none;padding:0 16px;border-bottom:1px solid var(--line)}
+.aum-tabs::-webkit-scrollbar{display:none}
+.aum-tabs button{flex:none;display:inline-flex;align-items:center;gap:6px;padding:10px 1px;margin-bottom:-1px;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);font:inherit;font-size:.78rem;cursor:pointer;white-space:nowrap}
+.aum-tabs button i{font-size:.74rem}
+.aum-tabs button:hover{color:var(--text)}
+.aum-tabs button[aria-selected="true"]{color:var(--primary);border-bottom-color:var(--primary)}
+
+/* body and sections */
+.aum-body{flex:1;overflow:auto;overscroll-behavior:contain;padding:6px 16px 22px}
+.aum-section{padding:14px 0;border-bottom:1px dashed color-mix(in srgb,var(--line) 85%,transparent)}
+.aum-section:last-child{border-bottom:0}
+.aum-section h3{margin:0 0 10px;font-size:.66rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.aum-muted{margin:4px 0 8px;color:var(--muted);font-size:.72rem;line-height:1.45}
+
+/* key / value */
+.aum-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px 14px;margin:0}
+.aum-kv div{min-width:0}
+.aum-kv dt{font-size:.66rem;color:var(--muted);margin:0 0 1px}
+.aum-kv dd{margin:0;font-size:.8rem;overflow-wrap:anywhere}
+
+/* notes */
+.aum-note{display:flex;gap:10px;align-items:flex-start;margin:12px 0 0;padding:10px 12px;border-radius:12px;font-size:.76rem;line-height:1.45;
+  background:color-mix(in srgb,var(--primary) 7%,transparent)}
+.aum-note > i{margin-top:2px;color:var(--primary)}
+.aum-note.is-warn{background:color-mix(in srgb,#f59e0b 12%,transparent)}.aum-note.is-warn > i{color:#d97706}
+.aum-note.is-bad{background:color-mix(in srgb,#dc2626 9%,transparent)}.aum-note.is-bad > i{color:#dc2626}
+.aum-note b{font-weight:500}
+.aum-link{border:0;background:none;padding:0;margin-left:4px;color:var(--primary);font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+
+/* switches (Home Style switch) */
+.aum-switches{display:grid}
+.aum-switch{appearance:none;width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:9px 0;border:0;border-top:1px solid color-mix(in srgb,var(--line) 60%,transparent);background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.aum-switches .aum-switch:first-child{border-top:0}
+.aum-switch:not(:has(.aum-ico)){grid-template-columns:minmax(0,1fr) auto}
+.aum-ico{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--primary) 10%,transparent);color:var(--primary);font-size:.78rem}
+.aum-switch-copy b{display:block;font-size:.8rem;font-weight:400}
+.aum-switch-copy small{display:block;margin-top:1px;font-size:.68rem;color:var(--muted);line-height:1.35}
+.aum-track{position:relative;width:38px;height:22px;border-radius:999px;background:color-mix(in srgb,var(--muted,#667085) 32%,transparent);transition:background-color .15s ease;flex:none}
+.aum-track i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.3);transition:transform .15s ease}
+.aum-switch[aria-checked="true"] .aum-track{background:var(--primary)}
+.aum-switch[aria-checked="true"] .aum-track i{transform:translateX(16px)}
+.aum-switch:disabled{cursor:not-allowed;opacity:.55}
+.aum-switch.is-busy .aum-track{opacity:.6}
+.aum-switch:focus-visible,.aum-seg button:focus-visible,.aum-chip:focus-visible,.aum-btn:focus-visible,.aum-tabs button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 50%,transparent);outline-offset:2px}
+
+/* rows, segmented choices, chips */
+.aum-row{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;padding:8px 0}
+.aum-row.is-stack{align-items:flex-start;flex-direction:column}
+.aum-row-label{font-size:.78rem;display:inline-flex;align-items:center;gap:7px}
+.aum-row-label i{color:var(--primary)}
+.aum-seg{display:inline-flex;padding:3px;border-radius:999px;background:color-mix(in srgb,var(--muted,#64748b) 12%,transparent);gap:2px}
+.aum-seg.is-wrap{flex-wrap:wrap;border-radius:14px}
+.aum-seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:.74rem;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.aum-seg button[aria-checked="true"]{background:var(--surface-elevated,#fff);color:var(--primary);box-shadow:0 1px 3px rgba(15,23,42,.14)}
+.aum-seg button:disabled{opacity:.45;cursor:not-allowed}
+.aum-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 8px}
+.aum-chip{border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;font-size:.74rem;padding:5px 11px;border-radius:999px;cursor:pointer}
+.aum-chip:hover{border-color:color-mix(in srgb,var(--primary) 45%,var(--line))}
+.aum-chip[aria-pressed="true"]{border-color:var(--primary);color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent)}
+.aum-chip:disabled{opacity:.5;cursor:not-allowed}
+.aum-chip.is-busy{opacity:.55}
+
+/* fields and buttons */
+.aum-form{display:grid;gap:10px}
+.aum-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.aum-field{display:grid;gap:4px;min-width:0}
+.aum-field.is-wide{grid-column:1/-1}
+.aum-field.is-inline{grid-template-columns:auto minmax(0,220px);align-items:center;gap:10px;margin:6px 0}
+.aum-field > span{font-size:.7rem;color:var(--muted)}
+.aum-field :is(input,textarea,select),.aum-mini{width:100%;min-height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:color-mix(in srgb,var(--bg,#fff) 70%,transparent);color:var(--text);font:inherit;font-size:.8rem;font-weight:400;box-sizing:border-box}
+.aum-field textarea{min-height:58px;resize:vertical}
+.aum-field :is(input,textarea):focus,.aum-mini:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 16%,transparent)}
+.aum-field :is(input,textarea):disabled{opacity:.6}
+.aum-mini{width:70px;min-height:30px}
+.aum-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.aum-actions.is-left{justify-content:flex-start}
+.aum-actions.is-wrap{flex-wrap:wrap;justify-content:flex-start}
+.aum-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 13px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--text);font:inherit;font-size:.74rem;cursor:pointer;white-space:nowrap}
+.aum-btn i{color:var(--primary);font-size:.74rem}
+.aum-btn:hover{background:color-mix(in srgb,var(--primary) 8%,transparent)}
+.aum-btn.is-primary{background:var(--primary);border-color:var(--primary);color:var(--on-primary,#fff)}
+.aum-btn.is-primary i{color:inherit}
+.aum-btn.is-primary:hover{filter:brightness(1.06);background:var(--primary)}
+.aum-btn.is-danger{color:#dc2626;border-color:color-mix(in srgb,#dc2626 40%,var(--line))}
+.aum-btn.is-danger i{color:inherit}
+.aum-btn.is-danger:hover{background:color-mix(in srgb,#dc2626 9%,transparent)}
+.aum-btn:disabled{opacity:.5;cursor:not-allowed}
+.aum-btn.is-busy{opacity:.6;pointer-events:none}
+.aum-btn.is-busy::after,.aum-chip.is-busy::after,.aum-seg button.is-busy::after{content:"";width:11px;height:11px;margin-left:4px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:aumSpin .7s linear infinite}
+
+/* plan */
+.aum-status{display:grid;gap:2px;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--muted) 9%,transparent)}
+.aum-status b{font-weight:500;font-size:.9rem}
+.aum-status span{font-size:.72rem;color:var(--muted)}
+.aum-status.is-ok{background:color-mix(in srgb,#16a34a 10%,transparent)}
+.aum-status.is-warn{background:color-mix(in srgb,#f59e0b 13%,transparent)}
+.aum-status.is-bad{background:color-mix(in srgb,#dc2626 10%,transparent)}
+.aum-summary{margin:8px 0 0;font-size:.76rem;color:var(--muted)}
+.aum-summary b{color:var(--text);font-weight:500}
+
+/* lists, stats, logo, danger */
+.aum-list{list-style:none;margin:0;padding:0;display:grid}
+.aum-list li{display:grid;gap:1px;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--line) 60%,transparent);font-size:.78rem}
+.aum-list li:first-child{border-top:0}
+.aum-list li b{font-weight:400}
+.aum-list li small{color:var(--muted);font-size:.68rem}
+.aum-list li.is-row{grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:10px}
+.aum-list li.is-row img{width:30px;height:30px;border-radius:9px;object-fit:contain}
+.aum-list li.is-row span{display:grid}
+.aum-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.aum-stats div{padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--primary) 6%,transparent)}
+.aum-stats b{display:block;font-size:1rem;font-weight:500;font-variant-numeric:tabular-nums}
+.aum-stats small{display:block;font-size:.66rem;color:var(--muted)}
+.aum-logo{display:flex;gap:12px;align-items:center;padding:10px 12px;border:1px dashed var(--line);border-radius:14px}
+.aum-logo img{width:54px;height:54px;object-fit:contain;border-radius:12px;background:color-mix(in srgb,var(--primary) 6%,transparent);padding:4px;flex:none}
+.aum-logo b{display:block;font-weight:400;font-size:.8rem}
+.aum-logo small{display:block;font-size:.68rem;color:var(--muted)}
+.aum-logo .aum-actions{margin-top:6px}
+.aum-danger{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.aum-danger:first-of-type{border-top:0}
+.aum-danger b{display:block;font-weight:400;font-size:.8rem}
+.aum-danger small{display:block;font-size:.68rem;color:var(--muted)}
+.aum-compose{margin-top:10px;display:grid;gap:8px;padding:12px;border-radius:14px;background:color-mix(in srgb,var(--primary) 5%,transparent)}
+.aum-compose.hide{display:none}
+
+/* skeleton */
+.aum-skel{display:grid;gap:8px;animation:tmSkelPulse 1.25s ease-in-out infinite}
+.aum-skel span{display:block;height:12px;border-radius:999px;background:color-mix(in srgb,var(--text,#0f172a) 9%,transparent)}
+.aum-skel span:nth-child(2n){width:70%}.aum-skel span:nth-child(3n){width:45%}
+
+/* toast */
+.aum-toast{position:absolute;left:16px;right:16px;bottom:14px;display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:12px;font-size:.76rem;line-height:1.4;
+  background:var(--text,#0f172a);color:var(--surface-elevated,#fff);box-shadow:0 10px 30px rgba(8,15,30,.25);opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+.aum-toast.is-on{opacity:1;transform:none}
+.aum-toast.is-ok i{color:#4ade80}.aum-toast.is-bad i{color:#f87171}
+.aum-toast i{margin-top:2px}
+
+@keyframes aumSpin{to{transform:rotate(360deg)}}
+@media (max-width:700px){
+  .aum-panel{top:auto;left:0;right:0;bottom:0;width:auto;height:92dvh;border-radius:22px 22px 0 0;transform:translateY(40px)}
+  .aum-grid{grid-template-columns:1fr}
+  .aum-field.is-inline{grid-template-columns:1fr}
+  .aum-danger{flex-direction:column;align-items:stretch}
+}
+@media (prefers-reduced-motion:reduce){.aum-panel,.aum-backdrop,.aum-toast{transition:none}.aum-skel{animation:none}}
+/* Dialogs opened from the panel (records, payment review, confirmations) stay on top of it. */
+html.aum-open body .modal:not(.hide){z-index:2147482600 !important}
+.aum-form[data-aum-form="username"]{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}
+.aum-form[data-aum-form="username"] .aum-field{flex:1 1 260px;margin:0}
+.aum-form[data-aum-form="username"] .aum-btn{flex:none}

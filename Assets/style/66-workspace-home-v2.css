@@ -594,7 +594,7 @@ html body .theme-menu-seg button[aria-checked="true"]{background:var(--surface-e
 html body .theme-menu-seg button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 45%,transparent);outline-offset:1px}
 
 /* 2) Section header without frames: house icon (as in Inventory 2.0), section icon + name. */
-html body #app #workspaceSectionNav.workspace-section-nav{
+html body #app #workspaceSectionNav.workspace-section-nav:not(.hide){
   background:none !important;border:0 !important;box-shadow:none !important;
   -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
   display:flex !important;align-items:center;gap:4px !important;padding:0 !important;min-height:44px;
@@ -633,6 +633,8 @@ html body #app #workspaceSectionNav .workspace-section-switch option{color:var(-
   .workspace-section-icon-wrap{width:30px;height:30px;flex-basis:30px}
 }
 
+/* The section bar is hidden on Triplem VIP Home (class "hide"); the rules above must not show it. */
+html body #app #workspaceSectionNav.workspace-section-nav.hide{display:none !important}
 /* 2026-11-14 b: section switcher as a menu (blue section icons), aligned with the house button */
 #workspaceSectionSelect[hidden]{display:none !important}
 html body #app #workspaceSectionNav#workspaceSectionNav{align-items:center !important;gap:2px !important}

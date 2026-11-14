@@ -258,7 +258,10 @@ function renderAdminUsersGrid(){
   }).join("");
   list.querySelectorAll("[data-admin-user-tile]").forEach(tile => tile.addEventListener("click", () => {
     const user = rows.find(row => String(row.id) === String(tile.dataset.adminUserTile));
-    if (user) openAdminUserDetailsOverlay(user);
+    if (!user) return;
+    // 2026-11-14: the user manager panel (admin/04-admin-user-manager.js) replaces the old dialog.
+    if (window.TriplemAdminUserManager) window.TriplemAdminUserManager.open(user);
+    else openAdminUserDetailsOverlay(user);
   }));
 }
 

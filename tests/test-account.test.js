@@ -71,3 +71,33 @@ test("skeleton loading is available to every section", () => {
   assert.match(read("Assets/app/ui/01-render-navigation.js"), /TriplemSkeleton\?\.tab/);
   assert.match(read("Assets/style/68-sections-v2.css"), /prefers-reduced-motion:reduce\)\{\.tm-skel/);
 });
+
+test("Admin user manager replaces the old user dialog and saves each change by itself", () => {
+  const html = read("index.html");
+  assert.match(html, /Assets\/app\/admin\/04-admin-user-manager\.js\?v=/);
+  const js = read("Assets/app/admin/04-admin-user-manager.js");
+  for (const fn of ["app_admin_update_user_access", "app_admin_set_access_expiry", "app_admin_set_access_period", "app_admin_inventory_access_set",
+    "app_admin_set_triplem_ai_access", "app_admin_set_company_branding", "app_admin_set_team_limits", "app_admin_rename_user", "app_admin_set_role",
+    "app_admin_force_password_change", "app_admin_clear_user_smart_pin", "app_admin_revoke_user_sessions", "app_admin_user_overview", "app_admin_delete_user"]) {
+    assert.ok(js.includes(`"${fn}"`), fn);
+  }
+  assert.match(read("Assets/app/admin/01-admin.js"), /TriplemAdminUserManager\.open\(user\)/);
+  assert.match(read("Assets/style/69-admin-user-manager.css"), /html\.aum-open body \.modal:not\(\.hide\)\{z-index:2147482600/);
+});
+
+test("migration 228 is additive and listed", { skip: !exists("migrations/228_admin_user_manager.sql") }, () => {
+  const sql = read("migrations/228_admin_user_manager.sql");
+  assert.doesNotMatch(sql, /\bdrop\s+table\b|\btruncate\b|\bdelete\s+from\b/i);
+  assert.match(sql, /app_require_protected_admin\(\)/);
+  assert.doesNotMatch(sql, /token_hash'|ip_text|password_hash/);
+  assert.match(read("scripts/build_full_schema_sql.js"), /"228_admin_user_manager\.sql"/);
+});
+
+test("Home hides the section bar; header has no default text; new footer", () => {
+  assert.match(read("Assets/style/66-workspace-home-v2.css"), /#workspaceSectionNav\.workspace-section-nav\.hide\{display:none !important\}/);
+  const html = read("index.html");
+  assert.match(html, /<p id="mainAppSubtitle"><\/p>/);
+  assert.match(html, /Triplem VIP<\/span> \(Money Management Modules\)/);
+  assert.match(html, /Invoices\/Receipts, Reports, Wallets\/Accounts, Inventory, Assets\/Depreciation, Loans, Installments\./);
+  assert.doesNotMatch(read("Assets/app/reports/01-pdf.js"), /let subtitle = "Money Management Module \(Powered/);
+});

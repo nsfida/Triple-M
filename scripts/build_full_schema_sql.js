@@ -243,6 +243,7 @@ const CANONICAL_MIGRATION_FILES = [
   "225_wallet_logo_r2_storage.sql",
   "226_test_account_protection.sql",
   "227_admin_test_account_password.sql",
+  "228_admin_user_manager.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

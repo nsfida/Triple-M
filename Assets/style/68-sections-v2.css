@@ -518,3 +518,6 @@ html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet-head h3{font-size:.95rem 
 html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet-head p{font-size:.72rem !important;color:var(--muted) !important;margin:2px 0 0 !important}
 html body .modal:is(#u-a,*):is(#u-b,*) .manage-plan-block-head > span:first-child{font-size:.84rem}
 html.tm-tw-regular body .modal:is(#u-a,*):is(#u-b,*) :is(.manage-plan-block-head,.admin-access-kv,.admin-section-title) :is(span,strong,h4){font-weight:400 !important}
+
+/* Header: no empty line under the logo when there are no company details (2026-11-14) */
+html body #app .header .brand #mainAppSubtitle:empty{display:none !important}

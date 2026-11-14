@@ -320,7 +320,8 @@ function validateCurrencyForForm(formData) {
 
 function updateHeaderTextFromConfig(){
   const contact = getPdfCompanyContact();
-  let subtitle = "Money Management Module (Powered by Nadeem Shahzad Fida)";
+  // 2026-11-14: without company details only the logo is shown (no default text).
+  let subtitle = "";
 
   if (contact.isCompany) {
     subtitle = `<span style="color: var(--text); font-weight: bold;">${escapeHtml(contact.name)}</span>`;
@@ -337,7 +338,7 @@ function updateHeaderTextFromConfig(){
   }
 
   if (els.lockScreenSubtitle) els.lockScreenSubtitle.innerHTML = subtitle;
-  if (els.standaloneAboutSubtitle) els.standaloneAboutSubtitle.innerHTML = subtitle;
+  if (els.standaloneAboutSubtitle) els.standaloneAboutSubtitle.innerHTML = subtitle || "Money Management Modules";
   if (els.mainAppSubtitle) els.mainAppSubtitle.innerHTML = subtitle;
 }
 
