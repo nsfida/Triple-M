@@ -496,7 +496,7 @@ html[data-triplem-theme] #app .theme-menu-home .theme-menu-home-go{justify-self:
 
 /* ── Home Style: text, captions, greeting, icon background, hover effect, hidden cards ── */
 #workspaceHome.home-title-normal .wh2-label,
-#workspaceHome.home-title-normal .workspace-card-copy strong{font-weight:550 !important;letter-spacing:-.01em}
+#workspaceHome.home-title-normal .workspace-card-copy strong{font-weight:400 !important;letter-spacing:0}
 #workspaceHome.home-no-captions .wh2-desc,
 #workspaceHome.home-no-captions .workspace-card-copy small{display:none !important}
 #workspaceHome.home-layout-list.home-no-captions #workspaceHomeGrid > .wh2-card{padding-top:calc(6px + 4px * var(--wh-gap-scale,1));padding-bottom:calc(6px + 4px * var(--wh-gap-scale,1))}
@@ -566,3 +566,62 @@ html[data-triplem-theme-mode="dark"] #workspaceHome.home-backdrop-square:not(.ho
   .hs-seg button,.hs-switch{min-height:40px}
 }
 @media (prefers-reduced-motion:reduce){ .hs-switch-track,.hs-switch-track i,.hs-seg button{transition:none} }
+
+/* ════ 2026-11-14 ═══════════════════════════════════════════════════════════════
+   1) Text weight (Theme menu › Text weight, 08-text-style.js). Regular by default.
+      :is(#tw…,*) adds id weight so section styles cannot keep titles bold; elements that
+      have their own option (Home captions, Expenses Style names and balances) are left out,
+      so those options still work. Icons (fa-*) keep their weight. */
+html.tm-tw-regular :is(#tw-a,*):is(#tw-b,*):is(#tw-c,*) :is(h1,h2,h3,h4,h5,h6,button,.btn,.tiny,label,legend,th,summary,strong,b,.tab,.menu-item,.chip,.badge,.pill,select,[class*="title"],[class*="label"],[class*="heading"],[class*="kicker"],[class*="-name"]):not([class*="fa-"]):not(.wh2-label,.workspace-card-copy strong):not(#walletsOverviewSection .summary :is(.currency-head,.currency-head *,.available-label,.available-label *,.available-amount,.available-amount *,.summary-line-one-value,.summary-line-one-value *)){
+  font-weight:400 !important;
+}
+html.tm-tw-medium :is(#tw-a,*):is(#tw-b,*):is(#tw-c,*) :is(h1,h2,h3,h4,h5,h6,button,.btn,.tiny,label,legend,th,summary,strong,b,.tab,.menu-item,.chip,.badge,.pill,select,[class*="title"],[class*="label"],[class*="heading"],[class*="kicker"],[class*="-name"]):not([class*="fa-"]):not(.wh2-label,.workspace-card-copy strong):not(#walletsOverviewSection .summary :is(.currency-head,.currency-head *,.available-label,.available-label *,.available-amount,.available-amount *,.summary-line-one-value,.summary-line-one-value *)){
+  font-weight:500 !important;
+}
+
+/* Theme menu: Text weight row */
+html[data-triplem-theme] #app .theme-menu-weight,
+.theme-menu-weight{display:grid;grid-template-columns:26px minmax(0,1fr);align-items:center;gap:4px 8px;padding:8px 10px;border-radius:12px}
+.theme-menu-weight .theme-menu-toggle-icon{font-size:.78rem;color:var(--primary);text-align:center}
+.theme-menu-weight .theme-menu-copy{display:flex;flex-direction:column;min-width:0}
+.theme-menu-weight .theme-menu-copy strong{font-size:.74rem;line-height:1.25;color:var(--text)}
+.theme-menu-weight .theme-menu-copy small{font-size:.66rem;color:var(--muted)}
+.theme-menu-seg{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--muted,#64748b) 12%,transparent)}
+html body .theme-menu-seg button{appearance:none;border:0 !important;background:transparent !important;box-shadow:none !important;min-height:28px;border-radius:8px;color:var(--muted);font:inherit;font-size:.72rem;cursor:pointer;padding:0 4px}
+html body .theme-menu-seg button[data-text-weight="medium"]{font-weight:500 !important}
+html body .theme-menu-seg button[data-text-weight="bold"]{font-weight:750 !important}
+html body .theme-menu-seg button[aria-checked="true"]{background:var(--surface-elevated,var(--panel)) !important;color:var(--primary);box-shadow:0 1px 3px rgba(15,23,42,.15) !important}
+html body .theme-menu-seg button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 45%,transparent);outline-offset:1px}
+
+/* 2) Section header without frames: house icon (as in Inventory 2.0), section icon + name. */
+html body #app #workspaceSectionNav.workspace-section-nav{
+  background:none !important;border:0 !important;box-shadow:none !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+  display:flex !important;align-items:center;gap:4px !important;padding:0 !important;min-height:44px;
+}
+html body #app #workspaceSectionNav .workspace-home-back{
+  width:40px !important;min-width:40px !important;height:40px !important;padding:0 !important;flex:0 0 40px;
+  border:0 !important;background:none !important;box-shadow:none !important;border-radius:12px !important;
+  color:var(--primary) !important;transform:none !important;
+}
+html body #app #workspaceSectionNav .workspace-home-back i{font-size:1.22rem}
+#workspaceSectionNav .workspace-home-back-text{position:absolute !important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+html body #app #workspaceSectionNav .workspace-home-back:hover{background:color-mix(in srgb,var(--primary) 10%,transparent) !important}
+html body #app #workspaceSectionNav .workspace-home-back:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 50%,transparent) !important;outline-offset:1px}
+.workspace-section-icon-wrap{display:inline-grid;place-items:center;width:34px;height:34px;flex:0 0 34px;margin-left:2px;cursor:pointer}
+.workspace-section-icon{width:30px;height:30px;object-fit:contain;display:block}
+html body #app #workspaceSectionNav#workspaceSectionNav select#workspaceSectionSelect.workspace-section-switch{
+  width:auto !important;min-width:0 !important;max-width:min(260px,52vw);flex:0 1 auto !important;height:40px !important;
+  padding:0 26px 0 4px !important;border:0 !important;border-radius:10px !important;box-shadow:none !important;
+  background:transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>") right 6px center / 13px no-repeat !important;
+  color:var(--text) !important;font-size:1.02rem !important;text-align:left !important;text-align-last:left !important;
+  field-sizing:content;
+}
+html body #app #workspaceSectionNav#workspaceSectionNav select#workspaceSectionSelect.workspace-section-switch:hover{background-color:color-mix(in srgb,var(--primary) 8%,transparent) !important}
+html body #app #workspaceSectionNav#workspaceSectionNav select#workspaceSectionSelect.workspace-section-switch:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 45%,transparent) !important;outline-offset:1px}
+html body #app #workspaceSectionNav .workspace-section-switch option{color:var(--text);background:var(--panel)}
+@media (max-width:820px){
+  html body #app #workspaceSectionNav#workspaceSectionNav select#workspaceSectionSelect.workspace-section-switch{font-size:.95rem !important;max-width:calc(100vw - 110px)}
+  .workspace-section-icon{width:26px;height:26px}
+  .workspace-section-icon-wrap{width:30px;height:30px;flex-basis:30px}
+}

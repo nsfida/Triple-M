@@ -142,12 +142,7 @@
       global.renderExpensesList = wrapped;
     }
     document.getElementById("ev2HistoryBtn")?.addEventListener("click", toggleHistory);
-    document.getElementById("ev2AddExpenseBtn")?.addEventListener("click", () => {
-      try {
-        if (typeof openExpenseModal === "function") openExpenseModal("expense");
-        else document.getElementById("openExpenseEntryBtn")?.click();
-      } catch (err) { console.error(err); }
-    });
+    // "Add" (#ev2AddBtn) opens the New Entry menu (shared menu code in 02-bindings.js).
     // Ctrl+Alt+F (search expenses) opens the history first.
     document.addEventListener("keydown", e => {
       if (!(e.ctrlKey && e.altKey && String(e.key).toLowerCase() === "f")) return;

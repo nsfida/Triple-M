@@ -966,7 +966,7 @@
   <script defer src="Assets/app/utils/01-currency-money.js?v=20260911-001&regional=158&currency=005"></script>
   <script defer src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1&currency=002&walletactions=20260915-001&workspacehome=20260916-003&amp;ev2=20261112"></script>
   <script defer src="Assets/app/core/06-app-loading.js?v=20260902-startup-loading1"></script>
-  <script defer src="Assets/app/core/07-theme.js?v=20261112-homestyle-001"></script>
+  <script defer src="Assets/app/core/07-theme.js?v=20261114-tw-001"></script>
   <script defer src="Assets/app/core/08-offline-sync.js?v=20261104-offline-reliability001"></script>
   <script defer src="Assets/app/core/10-offline-cache.js?v=20261104-offline-cache001"></script>
   <script defer src="Assets/app/inventory/01-inventory-meta-stock.js?v=20260908-audit-pagination-154&customerid=20260915-001"></script>
@@ -975,7 +975,7 @@
   <script defer src="Assets/app/inventory/04-inventory-barcodes-scanner.js?v=20260915-inventory-standards-001&amp;r=20261105-desktop350"></script>
   <script defer src="Assets/app/expenses/01-expenses-wallets.js?v=20260912-wallet-transactions-167&currency=002&build011=003&uifix=20260915-001&amp;ev2=20261112b"></script>
   <script defer src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001&amp;store=20261106-001&amp;inv2=20261110-215&amp;home=20261112-ev2"></script>
+  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001&amp;store=20261106-001&amp;inv2=20261110-215&amp;home=20261114-nav"></script>
   <script defer src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script defer src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
   <script defer src="Assets/app/installments/02-bought-sold-plans.js?v=20260915-installment-amount-mode-001"></script>
@@ -985,7 +985,7 @@
   <script defer src="Assets/app/accounting/01-accounting-suite.js?v=20261106-accounting380"></script>
   <script defer src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/expenses/03-expense-audit-pagination.js?v=20260908-server-pagination-155&uifix=20260915-001"></script>
-  <script defer src="Assets/app/expenses/04-expenses-v2.js?v=20261112-ev2-005"></script>
+  <script defer src="Assets/app/expenses/04-expenses-v2.js?v=20261114-ev2-006"></script>
   <script defer src="Assets/app/expenses/05-expenses-style.js?v=20261112-es-002"></script>
   <script defer src="Assets/app/expenses/06-wallet-logos.js?v=20261112-wl-001"></script>
   <script defer src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-executive-sections-158"></script>
@@ -1009,11 +1009,12 @@
   <script defer src="Assets/app/ui/04-app-downloads.js?v=20260921-windows-app002"></script>
   <script defer src="Assets/app/ui/05-card-order.js?v=20261106-cardorder001"></script>
   <script defer src="Assets/app/ui/06-home-names.js?v=20261112-homenames2"></script>
-  <script defer src="Assets/app/ui/07-home-style.js?v=20261112-homestyle2"></script>
+  <script defer src="Assets/app/ui/07-home-style.js?v=20261114-homestyle3"></script>
+  <script defer src="Assets/app/ui/08-text-style.js?v=20261114-tw-001"></script>
   <script defer src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139&amp;admininbox=20260917-169&amp;notifyopt=20261031-002&amp;offline=20261104-001&amp;winapp=20261105-001&amp;wns=20261105-360"></script>
   <script defer src="Assets/app/backup/01-backup-engine.js?v=20261111-backup002"></script>
   <script defer src="Assets/app/backup/02-backup-ui.js?v=20261111-backup381"></script>
-  <script defer src="Assets/app/desktop/01-windows-desktop.js?v=20261106-desktop390"></script>
+  <script defer src="Assets/app/desktop/01-windows-desktop.js?v=20261114-desktop390"></script>
   <script defer src="Assets/app/desktop/02-pdf-viewer.js?v=20261106-pdfview390"></script>
   <script defer src="Assets/app/desktop/03-desktop-search.js?v=20261106-search390"></script>
   <script defer src="Assets/app/attachments/03-file-storage-admin.js?v=20261110-att3"></script>
@@ -3774,9 +3775,10 @@
 
     <nav id="workspaceSectionNav" class="workspace-section-nav hide" aria-label="Section navigation">
       <button id="workspaceHomeBackBtn" class="workspace-home-back" type="button" aria-label="Back to Triplem VIP Home" title="Back to Triplem VIP Home">
-        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-        <span>Triplem VIP Home</span>
+        <i class="fa-solid fa-house" aria-hidden="true"></i>
+        <span class="workspace-home-back-text">Triplem VIP Home</span>
       </button>
+      <label class="workspace-section-icon-wrap" for="workspaceSectionSelect" aria-hidden="true"><img id="workspaceSectionIcon" class="workspace-section-icon" src="Assets/logo/icons/home/dashboard.svg?v=20261114" alt="" decoding="async" draggable="false"></label>
       <select id="workspaceSectionSelect" class="workspace-section-switch" aria-label="Quickly switch section" title="Switch section"></select>
     </nav>
 
@@ -3805,7 +3807,23 @@
           <button type="button" class="ev2-btn" id="ev2HistoryBtn" aria-pressed="false" aria-controls="expensesPanel"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>Expenses History</span></button>
           <button type="button" class="ev2-btn ev2-btn--icon" id="ev2PrivacyBtn" aria-pressed="false" title="Hide amounts" aria-label="Hide amounts"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
           <button type="button" class="ev2-btn ev2-btn--icon" id="ev2StyleBtn" aria-haspopup="dialog" aria-expanded="false" title="Expenses Style" aria-label="Expenses Style"><i class="fa-solid fa-palette" aria-hidden="true"></i></button>
-          <button type="button" class="ev2-btn ev2-btn--primary" id="ev2AddExpenseBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add<span class="ev2-long"> Expense</span></span></button>
+          <div class="menu-wrap ev2-add-wrap">
+            <button type="button" class="ev2-btn ev2-btn--add menu-trigger" id="ev2AddBtn" data-entry-menu="expenses" aria-haspopup="menu" aria-expanded="false" title="New entry"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add</span><i class="fa-solid fa-chevron-down ev2-caret" aria-hidden="true"></i></button>
+            <div class="menu-dropdown" data-entry-menu-panel="expenses">
+            <button type="button" class="menu-item" id="openExpenseAccountBtn"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Add Account</button>
+            <button type="button" class="menu-item" id="openExpenseTopupBtn" aria-keyshortcuts="Control+Alt+A"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i> Add Money</button>
+            <button type="button" class="menu-item" id="openExpenseEntryBtn" aria-keyshortcuts="Control+Alt+N"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> Add Expense</button>
+            <button type="button" class="menu-item" data-section-csv-download="expenses" title="Download expenses as CSV">
+            <i class="fa-solid fa-download"></i> Download CSV
+            </button>
+            <button type="button" class="menu-item" data-section-csv-upload="expenses" title="Upload CSV into expenses">
+            <i class="fa-solid fa-upload"></i> Upload CSV
+            </button>
+            <button type="button" class="menu-item" id="downloadExpensesPdfBtn" title="Download expenses PDF">
+            <i class="fa-solid fa-file-pdf"></i> Download PDF
+            </button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="overview-top hide" id="walletsBanner" hidden>
@@ -4555,23 +4573,6 @@
                   <button class="tiny ghost section-shortcuts-tag" id="expenseShortcutsBtn" type="button" data-shortcut-trigger="expenses" title="Expense keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal">
                     <i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span>
                   </button>
-                  <div class="menu-wrap">
-                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="expenses" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
-                    <div class="menu-dropdown" data-entry-menu-panel="expenses">
-                      <button type="button" class="menu-item" id="openExpenseAccountBtn">Add Account</button>
-                      <button type="button" class="menu-item" id="openExpenseTopupBtn" aria-keyshortcuts="Control+Alt+A">Add Money</button>
-                      <button type="button" class="menu-item" id="openExpenseEntryBtn" aria-keyshortcuts="Control+Alt+N">Add Expense</button>
-                      <button type="button" class="menu-item" data-section-csv-download="expenses" title="Download expenses as CSV">
-                        <i class="fa-solid fa-download"></i> Download CSV
-                      </button>
-                      <button type="button" class="menu-item" data-section-csv-upload="expenses" title="Upload CSV into expenses">
-                        <i class="fa-solid fa-upload"></i> Upload CSV
-                      </button>
-                      <button type="button" class="menu-item" id="downloadExpensesPdfBtn" title="Download expenses PDF">
-                        <i class="fa-solid fa-file-pdf"></i> Download PDF
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
               </div>

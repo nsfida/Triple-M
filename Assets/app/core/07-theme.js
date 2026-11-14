@@ -293,6 +293,7 @@ function renderThemeDropdown(){
   }
   applyTriplemBackgroundMotion(triplemBackgroundMotionEnabled(), { rebuild: false });
   try { window.TriplemHomeStyle?.updateSummary?.(); } catch (_) {}
+  try { window.TriplemTextStyle?.mount?.(dropdown); } catch (_) {}
   const activeTheme = isTriplemWorkspaceAuthenticated() ? readTriplemTheme() : "default";
   dropdown.querySelectorAll("[data-theme-choice]").forEach(button => {
     const selected = button.dataset.themeChoice === activeTheme;

@@ -629,7 +629,7 @@ function workspaceSectionIcon(key, pack = workspaceHomePack()){
   let k = String(key || "").trim();
   if (k === "inventory") k = "goods";
   if (!WORKSPACE_HOME_ICON_KEYS.includes(k)) k = "dashboard";
-  return `Assets/logo/icons/home/${k}.svg?v=20261111`;
+  return `Assets/logo/icons/home/${k}.svg?v=20261114`;
 }
 
 function workspaceSectionIconHtml(key, label, pack = workspaceHomePack(), layout = workspaceHomeStyle().layout){
@@ -804,6 +804,7 @@ function showWorkspaceHome(){
   if (home) home.classList.remove("hide");
   document.body.classList.add("workspace-home-active");
   document.body.dataset.workspaceSection = WORKSPACE_HOME_TAB;
+  try { window.TriplemTextStyle?.apply?.(); } catch (_) {}
   renderWorkspaceHome();
   ensureWorkspaceNavigationEvents();
   try { window.scrollTo({ top: 0, behavior: "auto" }); } catch (_) {}
@@ -820,6 +821,14 @@ function syncWorkspaceSectionNavigation(tab){
   document.body.dataset.workspaceSection = sectionKey;
   if (nav) nav.classList.remove("hide");
   if (title) title.textContent = workspaceDisplayLabel(sectionKey);
+  try { window.TriplemTextStyle?.apply?.(); } catch (_) {}
+  // Section icon beside the section name: the same icon as on Home (chosen icon pack).
+  const icon = document.getElementById("workspaceSectionIcon");
+  if (icon) {
+    const src = workspaceSectionIcon(sectionKey);
+    if (icon.getAttribute("src") !== src) icon.setAttribute("src", src);
+    icon.dataset.section = sectionKey;
+  }
   if (select) {
     const tabs = getWorkspaceOrderedTabButtons();
     const candidateButton = tabs.find(btn => workspaceTabKey(btn.dataset.tab) === sectionKey);

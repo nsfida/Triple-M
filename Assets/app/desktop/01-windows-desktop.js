@@ -575,6 +575,13 @@
       .desktop-appbar .dab-chip[data-tone="sync"] .dab-dot{animation:tvipPulse 1s ease-in-out infinite}
       .desktop-appbar .dab-chip.is-lock{background:color-mix(in srgb,var(--primary,#2457d6) 13%,transparent);color:var(--primary,#2457d6);padding:0 7px}
       .desktop-appbar .dab-chip.is-update{background:var(--primary,#2457d6);color:#fff}
+      /* Themes restyle button text and backgrounds (gradients, text-fill); the update chip and the
+         "Restart to update" button keep the theme's primary colour with its matching text colour. */
+      html body .btn.ghost.desktop-appbar .dab-chip.is-update,
+      html body .btn.ghost.desktop-appbar .dab-chip.is-update *{background:var(--primary,#2457d6)!important;background-image:none!important;color:var(--on-primary,#fff)!important;-webkit-text-fill-color:var(--on-primary,#fff)!important;font-weight:600!important;text-shadow:none!important}
+      html body #desktopAppMenu.desktop-app-menu .desktop-app-actions button.primary{background:var(--primary,#2457d6)!important;background-image:none!important;border-color:var(--primary,#2457d6)!important;color:var(--on-primary,#fff)!important;-webkit-text-fill-color:var(--on-primary,#fff)!important;box-shadow:none!important}
+      html body #desktopAppMenu.desktop-app-menu .desktop-app-actions button.primary:hover{filter:brightness(1.06)}
+      html body #desktopAppMenu.desktop-app-menu .desktop-app-update-line.is-ready{color:var(--primary,#2457d6)!important}
       .desktop-appbar .dab-caret{font-size:.62rem;color:var(--muted,#667085);margin:0 4px 0 2px;transition:transform .15s}
       .desktop-appbar[aria-expanded="true"] .dab-caret{transform:rotate(180deg)}
       @keyframes tvipPulse{50%{opacity:.35}}

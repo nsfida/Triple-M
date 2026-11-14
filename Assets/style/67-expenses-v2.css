@@ -496,3 +496,66 @@ html body #app #expensesPanel#expensesPanel .expense-item-row > summary{backgrou
   html body #app #expensesPanel#expensesPanel .expenses-head-tools{position:static !important;order:2}
   html body #app #expensesPanel#expensesPanel .title-row{padding-right:0 !important}
 }
+
+/* ════ 2026-11-14: frameless head buttons, "Add" menu, frameless filters ════ */
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn{
+  background:none !important;border:0 !important;box-shadow:none !important;
+  color:var(--text) !important;min-height:38px;padding:0 10px;border-radius:10px;gap:7px;transform:none;
+}
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn i{color:var(--primary) !important;font-size:.88rem}
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn:hover{background:color-mix(in srgb,var(--primary) 9%,transparent) !important}
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 50%,transparent);outline-offset:1px}
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn.is-on,
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn[aria-pressed="true"],
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn[aria-expanded="true"]{color:var(--primary) !important;background:none !important}
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn--icon{width:38px;padding:0}
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn--add{color:var(--primary) !important}
+#walletsOverviewSection .ev2-btn--add .ev2-caret{font-size:.62rem !important;opacity:.8;transition:transform .15s ease}
+#walletsOverviewSection .ev2-btn--add[aria-expanded="true"] .ev2-caret{transform:rotate(180deg)}
+.ev2-add-wrap{display:inline-flex}
+.menu-dropdown[data-entry-menu-panel="expenses"] .menu-item i{width:16px;text-align:center;color:var(--primary);margin-right:4px}
+@media (max-width:768px){
+  .ev2-actions{grid-template-columns:minmax(0,1fr) auto auto auto !important;gap:2px !important}
+  html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn{min-height:42px;padding:0 8px}
+  html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn--icon{width:40px}
+  .ev2-add-wrap{justify-content:flex-end}
+}
+
+/* filters and view switches: no background, just the text and a chevron */
+html body #app #expensesPanel#expensesPanel .compact-filter-row :is(.input,.select){
+  border:0 !important;background-color:transparent !important;box-shadow:none !important;border-radius:10px !important;
+  color:var(--text) !important;min-height:38px;
+}
+html body #app #expensesPanel#expensesPanel .compact-filter-row .select{
+  padding:0 28px 0 10px !important;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>") !important;
+  background-repeat:no-repeat !important;background-position:right 8px center !important;background-size:12px !important;
+  appearance:none;-webkit-appearance:none;
+}
+html body #app #expensesPanel#expensesPanel .compact-filter-row .select option{color:var(--text);background:var(--panel)}
+html body #app #expensesPanel#expensesPanel .compact-filter-row .compact-filter-search .input{
+  border-radius:0 !important;border-bottom:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;padding-left:30px !important;background-position:6px 50% !important;
+}
+html body #app #expensesPanel#expensesPanel .compact-filter-row :is(.input,.select):hover{background-color:color-mix(in srgb,var(--primary) 7%,transparent) !important}
+html body #app #expensesPanel#expensesPanel .compact-filter-row :is(.input,.select):focus{background-color:color-mix(in srgb,var(--primary) 7%,transparent) !important;box-shadow:none !important}
+html body #app #expensesPanel#expensesPanel .compact-filter-row .compact-filter-search .input:focus{border-bottom-color:var(--primary) !important}
+#expensesPanel .ev2-seg{background:none !important;padding:0 !important;gap:2px !important}
+#expensesPanel .ev2-seg button{position:relative;border-radius:10px !important;color:var(--muted) !important;background:none !important;box-shadow:none !important}
+#expensesPanel .ev2-seg button:hover{color:var(--text) !important;background:color-mix(in srgb,var(--primary) 7%,transparent) !important}
+#expensesPanel .ev2-seg button[aria-checked="true"]{color:var(--primary) !important;background:none !important;box-shadow:none !important}
+#expensesPanel .ev2-seg button[aria-checked="true"]::after{content:"";position:absolute;left:12px;right:12px;bottom:2px;height:2px;border-radius:2px;background:var(--primary)}
+html body #app #expensesPanel#expensesPanel .section-head-top .title-row :is(.tiny,.btn){background:none !important;border:0 !important;box-shadow:none !important;color:var(--text) !important}
+html body #app #expensesPanel#expensesPanel .section-head-top .title-row :is(.tiny,.btn) i{color:var(--primary)}
+html body #app #expensesPanel#expensesPanel .section-head-top .title-row :is(.tiny,.btn):hover{background:color-mix(in srgb,var(--primary) 8%,transparent) !important}
+
+@media (max-width:768px){
+  html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions #ev2HistoryBtn{justify-self:start;justify-content:flex-start}
+  #expensesPanel .compact-filter-main > .expense-date-range-control{order:5}
+  #expensesPanel .compact-filter-main > :is(.expense-wallet-select-control,.expense-status-control){flex:1 1 calc(50% - 6px) !important}
+}
+/* The history sits on the page in every theme (some themes give .panel a tinted glass background). */
+html body #app #expensesPanel#expensesPanel.panel{background:none !important;background-image:none !important;border:0 !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important}
+@media (max-width:700px){
+  html body #app #expensesPanel#expensesPanel .compact-filter-row .select{padding:0 20px 0 4px !important;background-position:right 2px center !important}
+  #expensesPanel .compact-filter-main{grid-template-columns:minmax(0,1fr) minmax(112px,128px) !important}
+}

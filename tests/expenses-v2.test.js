@@ -136,7 +136,7 @@ test("round 3: plain summary title, flat history, phone dropdown and short Add, 
   const w = read("Assets/app/expenses/01-expenses-wallets.js");
   assert.match(w, /<div class="currency-head ev2-sum-title">Summary<\/div>/);
   const html = read("index.html");
-  assert.match(html, /<span>Add<span class="ev2-long"> Expense<\/span><\/span>/);
+  assert.match(html, /id="ev2AddBtn" data-entry-menu="expenses"/);
   assert.match(html, /html:not\(\.auth-resuming\) #authResumeSplash \* \{ animation: none !important; \}/);
   const css = read("Assets/style/67-expenses-v2.css");
   assert.match(css, /#walletsOverviewSection#walletsOverviewSection\.ev2/);
@@ -148,4 +148,39 @@ test("round 3: plain summary title, flat history, phone dropdown and short Add, 
   const st = read("Assets/app/expenses/05-expenses-style.js");
   for (const k of ["wt:", "bal:", "st:", "sb:", "sl:", "sum:", "corners:", "density:", "labels:"]) assert.ok(st.includes(`    ${k} [`), k);
   assert.match(st, /wt: "regular", bal: "regular", st: "regular", sb: "regular", sl: "regular"/);
+});
+
+test("2026-11-14: Add menu replaces New Entry; frameless header, filters and section bar", () => {
+  const html = read("index.html");
+  assert.equal((html.match(/data-entry-menu="expenses"/g) || []).length, 1, "one New Entry menu: the Add button");
+  const add = html.slice(html.indexOf('<div class="menu-wrap ev2-add-wrap">'), html.indexOf('<div class="overview-top hide" id="walletsBanner"'));
+  for (const id of ["openExpenseAccountBtn", "openExpenseTopupBtn", "openExpenseEntryBtn", "downloadExpensesPdfBtn"]) assert.ok(add.includes(`id="${id}"`), id);
+  assert.doesNotMatch(read("Assets/app/expenses/04-expenses-v2.js"), /ev2AddExpenseBtn/);
+  assert.match(html, /id="workspaceHomeBackBtn"[^>]*>\s*<i class="fa-solid fa-house"/);
+  assert.match(html, /<img id="workspaceSectionIcon" class="workspace-section-icon"/);
+  assert.match(read("Assets/app/ui/01-render-navigation.js"), /const icon = document\.getElementById\("workspaceSectionIcon"\);/);
+  const css = read("Assets/style/67-expenses-v2.css");
+  assert.match(css, /\.ev2-actions \.ev2-btn\{\s*background:none !important;border:0 !important/);
+  assert.match(css, /\.compact-filter-row :is\(\.input,\.select\)\{\s*border:0 !important;background-color:transparent !important/);
+  assert.match(read("Assets/style/66-workspace-home-v2.css"), /#workspaceSectionNav \.workspace-home-back\{[^}]*background:none !important/);
+});
+
+test("2026-11-14: text weight is Regular by default, saved to the account, in the Theme menu", () => {
+  const js = read("Assets/app/ui/08-text-style.js");
+  assert.match(js, /const SETTINGS_KEY = "TextStyle";/);
+  assert.match(js, /const DEFAULT = "regular";/);
+  assert.match(js, /supabaseRpc\("app_update_own_settings", \{ p_settings: \{ \[SETTINGS_KEY\]: value \} \}/);
+  assert.match(read("index.html"), /<script defer src="Assets\/app\/ui\/08-text-style\.js\?v=[^"]+"><\/script>/);
+  assert.match(read("Assets/app/core/07-theme.js"), /window\.TriplemTextStyle\?\.mount\?\.\(dropdown\)/);
+  const css = read("Assets/style/66-workspace-home-v2.css");
+  assert.match(css, /html\.tm-tw-regular :is\(#tw-a,\*\)/);
+  assert.match(css, /:not\(\[class\*="fa-"\]\)/, "icons keep their weight");
+  const home = read("Assets/app/ui/07-home-style.js");
+  assert.match(home, /weight: "normal", captions: true/);
+});
+
+test("2026-11-14: Windows app update chip and Restart button use the theme's primary colours", () => {
+  const js = read("Assets/app/desktop/01-windows-desktop.js");
+  assert.match(js, /\.dab-chip\.is-update \*\{background:var\(--primary,#2457d6\)!important;background-image:none!important;color:var\(--on-primary,#fff\)!important/);
+  assert.match(js, /#desktopAppMenu\.desktop-app-menu \.desktop-app-actions button\.primary\{background:var\(--primary,#2457d6\)!important/);
 });

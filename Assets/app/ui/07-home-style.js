@@ -16,7 +16,7 @@
 
   const SETTINGS_KEY = "HomeStyle";
   const LOCAL_PREFIX = "triplem-home-style-v1:";
-  const ICON_VERSION = "20261112b";
+  const ICON_VERSION = "20261114";
   const SAMPLE_KEYS = ["dashboard", "expenses", "inventory2", "notes"];
   const CLASSIC_FILES = {
     dashboard: "dashboard.png", expenses: "expenses.png", accounting: "accounting.png", assets: "assets.png",
@@ -30,7 +30,11 @@
     { id: "jewel", label: "Jewel", note: "Jewel tiles with a gold rim" },
     { id: "pastel", label: "Pastel", note: "Soft tiles, bright symbols" },
     { id: "neon", label: "Midnight Neon", note: "Dark tiles that glow" },
-    { id: "luxe", label: "Luxe Teal", note: "Triplem VIP teal and gold" }
+    { id: "luxe", label: "Luxe Teal", note: "Triplem VIP teal and gold" },
+    { id: "outline", label: "Outline", note: "Clean coloured lines, no background" },
+    { id: "duotone", label: "Duotone", note: "Soft tint with coloured lines" },
+    { id: "gradient", label: "Vivid Gradient", note: "Bright gradient shapes" },
+    { id: "solid", label: "Solid Teal", note: "One calm colour, simple shapes" }
   ];
   const LAYOUTS = [
     { id: "grid", label: "Icons", note: "Large icons, no frames" },
@@ -42,7 +46,7 @@
   const GAP = { min: 40, max: 180, step: 10, def: 100 };
   // Choices shown as small segmented buttons: [value, label]
   const CHOICES = {
-    weight: [["bold", "Bold"], ["normal", "Normal"]],
+    weight: [["normal", "Regular"], ["bold", "Bold"]],
     text: [["s", "Small"], ["m", "Medium"], ["l", "Large"]],
     backdrop: [["none", "None"], ["circle", "Circle"], ["square", "Square"]],
     motion: [["zoom", "Zoom"], ["lift", "Lift"], ["none", "None"]]
@@ -51,7 +55,7 @@
   const TEXT_SCALE = { s: 0.9, m: 1, l: 1.12 };
   const DEFAULTS = Object.freeze({
     pack: "standard", layout: "grid", size: SIZE.def, gap: GAP.def,
-    weight: "bold", captions: true, text: "m", backdrop: "none", motion: "zoom",
+    weight: "normal", captions: true, text: "m", backdrop: "none", motion: "zoom",
     greeting: true, tips: true, hidden: Object.freeze([])
   });
   const KEY_RE = /^[a-z][a-z0-9-]{0,39}$/;
@@ -160,7 +164,7 @@
     if (k === "message") k = "messages";
     if (pack === "classic") return `Assets/logo/icons/${CLASSIC_FILES[k] || "dashboard.png"}`;
     if (!Object.prototype.hasOwnProperty.call(CLASSIC_FILES, k)) k = "dashboard";
-    if (pack === "standard") return `Assets/logo/icons/home/${k}.svg?v=20261111`;
+    if (pack === "standard") return `Assets/logo/icons/home/${k}.svg?v=20261114`;
     return `Assets/logo/icons/packs/${pack}/${k}.svg?v=${ICON_VERSION}`;
   }
 
