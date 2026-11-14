@@ -338,7 +338,7 @@
       return;
     }
     const body = $("#accountingWorkspaceBody");
-    if (body) body.innerHTML = `<div class="accounting-loading"><span class="spinner"></span><strong>Loading accounting books…</strong></div>`;
+    if (body) body.innerHTML = window.TriplemSkeleton ? window.TriplemSkeleton.html("stats", 4, "Loading accounting books") + window.TriplemSkeleton.html("rows", 4, "Loading accounting books") : `<div class="accounting-loading"><span class="spinner"></span><strong>Loading accounting books…</strong></div>`;
     stateA.loading = true;
     stateA.schemaMissing = false;
     try {

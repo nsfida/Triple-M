@@ -12238,39 +12238,39 @@ html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-
    theme (light and dark) keeps working. */
 
 /* ── 1. No outer frames ──────────────────────────────────────────────────────────── */
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#triplem-aiPanel,#adminPanel).panel,
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#triplem-aiPanel) > .card.section,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#triplem-aiPanel,#adminPanel).panel,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#triplem-aiPanel) > .card.section,
 html body #app#app #adminPanel #adminPanelContent > .card.section,
 html body #app#app #accountingPanel > .card,
 html body #app#app #accountingPanel .accounting-shell{
   background:none !important;background-image:none !important;border:0 !important;box-shadow:none !important;
   -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
 }
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#triplem-aiPanel) > .card.section,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#triplem-aiPanel) > .card.section,
 html body #app#app #adminPanel #adminPanelContent > .card.section,
 html body #app#app #accountingPanel > .card{padding:0 !important;margin:0 !important;border-radius:0 !important;overflow:visible !important}
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) :is(.card.section,.card)::before,
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) :is(.card.section,.card)::after{content:none !important;display:none !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) :is(.card.section,.card)::before,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) :is(.card.section,.card)::after{content:none !important;display:none !important}
 
 /* ── 2. Page heading ─────────────────────────────────────────────────────────────── */
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head,
 html body #app#app #accountingPanel .accounting-section-head{
   background:none !important;border:0 !important;box-shadow:none !important;padding:0 !important;margin:0 0 10px !important;
 }
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head-top{
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head-top{
   display:flex !important;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:0 !important;background:none !important;border:0 !important;
 }
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head-top .title-row{display:flex !important;align-items:center;gap:4px 6px;flex-wrap:wrap;padding:0 !important}
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head-top .title-row h3,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head-top .title-row{display:flex !important;align-items:center;gap:4px 6px;flex-wrap:wrap;padding:0 !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head-top .title-row h3,
 html body #app#app #accountingPanel .accounting-section-head h3{
   margin:0 8px 0 0 !important;font-size:clamp(1.2rem,2vw,1.5rem) !important;letter-spacing:-.03em;line-height:1.2;color:var(--text) !important;
 }
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head-top .title-group > p,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head-top .title-group > p,
 html body #app#app #accountingPanel .accounting-section-head p{margin:4px 0 0 !important;font-size:.82rem !important;color:var(--muted) !important;line-height:1.45}
 
 /* ── 3. Frameless buttons (heading tools, Add ▾, Actions ▾, admin tools) ─────────── */
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny),
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > .menu-wrap > .menu-trigger,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny),
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > .menu-wrap > .menu-trigger,
 html body #app#app #accountingPanel .accounting-head-actions > :is(button,.btn),
 html body #app#app #accountingPanel .accounting-context-actions > :is(button,.btn),
 html body #app#app #accountingPanel .accounting-card-head :is(button,.btn){
@@ -12279,13 +12279,13 @@ html body #app#app #accountingPanel .accounting-card-head :is(button,.btn){
   color:var(--text) !important;font-size:.84rem !important;line-height:1.1;cursor:pointer;transform:none !important;white-space:nowrap;
   -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
 }
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny) i,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny) i,
 html body #app#app #accountingPanel :is(.accounting-head-actions,.accounting-context-actions,.accounting-card-head) :is(button,.btn) i{color:var(--primary) !important;font-size:.88rem}
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny):hover,
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > .menu-wrap > .menu-trigger:hover,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny):hover,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > .menu-wrap > .menu-trigger:hover,
 html body #app#app #accountingPanel :is(.accounting-head-actions,.accounting-context-actions,.accounting-card-head) :is(button,.btn):hover{background:color-mix(in srgb,var(--primary) 9%,transparent) !important}
 /* Add ▾ / Actions ▾ / New: primary text, like "Add ▾" in Expenses */
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head .menu-wrap > .menu-trigger,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head .menu-wrap > .menu-trigger,
 html body #app#app #accountingPanel .accounting-head-actions > .btn.primary,
 html body #app#app #accountingPanel .accounting-card-head .btn.primary,
 html body #app#app #assetsPanel #openAddAssetBtn{color:var(--primary) !important}
@@ -12293,28 +12293,28 @@ html body #app#app #accountingPanel .accounting-head-actions > .btn.primary i,
 html body #app#app #accountingPanel .accounting-card-head .btn.primary i{color:var(--primary) !important}
 .v2-caret{font-size:.62rem !important;opacity:.8;transition:transform .15s ease;margin-left:1px}
 .menu-trigger[aria-expanded="true"] .v2-caret{transform:rotate(180deg)}
-html.tm-kbd body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .section-head button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 45%,transparent) !important;outline-offset:1px}
+html.tm-kbd body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .section-head button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 45%,transparent) !important;outline-offset:1px}
 
 /* ── 4. Same menu style as Add ▾ for every menu in these sections ─────────────────── */
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown,
+html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown,
 html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"]{
   background:linear-gradient(var(--surface-elevated,rgba(255,255,255,.94)),var(--surface-elevated,rgba(255,255,255,.94))),var(--bg,#fff) !important;
   border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:12px !important;
   box-shadow:0 18px 40px -12px rgba(15,23,42,.28),0 2px 6px rgba(15,23,42,.06) !important;
   -webkit-backdrop-filter:none !important;backdrop-filter:none !important;padding:5px !important;gap:1px !important;
 }
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item,
+html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item,
 html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item{
   background:transparent !important;background-image:none !important;border:0 !important;box-shadow:none !important;
   border-radius:8px !important;padding:7px 10px !important;min-height:0 !important;margin:0 !important;
   color:var(--text) !important;font-size:.82rem !important;line-height:1.3 !important;display:flex !important;align-items:center;gap:9px;text-align:left;
   -webkit-backdrop-filter:none !important;backdrop-filter:none !important;transform:none !important;
 }
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item:is(:hover,:focus-visible),
+html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item:is(:hover,:focus-visible),
 html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item:is(:hover,:focus-visible){background:color-mix(in srgb,var(--primary) 9%,transparent) !important;outline:none}
-:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item i{width:18px;text-align:center;color:var(--primary)}
-:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger){color:var(--danger) !important}
-:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger) i{color:var(--danger)}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item i{width:18px;text-align:center;color:var(--primary)}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger){color:var(--danger) !important}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger) i{color:var(--danger)}
 
 /* ── 5. Underline tabs instead of boxed switches ─────────────────────────────────── */
 html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch,
@@ -12422,8 +12422,8 @@ html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#in
 .loanHistoryToggle[aria-expanded="true"] i{transform:rotate(180deg)}
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) details.loan > .detail{border-top:1px dashed color-mix(in srgb,var(--line) 85%,transparent);padding:12px 14px !important;background:none !important}
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) details.loan > .detail .table-wrap{border-radius:12px;overflow:auto}
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel) .list > .empty,
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel) .empty{
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel) .list > .empty,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel) .empty{
   background:none !important;border:1px dashed color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:16px !important;box-shadow:none !important;
   padding:28px 14px !important;text-align:center;color:var(--muted) !important;width:auto !important;max-width:none !important;
 }
@@ -12536,8 +12536,8 @@ html body #app#app #adminPanel .admin-user-tile-name{font-size:.8rem;color:var(-
   html body #app#app #accountingPanel .accounting-subnav{flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch::-webkit-scrollbar,
   html body #app#app #accountingPanel .accounting-subnav::-webkit-scrollbar{display:none}
-  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny),
-  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > .menu-wrap > .menu-trigger{min-height:40px;padding:0 8px !important}
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny),
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > .menu-wrap > .menu-trigger{min-height:40px;padding:0 8px !important}
   html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .list > details.loan > summary{padding:10px 12px !important}
   html body #app#app #accountingPanel .accounting-tools-row{flex-wrap:wrap}
   html body #app#app #accountingPanel .accounting-search{flex:1 1 100%}
@@ -12545,7 +12545,7 @@ html body #app#app #adminPanel .admin-user-tile-name{font-size:.8rem;color:var(-
 
 /* ── 14. Corrections after review ────────────────────────────────────────────────── */
 /* buttons that the app hides stay hidden */
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel,#accountingPanel) :is(button,.btn,.tiny,.menu-wrap):is(.hide,[hidden]){display:none !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel,#accountingPanel) :is(button,.btn,.tiny,.menu-wrap):is(.hide,[hidden]){display:none !important}
 /* empty states use the full width */
 html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .list > .empty{grid-column:1 / -1;width:100% !important;box-sizing:border-box}
 /* Accounting heading: title left, actions right */
@@ -12565,13 +12565,13 @@ html body #app#app #bitcoinPanel #btcLoginSection .menu-wrap:not(.btc-wallet-acc
 html body #app#app #bitcoinPanel .btc-qr-scan-btn{border-radius:12px !important;background:transparent !important;box-shadow:none !important}
 html body #app#app #accountingPanel .accounting-section-head::before,
 html body #app#app #accountingPanel .accounting-section-head::after,
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head::before,
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head::after{content:none !important;display:none !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head::before,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel) .section-head::after{content:none !important;display:none !important}
 html body #app#app #accountingPanel .accounting-section-head{flex-direction:row !important;flex-wrap:nowrap !important;align-items:center !important;min-height:0 !important;height:auto !important}
 html body #app#app #accountingPanel .accounting-section-head > div:first-child{height:auto !important;min-height:0 !important;align-self:center}
 @media (max-width:760px){html body #app#app #accountingPanel .accounting-section-head{flex-wrap:wrap !important}}
 /* anything the app hides stays hidden (beats the frameless button rules above) */
-html body #app#app :is(#h-a,*):is(#h-b,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel,#accountingPanel) :is(button,.btn,.tiny,.menu-wrap):is(.hide,[hidden]){display:none !important}
+html body #app#app :is(#h-a,*):is(#h-b,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#bitcoinPanel,#adminPanel,#accountingPanel) :is(button,.btn,.tiny,.menu-wrap):is(.hide,[hidden]){display:none !important}
 html body #app#app #bitcoinPanel #btcLoginSection .menu-wrap:not(.btc-wallet-access-wrap) > .menu-trigger{display:inline-flex !important;align-items:center;gap:10px}
 @media (max-width:760px){
   html body #app#app #accountingPanel .accounting-kpi strong{font-size:1.02rem !important}
@@ -12647,3 +12647,104 @@ html body #app#app #assetsPanel .asset-card :is(.asset-card-aside,.asset-card-ne
 @keyframes tmTestFade{from{opacity:0}to{opacity:1}}
 @keyframes tmTestPop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.tm-test-notice-backdrop,.tm-test-notice-card{animation:none}}
+
+/* Admin: plan days and shared test account password (2026-11-14) */
+.manage-plan-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
+.manage-plan-chip{border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;font-size:12.5px;padding:5px 11px;border-radius:999px;cursor:pointer}
+.manage-plan-chip:hover,.manage-plan-chip.is-active{border-color:var(--primary);color:var(--primary);background:color-mix(in srgb,var(--primary) 9%,transparent)}
+.manage-plan-chip:disabled{opacity:.5;cursor:not-allowed}
+.admin-test-pw-block{border:1px solid color-mix(in srgb,var(--primary) 30%,var(--line));border-radius:14px;padding:14px 16px;margin:0 0 16px;background:color-mix(in srgb,var(--primary) 5%,transparent)}
+.admin-test-pw-block .admin-section-title i{color:var(--primary);margin-right:6px}
+.admin-test-pw-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+#adminTestPwStatus.is-ok{color:#16a34a}#adminTestPwStatus.is-error{color:var(--danger,#dc2626)}
+
+
+/* ── Unified overlays (2026-11-14 b) ───────────────────────────────────────────────────
+   Every dialog uses the Expenses dialog as the model: same head, labels, fields and a centred
+   row of pill buttons (Cancel, then the primary action). */
+html body .modal:is(#u-a,*):is(#u-b,*):not(.tm-test-notice) .modal-dialog:not(.settings-sheet){border-radius:22px !important}
+html body .modal:is(#u-a,*):is(#u-b,*) .modal-head{padding:10px 12px 6px !important;border-bottom:0 !important;background:none !important;align-items:center}
+html body .modal:is(#u-a,*):is(#u-b,*) .modal-head h3{font-size:.95rem !important;letter-spacing:-.01em;line-height:1.3;margin:0 !important}
+html body .modal:is(#u-a,*):is(#u-b,*) .modal-head p{font-size:.72rem !important;color:var(--muted) !important;margin:2px 0 0 !important;line-height:1.4}
+html body .modal:is(#u-a,*):is(#u-b,*) .modal-body{padding:8px 12px 12px !important}
+html body .modal:is(#u-a,*):is(#u-b,*) :is(.modal-body,.settings-sheet-body) :is(label,.form-label):not(.admin-inline-check,.tm-switch,[class*="toggle"],[class*="check"],[class*="chip"],[class*="option"],[class*="card"]){font-size:.72rem !important;letter-spacing:normal !important;text-transform:none !important;color:var(--text) !important}
+html body .modal:is(#u-a,*):is(#u-b,*) :is(.modal-body,.settings-sheet-body) :is(input:not([type="checkbox"],[type="radio"],[type="range"],[type="file"],[type="color"],[type="hidden"]),select){min-height:32px !important;font-size:.78rem !important;border-radius:8px !important}
+html body .modal:is(#u-a,*):is(#u-b,*) :is(.modal-body,.settings-sheet-body) textarea{font-size:.78rem !important;border-radius:8px !important}
+html.tm-tw-regular body .modal:is(#u-a,*):is(#u-b,*) :is(input,select,textarea){font-weight:400 !important}
+html.tm-tw-regular body :is(#u-a,*):is(#u-b,*) :is(.panel,.inv2-root) :is(input,select,textarea){font-weight:400 !important}
+/* Buttons row */
+html body .modal:is(#u-a,*):is(#u-b,*):not(.tm-test-notice) :is(.modal-footer,.note-action-row,.modal-actions){
+  display:flex !important;flex-direction:row !important;flex-wrap:wrap;justify-content:center !important;align-items:center !important;gap:8px !important;
+  padding:6px 0 1px !important;margin-top:4px;background:none !important;border:0 !important;box-shadow:none !important;position:static !important;
+}
+html body .modal:is(#u-a,*):is(#u-b,*):not(.tm-test-notice) :is(.modal-footer,.note-action-row,.modal-actions) > :is(button,.btn){
+  flex:0 0 auto !important;width:auto !important;min-width:0 !important;height:34px !important;min-height:34px !important;padding:0 15px !important;
+  border-radius:999px !important;font-size:.72rem !important;line-height:1 !important;display:inline-flex !important;align-items:center;justify-content:center;gap:6px;
+}
+/* One typeface everywhere (Notes used a typewriter face) */
+html body :is(#notesPanel,.note-workspace-modal,#noteDetailModal,#noteReminderModal):is(#u-a,*):is(#u-b,*) :is(h1,h2,h3,h4,p,span,div,label,input,textarea,button,strong,small,li,a):not(i,[class*="fa-"],[class*="currency"],code,pre,kbd){font-family:inherit !important}
+html body :is(#notesPanel,.note-workspace-modal,#noteDetailModal,#noteReminderModal):is(#u-a,*):is(#u-b,*){font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important}
+
+/* ── Skeleton loading (2026-11-14) ─────────────────────────────────────────────────────
+   Soft placeholder shapes while records load. One opacity animation per group (cheap). */
+.tm-skel{--tm-skel-c:color-mix(in srgb,var(--text,#0f172a) 10%,transparent);display:grid;gap:10px;padding:2px 0;width:100%;grid-column:1/-1;
+  animation:tmSkelPulse 1.25s ease-in-out infinite;contain:content}
+.tm-skel-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.tm-skel-tiles.tm-skel-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.tm-skel-stats.tm-skel-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+.tm-skel-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.tm-skel-bar{display:block;border-radius:999px;background:var(--tm-skel-c);max-width:100%}
+.tm-skel-row,.tm-skel-card,.tm-skel-tile{border:1px solid color-mix(in srgb,var(--line,#e2e8f0) 70%,transparent);border-radius:14px;
+  background:color-mix(in srgb,var(--surface-elevated,#fff) 55%,transparent);padding:14px 16px;display:grid;gap:10px}
+.tm-skel-row{grid-template-columns:minmax(120px,1.2fr) 3fr;align-items:center;min-height:64px}
+.tm-skel-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(60px,1fr));gap:12px;align-items:center}
+.tm-skel-card{min-height:118px;align-content:start}
+.tm-skel-stat{min-height:70px}
+.tm-skel-tile{justify-items:center;min-height:84px;align-content:center}
+.tm-skel-dot{width:38px;height:38px;border-radius:50%;background:var(--tm-skel-c)}
+@keyframes tmSkelPulse{0%,100%{opacity:1}50%{opacity:.5}}
+@media (max-width:640px){.tm-skel-row{grid-template-columns:1fr}.tm-skel-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+@media (prefers-reduced-motion:reduce){.tm-skel,.inv2-loading{animation:none !important}}
+/* Inventory 2.0 and other "Loading…" lines become the same placeholder (text stays for screen readers) */
+html body .inv2-loading:is(#sk-a,*){display:block !important;font-size:0 !important;color:transparent !important;min-height:176px;border-radius:12px;margin:8px 0;
+  background:repeating-linear-gradient(to bottom,color-mix(in srgb,var(--text,#0f172a) 9%,transparent) 0 14px,transparent 14px 44px) 16px 16px / calc(100% - 32px) calc(100% - 20px) no-repeat !important;
+  animation:tmSkelPulse 1.25s ease-in-out infinite}
+html body .inv2-loading:is(#sk-a,*) > i{display:none !important}
+
+/* ── Inventory 2.0 follows the chosen theme (2026-11-14) ──────────────────────────────
+   It had its own fixed blue palette. Its colours now come from the same theme tokens as
+   Home and Expenses, in every theme, and the side menu is a calm surface with primary icons. */
+html body .inv2-app:is(#iv-a,*){
+  --inv2-blue:var(--primary);--inv2-blue-2:var(--primary);--inv2-accent-text:var(--primary);
+  --inv2-bg:var(--bg);--inv2-surface:var(--surface-elevated,var(--panel));--inv2-line:var(--line);--inv2-text:var(--text);--inv2-muted:var(--muted);
+  --inv2-shadow:none;background:var(--bg) !important;color:var(--text) !important;
+}
+html body .inv2-app:is(#iv-a,*) .inv2-sidebar{background:linear-gradient(var(--surface-elevated,var(--panel)),var(--surface-elevated,var(--panel))),var(--bg) !important;color:var(--text) !important;border-right:1px solid var(--line)}
+html body .inv2-app:is(#iv-a,*) .inv2-nav-item{color:var(--text) !important;font-weight:400}
+html body .inv2-app:is(#iv-a,*) .inv2-nav-item i{color:var(--primary)}
+html body .inv2-app:is(#iv-a,*) .inv2-nav-item:hover{background:color-mix(in srgb,var(--primary) 8%,transparent) !important}
+html body .inv2-app:is(#iv-a,*) .inv2-nav-item.active{background:color-mix(in srgb,var(--primary) 13%,transparent) !important;color:var(--primary) !important;box-shadow:none !important;font-weight:500}
+html body .inv2-app:is(#iv-a,*) .inv2-identity{background:color-mix(in srgb,var(--primary) 7%,transparent) !important}
+html body .inv2-app:is(#iv-a,*) .inv2-avatar{background:color-mix(in srgb,var(--primary) 14%,transparent) !important;color:var(--primary) !important}
+html body .inv2-app:is(#iv-a,*) .inv2-brand-logo{background:transparent !important}
+html body .inv2-app:is(#iv-a,*) .inv2-brand-text strong{font-weight:500}
+html.tm-tw-regular body .inv2-app:is(#iv-a,*) :is(h1,h2,h3,h4,strong,b,th,label,button,.inv2-btn){font-weight:400}
+html.tm-tw-regular body .inv2-app:is(#iv-a,*) :is(h1,h2){font-weight:500}
+
+/* ── Tabs as underline tabs everywhere (Dashboard, Insurance) ──────────────────────── */
+html body #app#app :is(.dashboard-main-tabs,.insurance-view-tabs){background:none !important;border:0 !important;border-bottom:1px solid var(--line) !important;border-radius:0 !important;box-shadow:none !important;padding:0 !important;gap:4px 14px !important;display:flex !important;flex-wrap:wrap;width:100% !important;margin:6px 0 12px !important}
+html body #app#app :is(.dashboard-main-tabs,.insurance-view-tabs) > button{background:none !important;background-image:none !important;border:0 !important;border-bottom:2px solid transparent !important;border-radius:0 !important;box-shadow:none !important;color:var(--muted) !important;padding:8px 2px !important;min-height:34px;font-size:.84rem !important;margin:0 0 -1px !important;transform:none !important}
+html body #app#app :is(.dashboard-main-tabs,.insurance-view-tabs) > button i{color:inherit !important}
+html body #app#app :is(.dashboard-main-tabs,.insurance-view-tabs) > button:is(.active,[aria-selected="true"]){color:var(--primary) !important;border-bottom-color:var(--primary) !important}
+
+/* ── Admin and settings sheets: the same pill buttons as every other dialog ────────── */
+html body .modal:is(#u-a,*):is(#u-b,*) :is(.settings-sheet-foot,.manage-plan-row,.manage-plan-extra,.admin-test-pw-actions,.account-security-approval-actions) :is(button,.btn),
+html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet :is(div,footer):has(> :is(.btn.primary,button[type="submit"])) > :is(button,.btn){
+  height:34px !important;min-height:34px !important;width:auto !important;padding:0 15px !important;border-radius:999px !important;font-size:.72rem !important;line-height:1 !important;
+  display:inline-flex !important;align-items:center;justify-content:center;gap:6px;flex:0 0 auto !important}
+html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet-foot{display:flex !important;justify-content:center !important;gap:8px !important;border-top:0 !important;background:none !important;padding:8px 12px 12px !important}
+html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet-head{padding:12px 14px 8px !important;border-bottom:0 !important;background:none !important}
+html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet-head h3{font-size:.95rem !important;margin:0 !important}
+html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet-head p{font-size:.72rem !important;color:var(--muted) !important;margin:2px 0 0 !important}
+html body .modal:is(#u-a,*):is(#u-b,*) .manage-plan-block-head > span:first-child{font-size:.84rem}
+html.tm-tw-regular body .modal:is(#u-a,*):is(#u-b,*) :is(.manage-plan-block-head,.admin-access-kv,.admin-section-title) :is(span,strong,h4){font-weight:400 !important}

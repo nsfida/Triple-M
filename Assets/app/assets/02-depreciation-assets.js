@@ -427,7 +427,7 @@
       depUi.loading = true;
       const listEl = document.getElementById("depAssetsList");
       if (listEl && depUi.module === "depreciation") {
-        listEl.innerHTML = '<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading depreciation assets...</div>';
+        listEl.innerHTML = window.TriplemSkeleton ? window.TriplemSkeleton.html("rows", 3, "Loading depreciation assets") : '<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading depreciation assets...</div>';
       }
       const ownerQ = typeof ownerIdQuery === "function" ? ownerIdQuery() : "";
       const rows = await supabase(

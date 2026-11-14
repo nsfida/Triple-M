@@ -292,7 +292,7 @@ async function loadAdminUsers(){
   bindAdminUserSearch();
   if(!userHasPermission("admin_panel","view")){ list.classList.remove("admin-users-grid"); list.innerHTML=`<div class="empty admin-themed-loading">Administrator access required.</div>`; return; }
   list.classList.remove("admin-users-grid");
-  list.innerHTML=`<div class="empty admin-themed-loading"><i class="fa-solid fa-spinner btn-loader"></i> Loading users…</div>`;
+  list.innerHTML=window.TriplemSkeleton ? window.TriplemSkeleton.html("tiles", 12, "Loading users") : `<div class="empty admin-themed-loading"><i class="fa-solid fa-spinner btn-loader"></i> Loading users…</div>`;
   try{
     const users=await supabaseRpc("app_admin_list_users",{}); const rows=Array.isArray(users)?users:[];
     let subscriptionRows=[];
@@ -1618,9 +1618,9 @@ function buildAdminUserFormFields(prefix, user = null){
       <div class="form-group" style="grid-column:1/-1">
         <label class="admin-inline-check">
           <input id="${prefix}ApplyPeriod" type="checkbox" />
-          Apply access period on save
+          Apply this access period when saving
         </label>
-        <p class="help" style="margin:4px 0 0">Current expiry: ${escapeHtml(formatTrialExpiry(user.trial_expires_at))}</p>
+        <p class="help" style="margin:4px 0 0">Current expiry: ${escapeHtml(formatTrialExpiry(user.trial_expires_at))}. Ticked automatically when you change the period, days or date; the new period starts today.</p>
       </div>` : ""}
     </div>
 
@@ -2051,6 +2051,62 @@ function openAdminCreateUserModal(){
   };
 }
 
+// Shared test accounts (migrations 226/227): they cannot change their own password, so the
+// protected Main Admin sets it here. Shown only for accounts the server lists as test accounts.
+async function mountAdminTestAccountPassword(modal, user){
+  if (!isProtectedAdminSession() || !user?.id || user.is_protected) return;
+  let isTest = false;
+  try { isTest = (await supabaseRpc("app_admin_test_account_info", { p_user_id: user.id }))?.test_account === true; }
+  catch (_) { return; } // database without migration 227
+  const host = modal.querySelector("#adminEditFormBody");
+  if (!isTest || !host || !modal.isConnected || modal.querySelector("#adminTestPwBlock")) return;
+  const must = modal.querySelector("#adminEditMustChange");
+  if (must) { must.checked = false; must.disabled = true; must.closest("label")?.setAttribute("title", "A shared test account cannot change its own password."); }
+  const block = document.createElement("div");
+  block.id = "adminTestPwBlock";
+  block.className = "admin-branding-block admin-test-pw-block";
+  block.innerHTML = `
+    <h4 class="admin-section-title"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Shared test account</h4>
+    <p class="help">Testers cannot change this account's password, Smart PIN, authenticator or passkeys, and cannot delete records. Only you can set its password here. Everyone signed in is signed out and uses the new password.</p>
+    <div class="admin-form-grid">
+      <div class="form-group">
+        <label class="form-label" for="adminTestPwNew">New password</label>
+        <div class="admin-password-row">
+          <input id="adminTestPwNew" class="input" type="password" autocomplete="new-password" placeholder="8+ chars, upper, lower, number" />
+          <button type="button" class="pw-eye-btn" data-toggle-form-pw="adminTestPwNew" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="adminTestPwRepeat">Repeat new password</label>
+        <input id="adminTestPwRepeat" class="input" type="password" autocomplete="new-password" />
+      </div>
+    </div>
+    <div class="admin-test-pw-actions">
+      <button type="button" class="btn primary tiny" id="adminTestPwSave"><i class="fa-solid fa-key" aria-hidden="true"></i> Set password</button>
+      <span id="adminTestPwStatus" class="help" role="status"></span>
+    </div>`;
+  host.prepend(block);
+  bindAdminFormPasswordToggle(block);
+  const status = block.querySelector("#adminTestPwStatus");
+  block.querySelector("#adminTestPwSave").onclick = async e => {
+    const btn = e.currentTarget;
+    const a = block.querySelector("#adminTestPwNew"), b = block.querySelector("#adminTestPwRepeat");
+    status.classList.remove("is-ok", "is-error");
+    try {
+      assertPasswordPolicy(a.value);
+      if (a.value !== b.value) throw new Error("The two passwords are not the same.");
+      btn.disabled = true;
+      await supabaseRpc("app_admin_set_test_account_password", { p_user_id: user.id, p_new_password: a.value });
+      a.value = ""; b.value = "";
+      status.textContent = "Password changed. Testers sign in again with the new password.";
+      status.classList.add("is-ok");
+    } catch (ex) {
+      status.textContent = ex?.message || "The password could not be changed.";
+      status.classList.add("is-error");
+    } finally { btn.disabled = false; }
+  };
+}
+
 function openAdminEditUserModal(user){
   let modal = document.getElementById("adminEditUserModal");
   if (!modal) {
@@ -2084,6 +2140,16 @@ function openAdminEditUserModal(user){
   bindAdminLogoPicker("adminEdit", user.id);
   bindAdminFormPasswordToggle(modal);
   bindAccessPeriodFields(modal);
+  // 2026-11-14: changing the period, days or date is a request to apply it. Before, the new
+  // period was saved only when a separate tick box was also ticked, so the change was lost.
+  const markPeriodChanged = e => {
+    if (!e.target?.matches?.("#adminEditAccessPeriod, #adminEditAccessDays, #adminEditAccessUntil")) return;
+    const tick = modal.querySelector("#adminEditApplyPeriod");
+    if (tick && !tick.disabled) tick.checked = true;
+  };
+  modal.oninput = markPeriodChanged;
+  modal.onchange = markPeriodChanged;
+  mountAdminTestAccountPassword(modal, user);
   bindAdminTeamLimitControl(modal, "adminEdit");
   bindBitcoinAccessControls(body, "adminEdit");
   bindAdminAccountingAccessControl(body, "adminEdit");

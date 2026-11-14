@@ -1341,7 +1341,7 @@ async function loadNotesFromDatabase(options = {}) {
   try {
     state.notesLoading = true;
     if (els.notesList) {
-      els.notesList.innerHTML = '<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading notes...</div>';
+      els.notesList.innerHTML = window.TriplemSkeleton ? window.TriplemSkeleton.html("cards", 5, "Loading notes") : '<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading notes...</div>';
     }
     console.log('Loading notes from database...');
     const rows = await supabase(`${CONFIG.table}?select=*&direction=eq.taken&person_name=eq.SYSTEM${ownerIdQuery()}&order=created_at.desc`);

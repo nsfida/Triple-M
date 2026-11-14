@@ -590,7 +590,7 @@ async function loadAssetsFromDatabase(options = {}) {
     state.assetsLoading = true;
     const listEl = document.getElementById("assetsList");
     if (listEl) {
-      listEl.innerHTML = '<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading assets...</div>';
+      listEl.innerHTML = window.TriplemSkeleton ? window.TriplemSkeleton.html("rows", 3, "Loading assets") : '<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading assets...</div>';
     }
     let assetRows;
     try {

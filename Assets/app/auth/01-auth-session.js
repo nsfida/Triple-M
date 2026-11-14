@@ -736,7 +736,7 @@ function ensureTaxSettingsModal() {
           <h3>VAT Settings</h3>
           <p>Default VAT rates for new records. Existing invoices keep their saved VAT.</p>
         </div>
-        <button class="icon-btn ghost" type="button" data-close-modal="taxSettingsModal" aria-label="Close">X</button>
+        <button class="icon-btn ghost" type="button" data-close-modal="taxSettingsModal" aria-label="Close">✕</button>
       </div>
       <div class="modal-body">
         <form id="taxSettingsForm">

@@ -1271,6 +1271,17 @@ function activate(tab){
 }
 
 async function activateTabDataLoad(tab){
+  // Placeholder rows while this section's records are fetched (core/11-skeleton.js).
+  let skeletonDone = () => {};
+  try { skeletonDone = window.TriplemSkeleton?.tab?.(tab) || skeletonDone; } catch (_) {}
+  try {
+    return await activateTabDataLoadInner(tab);
+  } finally {
+    try { skeletonDone(); } catch (_) {}
+  }
+}
+
+async function activateTabDataLoadInner(tab){
   try {
     if (tab === "insurance") {
       if (typeof window.prepareInsuranceWorkspace === "function") await window.prepareInsuranceWorkspace();

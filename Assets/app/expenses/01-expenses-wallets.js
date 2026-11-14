@@ -2776,6 +2776,10 @@ function renderExpenseWalletBar(accounts){
   }
 
   closeAllWalletLogoMenus();
+  if (!accounts.length && state.expenseLazy?.loadingSummaries && window.TriplemSkeleton) {
+    host.innerHTML = window.TriplemSkeleton.html("wallets", 5, "Loading wallets");
+    return;
+  }
   host.innerHTML = blocks.join("");
   ensureExpenseWalletBarDelegation();
   bindWalletLogoMenus(host);
@@ -4753,7 +4757,7 @@ function renderExpensesList(){
 
   if (!accounts.length){
     const loadingHint = state.expenseLazy.loadingSummaries
-      ? `<div class="empty">Loading wallets…</div>`
+      ? (window.TriplemSkeleton ? window.TriplemSkeleton.html("wallets", 4, "Loading wallets") : `<div class="empty">Loading wallets…</div>`)
       : `<div class="empty">No expense accounts found.</div>`;
     els.expensesList.innerHTML = loadingHint;
     ensureExpensesListDelegation();
@@ -5596,6 +5600,10 @@ function ledgerScopeContainers(scope){
 }
 
 function loadingStateHtml(label){
+  if (window.TriplemSkeleton) {
+    const kind = /wallet|expense/i.test(label) ? "wallets" : (/installment|inventory|stock/i.test(label) ? "cards" : "rows");
+    return window.TriplemSkeleton.html(kind, 4, `Loading ${label}`);
+  }
   return `<div class="empty app-inline-loading">
     <span class="app-inline-loading-spinner" aria-hidden="true"></span>
     <span>Loading ${escapeHtml(label)}…</span>
@@ -6112,6 +6120,11 @@ function renderExpenseOverviewWallets(){
   closeAllWalletLogoMenus();
   let accounts = getExpenseAccounts({ applyUiFilters: false });
   try { if (window.TriplemExpensesStyle?.sortAccounts) accounts = window.TriplemExpensesStyle.sortAccounts(accounts); } catch (_) {}
+  if (!accounts.length && window.TriplemSkeleton && (state.expenseLazy?.loadingSummaries
+      || (state.loadedLedgerScopes && typeof LEDGER_SCOPE_EXPENSES !== "undefined" && !state.loadedLedgerScopes.has(LEDGER_SCOPE_EXPENSES) && !isGuestMode()))) {
+    container.innerHTML = window.TriplemSkeleton.html("wallets", 5, "Loading wallets");
+    return;
+  }
   if (!accounts.length){
     container.innerHTML = `
       <div class="empty" style="grid-column:1/-1; display:flex; flex-direction:column; align-items:center; gap:10px; padding:18px 12px;">

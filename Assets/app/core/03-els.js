@@ -827,6 +827,24 @@ function buildManagePlanBody(user){
 
     <section class="manage-plan-block">
       <div class="manage-plan-block-head">
+        <span>Set plan days</span>
+        <span class="manage-plan-block-note">Counted from today</span>
+      </div>
+      <p class="admin-access-hint">The plan will end this many days from today, whatever the current expiry is.</p>
+      <div class="manage-plan-chips" role="group" aria-label="Quick choices">
+        ${[7, 14, 30, 90, 180, 365].map(d => `<button type="button" class="manage-plan-chip" data-plan-days="${d}" ${canExtend ? "" : "disabled"}>${d === 365 ? "1 year" : d + " days"}</button>`).join("")}
+      </div>
+      <div class="manage-plan-row">
+        <label class="admin-access-field">
+          <span>Days</span>
+          <input type="number" class="input admin-access-date" id="managePlanDays" min="1" max="3650" step="1" inputmode="numeric" value="${escapeHtml(String(Math.max(1, Number(flags.trial_days_remaining) > 0 ? Math.floor(Number(flags.trial_days_remaining)) : 30)))}" ${canExtend ? "" : "disabled"} />
+        </label>
+        <button type="button" class="btn primary tiny" id="managePlanDaysBtn" ${canExtend ? "" : "disabled"}>Set days</button>
+      </div>
+    </section>
+
+    <section class="manage-plan-block">
+      <div class="manage-plan-block-head">
         <span>Extend plan</span>
         <span class="manage-plan-block-note">From current expiry</span>
       </div>
@@ -992,6 +1010,33 @@ function openAdminManagePlanModal(user){
         await afterSave(updated);
       } catch (ex) {
         showErr(ex.message || "Could not extend plan.");
+      }
+    });
+
+    modal.querySelectorAll("[data-plan-days]").forEach(chip => chip.addEventListener("click", () => {
+      const input = modal.querySelector("#managePlanDays");
+      if (input) input.value = chip.dataset.planDays;
+      modal.querySelectorAll("[data-plan-days]").forEach(c => c.classList.toggle("is-active", c === chip));
+    }));
+    modal.querySelector("#managePlanDaysBtn")?.addEventListener("click", async e => {
+      showErr("");
+      const days = Math.floor(Number(modal.querySelector("#managePlanDays")?.value));
+      if (!Number.isFinite(days) || days < 1 || days > 3650) return showErr("Enter the number of days (1 to 3650).");
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        const flags = getUserAccessFlags(currentUser);
+        const updated = await supabaseRpc("app_admin_set_access_period", {
+          p_user_id: currentUser.id,
+          p_days: days,
+          p_access_plan: flags.access_plan === "trial" ? "trial" : "full",
+          p_period: "custom",
+          p_until_date: null
+        });
+        await afterSave(updated && updated.id ? updated : null);
+      } catch (ex) {
+        btn.disabled = false;
+        showErr(ex.message || "Could not set the plan days.");
       }
     });
 

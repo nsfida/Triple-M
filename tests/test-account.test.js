@@ -39,3 +39,35 @@ test("migration 226 is additive and listed in the full schema", { skip: !exists(
   assert.doesNotMatch(sql, /\btruncate\b/i);
   assert.match(read("scripts/build_full_schema_sql.js"), /"226_test_account_protection\.sql"/);
 });
+
+test("Main Admin can set the test account password and plan days apply without an extra tick", () => {
+  const admin = read("Assets/app/admin/01-admin.js");
+  assert.match(admin, /app_admin_set_test_account_password/);
+  assert.match(admin, /markPeriodChanged/);
+  const els = read("Assets/app/core/03-els.js");
+  assert.match(els, /id="managePlanDaysBtn"/);
+  assert.match(els, /app_admin_set_access_period/);
+});
+
+test("migration 227 is additive", { skip: !exists("migrations/227_admin_test_account_password.sql") }, () => {
+  const sql = read("migrations/227_admin_test_account_password.sql");
+  assert.match(sql, /app_require_protected_admin\(\)/);
+  assert.match(sql, /app_is_test_account\(target\.id\)/);
+  assert.doesNotMatch(sql, /\bdrop\s+table\b|\btruncate\b|\bdelete\s+from\b/i);
+  assert.match(read("scripts/build_full_schema_sql.js"), /"227_admin_test_account_password\.sql"/);
+});
+
+test("the test data script is a single statement (works in the Supabase SQL Editor)", { skip: !exists("supabase/test-data/khawrai_pro_test_data.sql") }, () => {
+  const sql = read("supabase/test-data/khawrai_pro_test_data.sql");
+  assert.doesNotMatch(sql, /create\s+temp\s+table/i);
+  assert.doesNotMatch(sql, /^begin;|^commit;/m);
+  assert.equal((sql.match(/^do \$seed\$/gm) || []).length, 1);
+});
+
+test("skeleton loading is available to every section", () => {
+  assert.match(read("index.html"), /Assets\/app\/core\/11-skeleton\.js\?v=/);
+  const js = read("Assets/app/core/11-skeleton.js");
+  for (const tab of ["expenses", "given", "installments", "notes", "assets", "admin", "goods"]) assert.ok(js.includes(`${tab}:`), tab);
+  assert.match(read("Assets/app/ui/01-render-navigation.js"), /TriplemSkeleton\?\.tab/);
+  assert.match(read("Assets/style/68-sections-v2.css"), /prefers-reduced-motion:reduce\)\{\.tm-skel/);
+});

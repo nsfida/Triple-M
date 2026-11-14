@@ -98,6 +98,8 @@
     const el = target.closest?.("button, [role='menuitem'], [role='button'], a, label, input[type='checkbox']");
     if (!el || el.closest(".tm-test-notice")) return null;
     if (el.matches(SECURITY_SELECTOR) || el.closest(SECURITY_SELECTOR)) return "security";
+    // A card or row that only contains a delete button is not itself a delete control.
+    if (el.querySelector("button, a[href], [role='menuitem'], [role='button']")) return null;
     if (el.id === "emptyRecycleBinBtn" || el.closest("#emptyRecycleBinBtn")) return "delete";
     // Removing a line or a picture inside a form that is being filled in is editing, not deleting.
     if (el.closest("form") && !/\bdelete\b/i.test(labelOf(el))) return null;
@@ -188,7 +190,7 @@
   else start();
   global.addEventListener("load", wrap);
   document.addEventListener("click", e => { if (e.target.closest?.("#accountMenuBtn, [data-entry-menu='account']")) syncBadge(); }, true);
-  setInterval(() => { if (st()?.unlocked) { wrap(); syncBadge(); } }, 4000);
+  setInterval(() => { if (st()?.unlocked && !document.hidden) { wrap(); syncBadge(); } }, 10000);
 
   global.TriplemTestAccount = Object.freeze({ isTestAccount, notice, classify, KNOWN });
 })(typeof window !== "undefined" ? window : globalThis);
