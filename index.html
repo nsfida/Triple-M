@@ -975,7 +975,7 @@
   <script defer src="Assets/app/inventory/04-inventory-barcodes-scanner.js?v=20260915-inventory-standards-001&amp;r=20261105-desktop350"></script>
   <script defer src="Assets/app/expenses/01-expenses-wallets.js?v=20260912-wallet-transactions-167&currency=002&build011=003&uifix=20260915-001&amp;ev2=20261112b"></script>
   <script defer src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001&amp;store=20261106-001&amp;inv2=20261110-215&amp;home=20261114-nav3"></script>
+  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001&amp;store=20261106-001&amp;inv2=20261110-215&amp;home=20261114-nav4"></script>
   <script defer src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script defer src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
   <script defer src="Assets/app/installments/02-bought-sold-plans.js?v=20260915-installment-amount-mode-001"></script>
@@ -985,7 +985,7 @@
   <script defer src="Assets/app/accounting/01-accounting-suite.js?v=20261106-accounting380"></script>
   <script defer src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/expenses/03-expense-audit-pagination.js?v=20260908-server-pagination-155&uifix=20260915-001"></script>
-  <script defer src="Assets/app/expenses/04-expenses-v2.js?v=20261114-ev2-006"></script>
+  <script defer src="Assets/app/expenses/04-expenses-v2.js?v=20261114-ev2-007"></script>
   <script defer src="Assets/app/expenses/05-expenses-style.js?v=20261112-es-002"></script>
   <script defer src="Assets/app/expenses/06-wallet-logos.js?v=20261112-wl-001"></script>
   <script defer src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-executive-sections-158"></script>
@@ -3778,8 +3778,15 @@
         <i class="fa-solid fa-house" aria-hidden="true"></i>
         <span class="workspace-home-back-text">Triplem VIP Home</span>
       </button>
-      <label class="workspace-section-icon-wrap" for="workspaceSectionSelect" aria-hidden="true"><span id="workspaceSectionIcon" class="workspace-section-icon"></span></label>
-      <select id="workspaceSectionSelect" class="workspace-section-switch" aria-label="Quickly switch section" title="Switch section"></select>
+      <div class="menu-wrap ws-switch-wrap">
+        <button type="button" class="ws-switch-btn menu-trigger" id="workspaceSectionBtn" data-entry-menu="workspace-sections" aria-haspopup="menu" aria-expanded="false" title="Switch section">
+          <span id="workspaceSectionIcon" class="workspace-section-icon" aria-hidden="true"></span>
+          <span id="workspaceSectionName" class="ws-switch-name">Section</span>
+          <i class="fa-solid fa-chevron-down ws-caret" aria-hidden="true"></i>
+        </button>
+        <div class="menu-dropdown ws-switch-menu" id="workspaceSectionMenu" data-entry-menu-panel="workspace-sections" role="menu" aria-label="Switch section"></div>
+      </div>
+      <select id="workspaceSectionSelect" class="workspace-section-switch" aria-label="Quickly switch section" title="Switch section" hidden tabindex="-1"></select>
     </nav>
 
 <section class="overview main-overview-section collapsed" id="mainOverview">
@@ -3807,8 +3814,16 @@
           <button type="button" class="ev2-btn" id="ev2HistoryBtn" aria-pressed="false" aria-controls="expensesPanel"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>Expenses History</span></button>
           <button type="button" class="ev2-btn ev2-btn--icon" id="ev2PrivacyBtn" aria-pressed="false" title="Hide amounts" aria-label="Hide amounts"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
           <button type="button" class="ev2-btn ev2-btn--icon" id="ev2StyleBtn" aria-haspopup="dialog" aria-expanded="false" title="Expenses Style" aria-label="Expenses Style"><i class="fa-solid fa-palette" aria-hidden="true"></i></button>
+          <div class="menu-wrap ev2-view-wrap">
+            <button type="button" class="ev2-btn ev2-btn--view menu-trigger" id="ev2ViewBtn" data-entry-menu="expenses-view" aria-haspopup="menu" aria-expanded="false" title="Records to show"><span id="ev2ViewLabel">Expenses</span><i class="fa-solid fa-chevron-down ev2-caret" aria-hidden="true"></i></button>
+            <div class="menu-dropdown" data-entry-menu-panel="expenses-view" role="menu" aria-label="Records to show">
+              <button type="button" class="menu-item" role="menuitemradio" aria-checked="true" data-ev2-view="history"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> Expenses</button>
+              <button type="button" class="menu-item" role="menuitemradio" aria-checked="false" data-ev2-view="topups"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i> Receiving</button>
+              <button type="button" class="menu-item" role="menuitemradio" aria-checked="false" data-ev2-view="transfers"><i class="fa-solid fa-right-left" aria-hidden="true"></i> Transfers</button>
+            </div>
+          </div>
           <div class="menu-wrap ev2-add-wrap">
-            <button type="button" class="ev2-btn ev2-btn--add menu-trigger" id="ev2AddBtn" data-entry-menu="expenses" aria-haspopup="menu" aria-expanded="false" title="New entry"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add</span><i class="fa-solid fa-chevron-down ev2-caret" aria-hidden="true"></i></button>
+            <button type="button" class="ev2-btn ev2-btn--add menu-trigger" id="ev2AddBtn" data-entry-menu="expenses" aria-haspopup="menu" aria-expanded="false" title="New entry"><span>Add</span><i class="fa-solid fa-chevron-down ev2-caret" aria-hidden="true"></i></button>
             <div class="menu-dropdown" data-entry-menu-panel="expenses">
             <button type="button" class="menu-item" id="openExpenseAccountBtn"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Add Account</button>
             <button type="button" class="menu-item" id="openExpenseTopupBtn" aria-keyshortcuts="Control+Alt+A"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i> Add Money</button>

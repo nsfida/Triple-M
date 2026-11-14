@@ -744,6 +744,19 @@ function ensureWorkspaceNavigationEvents(){
     back.dataset.boundWorkspaceHome = "1";
     back.addEventListener("click", () => activate(WORKSPACE_HOME_TAB));
   }
+  const menu = document.getElementById("workspaceSectionMenu");
+  if (menu && menu.dataset.boundWorkspaceHome !== "1") {
+    menu.dataset.boundWorkspaceHome = "1";
+    menu.addEventListener("click", e => {
+      const item = e.target.closest("[data-ws-tab]");
+      if (!item) return;
+      e.stopPropagation();
+      menu.classList.remove("open");
+      document.getElementById("workspaceSectionBtn")?.setAttribute("aria-expanded", "false");
+      const tab = item.dataset.wsTab;
+      if (tab && !item.classList.contains("is-current")) activate(tab);
+    });
+  }
   const select = document.getElementById("workspaceSectionSelect");
   if (select && select.dataset.boundWorkspaceHome !== "1") {
     select.dataset.boundWorkspaceHome = "1";
@@ -819,6 +832,43 @@ function showWorkspaceHome(){
   try { window.scrollTo({ top: 0, behavior: "auto" }); } catch (_) {}
 }
 
+/** Paints a Blue pack icon (as a mask in the theme's primary colour) on an element. */
+function workspaceSetMaskIcon(el, key){
+  const url = workspaceNavIconUrl(key);
+  if (el.dataset.src === url) return;
+  el.dataset.src = url;
+  // Absolute URL: a url() inside a CSS variable is otherwise read relative to the stylesheet.
+  let abs = url;
+  try { abs = new URL(url, document.baseURI).href; } catch (_) {}
+  el.style.setProperty("--sec-icon", `url("${abs}")`);
+}
+
+/** Sections offered by the section switcher: Home, every open section, and Inventory 2.0. */
+function workspaceSwitchItems(sectionKey){
+  const tabs = getWorkspaceOrderedTabButtons();
+  const items = tabs.map(btn => {
+    const raw = String(btn.dataset.tab || "");
+    const key = workspaceTabKey(raw);
+    return { tab: raw, key, label: workspaceDisplayLabel(raw), current: key === sectionKey };
+  });
+  if (!items.some(it => it.current) && sectionKey && sectionKey !== WORKSPACE_HOME_TAB && sectionKey !== "inventory2" && tabIsAllowed(sectionKey)) {
+    items.unshift({ tab: sectionKey, key: sectionKey, label: getWorkspaceSectionLabel(sectionKey), current: true });
+  }
+  let v2 = false;
+  try { v2 = !!window.TriplemInventoryV2?.v2Enabled?.(); } catch (_) {}
+  if (v2 && !items.some(it => it.tab === "inventory2")) {
+    const inv2 = { tab: "inventory2", key: "inventory2", label: workspaceDisplayLabel("inventory2", "Inventory 2.0"), current: sectionKey === "inventory2" };
+    let primaryV2 = false;
+    try { primaryV2 = window.TriplemInventoryV2?.access?.()?.primary_version === "v2"; } catch (_) {}
+    const v1 = items.findIndex(it => it.key === "goods");
+    if (primaryV2) items.unshift(inv2);
+    else if (v1 >= 0) items.splice(v1 + 1, 0, inv2);
+    else items.push(inv2);
+  }
+  items.unshift({ tab: WORKSPACE_HOME_TAB, key: WORKSPACE_HOME_TAB, label: "Triplem VIP Home", current: false });
+  return items;
+}
+
 function syncWorkspaceSectionNavigation(tab){
   const home = document.getElementById("workspaceHome");
   const nav = document.getElementById("workspaceSectionNav");
@@ -835,32 +885,26 @@ function syncWorkspaceSectionNavigation(tab){
   // primary colour like the house button (not affected by the Home icon pack).
   const icon = document.getElementById("workspaceSectionIcon");
   if (icon) {
-    const url = workspaceNavIconUrl(sectionKey);
-    if (icon.dataset.src !== url) {
-      icon.dataset.src = url;
-      // Absolute URL: a url() inside a CSS variable is otherwise read relative to the stylesheet.
-      let abs = url;
-      try { abs = new URL(url, document.baseURI).href; } catch (_) {}
-      icon.style.setProperty("--sec-icon", `url("${abs}")`);
-    }
+    workspaceSetMaskIcon(icon, sectionKey);
     icon.dataset.section = sectionKey;
   }
+  const name = document.getElementById("workspaceSectionName");
+  if (name) name.textContent = workspaceDisplayLabel(sectionKey);
+  const items = workspaceSwitchItems(sectionKey);
+  const current = items.find(it => it.current)?.tab || sectionKey;
   if (select) {
-    const tabs = getWorkspaceOrderedTabButtons();
-    const candidateButton = tabs.find(btn => workspaceTabKey(btn.dataset.tab) === sectionKey);
-    const candidate = candidateButton?.dataset.tab || sectionKey;
-    const options = [
-      `<option value="${WORKSPACE_HOME_TAB}">Triplem VIP Home</option>`,
-      ...tabs.map(btn => {
-        const raw = String(btn.dataset.tab || "");
-        return `<option value="${escapeHtml(raw)}">${escapeHtml(workspaceDisplayLabel(raw))}</option>`;
-      })
-    ];
-    if (!candidateButton && tabIsAllowed(sectionKey)) {
-      options.splice(1, 0, `<option value="${escapeHtml(candidate)}">${escapeHtml(getWorkspaceSectionLabel(sectionKey))}</option>`);
-    }
-    select.innerHTML = options.join("");
-    select.value = candidate;
+    select.innerHTML = items.map(it => `<option value="${escapeHtml(it.tab)}">${escapeHtml(it.label)}</option>`).join("");
+    select.value = current;
+  }
+  const menu = document.getElementById("workspaceSectionMenu");
+  if (menu) {
+    menu.innerHTML = items.map(it => {
+      const ico = it.tab === WORKSPACE_HOME_TAB
+        ? '<i class="fa-solid fa-house ws-item-ico ws-item-ico--home" aria-hidden="true"></i>'
+        : `<span class="ws-item-ico" data-icon-key="${escapeHtml(it.key)}" aria-hidden="true"></span>`;
+      return `<button type="button" class="menu-item ws-item${it.current ? " is-current" : ""}" role="menuitem" data-ws-tab="${escapeHtml(it.tab)}"${it.current ? ' aria-current="page"' : ""}>${ico}<span class="ws-item-label">${escapeHtml(it.label)}</span></button>`;
+    }).join("");
+    menu.querySelectorAll(".ws-item-ico[data-icon-key]").forEach(el => workspaceSetMaskIcon(el, el.dataset.iconKey));
   }
   ensureWorkspaceNavigationEvents();
 }

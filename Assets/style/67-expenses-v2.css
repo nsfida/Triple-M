@@ -559,3 +559,17 @@ html body #app #expensesPanel#expensesPanel.panel{background:none !important;bac
   html body #app #expensesPanel#expensesPanel .compact-filter-row .select{padding:0 20px 0 4px !important;background-position:right 2px center !important}
   #expensesPanel .compact-filter-main{grid-template-columns:minmax(0,1fr) minmax(112px,128px) !important}
 }
+
+/* 2026-11-14 b: "Expenses ▾" view menu beside Add (history only); the old view switch is replaced */
+body:not(.ev2-history-open) .ev2-view-wrap{display:none !important}
+.ev2-view-wrap{display:inline-flex}
+html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn--view{color:var(--primary) !important}
+#walletsOverviewSection .ev2-btn--view .ev2-caret{font-size:.62rem !important;opacity:.8;transition:transform .15s ease}
+#walletsOverviewSection .ev2-btn--view[aria-expanded="true"] .ev2-caret{transform:rotate(180deg)}
+#expensesPanel .ev2-seg:not(.ev2-seg--dates){display:none !important}
+#expensesPanel .expenses-head-tools:not(:has(> :not(.ev2-replaced):not(.ev2-seg:not(.ev2-seg--dates)))){display:none !important}
+.menu-dropdown[data-entry-menu-panel="expenses-view"] .menu-item i{width:16px;text-align:center;color:var(--primary);margin-right:4px}
+.menu-dropdown[data-entry-menu-panel="expenses-view"] .menu-item[aria-checked="true"]{color:var(--primary);background:color-mix(in srgb,var(--primary) 9%,transparent)}
+@media (max-width:768px){
+  body.ev2-history-open .ev2-actions{grid-template-columns:minmax(0,1fr) auto auto auto auto !important}
+}

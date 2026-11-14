@@ -101,7 +101,37 @@
     });
     syncSegments();
   }
+  // "Expenses ▾" beside Add: Expenses / Receiving / Transfers (drives the records select).
+  const VIEW_LABELS = { history: "Expenses", topups: "Receiving", transfers: "Transfers" };
+  function syncViewMenu(){
+    const value = document.getElementById("expenseRecordsViewFilter")?.value || "history";
+    const label = document.getElementById("ev2ViewLabel");
+    if (label) label.textContent = VIEW_LABELS[value] || "Expenses";
+    document.querySelectorAll("[data-ev2-view]").forEach(b => b.setAttribute("aria-checked", b.dataset.ev2View === value ? "true" : "false"));
+  }
+  function bindViewMenu(){
+    const panel = document.querySelector('[data-entry-menu-panel="expenses-view"]');
+    if (!panel || panel.dataset.ev2Bound) return;
+    panel.dataset.ev2Bound = "1";
+    panel.addEventListener("click", e => {
+      const b = e.target.closest("[data-ev2-view]");
+      if (!b) return;
+      e.stopPropagation();
+      panel.classList.remove("open");
+      document.getElementById("ev2ViewBtn")?.setAttribute("aria-expanded", "false");
+      const select = document.getElementById("expenseRecordsViewFilter");
+      if (!select) return;
+      if (!isOpen()) setHistory(true);
+      if (select.value !== b.dataset.ev2View) {
+        select.value = b.dataset.ev2View;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      syncSegments();
+    });
+  }
+
   function syncSegments(){
+    syncViewMenu();
     document.querySelectorAll("#expensesPanel .ev2-seg[data-for]").forEach(group => {
       const value = document.getElementById(group.dataset.for)?.value;
       group.querySelectorAll("button[data-value]").forEach(b => b.setAttribute("aria-checked", b.dataset.value === value ? "true" : "false"));
@@ -134,6 +164,7 @@
     syncHead(false);
     try { buildSegments(); } catch (err) { console.warn("Expenses filters could not be built.", err); }
     bindBlocks();
+    bindViewMenu();
     // Keep the buttons in step when the app changes the selects itself.
     if (typeof global.renderExpensesList === "function" && !global.renderExpensesList.__ev2) {
       const original = global.renderExpensesList;

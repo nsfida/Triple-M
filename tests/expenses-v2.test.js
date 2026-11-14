@@ -157,7 +157,14 @@ test("2026-11-14: Add menu replaces New Entry; frameless header, filters and sec
   for (const id of ["openExpenseAccountBtn", "openExpenseTopupBtn", "openExpenseEntryBtn", "downloadExpensesPdfBtn"]) assert.ok(add.includes(`id="${id}"`), id);
   assert.doesNotMatch(read("Assets/app/expenses/04-expenses-v2.js"), /ev2AddExpenseBtn/);
   assert.match(html, /id="workspaceHomeBackBtn"[^>]*>\s*<i class="fa-solid fa-house"/);
-  assert.match(html, /<span id="workspaceSectionIcon" class="workspace-section-icon"><\/span>/);
+  assert.match(html, /<span id="workspaceSectionIcon" class="workspace-section-icon" aria-hidden="true"><\/span>/);
+  assert.match(html, /id="workspaceSectionBtn" data-entry-menu="workspace-sections"/);
+  assert.match(html, /id="workspaceSectionMenu" data-entry-menu-panel="workspace-sections"/);
+  assert.match(html, /<select id="workspaceSectionSelect"[^>]* hidden tabindex="-1">/, "the select stays for older code, hidden");
+  assert.match(read("Assets/app/ui/01-render-navigation.js"), /function workspaceSwitchItems\(sectionKey\)\{[\s\S]*?v2Enabled[\s\S]*?"inventory2"/, "Inventory 2.0 is in the section menu");
+  assert.match(html, /id="ev2AddBtn" data-entry-menu="expenses"[^>]*><span>Add<\/span>/, "Add without a plus sign");
+  assert.match(html, /id="ev2ViewBtn" data-entry-menu="expenses-view"/);
+  for (const v of ["history", "topups", "transfers"]) assert.ok(html.includes(`data-ev2-view="${v}"`), v);
   const nav = read("Assets/app/ui/01-render-navigation.js");
   assert.match(nav, /const icon = document\.getElementById\("workspaceSectionIcon"\);/);
   assert.match(nav, /return `Assets\/logo\/icons\/packs\/blue\/\$\{k\}\.svg\?v=[^`]+`;/, "section bar always uses the Blue pack");
