@@ -181,8 +181,13 @@
       "path": "Assets/style/67-expenses-v2.css",
       "bytes": 54151,
       "sha256": "71674ee484d5c5e34d4f14c4e9e8a496e4b622ec9f4ce36e3b1c31d64361c286"
+    },
+    {
+      "path": "Assets/style/68-sections-v2.css",
+      "bytes": 46943,
+      "sha256": "2ac9323eba421664b1e79f8c3a5152942f19dcb6cecec68fdef7ab7c2a262b53"
     }
   ],
-  "bytes": 808731,
-  "sha256": "0bb9819a913ae4d8e526c18b6b921474b2a71f7de995b8381b988add241d3b51"
+  "bytes": 855733,
+  "sha256": "e3d5ac6c291bcb3ad01b3e2bca9d1f42e6b4ab3b63a5ea5277135c6b434a6908"
 }

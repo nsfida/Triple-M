@@ -197,3 +197,14 @@ test("2026-11-14: Windows app update chip and Restart button use the theme's pri
   assert.match(js, /\.dab-chip\.is-update \*\{background:var\(--primary,#2457d6\)!important;background-image:none!important;color:var\(--on-primary,#fff\)!important/);
   assert.match(js, /#desktopAppMenu\.desktop-app-menu \.desktop-app-actions button\.primary\{background:var\(--primary,#2457d6\)!important/);
 });
+
+test("2026-11-14: sections v2 (Loans, Installments, Assets, Accounting, Bitcoin, Triplem AI, Admin)", () => {
+  const css = read("Assets/style/68-sections-v2.css");
+  for (const id of ["#givenPanel", "#takenPanel", "#installmentsPanel", "#assetsPanel", "#accountingPanel", "#bitcoinPanel", "#triplem-aiPanel", "#adminPanel"]) assert.ok(css.includes(id), id);
+  assert.match(read("scripts/build_feature_css_bundle.js"), /"Assets\/style\/68-sections-v2\.css"/);
+  const html = read("index.html");
+  assert.doesNotMatch(html, /New Entry ▾/, "Add ▾ everywhere");
+  for (const k of ["given", "received", "taken", "returned", "installments"]) assert.match(html, new RegExp(`data-entry-menu="${k}"[^>]*><span>Add</span><i class="fa-solid fa-chevron-down v2-caret"`), k);
+  assert.match(html, /data-open-modal="principal"[^>]*><i class="fa-solid fa-plus" aria-hidden="true"><\/i> Loan Given/);
+  assert.doesNotMatch(read("Assets/app/bitcoin/01-bitcoin.js"), /Select Saved Address ▾/);
+});

@@ -2526,7 +2526,7 @@ function btcClearSession() {
   btcClearView();
   
   // Reset dropdown button text to default
-  els.btcExistingAddressesLabel.textContent = 'Select Saved Address ▾';
+  els.btcExistingAddressesLabel.textContent = 'Select Saved Address';
   
   // Reset wallet type to full wallet
   btcToggleWalletType('full');

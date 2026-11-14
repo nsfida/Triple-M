@@ -3148,7 +3148,7 @@ function btcClearSession() {
   btcSetWalletStatus('No wallet loaded yet.', '');
   btcClearView();
   // Reset dropdown button text to default
-  els.btcExistingAddressesLabel.textContent = 'Select Saved Address ▾';
+  els.btcExistingAddressesLabel.textContent = 'Select Saved Address';
 }
 
 // Bitcoin Wallet Functions
@@ -3390,7 +3390,7 @@ function renderExistingAddressesDropdown() {
 
   if (state.bitcoinWallets.length === 0) {
     els.btcExistingAddressesList.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:.9rem;">No saved addresses found</div>';
-    els.btcExistingAddressesLabel.textContent = 'Select Saved Address ▾';
+    els.btcExistingAddressesLabel.textContent = 'Select Saved Address';
     return;
   }
 
@@ -3516,7 +3516,7 @@ async function loadSelectedAddress(wallet) {
   els.btcExistingAddressesBtn.setAttribute('aria-expanded', 'false');
   
   // Update label
-  els.btcExistingAddressesLabel.textContent = `${wallet.label} ▾`;
+  els.btcExistingAddressesLabel.textContent = `${wallet.label}`;
   
   // Always load as watch-only address when selecting from existing list
   els.btcWatchWalletBtn.click();

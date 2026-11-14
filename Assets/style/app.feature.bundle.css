@@ -12226,3 +12226,398 @@ html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-
 @media (max-width:768px){
   body.ev2-history-open .ev2-actions{grid-template-columns:minmax(0,1fr) auto auto auto auto !important}
 }
+
+/* ===== SOURCE: Assets/style/68-sections-v2.css ===== */
+/* Triplem VIP sections v2 (2026-11-14)
+   Loans, Installments, Assets/Depreciation, Accounting, Bitcoin, Triplem AI and Admin in the
+   Expenses/Home design: content directly on the page (no outer frames), page-level titles,
+   frameless buttons with primary icons, "Add ▾ / Actions ▾" menus like Expenses, underline
+   tabs instead of boxed switches, frameless filters, rows as soft cards, the same menu style.
+   #app#app plus the section id gives these rules priority over the theme layer, which styles
+   cards, buttons and inputs with id selectors. Colours come from the theme tokens, so every
+   theme (light and dark) keeps working. */
+
+/* ── 1. No outer frames ──────────────────────────────────────────────────────────── */
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#triplem-aiPanel,#adminPanel).panel,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#triplem-aiPanel) > .card.section,
+html body #app#app #adminPanel #adminPanelContent > .card.section,
+html body #app#app #accountingPanel > .card,
+html body #app#app #accountingPanel .accounting-shell{
+  background:none !important;background-image:none !important;border:0 !important;box-shadow:none !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#triplem-aiPanel) > .card.section,
+html body #app#app #adminPanel #adminPanelContent > .card.section,
+html body #app#app #accountingPanel > .card{padding:0 !important;margin:0 !important;border-radius:0 !important;overflow:visible !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) :is(.card.section,.card)::before,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) :is(.card.section,.card)::after{content:none !important;display:none !important}
+
+/* ── 2. Page heading ─────────────────────────────────────────────────────────────── */
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head,
+html body #app#app #accountingPanel .accounting-section-head{
+  background:none !important;border:0 !important;box-shadow:none !important;padding:0 !important;margin:0 0 10px !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head-top{
+  display:flex !important;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:0 !important;background:none !important;border:0 !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head-top .title-row{display:flex !important;align-items:center;gap:4px 6px;flex-wrap:wrap;padding:0 !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head-top .title-row h3,
+html body #app#app #accountingPanel .accounting-section-head h3{
+  margin:0 8px 0 0 !important;font-size:clamp(1.2rem,2vw,1.5rem) !important;letter-spacing:-.03em;line-height:1.2;color:var(--text) !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head-top .title-group > p,
+html body #app#app #accountingPanel .accounting-section-head p{margin:4px 0 0 !important;font-size:.82rem !important;color:var(--muted) !important;line-height:1.45}
+
+/* ── 3. Frameless buttons (heading tools, Add ▾, Actions ▾, admin tools) ─────────── */
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny),
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > .menu-wrap > .menu-trigger,
+html body #app#app #accountingPanel .accounting-head-actions > :is(button,.btn),
+html body #app#app #accountingPanel .accounting-context-actions > :is(button,.btn),
+html body #app#app #accountingPanel .accounting-card-head :is(button,.btn){
+  display:inline-flex !important;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 10px !important;
+  background:none !important;background-image:none !important;border:0 !important;box-shadow:none !important;border-radius:10px !important;
+  color:var(--text) !important;font-size:.84rem !important;line-height:1.1;cursor:pointer;transform:none !important;white-space:nowrap;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny) i,
+html body #app#app #accountingPanel :is(.accounting-head-actions,.accounting-context-actions,.accounting-card-head) :is(button,.btn) i{color:var(--primary) !important;font-size:.88rem}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny):hover,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > .menu-wrap > .menu-trigger:hover,
+html body #app#app #accountingPanel :is(.accounting-head-actions,.accounting-context-actions,.accounting-card-head) :is(button,.btn):hover{background:color-mix(in srgb,var(--primary) 9%,transparent) !important}
+/* Add ▾ / Actions ▾ / New: primary text, like "Add ▾" in Expenses */
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head .menu-wrap > .menu-trigger,
+html body #app#app #accountingPanel .accounting-head-actions > .btn.primary,
+html body #app#app #accountingPanel .accounting-card-head .btn.primary,
+html body #app#app #assetsPanel #openAddAssetBtn{color:var(--primary) !important}
+html body #app#app #accountingPanel .accounting-head-actions > .btn.primary i,
+html body #app#app #accountingPanel .accounting-card-head .btn.primary i{color:var(--primary) !important}
+.v2-caret{font-size:.62rem !important;opacity:.8;transition:transform .15s ease;margin-left:1px}
+.menu-trigger[aria-expanded="true"] .v2-caret{transform:rotate(180deg)}
+html.tm-kbd body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .section-head button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 45%,transparent) !important;outline-offset:1px}
+
+/* ── 4. Same menu style as Add ▾ for every menu in these sections ─────────────────── */
+html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown,
+html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"]{
+  background:linear-gradient(var(--surface-elevated,rgba(255,255,255,.94)),var(--surface-elevated,rgba(255,255,255,.94))),var(--bg,#fff) !important;
+  border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:12px !important;
+  box-shadow:0 18px 40px -12px rgba(15,23,42,.28),0 2px 6px rgba(15,23,42,.06) !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;padding:5px !important;gap:1px !important;
+}
+html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item,
+html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item{
+  background:transparent !important;background-image:none !important;border:0 !important;box-shadow:none !important;
+  border-radius:8px !important;padding:7px 10px !important;min-height:0 !important;margin:0 !important;
+  color:var(--text) !important;font-size:.82rem !important;line-height:1.3 !important;display:flex !important;align-items:center;gap:9px;text-align:left;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;transform:none !important;
+}
+html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item:is(:hover,:focus-visible),
+html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item:is(:hover,:focus-visible){background:color-mix(in srgb,var(--primary) 9%,transparent) !important;outline:none}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item i{width:18px;text-align:center;color:var(--primary)}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger){color:var(--danger) !important}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger) i{color:var(--danger)}
+
+/* ── 5. Underline tabs instead of boxed switches ─────────────────────────────────── */
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch,
+html body #app#app #assetsPanel .assets-module-tabs,
+html body #app#app #installmentsPanel .installment-plan-mode,
+html body #app#app #accountingPanel .accounting-subnav{
+  display:flex !important;flex-wrap:wrap;align-items:center;gap:2px 4px !important;width:auto !important;max-width:100%;
+  padding:0 !important;margin:0 0 12px !important;background:none !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch > button,
+html body #app#app #assetsPanel .assets-module-tabs > button,
+html body #app#app #installmentsPanel .installment-plan-mode > button,
+html body #app#app #accountingPanel .accounting-subnav > button{
+  position:relative;display:inline-flex !important;align-items:center;gap:7px;min-height:38px;padding:0 12px !important;width:auto !important;flex:0 0 auto !important;
+  background:none !important;background-image:none !important;border:0 !important;box-shadow:none !important;border-radius:10px !important;
+  color:var(--muted) !important;font-size:.86rem !important;cursor:pointer;transform:none !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch > button i,
+html body #app#app #installmentsPanel .installment-plan-mode > button i,
+html body #app#app #accountingPanel .accounting-subnav > button i{color:inherit !important;font-size:.82rem;opacity:.85}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch > button:hover,
+html body #app#app #assetsPanel .assets-module-tabs > button:hover,
+html body #app#app #installmentsPanel .installment-plan-mode > button:hover,
+html body #app#app #accountingPanel .accounting-subnav > button:hover{color:var(--text) !important;background:color-mix(in srgb,var(--primary) 7%,transparent) !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch > button.active,
+html body #app#app #assetsPanel .assets-module-tabs > button.is-active,
+html body #app#app #installmentsPanel .installment-plan-mode > button.active,
+html body #app#app #accountingPanel .accounting-subnav > button.active{color:var(--primary) !important;background:none !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch > button.active::after,
+html body #app#app #assetsPanel .assets-module-tabs > button.is-active::after,
+html body #app#app #installmentsPanel .installment-plan-mode > button.active::after,
+html body #app#app #accountingPanel .accounting-subnav > button.active::after{content:"" !important;display:block !important;position:absolute;left:12px;right:12px;bottom:3px;height:2px;border-radius:2px;background:var(--primary) !important;opacity:1 !important;transform:none !important}
+
+/* ── 6. Filters: no background, just the text and a chevron ──────────────────────── */
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row .filter-inline-section,
+html body #app#app #accountingPanel .accounting-tools-row,
+html body #app#app #adminPanel :is(.admin-user-search-toolbar,.admin-legend){
+  background:none !important;border:0 !important;box-shadow:none !important;padding:0 !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row{margin:0 0 12px !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row .filter-inline-label{font-size:.74rem !important;letter-spacing:0 !important;text-transform:none !important;color:var(--muted) !important;margin:0 -4px 0 0}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row .compact-filter-search .filter-inline-label{display:none !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row :is(.input,.select){
+  border:0 !important;background-color:transparent !important;box-shadow:none !important;border-radius:10px !important;color:var(--text) !important;min-height:38px;font-size:.86rem;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row .select{
+  padding:0 28px 0 10px !important;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>") !important;
+  background-repeat:no-repeat !important;background-position:right 8px center !important;background-size:12px !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row .select option{color:var(--text);background:var(--panel)}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row .compact-filter-search .input,
+html body #app#app #accountingPanel .accounting-search,
+html body #app#app #adminPanel .admin-user-search-box{
+  border:0 !important;border-bottom:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:0 !important;background-color:transparent !important;box-shadow:none !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row .compact-filter-search .input{
+  padding-left:30px !important;min-width:min(320px,100%);
+  background:transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.4' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>") 6px 50% / 15px no-repeat !important;
+}
+html body #app#app #accountingPanel .accounting-search input,
+html body #app#app #adminPanel .admin-user-search-box input{border:0 !important;background:transparent !important;box-shadow:none !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row :is(.input,.select):is(:hover,:focus){background-color:color-mix(in srgb,var(--primary) 7%,transparent) !important;box-shadow:none !important;outline:none}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .compact-filter-row .compact-filter-search .input:focus,
+html body #app#app #accountingPanel .accounting-search:focus-within,
+html body #app#app #adminPanel .admin-user-search-box:focus-within{border-bottom-color:var(--primary) !important;box-shadow:none !important}
+html body #app#app :is(#accountingPanel,#adminPanel) :is(.accounting-search,.admin-user-search-box) input:focus{outline:none !important;box-shadow:none !important}
+
+/* ── 7. Rows and cards ───────────────────────────────────────────────────────────── */
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .list > details.loan,
+html body #app#app #assetsPanel .asset-card,
+html body #app#app #assetsPanel :is(.depreciation-asset-card,.dep-asset-card),
+html body #app#app #accountingPanel :is(.accounting-card,.accounting-kpi),
+html body #app#app #bitcoinPanel #btcLoginSection.card,
+html body #app#app #bitcoinPanel :is(.btc-wallet-card,.btc-balance-card){
+  background:var(--surface-elevated,var(--panel)) !important;background-image:none !important;
+  border:1px solid color-mix(in srgb,var(--line) 85%,transparent) !important;border-radius:16px !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.05),0 8px 20px -18px rgba(15,23,42,.35) !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+  transition:border-color .15s ease,box-shadow .15s ease !important;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .list > details.loan{margin:0 0 8px !important;overflow:hidden}
+@media (hover:hover){
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .list > details.loan:hover,
+  html body #app#app #assetsPanel .asset-card:hover{border-color:color-mix(in srgb,var(--primary) 35%,var(--line)) !important;box-shadow:0 2px 4px rgba(15,23,42,.06),0 14px 26px -18px rgba(15,23,42,.45) !important}
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .list > details.loan[open]{border-color:color-mix(in srgb,var(--primary) 45%,var(--line)) !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .list > details.loan > summary,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .list > details.loan .loan-top{background:none !important;border:0 !important;box-shadow:none !important;border-radius:0 !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .list > details.loan > summary{padding:12px 14px !important}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .loan-name{font-size:.98rem;color:var(--text)}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .loan-name i{color:var(--primary)}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .loan-serial{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;font-size:.7rem;background:color-mix(in srgb,var(--primary) 12%,transparent) !important;color:var(--primary) !important;border:0 !important}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .loan-sub{color:var(--muted);font-size:.76rem}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .cell small{color:var(--muted);font-size:.7rem}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .cell strong{font-size:1rem;color:var(--text);font-variant-numeric:tabular-nums}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger){
+  width:32px !important;height:32px !important;min-width:32px !important;min-height:32px !important;padding:0 !important;display:inline-grid !important;place-items:center;
+  border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:999px !important;background:transparent !important;box-shadow:none !important;color:var(--text) !important;font-size:.8rem;
+}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger):hover{border-color:color-mix(in srgb,var(--primary) 50%,var(--line)) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important}
+.loanHistoryToggle i{font-size:.7rem;transition:transform .15s ease}
+.loanHistoryToggle[aria-expanded="true"] i{transform:rotate(180deg)}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) details.loan > .detail{border-top:1px dashed color-mix(in srgb,var(--line) 85%,transparent);padding:12px 14px !important;background:none !important}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) details.loan > .detail .table-wrap{border-radius:12px;overflow:auto}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel) .list > .empty,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel) .empty{
+  background:none !important;border:1px dashed color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:16px !important;box-shadow:none !important;
+  padding:28px 14px !important;text-align:center;color:var(--muted) !important;width:auto !important;max-width:none !important;
+}
+
+/* Assets cards */
+html body #app#app #assetsPanel .asset-card{margin:0 0 8px !important;overflow:hidden;padding:0 !important}
+html body #app#app #assetsPanel .asset-card :is(.asset-card-top,.asset-card-main,.asset-card-stats){background:none !important;border:0 !important;box-shadow:none !important}
+#assetsPanel .asset-card .asset-card-top{padding:12px 14px 6px !important}
+#assetsPanel .asset-card .asset-card-title{font-size:.98rem;color:var(--text);margin:0 0 3px}
+#assetsPanel .asset-card .asset-card-meta{gap:8px;font-size:.74rem;color:var(--muted)}
+#assetsPanel .asset-card .asset-status{border-radius:999px;padding:2px 8px}
+html body #app#app #assetsPanel .asset-card .asset-card-stats{padding:8px 14px 12px !important;border-top:1px dashed color-mix(in srgb,var(--line) 80%,transparent) !important;gap:8px}
+#assetsPanel .asset-card .asset-card-stats > span{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+#assetsPanel .asset-card .asset-card-stats em{font-style:normal;font-size:.68rem;color:var(--muted);text-transform:none;letter-spacing:0}
+#assetsPanel .asset-card .asset-card-stats .money{font-size:1rem;color:var(--text);font-variant-numeric:tabular-nums}
+#assetsPanel .asset-card .asset-card-net small{font-size:.66rem;color:var(--muted)}
+#assetsPanel .asset-card .asset-card-net strong{font-size:.98rem}
+
+/* ── 8. Loans Overview / section overview banner: a quiet row, not a framed banner ─ */
+html body #app#app #mainOverview.overview{
+  background:none !important;border:0 !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;padding:0 !important;margin:0 0 6px !important;
+}
+html body #app#app #mainOverview .overview-top{
+  display:flex !important;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px !important;margin:0 !important;border-radius:12px !important;
+  background:none !important;border:0 !important;box-shadow:none !important;cursor:pointer;
+}
+html body #app#app #mainOverview .overview-top:hover{background:color-mix(in srgb,var(--primary) 7%,transparent) !important}
+html body #app#app #mainOverview .overview-top h3{margin:0 !important;font-size:.98rem !important;color:var(--text) !important;display:flex;align-items:center;gap:8px}
+html body #app#app #mainOverview .overview-top h3::before{content:"\f200";font-family:"Font Awesome 6 Free","Font Awesome 6 Pro",FontAwesome;font-weight:900;color:var(--primary);font-size:.9rem}
+html body #app#app #mainOverview .overview-top p{margin:2px 0 0 !important;font-size:.76rem !important;color:var(--muted) !important}
+html body #app#app #mainOverview .overview-top .overview-expand-btn{background:none !important;border:0 !important;box-shadow:none !important;color:var(--muted) !important}
+html body #app#app #mainOverview .main-overview-content{background:none !important;border:0 !important;box-shadow:none !important}
+
+/* ── 9. Accounting ───────────────────────────────────────────────────────────────── */
+html body #app#app #accountingPanel .accounting-section-head{display:flex !important;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
+html body #app#app #accountingPanel .accounting-head-actions{display:flex;gap:2px;flex-wrap:wrap}
+html body #app#app #accountingPanel .accounting-subnav{border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent) !important;padding-bottom:2px !important;display:flex !important;grid-template-columns:none !important}
+html body #app#app #accountingPanel .accounting-tools-row{display:flex !important;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px !important}
+html body #app#app #accountingPanel .accounting-search{display:flex !important;align-items:center;gap:8px;min-height:38px;padding:0 6px !important;flex:0 1 380px}
+html body #app#app #accountingPanel .accounting-search i{color:var(--muted)}
+html body #app#app #accountingPanel .accounting-kpi{padding:14px !important;display:flex !important;align-items:flex-start;gap:12px;overflow:hidden}
+html body #app#app #accountingPanel .accounting-kpi::before,
+html body #app#app #accountingPanel .accounting-kpi::after{display:none !important;content:none !important}
+html body #app#app #accountingPanel .accounting-kpi-icon{width:38px;height:38px;flex:0 0 38px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--primary) 12%,transparent) !important;color:var(--primary) !important;border:0 !important;box-shadow:none !important}
+html body #app#app #accountingPanel .accounting-kpi > div:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+html body #app#app #accountingPanel .accounting-kpi > div:last-child > span{font-size:.76rem;color:var(--muted)}
+html body #app#app #accountingPanel .accounting-kpi strong{display:flex !important;align-items:baseline;gap:4px;font-size:1.3rem !important;line-height:1.2;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html body #app#app #accountingPanel .accounting-kpi strong .money{display:inline-flex !important;align-items:baseline;gap:4px}
+html body #app#app #accountingPanel .accounting-kpi strong .symbol{font-size:.9em}
+html body #app#app #accountingPanel .accounting-kpi small{font-size:.68rem !important;color:var(--muted) !important;text-transform:none !important;letter-spacing:0 !important}
+html body #app#app #accountingPanel .accounting-card{padding:16px !important}
+html body #app#app #accountingPanel .accounting-card-head small{font-size:.68rem;letter-spacing:.06em;color:var(--muted)}
+html body #app#app #accountingPanel .accounting-card-head h4{font-size:1rem;margin:2px 0 0;color:var(--text)}
+html body #app#app #accountingPanel .accounting-health-grid > button{
+  background:color-mix(in srgb,var(--primary) 4%,transparent) !important;border:1px solid color-mix(in srgb,var(--line) 80%,transparent) !important;border-radius:14px !important;box-shadow:none !important;text-align:left;
+}
+html body #app#app #accountingPanel .accounting-health-grid > button:hover{border-color:color-mix(in srgb,var(--primary) 40%,var(--line)) !important}
+html body #app#app #accountingPanel .accounting-health-grid > button strong{font-size:1.35rem;color:var(--text)}
+html body #app#app #accountingPanel .accounting-health-grid > button span{font-size:.76rem;color:var(--muted)}
+html body #app#app #accountingPanel :is(.accounting-ledger-row,.accounting-list-row,.accounting-attention-row,.accounting-row){border-radius:12px !important;border:1px solid color-mix(in srgb,var(--line) 80%,transparent) !important;background:none !important;box-shadow:none !important}
+html body #app#app #accountingPanel :is(.accounting-ledger-row,.accounting-list-row,.accounting-row) :is(.icon-btn,.btn.icon,button.tiny){
+  width:32px !important;height:32px !important;min-width:32px !important;min-height:32px !important;padding:0 !important;display:inline-grid !important;place-items:center;
+  border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:999px !important;background:transparent !important;box-shadow:none !important;font-size:.78rem !important;
+}
+
+/* ── 10. Bitcoin ─────────────────────────────────────────────────────────────────── */
+html body #app#app #bitcoinPanel .btc-security-notice{
+  border-radius:14px !important;border:1px solid color-mix(in srgb,var(--warning,#d97706) 35%,transparent) !important;
+  background:color-mix(in srgb,var(--warning,#d97706) 8%,transparent) !important;box-shadow:none !important;padding:10px 14px !important;margin:0 0 12px !important;
+}
+html body #app#app #bitcoinPanel #btcLoginSection.card{padding:16px !important}
+html body #app#app #bitcoinPanel #btcLoginSection label{font-size:.82rem;color:var(--muted)}
+html body #app#app #bitcoinPanel .btc-wallet-access-trigger{
+  background:transparent !important;background-image:none !important;color:var(--text) !important;border:1px solid color-mix(in srgb,var(--line) 95%,transparent) !important;
+  box-shadow:none !important;border-radius:12px !important;min-height:42px;font-size:.88rem !important;
+}
+html body #app#app #bitcoinPanel .btc-wallet-access-trigger i{color:var(--primary) !important}
+html body #app#app #bitcoinPanel .btc-wallet-access-trigger:hover{border-color:color-mix(in srgb,var(--primary) 45%,var(--line)) !important;background:color-mix(in srgb,var(--primary) 5%,transparent) !important}
+html body #app#app #bitcoinPanel #btcLoginSection textarea{border-radius:12px !important}
+html body #app#app #bitcoinPanel #btcLoginSection .tools .btn{border-radius:999px !important;min-height:38px;padding:0 16px !important}
+html body #app#app #bitcoinPanel #btcLoginSection .tools .btn.ghost{background:none !important;border:1px solid color-mix(in srgb,var(--line) 95%,transparent) !important;box-shadow:none !important;color:var(--text) !important}
+
+/* ── 11. Triplem AI ──────────────────────────────────────────────────────────────── */
+html body #app#app #triplem-aiPanel .triplem-ai-root{background:none !important;border:0 !important;box-shadow:none !important}
+
+/* ── 12. Admin ───────────────────────────────────────────────────────────────────── */
+html body #app#app #adminPanel .admin-panel-tools{display:flex !important;flex-wrap:wrap;gap:2px !important;justify-content:flex-start}
+html body #app#app #adminPanel .admin-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.76rem !important;color:var(--muted) !important;margin:0 0 10px !important}
+html body #app#app #adminPanel .admin-legend i{color:var(--primary)}
+html body #app#app #adminPanel .admin-user-search-toolbar{display:flex !important;align-items:center;gap:12px;margin:0 0 12px !important}
+html body #app#app #adminPanel .admin-user-search-box{display:flex !important;align-items:center;gap:8px;flex:0 1 420px;min-height:38px;padding:0 6px !important}
+html body #app#app #adminPanel .admin-user-search-box i{color:var(--muted)}
+html body #app#app #adminPanel .admin-user-search-meta{font-size:.76rem;color:var(--muted);font-weight:inherit}
+html body #app#app #adminPanel .admin-user-tile{
+  background:var(--surface-elevated,var(--panel)) !important;background-image:none !important;border:1px solid color-mix(in srgb,var(--line) 85%,transparent) !important;border-radius:16px !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.05),0 8px 20px -18px rgba(15,23,42,.35) !important;transition:transform .2s ease,border-color .15s ease,box-shadow .2s ease !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+}
+@media (hover:hover){
+  html body #app#app #adminPanel .admin-user-tile:hover{transform:translateY(-2px) !important;border-color:color-mix(in srgb,var(--primary) 40%,var(--line)) !important;box-shadow:0 2px 4px rgba(15,23,42,.06),0 16px 28px -18px rgba(15,23,42,.45) !important}
+}
+html body #app#app #adminPanel :is(.admin-user-tile.is-selected,.admin-user-tile.active,.admin-user-tile[aria-pressed="true"]){border-color:var(--primary) !important;background:color-mix(in srgb,var(--primary) 7%,var(--surface-elevated,var(--panel))) !important}
+html body #app#app #adminPanel .admin-user-tile-name{font-size:.8rem;color:var(--text)}
+
+/* ── 13. Phones ──────────────────────────────────────────────────────────────────── */
+@media (max-width:760px){
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch,
+  html body #app#app #assetsPanel .assets-module-tabs,
+  html body #app#app #installmentsPanel .installment-plan-mode,
+  html body #app#app #accountingPanel .accounting-subnav{flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch::-webkit-scrollbar,
+  html body #app#app #accountingPanel .accounting-subnav::-webkit-scrollbar{display:none}
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > :is(button,.btn,.tiny),
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head :is(.title-row,.tools) > .menu-wrap > .menu-trigger{min-height:40px;padding:0 8px !important}
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .list > details.loan > summary{padding:10px 12px !important}
+  html body #app#app #accountingPanel .accounting-tools-row{flex-wrap:wrap}
+  html body #app#app #accountingPanel .accounting-search{flex:1 1 100%}
+}
+
+/* ── 14. Corrections after review ────────────────────────────────────────────────── */
+/* buttons that the app hides stay hidden */
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel,#accountingPanel) :is(button,.btn,.tiny,.menu-wrap):is(.hide,[hidden]){display:none !important}
+/* empty states use the full width */
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) .list > .empty{grid-column:1 / -1;width:100% !important;box-sizing:border-box}
+/* Accounting heading: title left, actions right */
+html body #app#app #accountingPanel .accounting-section-head > div:first-child{order:0;flex:1 1 320px;min-width:0;margin:0 !important;text-align:left !important;align-self:flex-end}
+html body #app#app #accountingPanel .accounting-section-head > .accounting-head-actions{order:1;margin:0 !important;align-self:flex-end}
+html body #app#app #accountingPanel .accounting-kpi strong :is(.money,.amount,.symbol){font-size:inherit !important;line-height:inherit}
+html body #app#app #accountingPanel :is(.accounting-health-grid button span,.accounting-kpi small,.accounting-card-head small){font-weight:400 !important}
+/* Triplem AI: no leftover decoration in the corner */
+html body #app#app #triplem-aiPanel :is(.card.section,.triplem-ai-root,.triplem-ai-section)::before,
+html body #app#app #triplem-aiPanel :is(.card.section,.triplem-ai-root,.triplem-ai-section)::after{content:none !important;display:none !important}
+/* Bitcoin: saved-address picker looks like the wallet type picker */
+html body #app#app #bitcoinPanel #btcLoginSection .menu-wrap:not(.btc-wallet-access-wrap) > .menu-trigger{
+  background:transparent !important;background-image:none !important;color:var(--text) !important;border:1px solid color-mix(in srgb,var(--line) 95%,transparent) !important;
+  box-shadow:none !important;border-radius:12px !important;min-height:40px;padding:0 14px !important;font-size:.86rem !important;
+}
+html body #app#app #bitcoinPanel #btcLoginSection .menu-wrap:not(.btc-wallet-access-wrap) > .menu-trigger:hover{border-color:color-mix(in srgb,var(--primary) 45%,var(--line)) !important}
+html body #app#app #bitcoinPanel .btc-qr-scan-btn{border-radius:12px !important;background:transparent !important;box-shadow:none !important}
+html body #app#app #accountingPanel .accounting-section-head::before,
+html body #app#app #accountingPanel .accounting-section-head::after,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head::before,
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel) .section-head::after{content:none !important;display:none !important}
+html body #app#app #accountingPanel .accounting-section-head{flex-direction:row !important;flex-wrap:nowrap !important;align-items:center !important;min-height:0 !important;height:auto !important}
+html body #app#app #accountingPanel .accounting-section-head > div:first-child{height:auto !important;min-height:0 !important;align-self:center}
+@media (max-width:760px){html body #app#app #accountingPanel .accounting-section-head{flex-wrap:wrap !important}}
+/* anything the app hides stays hidden (beats the frameless button rules above) */
+html body #app#app :is(#h-a,*):is(#h-b,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#bitcoinPanel,#adminPanel,#accountingPanel) :is(button,.btn,.tiny,.menu-wrap):is(.hide,[hidden]){display:none !important}
+html body #app#app #bitcoinPanel #btcLoginSection .menu-wrap:not(.btc-wallet-access-wrap) > .menu-trigger{display:inline-flex !important;align-items:center;gap:10px}
+@media (max-width:760px){
+  html body #app#app #accountingPanel .accounting-kpi strong{font-size:1.02rem !important}
+  html body #app#app #accountingPanel .accounting-kpi{padding:12px !important;gap:10px}
+  html body #app#app #accountingPanel .accounting-kpi-icon{width:32px;height:32px;flex-basis:32px;border-radius:10px}
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .cell strong{font-size:.86rem !important}
+  html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .cell small{font-size:.74rem !important}
+  html body #app#app #assetsPanel .asset-card .asset-card-stats .money{font-size:.86rem !important}
+  html body #app#app #assetsPanel .asset-card .asset-card-stats em{font-size:.7rem !important}
+  html body #app#app #assetsPanel .asset-card .asset-card-net strong{font-size:.86rem !important}
+}
+
+/* ── 15. Details found while checking ─────────────────────────────────────────────── */
+/* menu items without their own icon get one (Loans / Installments "Add ▾") */
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .menu-dropdown .menu-item[data-open-modal]::before{
+  font-family:"Font Awesome 6 Free";font-weight:900;width:18px;text-align:center;color:var(--primary);font-size:.86rem;content:"\f067";
+}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .menu-dropdown .menu-item[data-open-modal="payment"]::before{content:"\f2ea"}
+/* depreciation summary cards: same as the accounting cards, no corner circles */
+html body #app#app #assetsPanel .dep-summary-card{
+  background:var(--surface-elevated,var(--panel)) !important;background-image:none !important;border:1px solid color-mix(in srgb,var(--line) 85%,transparent) !important;
+  border-radius:16px !important;box-shadow:0 1px 2px rgba(15,23,42,.05),0 8px 20px -18px rgba(15,23,42,.35) !important;padding:14px !important;overflow:hidden;
+}
+html body #app#app #assetsPanel .dep-summary-card::before,html body #app#app #assetsPanel .dep-summary-card::after{content:none !important;display:none !important}
+html body #app#app #assetsPanel .dep-summary-card :is(small,span,label):first-child{font-size:.76rem !important;color:var(--muted) !important;font-weight:400 !important}
+html body #app#app #assetsPanel .dep-summary-card :is(strong,b,.money){font-size:1.25rem;color:var(--text)}
+/* accounting: KPI sub-amount on one line, round action buttons, frameless filter selects and chips */
+html body #app#app #accountingPanel .accounting-kpi :is(strong,small) .money{white-space:nowrap}
+html body #app#app #accountingPanel .accounting-kpi > div:last-child{overflow:hidden}
+html body #app#app #accountingPanel :is(.accounting-doc-actions,.accounting-list) :is(button.icon-btn,button.btn.icon,.accounting-doc-actions > button){
+  width:34px !important;height:34px !important;min-width:34px !important;min-height:34px !important;padding:0 !important;display:inline-grid !important;place-items:center;
+  border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:999px !important;background:transparent !important;background-image:none !important;box-shadow:none !important;font-size:.8rem !important;color:var(--text) !important;
+}
+html body #app#app #accountingPanel .accounting-doc-actions > button:hover{border-color:color-mix(in srgb,var(--primary) 50%,var(--line)) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important}
+html body #app#app #accountingPanel#accountingPanel .accounting-doc-actions > button:is(.danger,.btn-danger,[data-danger]){color:var(--danger) !important;border-color:color-mix(in srgb,var(--danger) 35%,var(--line)) !important}
+html body #app#app #accountingPanel :is(.accounting-type-filter select,.accounting-tax-filter select,.accounting-card-head select){
+  border:0 !important;background-color:transparent !important;box-shadow:none !important;border-radius:10px !important;padding:0 28px 0 10px !important;min-height:36px;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>") !important;
+  background-repeat:no-repeat !important;background-position:right 8px center !important;background-size:12px !important;color:var(--text) !important;
+}
+html body #app#app #accountingPanel .accounting-chip{border-radius:999px !important;background:transparent !important;border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;box-shadow:none !important;color:var(--muted) !important}
+html body #app#app #accountingPanel .accounting-chip:is(.active,[aria-pressed="true"],.is-active){color:var(--primary) !important;border-color:color-mix(in srgb,var(--primary) 55%,var(--line)) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important}
+html body #app#app #accountingPanel .accounting-list > *{border-radius:14px !important;background:none !important;border:1px solid color-mix(in srgb,var(--line) 80%,transparent) !important;box-shadow:none !important}
+html body #app#app #accountingPanel .accounting-kpi small{white-space:nowrap}
+html body #app#app #accountingPanel .accounting-kpi small .money{display:inline-flex !important;gap:3px;align-items:baseline}
+html body #app#app #accountingPanel :is(.accounting-type-filter,.accounting-tax-filter){border:0 !important;background:none !important;box-shadow:none !important}
+html body #app#app #accountingPanel :is(.accounting-type-filter,.accounting-tax-filter)::after{content:none !important;display:none !important}
+:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .menu-dropdown .menu-item[data-open-modal]::before{content:none !important}
+html body #app#app #assetsPanel .asset-card :is(.asset-card-aside,.asset-card-net){background:none !important;border:0 !important;box-shadow:none !important}

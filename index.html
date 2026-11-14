@@ -975,7 +975,7 @@
   <script defer src="Assets/app/inventory/04-inventory-barcodes-scanner.js?v=20260915-inventory-standards-001&amp;r=20261105-desktop350"></script>
   <script defer src="Assets/app/expenses/01-expenses-wallets.js?v=20260912-wallet-transactions-167&currency=002&build011=003&uifix=20260915-001&amp;ev2=20261112b"></script>
   <script defer src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001&amp;store=20261106-001&amp;inv2=20261110-215&amp;home=20261114-nav4"></script>
+  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001&amp;store=20261106-001&amp;inv2=20261110-215&amp;home=20261114-nav5"></script>
   <script defer src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script defer src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
   <script defer src="Assets/app/installments/02-bought-sold-plans.js?v=20260915-installment-amount-mode-001"></script>
@@ -3869,10 +3869,10 @@
                   <h3>Loan Given / Received Back</h3>
                   <button class="tiny ghost section-shortcuts-tag" id="givenShortcutsBtn" type="button" data-shortcut-trigger="given" title="Loan keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <div class="menu-wrap">
-                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="given" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="given" aria-haspopup="menu" aria-expanded="false" title="New entry"><span>Add</span><i class="fa-solid fa-chevron-down v2-caret" aria-hidden="true"></i></button>
                     <div class="menu-dropdown" data-entry-menu-panel="given">
-                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="given" aria-keyshortcuts="Control+Alt+G">Loan Given</button>
-                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="given" aria-keyshortcuts="Control+Alt+R">Received Back</button>
+                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="given" aria-keyshortcuts="Control+Alt+G"><i class="fa-solid fa-plus" aria-hidden="true"></i> Loan Given</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="given" aria-keyshortcuts="Control+Alt+R"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Received Back</button>
                       <button type="button" class="menu-item" data-section-csv-download="loans-given" title="Download loans given as CSV">
                         <i class="fa-solid fa-download"></i> Download CSV
                       </button>
@@ -3932,9 +3932,9 @@
                   <h3>Received Back</h3>
                   <button class="tiny ghost section-shortcuts-tag" id="receivedShortcutsBtn" type="button" data-shortcut-trigger="received" title="Loan keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <div class="menu-wrap">
-                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="received" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="received" aria-haspopup="menu" aria-expanded="false" title="New entry"><span>Add</span><i class="fa-solid fa-chevron-down v2-caret" aria-hidden="true"></i></button>
                     <div class="menu-dropdown" data-entry-menu-panel="received">
-                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="given" aria-keyshortcuts="Control+Alt+R">Received Back</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="given" aria-keyshortcuts="Control+Alt+R"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Received Back</button>
                       <button type="button" class="menu-item" id="downloadReceivedPdfBtn" title="Download received back PDF">
                         <i class="fa-solid fa-file-pdf"></i> Download PDF
                       </button>
@@ -3990,10 +3990,10 @@
                   <h3>Loan Taken / Returned Back</h3>
                   <button class="tiny ghost section-shortcuts-tag" id="takenShortcutsBtn" type="button" data-shortcut-trigger="taken" title="Loan keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <div class="menu-wrap">
-                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="taken" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="taken" aria-haspopup="menu" aria-expanded="false" title="New entry"><span>Add</span><i class="fa-solid fa-chevron-down v2-caret" aria-hidden="true"></i></button>
                     <div class="menu-dropdown" data-entry-menu-panel="taken">
-                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="taken" aria-keyshortcuts="Control+Alt+T">Loan Taken</button>
-                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken" aria-keyshortcuts="Control+Alt+B">Returned Back</button>
+                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="taken" aria-keyshortcuts="Control+Alt+T"><i class="fa-solid fa-plus" aria-hidden="true"></i> Loan Taken</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken" aria-keyshortcuts="Control+Alt+B"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Returned Back</button>
                       <button type="button" class="menu-item" data-section-csv-download="loans-taken" title="Download loans taken as CSV">
                         <i class="fa-solid fa-download"></i> Download CSV
                       </button>
@@ -4053,9 +4053,9 @@
                   <h3>Returned Back</h3>
                   <button class="tiny ghost section-shortcuts-tag" id="returnedShortcutsBtn" type="button" data-shortcut-trigger="returned" title="Loan keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <div class="menu-wrap">
-                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="returned" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="returned" aria-haspopup="menu" aria-expanded="false" title="New entry"><span>Add</span><i class="fa-solid fa-chevron-down v2-caret" aria-hidden="true"></i></button>
                     <div class="menu-dropdown" data-entry-menu-panel="returned">
-                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken" aria-keyshortcuts="Control+Alt+B">Returned Back</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken" aria-keyshortcuts="Control+Alt+B"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Returned Back</button>
                       <button type="button" class="menu-item" id="downloadReturnedPdfBtn" title="Download returned back PDF">
                         <i class="fa-solid fa-file-pdf"></i> Download PDF
                       </button>
@@ -4110,7 +4110,7 @@
                     <i class="fa-solid fa-chart-pie"></i> Details
                   </button>
                   <div class="menu-wrap">
-                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="installments" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="installments" aria-haspopup="menu" aria-expanded="false" title="New entry"><span>Add</span><i class="fa-solid fa-chevron-down v2-caret" aria-hidden="true"></i></button>
                     <div class="menu-dropdown" data-entry-menu-panel="installments">
                       <button type="button" class="menu-item" id="installmentNewPlanBtn"><i class="fa-solid fa-calendar-plus"></i> New Bought Plan</button>
                       <button type="button" class="menu-item" id="installmentNewPaymentBtn"><i class="fa-solid fa-money-bill-wave"></i> Pay Installment</button>
@@ -4404,7 +4404,7 @@
                     <i class="fa-solid fa-chart-pie"></i> Details
                   </button>
                   <div class="menu-wrap">
-                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="assets" aria-haspopup="menu" aria-expanded="false">Actions ▾</button>
+                    <button class="tiny ghost menu-trigger" type="button" data-entry-menu="assets" aria-haspopup="menu" aria-expanded="false"><span>Actions</span><i class="fa-solid fa-chevron-down v2-caret" aria-hidden="true"></i></button>
                     <div class="menu-dropdown" data-entry-menu-panel="assets">
                       <button type="button" class="menu-item" id="openAddAssetBtnMenu">
                         <i class="fa-solid fa-plus"></i> Add Asset
@@ -4452,7 +4452,7 @@
                     <h3>Depreciation Assets</h3>
                     <button class="tiny ghost section-shortcuts-tag" id="depAssetsShortcutsBtn" type="button" data-shortcut-trigger="assets" title="Asset keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                     <div class="menu-wrap">
-                      <button class="tiny ghost menu-trigger" type="button" data-entry-menu="depreciation-assets" aria-haspopup="menu" aria-expanded="false">Reports ▾</button>
+                      <button class="tiny ghost menu-trigger" type="button" data-entry-menu="depreciation-assets" aria-haspopup="menu" aria-expanded="false"><span>Reports</span><i class="fa-solid fa-chevron-down v2-caret" aria-hidden="true"></i></button>
                       <div class="menu-dropdown" data-entry-menu-panel="depreciation-assets">
                         <button type="button" class="menu-item" data-dep-report="monthly"><i class="fa-solid fa-calendar"></i> Monthly depreciation</button>
                         <button type="button" class="menu-item" data-dep-report="yearly"><i class="fa-solid fa-calendar-days"></i> Yearly depreciation</button>
@@ -4703,7 +4703,7 @@
                 <div class="title-row">
                   <h3>Bitcoin Wallet</h3>
                   <div class="menu-wrap">
-                    <button class="btn ghost menu-trigger" type="button" data-entry-menu="bitcoin" aria-haspopup="menu" aria-expanded="false">Actions ▾</button>
+                    <button class="btn ghost menu-trigger" type="button" data-entry-menu="bitcoin" aria-haspopup="menu" aria-expanded="false"><span>Actions</span><i class="fa-solid fa-chevron-down v2-caret" aria-hidden="true"></i></button>
                     <div class="menu-dropdown" data-entry-menu-panel="bitcoin">
                       <button type="button" class="menu-item" data-section-csv-download="bitcoin" title="Download bitcoin wallets as CSV">
                         <i class="fa-solid fa-download"></i> Download CSV
@@ -4755,7 +4755,7 @@
                 <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Existing Addresses</label>
                 <div class="menu-wrap">
                   <button class="btn ghost menu-trigger" id="btcExistingAddressesBtn" type="button" data-entry-menu="existing-addresses" aria-haspopup="menu" aria-expanded="false" style="width:100%;">
-                    <span id="btcExistingAddressesLabel">Select Saved Address ▾</span>
+                    <span id="btcExistingAddressesLabel">Select Saved Address</span><i class="fa-solid fa-chevron-down v2-caret" aria-hidden="true"></i>
                   </button>
                   <div class="menu-dropdown" data-entry-menu-panel="existing-addresses" id="btcExistingAddressesDropdown" style="max-height:300px;overflow-y:auto;">
                     <div id="btcExistingAddressesList">

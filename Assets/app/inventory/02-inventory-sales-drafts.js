@@ -193,7 +193,7 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
             <div class="cell lt-remaining"><small>Remaining</small><strong>${money(group.remaining, group.currency)}</strong></div>
             <div class="lt-action">
               <div class="card-action-grid loan-inline-actions${hasUnsynced ? " card-action-grid--triple" : ""}" role="group" aria-label="Loan actions">
-                <button class="icon-btn ghost loanHistoryToggle" type="button" data-history-toggle title="Show timeline" aria-label="Show timeline" aria-expanded="false">▾</button>
+                <button class="icon-btn ghost loanHistoryToggle" type="button" data-history-toggle title="Show timeline" aria-label="Show timeline" aria-expanded="false"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
                 <div class="menu-wrap">
                   <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" title="More actions" data-person-menu="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">☰</button>
                   <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">
