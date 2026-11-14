@@ -101,3 +101,19 @@ test("Home hides the section bar; header has no default text; new footer", () =>
   assert.match(html, /Invoices\/Receipts, Reports, Wallets\/Accounts, Inventory, Assets\/Depreciation, Loans, Installments\./);
   assert.doesNotMatch(read("Assets/app/reports/01-pdf.js"), /let subtitle = "Money Management Module \(Powered/);
 });
+
+test("Admin, Loans, Installments, Assets and Notes overlays open as side panels", () => {
+  assert.match(read("index.html"), /Assets\/app\/ui\/09-side-sheets\.js\?v=/);
+  const js = read("Assets/app/ui/09-side-sheets.js");
+  for (const id of ["entryModal", "sectionDetailsModal", "installmentPlanModal", "assetDetailModal", "depAssetDetailModal", "noteDetailModal", "adminRawDataModal", "adminCreateUserModal"]) {
+    assert.ok(js.includes(`${id}:`), id);
+  }
+  // Expenses keeps its own dialogs; confirmations stay small
+  assert.match(js, /KEEP_CENTERED = "\.app-confirm-modal[^"]*#expenseModal/);
+  // New actions
+  assert.match(js, /Send on WhatsApp/);
+  assert.match(js, /Download as text file/);
+  const css = read("Assets/style/69-admin-user-manager.css");
+  assert.match(css, /\.modal\.tm-sheet:is\(#sh-a,\*\):is\(#sh-b,\*\) > \.modal-dialog\{/);
+  assert.match(css, /@media \(max-width:700px\)/);
+});

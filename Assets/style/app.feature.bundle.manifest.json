@@ -189,10 +189,10 @@
     },
     {
       "path": "Assets/style/69-admin-user-manager.css",
-      "bytes": 14865,
-      "sha256": "50e6eefc78515d81d933b580c10c4f157afebf333cc49fe426ead8867dde7fb9"
+      "bytes": 30499,
+      "sha256": "d008a6243993fde131cde7e7de0e0afe0c84a565e6378253c3b8f9d0e5ff91e5"
     }
   ],
-  "bytes": 888579,
-  "sha256": "6805c9f99bde212fd5814175a2d12e42dd478c9ee0b7b9365a6e800dff4edcf1"
+  "bytes": 904213,
+  "sha256": "306cba361876c4dd0d119b6f2139648920ef112e59750c6c2d5950fe82d26b73"
 }
