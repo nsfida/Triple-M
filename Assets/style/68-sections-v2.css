@@ -391,3 +391,29 @@ html body #app#app #accountingPanel :is(.accounting-type-filter,.accounting-tax-
 html body #app#app #accountingPanel :is(.accounting-type-filter,.accounting-tax-filter)::after{content:none !important;display:none !important}
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .menu-dropdown .menu-item[data-open-modal]::before{content:none !important}
 html body #app#app #assetsPanel .asset-card :is(.asset-card-aside,.asset-card-net){background:none !important;border:0 !important;box-shadow:none !important}
+
+/* Shared test account notice (2026-11-14) */
+.tm-test-notice{position:fixed;inset:0;z-index:2147483647!important;display:none;align-items:center;justify-content:center;padding:20px}
+.tm-test-notice.is-open{display:flex}
+.tm-test-notice-backdrop{position:absolute;inset:0;background:rgba(8,15,30,.48);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:tmTestFade .18s ease-out}
+.tm-test-notice-card{position:relative;width:min(420px,100%);padding:28px 26px 22px;border-radius:20px;text-align:center;
+  background:linear-gradient(var(--surface-elevated,#fff),var(--surface-elevated,#fff)),var(--bg,#fff);color:var(--text,#0f172a);
+  border:1px solid color-mix(in srgb,var(--line,#e2e8f0) 80%,transparent);box-shadow:0 24px 60px rgba(8,15,30,.28);animation:tmTestPop .22s cubic-bezier(.2,.9,.3,1.2)}
+.tm-test-notice-icon{display:inline-grid;place-items:center;width:58px;height:58px;border-radius:18px;margin-bottom:12px;font-size:26px;
+  color:var(--primary,#2563eb);background:color-mix(in srgb,var(--primary,#2563eb) 12%,transparent)}
+.tm-test-notice-kicker{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--primary,#2563eb);margin-bottom:6px}
+.tm-test-notice-card h3{margin:0 0 8px;font-size:19px;font-weight:600;line-height:1.3}
+.tm-test-notice-card p{margin:0 auto 16px;max-width:340px;font-size:14px;line-height:1.55;color:var(--muted,#64748b)}
+.tm-test-notice-allowed{list-style:none;margin:0 0 20px;padding:12px 14px;border-radius:14px;text-align:left;display:grid;gap:8px;
+  background:color-mix(in srgb,var(--primary,#2563eb) 6%,transparent);font-size:13.5px}
+.tm-test-notice-allowed li{display:flex;align-items:center;gap:10px}
+.tm-test-notice-allowed i{width:18px;height:18px;display:inline-grid;place-items:center;border-radius:50%;font-size:10px;color:#fff;background:#16a34a;flex:none}
+.tm-test-notice-ok{width:100%;min-height:44px;border:0;border-radius:12px;font:inherit;font-weight:600;font-size:15px;cursor:pointer;
+  color:var(--on-primary,#fff);background:var(--primary,#2563eb)}
+.tm-test-notice-ok:hover{filter:brightness(1.06)}
+.tm-test-notice-ok:focus-visible{outline:3px solid color-mix(in srgb,var(--primary,#2563eb) 40%,transparent);outline-offset:2px}
+.tm-test-badge{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.02em;vertical-align:middle;
+  color:var(--primary,#2563eb);background:color-mix(in srgb,var(--primary,#2563eb) 12%,transparent)}
+@keyframes tmTestFade{from{opacity:0}to{opacity:1}}
+@keyframes tmTestPop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.tm-test-notice-backdrop,.tm-test-notice-card{animation:none}}

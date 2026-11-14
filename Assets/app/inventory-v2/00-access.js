@@ -86,12 +86,30 @@
     }
     const card = tpl.content.firstElementChild;
     // Opening and the ⋮ menu are handled by the Home grid (01-render-navigation.js).
-    // Primary version first; otherwise next to where V1 sits (or at the end).
-    const v1Card = grid.querySelector('[data-workspace-tab="goods"]');
-    if (S.access?.primary_version === "v2") grid.insertBefore(card, grid.firstElementChild);
-    else if (v1Card) v1Card.after(card);
-    else grid.appendChild(card);
+    // The place the user gave it (Home card order, saved to the account) wins; without one:
+    // primary version first, otherwise next to where V1 sits (or at the end).
+    if (!placeBySavedOrder(grid, card)) {
+      const v1Card = grid.querySelector('[data-workspace-tab="goods"]');
+      if (S.access?.primary_version === "v2") grid.insertBefore(card, grid.firstElementChild);
+      else if (v1Card) v1Card.after(card);
+      else grid.appendChild(card);
+    }
     card.style.setProperty("--workspace-card-index", String([...grid.children].indexOf(card)));
+  }
+
+  /** Index of Inventory 2.0 in the saved Home order, or -1. */
+  function savedHomeOrder() {
+    try { return window.TriplemCardOrder?.home?.effectiveOrder?.() || []; } catch (_) { return []; }
+  }
+  /** Puts the card where the saved Home order says (before the first card saved after it). */
+  function placeBySavedOrder(grid, card) {
+    const order = savedHomeOrder();
+    const at = order.indexOf("inventory2");
+    if (at < 0) return false;
+    const later = new Set(order.slice(at + 1));
+    const next = [...grid.querySelectorAll(":scope > [data-workspace-tab]")].find(el => later.has(el.dataset.workspaceTab));
+    if (next) grid.insertBefore(card, next); else grid.appendChild(card);
+    return true;
   }
 
   function open() {
@@ -216,5 +234,5 @@
 
   window.addEventListener("online", () => { if (sessionKey() && S.loadedFor !== sessionKey()) refreshAccess(); });
 
-  window.TriplemInventoryV2 = { refreshAccess, access, v2Enabled, v1Hidden, decorateHome, open, reset, mountEditSection, saveEditSection };
+  window.TriplemInventoryV2 = { savedHomeOrder, refreshAccess, access, v2Enabled, v1Hidden, decorateHome, open, reset, mountEditSection, saveEditSection };
 })();

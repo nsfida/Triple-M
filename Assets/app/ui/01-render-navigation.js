@@ -861,7 +861,15 @@ function workspaceSwitchItems(sectionKey){
     let primaryV2 = false;
     try { primaryV2 = window.TriplemInventoryV2?.access?.()?.primary_version === "v2"; } catch (_) {}
     const v1 = items.findIndex(it => it.key === "goods");
-    if (primaryV2) items.unshift(inv2);
+    // Same place as on Home: the user's saved card order first.
+    let order = [];
+    try { order = window.TriplemInventoryV2?.savedHomeOrder?.() || []; } catch (_) {}
+    const at = order.indexOf("inventory2");
+    if (at >= 0) {
+      const later = new Set(order.slice(at + 1));
+      const next = items.findIndex(it => later.has(it.tab));
+      if (next >= 0) items.splice(next, 0, inv2); else items.push(inv2);
+    } else if (primaryV2) items.unshift(inv2);
     else if (v1 >= 0) items.splice(v1 + 1, 0, inv2);
     else items.push(inv2);
   }
