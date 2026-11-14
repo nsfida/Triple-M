@@ -102,18 +102,30 @@ test("Home hides the section bar; header has no default text; new footer", () =>
   assert.doesNotMatch(read("Assets/app/reports/01-pdf.js"), /let subtitle = "Money Management Module \(Powered/);
 });
 
-test("Admin, Loans, Installments, Assets and Notes overlays open as side panels", () => {
+test("Admin, Loans, Installments, Assets and Notes overlays open as side panels of one size", () => {
   assert.match(read("index.html"), /Assets\/app\/ui\/09-side-sheets\.js\?v=/);
   const js = read("Assets/app/ui/09-side-sheets.js");
-  for (const id of ["entryModal", "sectionDetailsModal", "installmentPlanModal", "assetDetailModal", "depAssetDetailModal", "noteDetailModal", "adminRawDataModal", "adminCreateUserModal"]) {
+  for (const id of ["entryModal", "editModal", "assetFormModal", "noteCreateModal", "adminRawDataModal", "adminCreateUserModal"]) {
     assert.ok(js.includes(`${id}:`), id);
   }
-  // Expenses keeps its own dialogs; confirmations stay small
   assert.match(js, /KEEP_CENTERED = "\.app-confirm-modal[^"]*#expenseModal/);
-  // New actions
-  assert.match(js, /Send on WhatsApp/);
-  assert.match(js, /Download as text file/);
+  assert.match(js, /every panel has the same size/);
   const css = read("Assets/style/69-admin-user-manager.css");
-  assert.match(css, /\.modal\.tm-sheet:is\(#sh-a,\*\):is\(#sh-b,\*\) > \.modal-dialog\{/);
-  assert.match(css, /@media \(max-width:700px\)/);
+  assert.doesNotMatch(css, /tm-sheet-wide[^{]*\{width:min\(980px/);
+});
+
+test("Loans, Installments, Assets, Depreciation and Notes details open in the shared detail panel", () => {
+  assert.match(read("index.html"), /Assets\/app\/ui\/10-detail-panels\.js\?v=/);
+  const js = read("Assets/app/ui/10-detail-panels.js");
+  for (const fn of ["openLoanDetailsOverlay", "openInstallmentItemDetailsOverlay", "openInstallmentPlanOverlay", "openAssetDetail", "openNoteDetailModal"]) {
+    assert.ok(js.includes(`global.${fn} =`), fn);
+  }
+  // only existing app functions change data
+  for (const fn of ["openEntryModal(", "deleteEntry(", "openInstallmentPaymentModal(", "deleteInstallmentPayment(", "openAssetTxModal(", "deleteAssetTransaction(", "saveEditedNoteContent(", "global.deleteNote("]) {
+    assert.ok(js.includes(fn), fn);
+  }
+  assert.doesNotMatch(js, /supabase\(|supabaseRpc\(/);
+  const dep = read("Assets/app/assets/02-depreciation-assets.js");
+  assert.match(dep, /window\.TriplemDepApi = Object\.freeze/);
+  assert.match(dep, /TriplemDetailPanels\?\.openDep\?\.\(assetId\)/);
 });

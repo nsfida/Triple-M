@@ -610,6 +610,7 @@
   }
 
   function renderList() {
+    window.TriplemDetailPanels?.refresh?.(); // keeps an open detail panel up to date
     const listEl = document.getElementById("depAssetsList");
     if (!listEl) return;
     const hasPendingLocalAssets = (depUi.assets || []).some(asset => asset?._syncStatus === "pending" || (asset?.id && typeof hasPendingOfflineEntity === "function" && hasPendingOfflineEntity(asset.id)));
@@ -990,7 +991,9 @@
     const asset = getById(assetId);
     if (!asset) return;
     depUi.selectedId = assetId;
-    openModal("depAssetDetailModal");
+    // 2026-11-14: shown in the shared detail panel (ui/10-detail-panels.js) when available.
+    const inPanel = !!window.TriplemDetailPanels?.openDep?.(assetId);
+    if (!inPanel) openModal("depAssetDetailModal");
     renderDetail(assetId);
     // Catch up posted periods if calendar advanced since last save
     if (asset.status === "active") {
@@ -1027,6 +1030,7 @@
   }
 
   function renderDetail(assetId) {
+    window.TriplemDetailPanels?.refresh?.();
     const asset = getById(assetId);
     const root = document.getElementById("depAssetDetailBody");
     const title = document.getElementById("depAssetDetailTitle");
@@ -1682,6 +1686,11 @@
   }
 
   window.loadDepreciationAssetsFromDatabase = loadDepreciationAssetsFromDatabase;
+  // Read access and the existing actions, for the shared detail panel (no new saving code).
+  window.TriplemDepApi = Object.freeze({
+    getById, computeDepreciation, methodLabel, typeLabel, statusLabel,
+    openForm, openDispose, openDepUsageModal, deleteAsset, openReportModal
+  });
   window.depreciationAssetsBindUI = bindUI;
   window.renderDepreciationAssetsList = renderList;
 
