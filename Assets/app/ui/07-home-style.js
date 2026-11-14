@@ -34,7 +34,8 @@
     { id: "outline", label: "Outline", note: "Clean coloured lines, no background" },
     { id: "duotone", label: "Duotone", note: "Soft tint with coloured lines" },
     { id: "gradient", label: "Vivid Gradient", note: "Bright gradient shapes" },
-    { id: "solid", label: "Solid Teal", note: "One calm colour, simple shapes" }
+    { id: "solid", label: "Solid Teal", note: "One calm colour, simple shapes" },
+    { id: "blue", label: "Blue", note: "The blue of the home button" }
   ];
   const LAYOUTS = [
     { id: "grid", label: "Icons", note: "Large icons, no frames" },

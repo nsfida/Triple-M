@@ -140,5 +140,10 @@
   document.addEventListener("click", e => { if (e.target.closest?.("#themeSettingsBtn")) { mountMenu(); apply(); } }, true);
   global.addEventListener("triplemthemechange", () => { apply(); push(); });
 
+  // Focus rings only for keyboard use (html.tm-kbd): a click or tap never leaves a ring around
+  // the section picker or the search bar (66-workspace-home-v2.css).
+  document.addEventListener("keydown", e => { if (e.key === "Tab") document.documentElement.classList.add("tm-kbd"); }, true);
+  document.addEventListener("pointerdown", () => document.documentElement.classList.remove("tm-kbd"), true);
+
   global.TriplemTextStyle = Object.freeze({ get, set, apply, mount, push, WEIGHTS, DEFAULT });
 })(typeof window !== "undefined" ? window : globalThis);

@@ -174,8 +174,8 @@
     },
     {
       "path": "Assets/style/66-workspace-home-v2.css",
-      "bytes": 39601,
-      "sha256": "0b23dfbb60029f2389fa52967ff4c2661e2cab00f3d135cce951ec433a38ffd2"
+      "bytes": 40803,
+      "sha256": "eb4642eec3196c4b85867f9870b9b5ac16dba894fdc89640431394025bee2763"
     },
     {
       "path": "Assets/style/67-expenses-v2.css",
@@ -183,6 +183,6 @@
       "sha256": "5f8715cba5aeee001cc13171fb4a0c4383cdb999fdf630d915c9c45a8b2488ec"
     }
   ],
-  "bytes": 800876,
-  "sha256": "5965c383662556d3fe990667ebba4350b7f4a5a403d4fcd2393adc3ef32164ff"
+  "bytes": 802078,
+  "sha256": "dbfdb285789caa3b7d35cb14ca2f9257eb4e074c3711f8fb01712f6b48695959"
 }

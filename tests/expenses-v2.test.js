@@ -157,8 +157,14 @@ test("2026-11-14: Add menu replaces New Entry; frameless header, filters and sec
   for (const id of ["openExpenseAccountBtn", "openExpenseTopupBtn", "openExpenseEntryBtn", "downloadExpensesPdfBtn"]) assert.ok(add.includes(`id="${id}"`), id);
   assert.doesNotMatch(read("Assets/app/expenses/04-expenses-v2.js"), /ev2AddExpenseBtn/);
   assert.match(html, /id="workspaceHomeBackBtn"[^>]*>\s*<i class="fa-solid fa-house"/);
-  assert.match(html, /<img id="workspaceSectionIcon" class="workspace-section-icon"/);
-  assert.match(read("Assets/app/ui/01-render-navigation.js"), /const icon = document\.getElementById\("workspaceSectionIcon"\);/);
+  assert.match(html, /<span id="workspaceSectionIcon" class="workspace-section-icon"><\/span>/);
+  const nav = read("Assets/app/ui/01-render-navigation.js");
+  assert.match(nav, /const icon = document\.getElementById\("workspaceSectionIcon"\);/);
+  assert.match(nav, /return `Assets\/logo\/icons\/packs\/blue\/\$\{k\}\.svg\?v=[^`]+`;/, "section bar always uses the Blue pack");
+  const navCss = read("Assets/style/66-workspace-home-v2.css");
+  assert.match(navCss, /\.workspace-section-icon\{[^}]*background-color:var\(--primary\);/);
+  assert.match(navCss, /html\.tm-kbd body #app #workspaceSectionNav/, "focus ring only for keyboard use");
+  assert.match(navCss, /#triplemDesktopSearchBar\.dgs:focus-within\{box-shadow:0 1px 2px/);
   const css = read("Assets/style/67-expenses-v2.css");
   assert.match(css, /\.ev2-actions \.ev2-btn\{\s*background:none !important;border:0 !important/);
   assert.match(css, /\.compact-filter-row :is\(\.input,\.select\)\{\s*border:0 !important;background-color:transparent !important/);

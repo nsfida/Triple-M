@@ -632,6 +632,15 @@ function workspaceSectionIcon(key, pack = workspaceHomePack()){
   return `Assets/logo/icons/home/${k}.svg?v=20261114`;
 }
 
+/** Icon of the section bar (beside the section name): the Blue pack, used as a mask. */
+function workspaceNavIconUrl(key){
+  let k = String(key || "").trim();
+  if (k === "inventory") k = "goods";
+  if (k === "message") k = "messages";
+  if (!WORKSPACE_HOME_ICON_KEYS.includes(k)) k = "dashboard";
+  return `Assets/logo/icons/packs/blue/${k}.svg?v=20261114b`;
+}
+
 function workspaceSectionIconHtml(key, label, pack = workspaceHomePack(), layout = workspaceHomeStyle().layout){
   const src = workspaceSectionIcon(key, pack);
   const cls = layout === "cards" ? "workspace-card-icon" : "wh2-img";
@@ -822,11 +831,18 @@ function syncWorkspaceSectionNavigation(tab){
   if (nav) nav.classList.remove("hide");
   if (title) title.textContent = workspaceDisplayLabel(sectionKey);
   try { window.TriplemTextStyle?.apply?.(); } catch (_) {}
-  // Section icon beside the section name: the same icon as on Home (chosen icon pack).
+  // Section icon beside the section name: always the Blue pack shape, painted in the theme's
+  // primary colour like the house button (not affected by the Home icon pack).
   const icon = document.getElementById("workspaceSectionIcon");
   if (icon) {
-    const src = workspaceSectionIcon(sectionKey);
-    if (icon.getAttribute("src") !== src) icon.setAttribute("src", src);
+    const url = workspaceNavIconUrl(sectionKey);
+    if (icon.dataset.src !== url) {
+      icon.dataset.src = url;
+      // Absolute URL: a url() inside a CSS variable is otherwise read relative to the stylesheet.
+      let abs = url;
+      try { abs = new URL(url, document.baseURI).href; } catch (_) {}
+      icon.style.setProperty("--sec-icon", `url("${abs}")`);
+    }
     icon.dataset.section = sectionKey;
   }
   if (select) {

@@ -79,7 +79,7 @@ test("card names: cleaned, limited, saved to the account settings (HomeNames)", 
   assert.match(src, /const SETTINGS_KEY = "HomeNames";/);
 });
 
-test("Home Style: 10 icon packs, 4 layouts, size and spacing, saved to the account", () => {
+test("Home Style: 11 icon packs, 4 layouts, size and spacing, saved to the account", () => {
   const theme = read("Assets/app/core/07-theme.js");
   const menu = theme.slice(theme.indexOf("function renderThemeDropdown()"));
   assert.ok(menu.indexOf("data-bg-motion-toggle aria-checked") < menu.indexOf("data-home-customize"), "below the bubbles switch");
@@ -100,7 +100,7 @@ test("Home Style: 10 icon packs, 4 layouts, size and spacing, saved to the accou
   vm.createContext(g);
   vm.runInContext(src, g);
   const H = g.TriplemHomeStyle;
-  assert.equal(JSON.stringify(H.PACKS.map(p => p.id)), JSON.stringify(["standard", "classic", "jewel", "pastel", "neon", "luxe", "outline", "duotone", "gradient", "solid"]));
+  assert.equal(JSON.stringify(H.PACKS.map(p => p.id)), JSON.stringify(["standard", "classic", "jewel", "pastel", "neon", "luxe", "outline", "duotone", "gradient", "solid", "blue"]));
   assert.equal(JSON.stringify(H.LAYOUTS.map(l => l.id)), JSON.stringify(["grid", "cards", "list", "compact"]));
   { const g0 = H.get(); assert.equal(JSON.stringify([g0.pack, g0.layout, g0.size, g0.gap]), JSON.stringify(["standard", "grid", 100, 100]), "defaults: Standard icons at normal size"); }
   { const n0 = H.normalize({ pack: "x", layout: "y", size: 999, gap: 3 }); assert.equal(JSON.stringify([n0.pack, n0.layout, n0.size, n0.gap]), JSON.stringify(["standard", "grid", 140, 40])); }
@@ -111,7 +111,7 @@ test("Home Style: 10 icon packs, 4 layouts, size and spacing, saved to the accou
   assert.equal(H.iconSrc("notes", "neon"), "Assets/logo/icons/packs/neon/notes.svg?v=20261114");
   assert.equal(H.iconSrc("notes", "classic"), "Assets/logo/icons/notes.png");
   assert.match(H.iconSrc("notes", "standard"), /^Assets\/logo\/icons\/home\/notes\.svg/);
-  for (const pack of ["jewel", "pastel", "neon", "luxe", "outline", "duotone", "gradient", "solid"]) {
+  for (const pack of ["jewel", "pastel", "neon", "luxe", "outline", "duotone", "gradient", "solid", "blue"]) {
     for (const key of ["dashboard", "expenses", "inventory2", "goods", "accounting", "audit", "assets", "loans", "installments", "notes", "triplem-ai", "insurance", "bitcoin", "admin", "messages"]) {
       const svg = read(`Assets/logo/icons/packs/${pack}/${key}.svg`);
       assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 100 100"/, `${pack}/${key}`);
