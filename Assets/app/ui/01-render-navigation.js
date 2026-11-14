@@ -629,7 +629,7 @@ function workspaceSectionIcon(key, pack = workspaceHomePack()){
   let k = String(key || "").trim();
   if (k === "inventory") k = "goods";
   if (!WORKSPACE_HOME_ICON_KEYS.includes(k)) k = "dashboard";
-  return `Assets/logo/icons/home/${k}.svg?v=20261114`;
+  return `Assets/logo/icons/home/${k}.svg?v=20261114c`;
 }
 
 /** Icon of the section bar (beside the section name): the Blue pack, used as a mask. */

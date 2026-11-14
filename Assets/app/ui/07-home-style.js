@@ -165,7 +165,7 @@
     if (k === "message") k = "messages";
     if (pack === "classic") return `Assets/logo/icons/${CLASSIC_FILES[k] || "dashboard.png"}`;
     if (!Object.prototype.hasOwnProperty.call(CLASSIC_FILES, k)) k = "dashboard";
-    if (pack === "standard") return `Assets/logo/icons/home/${k}.svg?v=20261114`;
+    if (pack === "standard") return `Assets/logo/icons/home/${k}.svg?v=20261114c`;
     return `Assets/logo/icons/packs/${pack}/${k}.svg?v=${ICON_VERSION}`;
   }
 
