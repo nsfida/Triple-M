@@ -184,15 +184,15 @@
     },
     {
       "path": "Assets/style/68-sections-v2.css",
-      "bytes": 64657,
-      "sha256": "c7c509e88d2cafae5add25450912a603f9509612ebb36da92296b67916b08665"
+      "bytes": 64677,
+      "sha256": "39bbaf00f1ff749b5a2bdf62bfde8751ad4b463258dbe21db2d28eabb6c1fa39"
     },
     {
       "path": "Assets/style/69-admin-user-manager.css",
-      "bytes": 36560,
-      "sha256": "ff4899ffbfccacb41ac007c0cd1e9345e964a2c002a789ea87ee5f0255e135ca"
+      "bytes": 41628,
+      "sha256": "5c810206e80f8bbae915b0ee8ffc063c8c31b142d9107a927e913995932f2df9"
     }
   ],
-  "bytes": 910274,
-  "sha256": "c6fe560995d956c6b2294e9eddcd1ee62ec45df1dbae6e659405167b1c0efdb6"
+  "bytes": 915362,
+  "sha256": "57e5ca169b6d926cc604adb5c70004b3a898ed852044530c6875a59bc0b3c09d"
 }

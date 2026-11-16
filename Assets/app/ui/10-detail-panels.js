@@ -84,7 +84,16 @@
   }
 
   // ── the panel ─────────────────────────────────────────────────────────────────────────
-  const P = { el: null, def: null, tab: "", st: {}, timer: 0 };
+  // render() keeps the frame and only rewrites what changed: the header when its text changed,
+  // the body when its HTML changed. Tab clicks rewrite the body only. While a form is docked in
+  // the body (Spend / Receive / Transfer) the body is left alone so typing is never lost.
+  const P = { el: null, def: null, tab: "", st: {}, timer: 0, memo: null, built: null, lastHead: "", lastBody: "", dock: null, pendingInvoke: null, opening: false };
+  // Per-render cache: head(), render() and helpers read the same record many times per paint.
+  function memo(key, fn){
+    if (!P.memo) return fn();
+    if (!P.memo.has(key)) P.memo.set(key, fn());
+    return P.memo.get(key);
+  }
   function root(){
     if (P.el) return P.el;
     const el = document.createElement("div");
@@ -94,8 +103,8 @@
       <aside class="aum-panel" role="dialog" aria-modal="true" aria-labelledby="tmDpTitle"><div class="aum-frame"></div><div class="aum-toast" role="status" aria-live="polite"></div></aside>`;
     document.body.appendChild(el);
     el.addEventListener("click", onClick);
-    el.addEventListener("input", e => P.def?.onInput?.(e, P.st));
-    el.addEventListener("change", e => P.def?.onChange?.(e, P.st));
+    el.addEventListener("input", e => { if (!e.target.closest(".tm-dp-formhost")) P.def?.onInput?.(e, P.st); });
+    el.addEventListener("change", e => { if (!e.target.closest(".tm-dp-formhost")) P.def?.onChange?.(e, P.st); });
     el.addEventListener("submit", e => { const f = e.target.closest("form[data-dp-form]"); if (f) { e.preventDefault(); P.def?.onSubmit?.(f, P.st); } });
     P.el = el;
     return el;
@@ -103,46 +112,71 @@
   function iconUrl(key){ try { return new URL(workspaceNavIconUrl(key), document.baseURI).href; } catch (_) { return ""; } }
   function open(def){
     const el = root();
-    P.def = def; P.tab = def.tab || def.tabs[0][0]; P.st = def.state || {};
-    render();
+    undock();
+    P.def = def; P.tab = def.tab || def.tabs[0][0]; P.st = def.state || {}; P.built = null;
+    render({ force: true });
+    if (!P.def) return;
     el.classList.add("is-open");
     document.documentElement.classList.add("aum-open", "tm-dp-open");
-    requestAnimationFrame(() => el.querySelector(".aum-close")?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => { if (!el.querySelector(".tm-dp-formhost")) el.querySelector(".aum-close")?.focus({ preventScroll: true }); });
   }
   function close(){
     if (!P.el) return;
+    undock();
     P.el.classList.remove("is-open");
-    P.def = null;
+    P.def = null; P.built = null;
     document.documentElement.classList.remove("tm-dp-open");
     if (!global.TriplemAdminUserManager?.isOpen?.()) document.documentElement.classList.remove("aum-open");
   }
-  function render({ keepScroll = false } = {}){
-    const d = P.def; if (!d) return;
-    const head = d.head();
-    if (!head) { close(); return; }
-    const frame = P.el.querySelector(".aum-frame");
-    const old = frame.querySelector(".aum-body");
-    const y = keepScroll && old ? old.scrollTop : 0;
-    const url = iconUrl(d.icon);
-    frame.innerHTML = `
-      <header class="aum-head">
-        <span class="aum-avatar tm-dp-avatar" style="--tm-sheet-icon:url('${esc(url)}')" aria-hidden="true"></span>
+  function headHtml(d, head){
+    const avatar = head.avatar
+      ? `<span class="aum-avatar tm-dp-avatar is-custom" aria-hidden="true">${head.avatar}</span>`
+      : `<span class="aum-avatar tm-dp-avatar" style="--tm-sheet-icon:url('${esc(iconUrl(d.icon))}')" aria-hidden="true"></span>`;
+    return `${avatar}
         <div class="aum-id"><strong id="tmDpTitle">${esc(head.title)}</strong><small>${head.sub || ""}</small>
           <div class="aum-pills">${(head.pills || []).join("")}</div></div>
-        <button type="button" class="aum-close" data-dp-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-      </header>
-      <nav class="aum-tabs" role="tablist" aria-label="${esc(head.title)}">
-        ${d.tabs.map(([k, label, icon]) => `<button type="button" role="tab" data-dp-tab="${k}" aria-selected="${P.tab === k}"><i class="${icon}" aria-hidden="true"></i><span>${esc(label)}</span></button>`).join("")}
-      </nav>
-      <div class="aum-body" role="tabpanel">${d.render(P.tab, P.st)}</div>`;
-    const body = frame.querySelector(".aum-body");
-    if (y) body.scrollTop = y;
-    d.after?.(P.tab, body, P.st);
+        <button type="button" class="aum-close" data-dp-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>`;
+  }
+  function render({ keepScroll = false, force = false } = {}){
+    const d = P.def; if (!d || !P.el) return;
+    P.memo = new Map();
+    try {
+      const head = d.head();
+      if (!head) { close(); return; }
+      const frame = P.el.querySelector(".aum-frame");
+      if (P.built !== d) {
+        frame.innerHTML = `<header class="aum-head"></header>
+          <nav class="aum-tabs" role="tablist">${d.tabs.map(([k, label, icon]) => `<button type="button" role="tab" data-dp-tab="${k}" aria-selected="false"><i class="${icon}" aria-hidden="true"></i><span>${esc(label)}</span></button>`).join("")}</nav>
+          <div class="aum-body" role="tabpanel"></div>`;
+        frame.querySelector(".aum-tabs").classList.toggle("hide", d.tabs.length < 2);
+        P.built = d; P.lastHead = ""; P.lastBody = "";
+      }
+      const h = headHtml(d, head);
+      if (h !== P.lastHead) { frame.querySelector(".aum-head").innerHTML = h; P.lastHead = h; }
+      const nav = frame.querySelector(".aum-tabs");
+      nav.setAttribute("aria-label", head.title);
+      nav.querySelectorAll("[data-dp-tab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.dpTab === P.tab)));
+      if (P.dock && !force) return; // a docked form is being filled in: leave it alone
+      const html = d.render(P.tab, P.st);
+      if (!force && html === P.lastBody) return;
+      const body = frame.querySelector(".aum-body");
+      const y = keepScroll ? body.scrollTop : 0;
+      body.innerHTML = html; P.lastBody = html;
+      body.scrollTop = y;
+      d.after?.(P.tab, body, P.st);
+    } finally { P.memo = null; }
   }
   function refresh(){
     if (!P.def || !P.el?.classList.contains("is-open")) return;
     clearTimeout(P.timer);
     P.timer = setTimeout(() => { if (P.def) render({ keepScroll: true }); }, 60);
+  }
+  function switchTab(tab){
+    if (!P.def) return;
+    undock();
+    P.tab = tab;
+    render({ force: true });
+    P.el.querySelector(`[data-dp-tab="${tab}"]`)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }
   function toast(msg, ok = true){
     const t = P.el?.querySelector(".aum-toast"); if (!t) return;
@@ -153,8 +187,9 @@
   async function onClick(e){
     const t = e.target;
     if (t.closest("[data-dp-close]")) return close();
+    if (t.closest(".tm-dp-formhost")) return; // the docked form handles its own clicks
     const tab = t.closest("[data-dp-tab]");
-    if (tab) { P.tab = tab.dataset.dpTab; render(); return; }
+    if (tab) { if (tab.dataset.dpTab !== P.tab || P.dock) switchTab(tab.dataset.dpTab); return; }
     const a = t.closest("[data-dp-act]");
     if (a && !a.disabled && P.def?.actions?.[a.dataset.dpAct]) {
       try { await P.def.actions[a.dataset.dpAct](a, P.st); }
@@ -164,8 +199,56 @@
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape" || !P.def || !P.el?.classList.contains("is-open")) return;
     if (document.querySelector(".modal:not(.hide)")) return; // the dialog on top closes first
-    e.stopPropagation(); close();
+    e.stopPropagation();
+    if (P.dock && P.def.afterForm) { const id = P.dock.modal.id; undock(); P.def.afterForm(false, id); return; }
+    close();
   });
+  const skel = (n = 4) => `<div class="aum-skel" role="status" aria-label="Loading">${Array.from({ length: n }, () => "<span></span>").join("")}</div>`;
+
+  // ── docked forms: the app's own Spend / Receive / Transfer / New wallet forms, moved into
+  //    the panel body. The form elements, their handlers and the saving code are the app's. ──
+  const DOCK = {
+    expense: { modal: "expenseModal", dialog: () => document.getElementById("expenseModalDialog") || document.querySelector("#expenseModal > .modal-dialog") },
+    transfer: { modal: "transferModal", dialog: () => document.querySelector("#transferModal > .modal-dialog") }
+  };
+  function dockForm(kind, host){
+    const spec = DOCK[kind]; if (!spec || !host) return false;
+    const modal = document.getElementById(spec.modal), dialog = P.dock?.kind === kind ? P.dock.dialog : spec.dialog();
+    if (!modal || !dialog) return false;
+    if (P.dock && P.dock.kind !== kind) undock();
+    modal.classList.add("hide"); modal.setAttribute("aria-hidden", "true");
+    P.dock = { kind, modal, dialog };
+    dialog.classList.add("tm-dp-docked");
+    host.appendChild(dialog);
+    P.el?.classList.add("has-form");
+    return true;
+  }
+  function undock(){
+    const d = P.dock; if (!d) return;
+    P.dock = null;
+    d.dialog.classList.remove("tm-dp-docked");
+    d.modal.appendChild(d.dialog);
+    d.modal.classList.add("hide"); d.modal.setAttribute("aria-hidden", "true");
+    P.el?.classList.remove("has-form");
+  }
+  // Runs the app's own "open form" function, then moves its form into the panel.
+  function fillForm(kind, host, invoke){
+    const run = P.pendingInvoke || invoke;
+    P.pendingInvoke = null;
+    P.opening = true;
+    try { run?.(); } finally { P.opening = false; }
+    const modal = document.getElementById(DOCK[kind].modal);
+    if (modal && modal.classList.contains("hide") && !P.dock) {
+      // The app declined to open the form (for example a blockchain wallet): show why.
+      host.innerHTML = note("This form is not available for this wallet.", "warn");
+      return;
+    }
+    dockForm(kind, host);
+    requestAnimationFrame(() => {
+      const f = host.querySelector("form:not(.hide) input:not([type=hidden]):not([type=date]):not([disabled]), form:not(.hide) select:not([disabled])");
+      if (f && !("ontouchstart" in global)) f.focus({ preventScroll: true });
+    });
+  }
 
   // Shared: reminder composer (editable message, copy / WhatsApp / email)
   function reminderBlock(st, make){
@@ -221,10 +304,10 @@
     name = String(name || "").trim(); dir = dir === "given" ? "given" : "taken";
     if (!loanData(name, dir)) return;
     const words = dir === "given" ? { back: "Received back", rec: "Record received", more: "Give more", pct: "received back", noun: "given" } : { back: "Returned", rec: "Record returned", more: "Take more", pct: "returned", noun: "taken" };
-    const L = () => loanData(name, dir);
+    const L = () => memo("loan", () => loanData(name, dir));
     open({
       icon: "loans",
-      tabs: [["overview", "Overview", "fa-solid fa-gauge-high"], ["activity", "Activity", "fa-solid fa-list"], ["insights", "Insights", "fa-solid fa-chart-column"], ["manage", "Manage", "fa-solid fa-sliders"]],
+      tabs: [["overview", "Overview", "fa-solid fa-gauge-high"], ["activity", "Activity", "fa-solid fa-list"], ["insights", "Insights", "fa-solid fa-chart-column"], ["manage", "Manage", "fa-solid fa-sliders"], ["remind", dir === "given" ? "Reminder" : "Message", "fa-regular fa-bell"]],
       state: { filter: "all" },
       head(){
         const d = L(); if (!d) return null;
@@ -268,6 +351,12 @@
             + section(`${words.back} per month`, barChart(bars, cur, `${words.back} per month`))
             + section("Balance over time", lineChart(balance, cur, "Balance"));
         }
+        if (tab === "remind") {
+          if (!(d.remaining > 0)) return note(`Nothing to remind: the balance with <b>${esc(d.name)}</b> is fully settled.`, "ok", "fa-solid fa-circle-check");
+          return section(dir === "given" ? "Payment reminder" : "Balance message",
+            `<p class="aum-muted">${dir === "given" ? "A ready message with the open balance. Edit it if you like, then copy it or send it." : "A ready message confirming what you still owe. Edit it if you like, then copy it or send it."}</p>${reminderBlock(st, () => loanReminderText(L()))}`)
+            + section("Balance in the message", kv([["Remaining", m(d.remaining, cur)], ["Total " + words.noun, m(d.principalTotal, cur)], [words.back, m(d.paid, cur)]]));
+        }
         if (tab === "manage") {
           const enc = encodeURIComponent(name);
           return section("Documents", `<div class="aum-actions is-left is-wrap">${btn("pdf", "Full statement (PDF)", "fa-solid fa-file-pdf")}${btn("pdf-pick", "Choose transactions", "fa-solid fa-list-check")}</div>`)
@@ -285,11 +374,12 @@
             + `<div class="aum-actions is-left is-wrap">${d.remaining > 0 && canEdit() ? btn("pay", words.rec, "fa-solid fa-hand-holding-dollar", { primary: true }) : ""}${canEdit() ? btn("more", words.more, "fa-solid fa-plus") : ""}${btn("pdf", "Statement", "fa-solid fa-file-pdf")}</div>`)
           + (since != null && since > 45 && d.remaining > 0 ? note(`No payment for <b>${since} days</b>. Last one was ${esc(dd(lastPay.date))}.`, "warn", "fa-regular fa-clock") : "")
           + section("Details", kv([["Total " + words.noun, m(d.principalTotal, cur)], [words.back, m(d.paid, cur)], ["Remaining", m(d.remaining, cur)], ["First entry", esc(dd(d.first))], ["Last activity", esc(dd(d.last))], ["Records", esc(`${d.principal.length} loan(s) · ${d.pays.length} payment(s)`)]]))
-          + (d.remaining > 0 ? section(dir === "given" ? "Payment reminder" : "Balance message", reminderBlock(st, () => loanReminderText(L()))) : "");
+          + (d.remaining > 0 ? `<div class="aum-actions is-left">${btn("go-remind", dir === "given" ? "Send a payment reminder" : "Send a balance message", "fa-regular fa-bell")}</div>` : "");
       },
       onInput: onReminderInput,
       actions: {
         filter: (b, st) => { st.filter = b.dataset.v; render({ keepScroll: true }); },
+        "go-remind": () => switchTab("remind"),
         pay: () => { const d = L(); openEntryModal("payment", dir, { groupId: d?.openGroup || "" }); },
         more: () => { const d = L(); openEntryModal("principal", dir, { personName: name, currency: d?.currency || "" }); },
         pdf: () => downloadPersonPDF(encodeURIComponent(name), dir),
@@ -308,9 +398,9 @@
 
   // ═══════════════════════════════════ INSTALLMENTS ═══════════════════════════════════
   function openInstallment(groupId, tab){
-    const G = () => { try { return getInstallmentPlanGroup(groupId); } catch (_) { return null; } };
+    const G = () => memo("plan", () => { try { return getInstallmentPlanGroup(groupId); } catch (_) { return null; } });
     if (!G()) return;
-    const bought = () => String(G()?.plan_type || "").toLowerCase() === "bought";
+    const bought = () => memo("bought", () => String(G()?.plan_type || "").toLowerCase() === "bought");
     const text = () => {
       const p = G(); if (!p) return "";
       const next = p.schedule?.nextOpen, from = company();
@@ -395,7 +485,7 @@
 
   // ════════════════════════════════════ ASSETS ═════════════════════════════════════════
   function openAsset(assetId){
-    const A = () => { try { return getAssetById(assetId); } catch (_) { return null; } };
+    const A = () => memo("asset", () => { try { return getAssetById(assetId); } catch (_) { return null; } });
     if (!A()) return;
     try { assetUi.selectedId = assetId; } catch (_) {}
     // The app opens the asset again after every save (to reload its transactions): keep the
@@ -404,8 +494,8 @@
       Promise.resolve(ensureAssetTransactionsLoaded(assetId, { force: true })).catch(() => {}).finally(refresh);
       return;
     }
-    const sum = () => { const a = A(); if (!a) return {}; try { return assetMath().summarizeAsset?.(a, getAssetTransactions(assetId), assetReportOptionsFor(a)) || {}; } catch (_) { return {}; } };
-    const txs = () => { try { return getAssetTransactions(assetId) || []; } catch (_) { return []; } };
+    const sum = () => memo("sum", () => { const a = A(); if (!a) return {}; try { return assetMath().summarizeAsset?.(a, getAssetTransactions(assetId), assetReportOptionsFor(a)) || {}; } catch (_) { return {}; } });
+    const txs = () => memo("txs", () => { try { return getAssetTransactions(assetId) || []; } catch (_) { return []; } });
     const state0 = { loading: true, filter: "all" };
     open({
       assetId,
@@ -589,14 +679,14 @@
         const b = form.querySelector('[type="submit"]'); b.disabled = true;
         try {
           await saveEditedNoteContent(noteId, form.elements.content.value, form.elements.title.value);
-          P.tab = "note"; render(); toast("Note saved");
+          switchTab("note"); toast("Note saved");
         } catch (err) { toast(String(err?.message || err), false); }
         finally { if (b.isConnected) b.disabled = false; }
       },
       actions: {
-        "tab-edit": () => { P.tab = "edit"; render(); },
-        "tab-note": () => { P.tab = "note"; render(); },
-        "tab-share": () => { P.tab = "share"; render(); },
+        "tab-edit": () => switchTab("edit"),
+        "tab-note": () => switchTab("note"),
+        "tab-share": () => switchTab("share"),
         reminder: () => openNoteReminderModal(noteId),
         copy: async () => { await navigator.clipboard.writeText(all()); toast("Copied"); },
         wa: () => global.open(`https://wa.me/?text=${encodeURIComponent(all())}`, "_blank", "noopener"),
@@ -618,6 +708,235 @@
     });
   }
 
+  // ═══════════════════════════════════ EXPENSES · WALLETS ════════════════════════════════
+  // One panel per wallet: Overview, Spend, Receive, Transfer, Activity, Insights, Details.
+  // Spend / Receive / Transfer show the app's own forms (all fields, VAT, optional details,
+  // attachments, editing) inside the panel instead of a separate dialog.
+  const WALLET_PAGE = 10;
+  const walletAccount = gid => { try { return getExpenseAccounts({ applyUiFilters: false }).find(a => String(a.group_id || "") === String(gid || "")) || null; } catch (_) { return null; } };
+  const lazyExpenses = () => { try { return typeof isExpenseLazyMode === "function" && isExpenseLazyMode() && !(typeof isBackupMode === "function" && isBackupMode()); } catch (_) { return false; } };
+  const FORM_TABS = { spend: ["expense", "expense"], receive: ["expense", "topup"], transfer: ["transfer", "transfer"] };
+  const baseFn = {};
+
+  function walletLocalRows(acc){
+    const cur = acc?.currency || "";
+    const rows = [];
+    const opening = num(acc?.openingBalance);
+    if (opening > 0) rows.push({ id: acc.principal?.id || "", row_type: "OPENING", amount: opening, currency: cur, activity_date: acc.principal?.loan_date || "", notes: acc.principal?.notes || "", _opening: true });
+    (acc?.topups || []).forEach(r => rows.push({ id: r.id, row_type: "TOPUP", amount: num(r.action_amount), currency: cur, activity_date: r.action_date, notes: r.notes || "" }));
+    (acc?.spends || []).forEach(r => rows.push({ id: r.id, row_type: "EXPENSE", amount: num(r.action_amount), currency: cur, activity_date: r.action_date, notes: r.notes || "" }));
+    return rows.sort((a, b) => (stamp(b.activity_date) - stamp(a.activity_date)) || String(b.id).localeCompare(String(a.id)));
+  }
+  function walletRowInfo(row){
+    let meta = { inbound: row.row_type !== "EXPENSE", transfer: false, label: row.row_type === "EXPENSE" ? "Expense" : "Money added", typeLabel: "", note: "", reference: "" };
+    try { if (typeof walletTransactionMeta === "function") meta = walletTransactionMeta(row); } catch (_) {}
+    if (row._opening) meta = { ...meta, inbound: true, transfer: false, label: "Opening balance", typeLabel: "Wallet opened" };
+    const type = row._opening ? "opening" : meta.transfer ? "transfer" : meta.inbound ? "topup" : "expense";
+    let local = false;
+    try { local = !!row.id && state.entries.some(e => String(e.id) === String(row.id)); } catch (_) {}
+    return { ...meta, type, local };
+  }
+  function walletRowsHtml(rows, cur){
+    return `<ul class="tm-dp-rows">${rows.map(row => {
+      const i = walletRowInfo(row);
+      const tone = i.transfer ? "info" : i.inbound ? "in" : "out";
+      const icon = i.transfer ? "fa-right-left" : i.inbound ? "fa-arrow-down" : "fa-arrow-up";
+      const id = esc(row.id || "");
+      const att = global.TriplemAttachments && row.id && !row._opening ? (TriplemAttachments.iconHtml?.(i.inbound ? "topup" : "expense", row.id) || "") : "";
+      return `<li><span class="tm-dp-row-ico is-${tone}" aria-hidden="true"><i class="fa-solid ${icon}"></i></span>
+        <span class="tm-dp-row-main"><b>${esc(i.label)}</b><small>${esc(dd(row.activity_date))}${i.typeLabel ? ` · ${esc(i.typeLabel)}` : ""}${i.note ? ` · ${esc(String(i.note).slice(0, 70))}` : ""}</small></span>
+        <span class="tm-dp-row-amt"><b class="${i.inbound ? "is-in" : "is-out"}">${i.inbound ? "+" : "−"}${m(Math.abs(num(row.amount)), row.currency || cur)}</b>${i.reference ? `<small>${esc(i.reference)}</small>` : ""}</span>
+        <span class="tm-dp-row-act">${att}${i.local && i.type !== "opening" ? `${canEdit() ? iconBtn("tx-edit", "Edit", "fa-solid fa-pen", `data-id="${id}" data-type="${i.type}"`) : ""}${iconBtn("tx-pdf", "PDF", "fa-solid fa-file-pdf", `data-id="${id}" data-type="${i.type}"`)}${canDelete() ? iconBtn("tx-delete", "Delete", "fa-solid fa-trash", `data-id="${id}" data-type="${i.type}"`, true) : ""}` : ""}</span></li>`;
+    }).join("")}</ul>`;
+  }
+
+  function openWallet(groupId, tab = "overview"){
+    const gid = String(groupId || "").trim();
+    if (!gid || !walletAccount(gid)) return false;
+    if (P.def?.walletId === gid && P.el?.classList.contains("is-open")) { switchTab(tab); return true; }
+    const btc = walletAccount(gid)?.currency === "BTC";
+    const ACC = () => memo("wallet", () => walletAccount(gid));
+    const DATA = st => memo("walletData", () => { try { return buildWalletDetailsPayload(gid, st.chart || null); } catch (_) { return null; } });
+    const st0 = { chart: null, chartState: lazyExpenses() ? "loading" : "local", act: null, actState: "idle", page: 1, seq: 0, reveal: {} };
+
+    function loadChart(st){
+      if (!lazyExpenses() || typeof fetchExpenseWalletChartRpc !== "function") { st.chartState = "local"; return; }
+      st.chartState = "loading";
+      Promise.resolve(fetchExpenseWalletChartRpc(gid))
+        .then(c => { if (P.def?.walletId !== gid) return; st.chart = c || null; st.chartState = "ready"; render({ keepScroll: true }); })
+        .catch(() => { if (P.def?.walletId !== gid) return; st.chartState = "local"; render({ keepScroll: true }); });
+    }
+    async function loadPage(st, page){
+      page = Math.max(1, page | 0);
+      const seq = ++st.seq;
+      st.page = page; st.actState = "loading";
+      if (P.def?.walletId === gid && ["activity", "overview"].includes(P.tab)) render({ keepScroll: true });
+      let res = null;
+      try {
+        if (lazyExpenses() && typeof fetchExpenseActivityRpc === "function") {
+          const r = await fetchExpenseActivityRpc({ groupId: gid, limit: WALLET_PAGE, offset: (page - 1) * WALLET_PAGE });
+          res = { items: r.items || [], total: num(r.total), totalPages: Math.max(1, num(r.totalPages) || 1), hasMore: r.hasMore === true };
+        }
+      } catch (_) { res = null; }
+      if (!res) {
+        const all = walletLocalRows(walletAccount(gid));
+        res = { items: all.slice((page - 1) * WALLET_PAGE, page * WALLET_PAGE), total: all.length, totalPages: Math.max(1, Math.ceil(all.length / WALLET_PAGE)), hasMore: page * WALLET_PAGE < all.length };
+      }
+      if (seq !== st.seq || P.def?.walletId !== gid) return;
+      st.act = { ...res, page }; st.actState = "ready";
+      if (page === 1) st.recent = res.items.slice(0, 5);
+      render({ keepScroll: true });
+    }
+    const formInvoke = tab => {
+      const [kind, mode] = FORM_TABS[tab];
+      if (kind === "transfer") { const a = walletAccount(gid); return () => baseFn.openTransferModal?.(gid, a?.person_name || "", a?.currency || ""); }
+      return () => baseFn.openExpenseModal?.(mode, gid);
+    };
+    const tabs = [["overview", "Overview", "fa-solid fa-gauge-high"]];
+    if (!btc) tabs.push(["spend", "Spend", "fa-solid fa-arrow-up"], ["receive", "Receive", "fa-solid fa-arrow-down"], ["transfer", "Transfer", "fa-solid fa-right-left"]);
+    tabs.push(["activity", "Activity", "fa-solid fa-list"], ["insights", "Insights", "fa-solid fa-chart-column"], ["details", "Details", "fa-solid fa-address-card"]);
+
+    open({
+      walletId: gid, icon: "expenses", tabs, tab: tabs.some(t => t[0] === tab) ? tab : "overview", state: st0,
+      head(){
+        const a = ACC(); if (!a) return null;
+        const bal = num(a.balance), status = a.status || (bal > 0 ? "Open" : "Closed");
+        let logo = "";
+        try { logo = getWalletIconHtml(a.person_name || "Wallet", 30, a.customLogoUrl || ""); } catch (_) {}
+        return { title: a.person_name || "Wallet", avatar: logo || null,
+          sub: `${esc(a.accountType || "Wallet")} · ${esc(a.currency || "—")}`,
+          pills: [pill(plain(bal, a.currency), bal > 0 ? "ok" : "warn", "fa-solid fa-wallet"), pill(status, status === "Open" ? "info" : "")] };
+      },
+      render(tab, st){
+        const a = ACC(); if (!a) return "";
+        const cur = a.currency || "";
+        if (FORM_TABS[tab]) return `<div class="tm-dp-formhost" data-form="${tab}"></div>`;
+        const d = DATA(st);
+        const mt = d?.metrics || {};
+        const waitingChart = st.chartState === "loading";
+        if (tab === "activity") {
+          if (st.actState !== "ready" || !st.act) return section("Transactions", skel(6));
+          const A = st.act;
+          if (!A.items.length) return section("Transactions", empty("No transactions yet."));
+          const from = (A.page - 1) * WALLET_PAGE + 1, to = from + A.items.length - 1;
+          const last = Math.max(A.totalPages, A.hasMore ? A.page + 1 : A.page);
+          return section(`Transactions · ${from}–${to}${A.total ? ` of ${A.total}` : ""}`, walletRowsHtml(A.items, cur)
+            + `<div class="tm-dp-pager">${btn("page", "Previous", "fa-solid fa-chevron-left", { data: `data-p="${A.page - 1}"`, disabled: A.page <= 1 })}<span>Page ${A.page} of ${last}</span>${btn("page", "Next", "fa-solid fa-chevron-right", { data: `data-p="${A.page + 1}"`, disabled: A.page >= last })}</div>`);
+        }
+        if (tab === "insights") {
+          if (waitingChart || !d) return section("Key figures", skel(3)) + section("Spent per month", skel(4)) + section("Balance over time", skel(4));
+          const months = lastMonths(12), mm = d.monthMap || new Map();
+          const row = k => mm.get(k) || { topup: 0, spend: 0, transferIn: 0, transferOut: 0 };
+          const spentBars = months.map(k => ({ label: monthLabel(k), short: monthLabel(k).split(" ")[0], value: num(row(k).spend) }));
+          const inBars = months.map(k => ({ label: monthLabel(k), short: monthLabel(k).split(" ")[0], value: num(row(k).topup) + num(row(k).transferIn) }));
+          const keys = d.monthKeys || [];
+          const line = keys.map((k, i) => ({ t: stamp(`${k}-28`), label: monthLabel(k), value: num(d.monthEndBalance?.[i]) }));
+          const active = keys.filter(k => num(row(k).spend) > 0);
+          const avg = active.length ? active.reduce((s, k) => s + num(row(k).spend), 0) / active.length : 0;
+          const top = keys.reduce((b, k) => (num(row(k).spend) > num(row(b)?.spend) ? k : b), keys[0]);
+          const c = d.composition || {}, tot = num(c.topup) + num(c.spend) + num(c.transferIn) + num(c.transferOut);
+          const share = v => (tot > 0 ? `${Math.round((num(v) / tot) * 100)}%` : "—");
+          const thisMonth = lastMonths(1)[0];
+          return section("Key figures", stats([[m(avg, cur), "Average spent per month"], [m(num(row(thisMonth).spend), cur), "Spent this month"], [esc(top ? monthLabel(top) : "—"), "Highest spending month"], [esc(String(num(mt.topupCount) + num(mt.spendCount))), "Movements"], [esc(share(c.spend)), "Spending share"], [esc(share(num(c.transferIn) + num(c.transferOut))), "Transfers share"]]))
+            + section("Spent per month", barChart(spentBars, cur, "Spent per month"))
+            + section("Money in per month", barChart(inBars, cur, "Money in per month"))
+            + section("Balance over time", lineChart(line, cur, "Month-end balance", "latest"));
+        }
+        if (tab === "details") {
+          let rows = [];
+          try { rows = expenseAccountDetailsForDisplay(a, { minimal: false, maskCards: true }); } catch (_) {}
+          let full = {};
+          try { full = normalizeExpenseAccountDetails(a.accountDetails || {}); } catch (_) {}
+          const details = rows.length ? kv(rows.map(r => {
+            const shown = r.sensitive && st.reveal[r.key] ? (typeof formatExpenseCardNumber === "function" ? formatExpenseCardNumber(full[r.key] || "") : full[r.key]) : r.value;
+            return [r.label, `${esc(shown)}${r.sensitive ? ` ${iconBtn("reveal", st.reveal[r.key] ? "Hide number" : "Show number", st.reveal[r.key] ? "fa-solid fa-eye-slash" : "fa-solid fa-eye", `data-key="${esc(r.key)}"`)}` : ""}`];
+          })) : note("No account details added yet. Use <b>Edit wallet</b> to add bank, card or IBAN details.", "info");
+          const opened = a.principal?.loan_date;
+          return section("Wallet", kv([["Name", esc(a.person_name || "—")], ["Type", esc(a.accountType || "—")], ["Currency", esc(cur || "—")], ["Status", esc(a.status || "—")], ["Opened", esc(dd(opened))], ["Opening balance", m(a.openingBalance, cur)]]))
+            + section("Account details", details)
+            + section("Documents", `<div class="aum-actions is-left is-wrap">${btn("pdf", "Wallet statement (PDF)", "fa-solid fa-file-pdf")}</div>`)
+            + (canEdit() && a.principal?.id ? section("Manage", `<div class="aum-actions is-left is-wrap">${btn("edit", "Edit wallet", "fa-solid fa-pen")}</div>`) : "")
+            + (canDelete() && a.principal?.id ? section("Danger zone", `<div class="aum-danger"><div><b>Delete ${esc(a.person_name || "this wallet")}</b><small>The wallet and its records go to the Recycle Bin.</small></div>${btn("delete", "Delete", "", { danger: true })}</div>`) : "") ;
+        }
+        // overview
+        const bal = num(a.balance), inn = num(mt.toppedUp), out = num(mt.spent);
+        const p = pct(out, inn);
+        const tone = bal <= 0 ? "warn" : "ok";
+        const flows = waitingChart ? skel(2) : stats([[m(inn, cur), btc ? "Received" : "Money in"], [m(out, cur), btc ? "Sent" : "Spent"], [m(mt.transferIn, cur), "Transfers in"], [m(mt.transferOut, cur), "Transfers out"], [esc(String(num(mt.topupCount) + num(mt.spendCount))), "Movements"], [esc(dd(a.principal?.loan_date)), "Wallet opened"]]);
+        const recent = st.actState === "ready" || st.recent ? (st.recent?.length ? walletRowsHtml(st.recent, cur) : empty("No transactions yet.")) : skel(4);
+        return section("Balance", statusCard(`${m(bal, cur)} available`, `${esc(plain(inn, cur))} in · ${esc(plain(out, cur))} spent`, tone)
+            + progress(p, `${p}% of money in spent`)
+            + (btc ? "" : `<div class="tm-dp-quick">${btn("go-spend", "Spend", "fa-solid fa-arrow-up", { primary: true })}${btn("go-receive", "Receive", "fa-solid fa-arrow-down")}${btn("go-transfer", "Transfer", "fa-solid fa-right-left")}${iconBtn("pdf", "Statement PDF", "fa-solid fa-file-pdf")}</div>`))
+          + (bal <= 0 && !btc ? note("This wallet has no money left. Use <b>Receive</b> to add money.", "warn", "fa-solid fa-wallet") : "")
+          + section("Money flow", flows)
+          + section("Recent activity", recent + (st.recent?.length ? `<div class="aum-actions is-left">${btn("go-activity", "All transactions", "fa-solid fa-list")}</div>` : ""));
+      },
+      after(tab, body, st){
+        if (FORM_TABS[tab]) { const host = body.querySelector(".tm-dp-formhost"); fillForm(FORM_TABS[tab][0], host, formInvoke(tab)); return; }
+        if ((tab === "activity" || tab === "overview") && st.actState === "idle") loadPage(st, 1);
+      },
+      // The docked form was saved or cancelled: back to the overview with fresh numbers.
+      afterForm(){
+        const st = P.st;
+        st.recent = null; st.act = null; st.actState = "idle";
+        // Show the wallet's own (already updated) totals now; refresh the monthly totals from the
+        // server a moment later, after the save has reached it.
+        st.chart = null; st.chartState = "local";
+        if (lazyExpenses()) setTimeout(() => { if (P.def?.walletId === gid) loadChart(st); }, 1500);
+        if (!walletAccount(gid)) { close(); return; }
+        P.tab = "overview";
+        render({ force: true });
+      },
+      actions: {
+        "go-spend": () => switchTab("spend"),
+        "go-receive": () => switchTab("receive"),
+        "go-transfer": () => switchTab("transfer"),
+        "go-activity": () => switchTab("activity"),
+        page: (b, st) => loadPage(st, num(b.dataset.p)),
+        pdf: () => downloadExpenseAccountPDF(gid),
+        edit: () => { const a = walletAccount(gid); if (a?.principal?.id) openEditModal(a.principal.id); },
+        delete: async () => { const a = walletAccount(gid); if (a?.principal?.id) await deleteEntry(a.principal.id); refresh(); },
+        reveal: (b, st) => { st.reveal[b.dataset.key] = !st.reveal[b.dataset.key]; render({ keepScroll: true }); },
+        "tx-edit": async b => { if (b.dataset.type === "transfer") return openTransferEditModal(b.dataset.id); if (!(typeof openExpenseTransactionEditModal === "function" && openExpenseTransactionEditModal(b.dataset.id))) openEditModal(b.dataset.id); },
+        "tx-pdf": async b => { await runExpenseRecordPdf(b.dataset.type, b.dataset.id); },
+        "tx-delete": async (b, st) => { await runExpenseRecordDelete(b.dataset.type, b.dataset.id); st.recent = null; st.act = null; st.actState = "idle"; loadPage(st, st.page || 1); }
+      }
+    });
+    if (lazyExpenses()) loadChart(P.st);
+    return true;
+  }
+
+  // A form that does not belong to one wallet (Add → Spend without a wallet, New wallet).
+  function openFormPanel(kind, mode){
+    const titles = { account: ["New wallet / account", "fa-solid fa-wallet"], topup: ["Add money", "fa-solid fa-arrow-down"], expense: ["Add expense", "fa-solid fa-arrow-up"], transfer: ["Transfer money", "fa-solid fa-right-left"] };
+    const [title, icon] = titles[kind === "transfer" ? "transfer" : mode] || titles.expense;
+    open({
+      icon: "expenses", tabs: [["form", title, icon]], state: {}, formOnly: true,
+      head: () => ({ title, sub: "Expenses · Wallets/Accounts", pills: [] }),
+      render: () => `<div class="tm-dp-formhost" data-form="${kind}"></div>`,
+      after: (tab, body) => fillForm(kind, body.querySelector(".tm-dp-formhost"), null),
+      afterForm: () => close()
+    });
+  }
+
+  // Every way the app opens these forms comes through here.
+  function routeForm(kind, mode, gid, invoke){
+    if (P.opening || !document.body) return invoke();
+    const acc = gid ? walletAccount(gid) : null;
+    if (acc && acc.currency === "BTC") return invoke(); // the app explains blockchain wallets itself
+    const tab = kind === "transfer" ? "transfer" : mode === "topup" ? "receive" : mode === "expense" ? "spend" : "";
+    P.pendingInvoke = invoke;
+    try {
+      if (acc && tab) {
+        if (P.def?.walletId === acc.group_id && P.el?.classList.contains("is-open")) switchTab(tab);
+        else openWallet(acc.group_id, tab);
+      } else openFormPanel(kind, mode);
+    } finally {
+      if (P.pendingInvoke) { const f = P.pendingInvoke; P.pendingInvoke = null; f(); }
+    }
+  }
+
+
   // ── take over the old "details" entry points ─────────────────────────────────────────
   function install(){
     if (typeof global.openLoanDetailsOverlay === "function") global.openLoanDetailsOverlay = (n, d) => openLoan(n, d);
@@ -625,6 +944,7 @@
     if (typeof global.openInstallmentPlanOverlay === "function") global.openInstallmentPlanOverlay = id => openInstallment(id, "schedule");
     if (typeof global.openAssetDetail === "function") global.openAssetDetail = id => openAsset(id);
     if (typeof global.openNoteDetailModal === "function") global.openNoteDetailModal = (id, mode = "view") => openNote(id, mode);
+    installExpenses();
     // Redraw the open panel whenever the app redraws its data.
     ["renderAll", "renderNotes", "renderAssetDetail", "renderAssetsList"].forEach(name => {
       const fn = global[name];
@@ -634,9 +954,49 @@
       global[name] = wrapped;
     });
   }
+  // Expenses: wallet details, account details and the Spend / Receive / Transfer / New wallet
+  // forms all open in the panel. Installed once (the desktop app wraps the wallet opener after us
+  // to remember recent wallets; a second install must not remove that wrapper).
+  let expensesInstalled = false;
+  function installExpenses(){
+    if (expensesInstalled) return;
+    if (typeof global.openExpenseModal !== "function" || typeof global.openTransferModal !== "function" || typeof global.closeModal !== "function") return;
+    expensesInstalled = true;
+    baseFn.openExpenseModal = global.openExpenseModal;
+    baseFn.openTransferModal = global.openTransferModal;
+    baseFn.closeModal = global.closeModal;
+    global.openExpenseModal = function(mode, presetGroupId = ""){
+      const args = arguments;
+      return routeForm("expense", String(mode || "expense"), String(presetGroupId || ""), () => baseFn.openExpenseModal.apply(this, args));
+    };
+    global.openTransferModal = function(fromGroupId){
+      const args = arguments;
+      return routeForm("transfer", "transfer", String(fromGroupId || ""), () => baseFn.openTransferModal.apply(this, args));
+    };
+    // Saving or cancelling a docked form closes it through closeModal(): bring the panel back.
+    global.closeModal = function(id){
+      const d = P.dock;
+      if (d && d.modal.id === id) {
+        undock();
+        const r = baseFn.closeModal.apply(this, arguments);
+        if (P.def?.afterForm) P.def.afterForm(); else close();
+        return r;
+      }
+      return baseFn.closeModal.apply(this, arguments);
+    };
+    if (typeof global.openWalletDetailsOverlay === "function") {
+      const fallback = global.openWalletDetailsOverlay;
+      global.openWalletDetailsOverlay = function(groupId){ return openWallet(groupId, "overview") ? undefined : fallback.apply(this, arguments); };
+    }
+    if (typeof global.openExpenseAccountDetailsOverlay === "function") {
+      const fallback = global.openExpenseAccountDetailsOverlay;
+      global.openExpenseAccountDetailsOverlay = function(groupId){ return openWallet(groupId, "details") ? undefined : fallback.apply(this, arguments); };
+    }
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", install, { once: true });
   else install();
   global.addEventListener("load", install);
 
-  global.TriplemDetailPanels = Object.freeze({ openLoan, openInstallment, openAsset, openDep, openNote, refresh, close, isOpen: () => !!P.def, toast });
+  global.TriplemDetailPanels = Object.freeze({ openLoan, openInstallment, openAsset, openDep, openNote, openWallet, openFormPanel, refresh, close, isOpen: () => !!P.def, toast });
 })(typeof window !== "undefined" ? window : globalThis);

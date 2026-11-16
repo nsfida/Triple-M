@@ -509,7 +509,7 @@ html body #app#app :is(.dashboard-main-tabs,.insurance-view-tabs) > button:is(.a
 
 /* ── Admin and settings sheets: the same pill buttons as every other dialog ────────── */
 html body .modal:is(#u-a,*):is(#u-b,*) :is(.settings-sheet-foot,.manage-plan-row,.manage-plan-extra,.admin-test-pw-actions,.account-security-approval-actions) :is(button,.btn),
-html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet :is(div,footer):has(> :is(.btn.primary,button[type="submit"])) > :is(button,.btn){
+html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet :is(footer,[class*="-actions"],[class*="-foot"],[class*="-buttons"],.modal-footer) > :is(button,.btn){
   height:34px !important;min-height:34px !important;width:auto !important;padding:0 15px !important;border-radius:999px !important;font-size:.72rem !important;line-height:1 !important;
   display:inline-flex !important;align-items:center;justify-content:center;gap:6px;flex:0 0 auto !important}
 html body .modal:is(#u-a,*):is(#u-b,*) .settings-sheet-foot{display:flex !important;justify-content:center !important;gap:8px !important;border-top:0 !important;background:none !important;padding:8px 12px 12px !important}

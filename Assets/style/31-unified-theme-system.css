@@ -19,7 +19,7 @@ html.triplem-workspace-themed #app{
 }
 
 html.triplem-workspace-themed #app,
-html.triplem-workspace-themed body:has(#app:not(.hide)){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff){
   --card:var(--card-bg);
   --triplem-theme-row:var(--surface-soft);
   --triplem-theme-raised:var(--surface-elevated);
@@ -104,7 +104,7 @@ html.triplem-workspace-themed #app :is(
 }
 
 /* Every modal, sheet and popover must remain separated from the content behind it. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .modal-backdrop,.landing-overlay-backdrop,.landing-content-backdrop,.settings-sheet-backdrop,
   .app-confirm-backdrop,.push-consent-overlay,.inv-scanner-overlay
 ){
@@ -113,7 +113,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   -webkit-backdrop-filter:blur(var(--overlay-blur)) saturate(var(--glass-saturate)) !important;
 }
 
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .modal-dialog,.settings-sheet,.landing-content-sheet,.inquiry-modal,.push-consent-card,
   .app-confirm-dialog,.login-glass-panel--overlay,.guest-restriction-dialog,.trial-promo-card,
   .reminder-alert-dialog,.transfer-success-content,.admin-live-agent-sheet,
@@ -129,7 +129,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   background-clip:padding-box;
 }
 
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .modal-head,.modal-body,.modal-actions,.modal-footer,.settings-sheet-head,.settings-sheet-body,
   .settings-sheet-footer,.landing-content-head,.landing-content-body,.landing-content-footer
 ){
@@ -137,7 +137,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   border-color:var(--line) !important;
 }
 
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .menu-dropdown,.asset-card-dropdown,.account-menu-dropdown,.notification-dropdown,.dropdown,.popover,
   .toast,.notice,.tooltip,.admin-comms-dropdown,.inventory-catalog-menu-wrap .menu-dropdown,
   .theme-menu-dropdown
@@ -175,7 +175,7 @@ html.triplem-workspace-themed #themeDropdown .theme-menu-choice.is-selected{
 }
 
 /* Forms and native controls. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   #app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay,.inv-scanner-overlay
 ) :is(
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
@@ -189,14 +189,14 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   caret-color:var(--primary) !important;
   box-shadow:none;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   #app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay,.inv-scanner-overlay
 ) :is(input,textarea)::placeholder{
   color:var(--muted) !important;
   -webkit-text-fill-color:var(--muted) !important;
   opacity:1;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   #app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay,.inv-scanner-overlay
 ) :is(
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
@@ -215,55 +215,55 @@ html.triplem-workspace-themed select option{
 }
 
 /* Buttons, hover, active, focus and disabled states. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.primary,.tiny.primary,button.primary){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.primary,.tiny.primary,button.primary){
   background:var(--primary-gradient) !important;
   border-color:var(--primary) !important;
   color:var(--on-primary) !important;
   box-shadow:var(--shadow-soft),var(--theme-glow-shadow) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.primary,.tiny.primary,button.primary):hover:not(:disabled){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.primary,.tiny.primary,button.primary):hover:not(:disabled){
   filter:brightness(1.04) saturate(1.05);
   border-color:var(--primary-hover) !important;
   box-shadow:var(--shadow),var(--theme-glow-shadow) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.primary,.tiny.primary,button.primary):active:not(:disabled){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.primary,.tiny.primary,button.primary):active:not(:disabled){
   filter:brightness(.96);
   border-color:var(--primary-active) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.soft,.tiny.soft){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.soft,.tiny.soft){
   background:var(--primary-soft) !important;
   border-color:var(--line-strong) !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item){
   background:var(--control-bg) !important;
   border-color:var(--line) !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item):hover:not(:disabled){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item):hover:not(:disabled){
   background:var(--control-hover) !important;
   border-color:var(--line-strong) !important;
   color:var(--text-strong) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(button.danger,.btn.danger,.tiny.danger){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(button.danger,.btn.danger,.tiny.danger){
   background:var(--danger-soft) !important;
   border-color:var(--danger) !important;
   color:var(--danger) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(button.danger,.btn.danger,.tiny.danger):hover:not(:disabled){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(button.danger,.btn.danger,.tiny.danger):hover:not(:disabled){
   background:var(--danger) !important;
   color:var(--on-danger) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   button,input,select,textarea,[role="button"]
 ):focus-visible{
   outline:none !important;
   box-shadow:0 0 0 3px var(--focus-ring) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   button,input,select,textarea,[role="button"]
 ):disabled,
-html.triplem-workspace-themed body:has(#app:not(.hide)) [aria-disabled="true"]{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) [aria-disabled="true"]{
   background:var(--surface-disabled) !important;
   border-color:var(--line) !important;
   color:var(--muted) !important;
@@ -479,7 +479,7 @@ html.triplem-workspace-themed .modal :is(
 }
 
 /* Body-mounted dialogs and sheets use one raised Liquid Glass treatment. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .modal [class$="-dialog"],.modal [class*="-dialog "],
   .modal [class$="-sheet"],.modal [class*="-sheet "],
   .account-recovery-dialog,.account-security-dialog,.account-security-mini-dialog,
@@ -502,7 +502,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
 }
 
 /* Standalone full-screen overlay roots receive the shared scrim. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .transfer-success-overlay,.guest-restriction-overlay,.fraud-alert-overlay,
   .app-download-overlay,.account-recovery-modal,.two-factor-modal,.secret-pin-modal,
   .reminder-alert-modal,.installment-plan-overlay
@@ -533,7 +533,7 @@ html.triplem-workspace-themed :is(#app,.modal,.settings-sheet,.landing-content-o
 }
 
 /* Every purpose-built loading surface uses the same loader token family. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .admin-themed-loading,.account-security-loading,.app-inline-loading,
   .inventory-loading-hint,.note-reminder-existing-loading
 ){
@@ -542,7 +542,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   color:var(--muted) !important;
   box-shadow:var(--shadow-soft),inset 0 1px 0 var(--glass-highlight) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .app-inline-loading-spinner,.admin-themed-loading .btn-loader,
   .account-security-loading .btn-loader,.inventory-loading-hint .btn-loader,
   .note-reminder-existing-loading .btn-loader

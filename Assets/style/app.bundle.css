@@ -13036,7 +13036,7 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   margin-right:auto;
 }
 .landing-main--marketing,
-.landing-main:has(.landing-hero-marketing){
+.landing-main.landing-main--marketing{
   align-content:start;
   justify-items:center;
   padding-top:8px;
@@ -13044,7 +13044,7 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   width:100%;
 }
 .landing-main--marketing > *,
-.landing-main:has(.landing-hero-marketing) > *{
+.landing-main.landing-main--marketing > *{
   width:100%;
   max-width:920px;
   margin-left:auto;
@@ -13654,7 +13654,7 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 
 @media (max-width: 560px){
   .landing-main--marketing,
-  .landing-main:has(.landing-hero-marketing){
+  .landing-main.landing-main--marketing{
     gap:10px;
     padding-top:4px;
   }
@@ -25387,11 +25387,11 @@ a.landing-seo-card:focus-visible .landing-seo-card-cta i{
   box-shadow:0 18px 50px rgba(15,23,42,.09), inset 0 1px 0 rgba(255,255,255,.76);
 }
 #lockScreen .landing-main--marketing,
-#lockScreen .landing-main:has(.landing-hero-marketing){
+#lockScreen .landing-main.landing-main--marketing{
   gap:clamp(16px,2vw,26px);
 }
 #lockScreen .landing-main--marketing > *,
-#lockScreen .landing-main:has(.landing-hero-marketing) > *{
+#lockScreen .landing-main.landing-main--marketing > *{
   width:100%;
   max-width:1480px;
 }
@@ -25707,7 +25707,7 @@ a.landing-seo-card:focus-visible .landing-seo-card-cta i{
 @media (max-width:700px){
   #lockScreen .landing-shell{width:calc(100% - 16px);padding-bottom:18px;}
   #lockScreen .landing-nav{border-radius:16px;padding:8px 9px;}
-  #lockScreen .landing-main--marketing,#lockScreen .landing-main:has(.landing-hero-marketing){gap:12px;}
+  #lockScreen .landing-main--marketing,#lockScreen .landing-main.landing-main--marketing{gap:12px;}
   #lockScreen .landing-hero-marketing{padding:24px 16px;border-radius:22px;}
   #lockScreen .landing-hero-marketing .landing-brand-name{font-size:clamp(2.25rem,12vw,3.2rem);}
   #lockScreen .landing-hero-marketing .landing-tagline{font-size:1rem;line-height:1.4;}
@@ -25763,9 +25763,9 @@ a.landing-seo-card:focus-visible .landing-seo-card-cta i{
   #lockScreen .landing-nav,
   #lockScreen .landing-main,
   #lockScreen .landing-main--marketing,
-  #lockScreen .landing-main:has(.landing-hero-marketing),
+  #lockScreen .landing-main.landing-main--marketing,
   #lockScreen .landing-main--marketing > *,
-  #lockScreen .landing-main:has(.landing-hero-marketing) > *,
+  #lockScreen .landing-main.landing-main--marketing > *,
   #lockScreen .landing-hero-marketing,
   #lockScreen .landing-hero-marketing-inner,
   #lockScreen .landing-hero-showcase,
@@ -25781,7 +25781,7 @@ a.landing-seo-card:focus-visible .landing-seo-card-cta i{
     margin-inline:6px
   }
   #lockScreen .landing-main--marketing,
-  #lockScreen .landing-main:has(.landing-hero-marketing){
+  #lockScreen .landing-main.landing-main--marketing{
     width:100%;
     overflow:visible
   }
@@ -26487,26 +26487,26 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) #app :is(
 html[data-triplem-theme]:not([data-triplem-theme="default"]) #app :is(
   .tab:hover:not(:disabled),.loan-mode-btn:hover,.assets-module-tab:hover
 ){background:var(--surface-hover);color:var(--text)}
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   .modal-dialog,.login-glass-panel--overlay,.guest-restriction-dialog,.trial-promo-card,
   .reminder-alert-dialog,.transfer-success-content
 ){
   background:linear-gradient(155deg,var(--surface-glass-strong),var(--surface-glass)) !important;
   border-color:var(--line) !important;color:var(--text);box-shadow:var(--shadow-strong) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   .modal-head,.modal-actions,.modal-footer,.asset-detail-toolbar,.asset-tx-head,.section-details-head
 ){border-color:var(--line);background:transparent;color:var(--text)}
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   .modal-backdrop,.landing-overlay-backdrop
 ){background:var(--overlay-backdrop)}
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   .menu-dropdown,.asset-card-dropdown,.account-menu-dropdown,.notification-dropdown,.toast,.notice
 ){background:var(--surface-glass-strong);border-color:var(--line);color:var(--text);box-shadow:var(--shadow-strong);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   input,select,textarea,option,.input,.select
 ){background-color:var(--control-bg) !important;border-color:var(--line);color:var(--text)}
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   input,textarea
 )::placeholder{color:color-mix(in srgb,var(--muted) 82%,transparent)}
 /* Auth and security dialogs can exist before #app is visible; target them directly
@@ -27039,7 +27039,7 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) #app :is(
 ):hover{
   background:var(--surface-hover) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   .transfer-success-content,.inquiry-modal,.app-download-modal,.app-download-instructions,
   .admin-access-panel,.manage-plan-block,.manage-plan-status,.admin-security-lock-card
 ){
@@ -27047,10 +27047,10 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   border-color:var(--line) !important;
   color:var(--text) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   .inquiry-modal,.app-download-modal,.admin-access-panel,.admin-security-lock-card
 ) :is(h1,h2,h3,h4,h5,h6,strong,label){color:var(--text) !important}
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   .inquiry-modal,.app-download-modal,.admin-access-panel,.admin-security-lock-card
 ) :is(p,small,.help,.muted){color:var(--muted) !important}
 
@@ -27062,33 +27062,33 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
 
 /* Authenticated modals are mounted as body siblings rather than descendants of
    #app. In colored themes they therefore need their own late theme contract. */
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal{
   color:var(--text)
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-backdrop{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-backdrop{
   background:var(--overlay-backdrop) !important;
   backdrop-filter:blur(7px) saturate(1.05);
   -webkit-backdrop-filter:blur(7px) saturate(1.05)
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog{
   background:linear-gradient(155deg,var(--surface-glass-strong),var(--surface-glass)) !important;
   background-image:linear-gradient(155deg,var(--surface-glass-strong),var(--surface-glass)) !important;
   border-color:color-mix(in srgb,var(--glass-border) 72%,transparent) !important;
   color:var(--text) !important;
   box-shadow:var(--shadow-strong) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   .modal-head,.modal-body,.modal-footer,.modal-grid,.field,form
 ){
   color:var(--text)
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   h1,h2,h3,h4,h5,h6,strong,b,label,.field > span
 ){color:var(--text) !important}
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   p,small,.muted,.help,.subtle,.hint
 ){color:var(--muted) !important}
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   .input,.select,textarea,select,input:not([type="checkbox"]):not([type="radio"]):not([type="file"])
 ){
   background:var(--control-bg) !important;
@@ -27097,42 +27097,42 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   color:var(--text) !important;
   box-shadow:none
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   .input,.select,textarea,select,input:not([type="checkbox"]):not([type="radio"]):not([type="file"])
 ):focus{
   background:var(--surface-elevated) !important;
   border-color:color-mix(in srgb,var(--primary) 52%,var(--line)) !important;
   color:var(--text) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(input,textarea)::placeholder{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(input,textarea)::placeholder{
   color:color-mix(in srgb,var(--muted) 78%,transparent) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog select option{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog select option{
   background:var(--surface-elevated) !important;
   color:var(--text) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   .btn.ghost,.btn.soft,.icon-btn.ghost,.tiny.ghost,.tiny.soft,[data-close-modal]
 ){
   background:var(--control-bg) !important;
   border-color:var(--line) !important;
   color:var(--text) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   .btn.ghost,.btn.soft,.icon-btn.ghost,.tiny.ghost,.tiny.soft,[data-close-modal]
 ):hover{
   background:var(--control-hover) !important;
   border-color:var(--line-strong) !important;
   color:var(--primary) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(.btn.primary,.tiny.primary){
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(.btn.primary,.tiny.primary){
   background:var(--primary) !important;
   border-color:var(--primary) !important;
   color:var(--on-primary) !important
 }
 
 /* Legacy new-entry/edit sub-panels inside modals. */
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   .inventory-edit-section,.inventory-edit-item-summary > div,.inventory-edit-actions,
   .inventory-section-add-card,.inventory-draft-customer-results,.inventory-add-category-card,
   .inventory-customer-edit-card,.installment-schedule-preview,.installment-payment-preview,
@@ -27150,32 +27150,32 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
 
 /* Notes create/reminder/detail overlays: controls and reminder switch remain legible
    in Navy, Neon, Red, Pink and Green rather than retaining light-only surfaces. */
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) :is(
   .note-reminder-toggle,.note-create-reminder-fields,.note-detail-content,.note-reminder-existing,.notes-empty
 ){
   background:var(--surface-soft) !important;
   border-color:var(--line) !important;
   color:var(--text) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) .note-reminder-toggle-icon{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) .note-reminder-toggle-icon{
   background:var(--primary-soft) !important;
   color:var(--primary) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) .note-toggle-control{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) .note-toggle-control{
   background:var(--control-bg) !important;
   border-color:var(--line) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) .note-toggle-control::after{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) .note-toggle-control::after{
   background:var(--surface-elevated) !important;
   box-shadow:0 1px 4px color-mix(in srgb,var(--text) 18%,transparent) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) input:checked + .note-toggle-control{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(#noteCreateModal,#noteReminderModal,#noteDetailModal) input:checked + .note-toggle-control{
   background:var(--primary) !important
 }
 
 /* Reusable section-details/chart overlay is outside #app, so its former white
    metrics/chart/activity cards need a body-level theme scope as well. */
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #sectionDetailsModal :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #sectionDetailsModal :is(
   .section-details-metric,.section-details-chart-card,.section-details-activity-row,
   .section-details-empty,.section-details-activity-card
 ){
@@ -27184,16 +27184,16 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   border-color:var(--line) !important;
   color:var(--text) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #sectionDetailsModal .section-details-currency-chip{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #sectionDetailsModal .section-details-currency-chip{
   background:var(--control-bg) !important;
   border-color:var(--line) !important;
   color:var(--text) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #sectionDetailsModal .section-details-currency-chip:hover{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #sectionDetailsModal .section-details-currency-chip:hover{
   background:var(--control-hover) !important;
   border-color:var(--line-strong) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #sectionDetailsModal .section-details-currency-chip.active{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #sectionDetailsModal .section-details-currency-chip.active{
   background:var(--primary-soft) !important;
   border-color:color-mix(in srgb,var(--primary) 45%,var(--line)) !important;
   color:var(--primary) !important
@@ -27278,14 +27278,14 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) .landing-content-ov
 
 /* One floating-menu geometry contract everywhere. Raise both the owner and the
    menu itself so glass isolation/backdrop contexts cannot paint over it. */
-body:has(#app:not(.hide)) .menu-wrap:has(.menu-dropdown.open),
-body:has(#app:not(.hide)) .asset-card-menu:has(.asset-card-dropdown.open),
-body:has(#app:not(.hide)) .expense-history-download-wrap:has(.expense-history-pdf-menu:not(.hide)){
+body.tm-app-on:not(#tmAppOff) .menu-wrap:has(.menu-dropdown.open),
+body.tm-app-on:not(#tmAppOff) .asset-card-menu:has(.asset-card-dropdown.open),
+body.tm-app-on:not(#tmAppOff) .expense-history-download-wrap:has(.expense-history-pdf-menu:not(.hide)){
   position:relative;
   z-index:13120 !important;
   overflow:visible !important
 }
-body:has(#app:not(.hide)) :is(.menu-dropdown.open,.asset-card-dropdown.open,.assets-pdf-menu.open,.expense-history-pdf-menu:not(.hide)){
+body.tm-app-on:not(#tmAppOff) :is(.menu-dropdown.open,.asset-card-dropdown.open,.assets-pdf-menu.open,.expense-history-pdf-menu:not(.hide)){
   position:fixed !important;
   right:auto !important;
   bottom:auto !important;
@@ -27325,7 +27325,7 @@ html[data-triplem-theme] #app .expense-history-pdf-option:focus-visible{
     padding-inline:clamp(8px,.72vw,12px)
   }
   #lockScreen .landing-main--marketing > *,
-  #lockScreen .landing-main:has(.landing-hero-marketing) > *{
+  #lockScreen .landing-main.landing-main--marketing > *{
     max-width:min(1180px,100%)
   }
 }
@@ -27413,7 +27413,7 @@ html[data-triplem-theme] #app :is(
 html[data-triplem-theme] #app :is(.section-head,.section-head-top,.title-group,.title-row){
   isolation:auto !important;
 }
-body:has(#app:not(.hide)) #app :is(
+body.tm-app-on:not(#tmAppOff) #app :is(
   .header,.chips,.card.section,.section-head,.section-head-top,.title-group,.title-row,.tools,
   .tabs,.loan-mode-switch,.inventory-filter-row,.filter-inline-section,.card-action-grid
 ):has(.menu-dropdown.open){
@@ -27421,18 +27421,18 @@ body:has(#app:not(.hide)) #app :is(
   overflow:visible !important;
   z-index:13220 !important;
 }
-body:has(#app:not(.hide)) #app .menu-wrap:has(.menu-dropdown.open){
+body.tm-app-on:not(#tmAppOff) #app .menu-wrap:has(.menu-dropdown.open){
   position:relative !important;
   overflow:visible !important;
   z-index:13240 !important;
 }
-body:has(#app:not(.hide)) #app .menu-dropdown.open{
+body.tm-app-on:not(#tmAppOff) #app .menu-dropdown.open{
   z-index:13260 !important;
 }
 
 /* Fixed dropdowns must never be clipped by the shared card-surface overflow
    rule. This covers New Entry/Actions menus in every major section. */
-body:has(#app:not(.hide)) #app :is(
+body.tm-app-on:not(#tmAppOff) #app :is(
   #givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,
   #goodsPanel,#assetsPanel,#expensesPanel,#notesPanel,#bitcoinPanel,#adminPanel
 ) :is(.card.section,.section-head,.section-head-top):has(.menu-dropdown.open){
@@ -27549,15 +27549,15 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) #app .expense-walle
 
 /* New Note reminder: unchecked state must remain visually distinct from dark
    modal surfaces while the checked state continues to use the theme accent. */
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #noteCreateModal .note-toggle-control{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #noteCreateModal .note-toggle-control{
   background:color-mix(in srgb,var(--muted) 34%,var(--surface-elevated)) !important;
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--text) 22%,var(--line)) !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #noteCreateModal .note-toggle-control::after{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #noteCreateModal .note-toggle-control::after{
   background:var(--text) !important;
   box-shadow:0 1px 4px color-mix(in srgb,var(--bg) 50%,transparent) !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #noteCreateModal input:checked + .note-toggle-control{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #noteCreateModal input:checked + .note-toggle-control{
   background:var(--primary) !important;
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 78%,var(--text)) !important;
 }
@@ -27617,7 +27617,7 @@ html[data-triplem-theme] #assetsPanel .filter-chip:has(input[type="radio"]:check
   outline-offset:2px !important;
   box-shadow:none !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #assetDetailModal .asset-revenue-period{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #assetDetailModal .asset-revenue-period{
   background:var(--surface-glass) !important;
   background-image:linear-gradient(155deg,var(--surface-glass-strong),var(--surface-glass)) !important;
   border-color:var(--line) !important;
@@ -27626,10 +27626,10 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   backdrop-filter:blur(12px);
   -webkit-backdrop-filter:blur(12px);
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #assetDetailModal .asset-revenue-period :is(h4,.asset-revenue-figure,strong){
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #assetDetailModal .asset-revenue-period :is(h4,.asset-revenue-figure,strong){
   color:var(--text) !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #assetDetailModal .asset-revenue-period .help{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #assetDetailModal .asset-revenue-period .help{
   color:var(--muted) !important;
 }
 
@@ -27878,7 +27878,7 @@ html[data-triplem-theme] .expense-intent-label input[type="radio"]{
 }
 
 /* Every authenticated edit/create overlay inherits the same control palette. */
-html[data-triplem-theme] body:has(#app:not(.hide)) .modal :is(
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) .modal :is(
   input:not([type="checkbox"]):not([type="radio"]),select,textarea,.input,.select
 ){
   background-color:var(--control-bg) !important;
@@ -27888,38 +27888,38 @@ html[data-triplem-theme] body:has(#app:not(.hide)) .modal :is(
   -webkit-text-fill-color:var(--text) !important;
   caret-color:var(--primary) !important;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) .modal :is(select,.select) option{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) .modal :is(select,.select) option{
   background:var(--surface-elevated) !important;
   color:var(--text) !important;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) .modal :is(
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) .modal :is(
   input:not([type="checkbox"]):not([type="radio"]),select,textarea,.input,.select
 ):focus{
   border-color:color-mix(in srgb,var(--primary) 58%,var(--line)) !important;
   box-shadow:0 0 0 3px var(--focus-ring) !important;
   outline:none !important;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) .modal :is(input,textarea)::placeholder{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) .modal :is(input,textarea)::placeholder{
   color:var(--muted) !important;
   -webkit-text-fill-color:var(--muted) !important;
   opacity:.9 !important;
 }
-html[data-triplem-theme-mode="dark"] body:has(#app:not(.hide)) .modal :is(select,.select,input[type="date"]){
+html[data-triplem-theme-mode="dark"] body.tm-app-on:not(#tmAppOff) .modal :is(select,.select,input[type="date"]){
   color-scheme:dark;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) .modal .currency-chip{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) .modal .currency-chip{
   background:var(--control-bg) !important;
   background-image:none !important;
   border-color:var(--line) !important;
   color:var(--text) !important;
   box-shadow:none !important;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) .modal .currency-chip:hover{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) .modal .currency-chip:hover{
   background:var(--control-hover) !important;
   border-color:var(--line-strong) !important;
   color:var(--text) !important;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) .modal .currency-chip.active{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) .modal .currency-chip.active{
   background:var(--primary-soft) !important;
   border-color:color-mix(in srgb,var(--primary) 56%,var(--line)) !important;
   color:var(--primary) !important;
@@ -28034,7 +28034,7 @@ html[data-triplem-theme] #forcePasswordModal .admin-password-row .pw-eye-btn:hov
 }
 
 /* Portaled installment actions sit above every glass card and retain theme colors. */
-html[data-triplem-theme] body:has(#app:not(.hide)) > .menu-dropdown.open[data-fixed-menu-portaled="true"]{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) > .menu-dropdown.open[data-fixed-menu-portaled="true"]{
   z-index:2147483000 !important;
   background:var(--surface-glass-strong) !important;
   background-image:none !important;
@@ -28044,15 +28044,15 @@ html[data-triplem-theme] body:has(#app:not(.hide)) > .menu-dropdown.open[data-fi
   backdrop-filter:blur(18px) saturate(1.06) !important;
   -webkit-backdrop-filter:blur(18px) saturate(1.06) !important;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) > .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) > .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item{
   background:transparent !important;
   color:var(--text) !important;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) > .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item:hover{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) > .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item:hover{
   background:var(--surface-hover) !important;
   color:var(--primary) !important;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) > .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item.danger{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) > .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item.danger{
   color:var(--danger) !important;
 }
 
@@ -29156,7 +29156,7 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) .welcome-name{
 
 /* Bitcoin Send / Receive / scanner overlays live outside #app. The earlier Bitcoin
    theme contract was #app-scoped, leaving their legacy light plates white in Navy. */
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   #btcSendModal,#btcReceiveModal,#btcWifQrScannerModal
 ) :is(
   .btc-send-from-box,.btc-receive-address-chip,.btc-readonly-value,.btc-guest-fee-box,
@@ -29167,30 +29167,30 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   border-color:var(--line) !important;
   color:var(--text) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   #btcSendModal,#btcReceiveModal,#btcWifQrScannerModal
 ) .btc-receive-address-chip:hover{
   background:var(--surface-hover) !important;
   border-color:var(--line-strong) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   #btcSendModal,#btcReceiveModal,#btcWifQrScannerModal
 ) .btc-receive-address-chip.is-selected{
   background:var(--primary-soft) !important;
   border-color:color-mix(in srgb,var(--primary) 48%,var(--line)) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   #btcSendModal,#btcReceiveModal,#btcWifQrScannerModal
 ) :is(.btc-send-from-box code,.btc-receive-address-chip span,.btc-guest-fee-title){
   color:var(--text) !important
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) :is(
   #btcSendModal,#btcReceiveModal,#btcWifQrScannerModal
 ) :is(.btc-send-from-box em,.btc-receive-address-chip code,.btc-guest-fee-note){
   color:var(--muted) !important
 }
 /* The QR canvas itself intentionally remains white for scanner contrast. */
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) #btcQrBox{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) #btcQrBox{
   background:#fff !important;
   border:1px solid color-mix(in srgb,var(--primary) 24%,var(--line));
   box-shadow:0 10px 30px color-mix(in srgb,var(--bg) 32%,transparent)
@@ -29210,7 +29210,7 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
 /* ========================================================================== */
 /* Inventory dialogs are body-mounted, so #app-scoped theme rules cannot reach
    their inner legacy white cards. Keep every structural plate tokenized. */
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   .inventory-section-item-row,.inventory-section-card,.inventory-sku-card,
   .inventory-section-add-card,.inventory-draft-line,.inventory-draft-customer-results,
   .inventory-brand-row,.inventory-search-sections,.inventory-search-section-card,
@@ -29230,7 +29230,7 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   color:var(--text) !important;
   box-shadow:none !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   .inventory-draft-customer-mode button,.inventory-add-wizard-steps span,
   .inventory-qty-prompt-fields .select,.goods-sale-qty-unit,.inventory-sale-vat-toggle,
   .inventory-customer-edit-toggle
@@ -29240,7 +29240,7 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   border-color:var(--line) !important;
   color:var(--text) !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .modal-dialog :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .modal-dialog :is(
   .inventory-section-item-row,.inventory-section-card,.inventory-sku-card,.inventory-brand-row,
   .inventory-search-section-card,.inventory-variant-row,.inventory-add-items-row,
   .inventory-add-category-card,.settlement-invoice-option
@@ -29248,30 +29248,30 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   background:var(--surface-hover) !important;
   border-color:var(--line-strong) !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .inventory-add-wizard-steps span.is-active{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .inventory-add-wizard-steps span.is-active{
   background:var(--primary-soft) !important;
   border-color:color-mix(in srgb,var(--primary) 50%,var(--line)) !important;
   color:var(--primary) !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .modal .inventory-add-wizard-steps span.is-done{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .modal .inventory-add-wizard-steps span.is-done{
   background:color-mix(in srgb,var(--success) 10%,var(--surface-soft)) !important;
   border-color:color-mix(in srgb,var(--success) 35%,var(--line)) !important;
   color:var(--success) !important;
 }
 
 /* Camera scanner is neither inside #app nor a .modal. */
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .inv-scanner-overlay{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .inv-scanner-overlay{
   background:var(--overlay-backdrop) !important;
   backdrop-filter:blur(7px) saturate(1.05);
   -webkit-backdrop-filter:blur(7px) saturate(1.05);
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .inv-scanner-shell{
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .inv-scanner-shell{
   background:linear-gradient(155deg,var(--surface-glass-strong),var(--surface-glass)) !important;
   border-color:var(--line) !important;
   color:var(--text) !important;
   box-shadow:var(--shadow-strong) !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .inv-scanner-shell :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .inv-scanner-shell :is(
   .inv-scanner-head,.inv-scanner-manual,.inv-scanner-lookup-results,.inv-scanner-progress,
   .inv-scanner-progress-head,.inv-scan-row
 ){
@@ -29279,7 +29279,7 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   border-color:var(--line) !important;
   color:var(--text) !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .inv-scanner-shell :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .inv-scanner-shell :is(
   .input,.select,input:not([type="checkbox"]):not([type="radio"]),select,textarea
 ){
   background:var(--control-bg) !important;
@@ -29288,29 +29288,29 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.
   color:var(--text) !important;
   -webkit-text-fill-color:var(--text) !important;
 }
-html[data-triplem-theme]:not([data-triplem-theme="default"]) body:has(#app:not(.hide)) .inv-scanner-shell :is(
+html[data-triplem-theme]:not([data-triplem-theme="default"]) body.tm-app-on:not(#tmAppOff) .inv-scanner-shell :is(
   .inv-scanner-head p,.inv-scanner-lookup-label,.inv-scanner-lookup-meta,.inv-scan-main span,.inv-scan-empty
 ){color:var(--muted) !important;}
 
 /* Native dropdowns used transition:all and a focus translation. On Chromium this
    can produce a one-frame flash when the system popup closes. Keep selection
    changes compositor-stable and explicitly theme the native popup palette. */
-html[data-triplem-theme] body:has(#app:not(.hide)) :is(#app,.modal,.inv-scanner-overlay) select,
-html[data-triplem-theme] body:has(#app:not(.hide)) :is(#app,.modal,.inv-scanner-overlay) select.select{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) :is(#app,.modal,.inv-scanner-overlay) select,
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) :is(#app,.modal,.inv-scanner-overlay) select.select{
   transition:border-color .12s ease,box-shadow .12s ease !important;
   transform:none !important;
   background-color:var(--control-bg) !important;
   color:var(--text) !important;
   -webkit-text-fill-color:var(--text) !important;
 }
-html[data-triplem-theme] body:has(#app:not(.hide)) :is(#app,.modal,.inv-scanner-overlay) select option{
+html[data-triplem-theme] body.tm-app-on:not(#tmAppOff) :is(#app,.modal,.inv-scanner-overlay) select option{
   background:var(--surface-elevated) !important;
   color:var(--text) !important;
 }
-html[data-triplem-theme-mode="dark"] body:has(#app:not(.hide)) :is(#app,.modal,.inv-scanner-overlay) select{
+html[data-triplem-theme-mode="dark"] body.tm-app-on:not(#tmAppOff) :is(#app,.modal,.inv-scanner-overlay) select{
   color-scheme:dark;
 }
-html[data-triplem-theme-mode="light"] body:has(#app:not(.hide)) :is(#app,.modal,.inv-scanner-overlay) select{
+html[data-triplem-theme-mode="light"] body.tm-app-on:not(#tmAppOff) :is(#app,.modal,.inv-scanner-overlay) select{
   color-scheme:light;
 }
 
@@ -30595,7 +30595,7 @@ html.triplem-workspace-themed #app{
 }
 
 html.triplem-workspace-themed #app,
-html.triplem-workspace-themed body:has(#app:not(.hide)){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff){
   --card:var(--card-bg);
   --triplem-theme-row:var(--surface-soft);
   --triplem-theme-raised:var(--surface-elevated);
@@ -30680,7 +30680,7 @@ html.triplem-workspace-themed #app :is(
 }
 
 /* Every modal, sheet and popover must remain separated from the content behind it. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .modal-backdrop,.landing-overlay-backdrop,.landing-content-backdrop,.settings-sheet-backdrop,
   .app-confirm-backdrop,.push-consent-overlay,.inv-scanner-overlay
 ){
@@ -30689,7 +30689,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   -webkit-backdrop-filter:blur(var(--overlay-blur)) saturate(var(--glass-saturate)) !important;
 }
 
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .modal-dialog,.settings-sheet,.landing-content-sheet,.inquiry-modal,.push-consent-card,
   .app-confirm-dialog,.login-glass-panel--overlay,.guest-restriction-dialog,.trial-promo-card,
   .reminder-alert-dialog,.transfer-success-content,.admin-live-agent-sheet,
@@ -30705,7 +30705,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   background-clip:padding-box;
 }
 
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .modal-head,.modal-body,.modal-actions,.modal-footer,.settings-sheet-head,.settings-sheet-body,
   .settings-sheet-footer,.landing-content-head,.landing-content-body,.landing-content-footer
 ){
@@ -30713,7 +30713,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   border-color:var(--line) !important;
 }
 
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .menu-dropdown,.asset-card-dropdown,.account-menu-dropdown,.notification-dropdown,.dropdown,.popover,
   .toast,.notice,.tooltip,.admin-comms-dropdown,.inventory-catalog-menu-wrap .menu-dropdown,
   .theme-menu-dropdown
@@ -30751,7 +30751,7 @@ html.triplem-workspace-themed #themeDropdown .theme-menu-choice.is-selected{
 }
 
 /* Forms and native controls. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   #app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay,.inv-scanner-overlay
 ) :is(
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
@@ -30765,14 +30765,14 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   caret-color:var(--primary) !important;
   box-shadow:none;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   #app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay,.inv-scanner-overlay
 ) :is(input,textarea)::placeholder{
   color:var(--muted) !important;
   -webkit-text-fill-color:var(--muted) !important;
   opacity:1;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   #app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay,.inv-scanner-overlay
 ) :is(
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
@@ -30791,55 +30791,55 @@ html.triplem-workspace-themed select option{
 }
 
 /* Buttons, hover, active, focus and disabled states. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.primary,.tiny.primary,button.primary){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.primary,.tiny.primary,button.primary){
   background:var(--primary-gradient) !important;
   border-color:var(--primary) !important;
   color:var(--on-primary) !important;
   box-shadow:var(--shadow-soft),var(--theme-glow-shadow) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.primary,.tiny.primary,button.primary):hover:not(:disabled){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.primary,.tiny.primary,button.primary):hover:not(:disabled){
   filter:brightness(1.04) saturate(1.05);
   border-color:var(--primary-hover) !important;
   box-shadow:var(--shadow),var(--theme-glow-shadow) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.primary,.tiny.primary,button.primary):active:not(:disabled){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.primary,.tiny.primary,button.primary):active:not(:disabled){
   filter:brightness(.96);
   border-color:var(--primary-active) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.soft,.tiny.soft){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.soft,.tiny.soft){
   background:var(--primary-soft) !important;
   border-color:var(--line-strong) !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item){
   background:var(--control-bg) !important;
   border-color:var(--line) !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item):hover:not(:disabled){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item):hover:not(:disabled){
   background:var(--control-hover) !important;
   border-color:var(--line-strong) !important;
   color:var(--text-strong) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(button.danger,.btn.danger,.tiny.danger){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(button.danger,.btn.danger,.tiny.danger){
   background:var(--danger-soft) !important;
   border-color:var(--danger) !important;
   color:var(--danger) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(button.danger,.btn.danger,.tiny.danger):hover:not(:disabled){
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(button.danger,.btn.danger,.tiny.danger):hover:not(:disabled){
   background:var(--danger) !important;
   color:var(--on-danger) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   button,input,select,textarea,[role="button"]
 ):focus-visible{
   outline:none !important;
   box-shadow:0 0 0 3px var(--focus-ring) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   button,input,select,textarea,[role="button"]
 ):disabled,
-html.triplem-workspace-themed body:has(#app:not(.hide)) [aria-disabled="true"]{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) [aria-disabled="true"]{
   background:var(--surface-disabled) !important;
   border-color:var(--line) !important;
   color:var(--muted) !important;
@@ -31055,7 +31055,7 @@ html.triplem-workspace-themed .modal :is(
 }
 
 /* Body-mounted dialogs and sheets use one raised Liquid Glass treatment. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .modal [class$="-dialog"],.modal [class*="-dialog "],
   .modal [class$="-sheet"],.modal [class*="-sheet "],
   .account-recovery-dialog,.account-security-dialog,.account-security-mini-dialog,
@@ -31078,7 +31078,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
 }
 
 /* Standalone full-screen overlay roots receive the shared scrim. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .transfer-success-overlay,.guest-restriction-overlay,.fraud-alert-overlay,
   .app-download-overlay,.account-recovery-modal,.two-factor-modal,.secret-pin-modal,
   .reminder-alert-modal,.installment-plan-overlay
@@ -31109,7 +31109,7 @@ html.triplem-workspace-themed :is(#app,.modal,.settings-sheet,.landing-content-o
 }
 
 /* Every purpose-built loading surface uses the same loader token family. */
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .admin-themed-loading,.account-security-loading,.app-inline-loading,
   .inventory-loading-hint,.note-reminder-existing-loading
 ){
@@ -31118,7 +31118,7 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
   color:var(--muted) !important;
   box-shadow:var(--shadow-soft),inset 0 1px 0 var(--glass-highlight) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) :is(
   .app-inline-loading-spinner,.admin-themed-loading .btn-loader,
   .account-security-loading .btn-loader,.inventory-loading-hint .btn-loader,
   .note-reminder-existing-loading .btn-loader
@@ -31384,43 +31384,43 @@ html.triplem-workspace-themed #themeDropdown .theme-menu-swatch{
 
 
 /* 2026-09-15 Cart overlay complete theme parity */
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .inventory-sale-draft-dialog{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .inventory-sale-draft-dialog{
   background:var(--modal-bg) !important;
   background-image:var(--modal-bg) !important;
   border:1px solid var(--glass-border) !important;
   color:var(--text) !important;
   box-shadow:var(--shadow-strong),inset 0 1px 0 var(--glass-highlight),var(--theme-glow-shadow) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head{
   background:transparent !important;
   background-image:none !important;
   border-bottom:1px solid var(--line) !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head h3{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head h3{
   color:var(--text-strong) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head .help{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head .help{
   color:var(--muted) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head [data-close-modal]{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head [data-close-modal]{
   background:var(--control-bg) !important;
   background-image:none !important;
   border:1px solid var(--line) !important;
   color:var(--text) !important;
   box-shadow:none !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head [data-close-modal]:hover{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head [data-close-modal]:hover{
   background:var(--control-hover) !important;
   border-color:var(--line-strong) !important;
   color:var(--text-strong) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-body{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-body{
   background:transparent !important;
   background-image:none !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-body > .empty{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-body > .empty{
   min-height:92px;
   display:grid;
   place-items:center;
@@ -31433,15 +31433,15 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal
   text-align:center;
   box-shadow:inset 0 1px 0 var(--glass-highlight) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-body > .empty strong{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-body > .empty strong{
   color:var(--text-strong) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .inventory-draft-footer{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .inventory-draft-footer{
   border-color:var(--line) !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .inventory-draft-footer .btn.soft,
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .inventory-draft-footer .btn.ghost{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .inventory-draft-footer .btn.soft,
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .inventory-draft-footer .btn.ghost{
   background:var(--control-bg) !important;
   background-image:none !important;
   border-color:var(--line) !important;

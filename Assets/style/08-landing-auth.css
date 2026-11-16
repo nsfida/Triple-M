@@ -4873,7 +4873,7 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   margin-right:auto;
 }
 .landing-main--marketing,
-.landing-main:has(.landing-hero-marketing){
+.landing-main.landing-main--marketing{
   align-content:start;
   justify-items:center;
   padding-top:8px;
@@ -4881,7 +4881,7 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   width:100%;
 }
 .landing-main--marketing > *,
-.landing-main:has(.landing-hero-marketing) > *{
+.landing-main.landing-main--marketing > *{
   width:100%;
   max-width:920px;
   margin-left:auto;
@@ -5491,7 +5491,7 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 
 @media (max-width: 560px){
   .landing-main--marketing,
-  .landing-main:has(.landing-hero-marketing){
+  .landing-main.landing-main--marketing{
     gap:10px;
     padding-top:4px;
   }

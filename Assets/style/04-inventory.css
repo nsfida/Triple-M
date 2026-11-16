@@ -4360,43 +4360,43 @@ html.inventory-grid-drag-lock body{
 
 
 /* 2026-09-15 Cart overlay complete theme parity */
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .inventory-sale-draft-dialog{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .inventory-sale-draft-dialog{
   background:var(--modal-bg) !important;
   background-image:var(--modal-bg) !important;
   border:1px solid var(--glass-border) !important;
   color:var(--text) !important;
   box-shadow:var(--shadow-strong),inset 0 1px 0 var(--glass-highlight),var(--theme-glow-shadow) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head{
   background:transparent !important;
   background-image:none !important;
   border-bottom:1px solid var(--line) !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head h3{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head h3{
   color:var(--text-strong) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head .help{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head .help{
   color:var(--muted) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head [data-close-modal]{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head [data-close-modal]{
   background:var(--control-bg) !important;
   background-image:none !important;
   border:1px solid var(--line) !important;
   color:var(--text) !important;
   box-shadow:none !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-head [data-close-modal]:hover{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-head [data-close-modal]:hover{
   background:var(--control-hover) !important;
   border-color:var(--line-strong) !important;
   color:var(--text-strong) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-body{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-body{
   background:transparent !important;
   background-image:none !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-body > .empty{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-body > .empty{
   min-height:92px;
   display:grid;
   place-items:center;
@@ -4409,15 +4409,15 @@ html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal
   text-align:center;
   box-shadow:inset 0 1px 0 var(--glass-highlight) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .modal-body > .empty strong{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .modal-body > .empty strong{
   color:var(--text-strong) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .inventory-draft-footer{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .inventory-draft-footer{
   border-color:var(--line) !important;
   color:var(--text) !important;
 }
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .inventory-draft-footer .btn.soft,
-html.triplem-workspace-themed body:has(#app:not(.hide)) #inventorySaleDraftModal .inventory-draft-footer .btn.ghost{
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .inventory-draft-footer .btn.soft,
+html.triplem-workspace-themed body.tm-app-on:not(#tmAppOff) #inventorySaleDraftModal .inventory-draft-footer .btn.ghost{
   background:var(--control-bg) !important;
   background-image:none !important;
   border-color:var(--line) !important;

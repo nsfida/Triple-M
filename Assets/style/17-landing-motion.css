@@ -597,11 +597,11 @@ a.landing-seo-card:focus-visible .landing-seo-card-cta i{
   box-shadow:0 18px 50px rgba(15,23,42,.09), inset 0 1px 0 rgba(255,255,255,.76);
 }
 #lockScreen .landing-main--marketing,
-#lockScreen .landing-main:has(.landing-hero-marketing){
+#lockScreen .landing-main.landing-main--marketing{
   gap:clamp(16px,2vw,26px);
 }
 #lockScreen .landing-main--marketing > *,
-#lockScreen .landing-main:has(.landing-hero-marketing) > *{
+#lockScreen .landing-main.landing-main--marketing > *{
   width:100%;
   max-width:1480px;
 }
@@ -917,7 +917,7 @@ a.landing-seo-card:focus-visible .landing-seo-card-cta i{
 @media (max-width:700px){
   #lockScreen .landing-shell{width:calc(100% - 16px);padding-bottom:18px;}
   #lockScreen .landing-nav{border-radius:16px;padding:8px 9px;}
-  #lockScreen .landing-main--marketing,#lockScreen .landing-main:has(.landing-hero-marketing){gap:12px;}
+  #lockScreen .landing-main--marketing,#lockScreen .landing-main.landing-main--marketing{gap:12px;}
   #lockScreen .landing-hero-marketing{padding:24px 16px;border-radius:22px;}
   #lockScreen .landing-hero-marketing .landing-brand-name{font-size:clamp(2.25rem,12vw,3.2rem);}
   #lockScreen .landing-hero-marketing .landing-tagline{font-size:1rem;line-height:1.4;}
@@ -973,9 +973,9 @@ a.landing-seo-card:focus-visible .landing-seo-card-cta i{
   #lockScreen .landing-nav,
   #lockScreen .landing-main,
   #lockScreen .landing-main--marketing,
-  #lockScreen .landing-main:has(.landing-hero-marketing),
+  #lockScreen .landing-main.landing-main--marketing,
   #lockScreen .landing-main--marketing > *,
-  #lockScreen .landing-main:has(.landing-hero-marketing) > *,
+  #lockScreen .landing-main.landing-main--marketing > *,
   #lockScreen .landing-hero-marketing,
   #lockScreen .landing-hero-marketing-inner,
   #lockScreen .landing-hero-showcase,
@@ -991,7 +991,7 @@ a.landing-seo-card:focus-visible .landing-seo-card-cta i{
     margin-inline:6px
   }
   #lockScreen .landing-main--marketing,
-  #lockScreen .landing-main:has(.landing-hero-marketing){
+  #lockScreen .landing-main.landing-main--marketing{
     width:100%;
     overflow:visible
   }

@@ -129,3 +129,44 @@ test("Loans, Installments, Assets, Depreciation and Notes details open in the sh
   assert.match(dep, /window\.TriplemDepApi = Object\.freeze/);
   assert.match(dep, /TriplemDetailPanels\?\.openDep\?\.\(assetId\)/);
 });
+
+test("Expenses: wallet details and the Spend / Receive / Transfer forms open inside the wallet panel", () => {
+  const js = read("Assets/app/ui/10-detail-panels.js");
+  for (const fn of ["openExpenseModal", "openTransferModal", "closeModal", "openWalletDetailsOverlay", "openExpenseAccountDetailsOverlay"]) {
+    assert.ok(js.includes(`global.${fn} = function`), fn);
+  }
+  // the app's own forms are moved into the panel and put back (no copy of the saving code)
+  assert.match(js, /function dockForm\(kind, host\)/);
+  assert.match(js, /function undock\(\)/);
+  assert.match(js, /expenseModalDialog/);
+  for (const tab of ['["spend", "Spend"', '["receive", "Receive"', '["transfer", "Transfer"', '["activity", "Activity"', '["insights", "Insights"', '["details", "Details"']) {
+    assert.ok(js.includes(tab), tab);
+  }
+  // pages of transactions come from the existing paged lookup, with skeleton rows while loading
+  assert.match(js, /fetchExpenseActivityRpc\(\{ groupId: gid, limit: WALLET_PAGE/);
+  assert.match(js, /aum-skel/);
+  assert.doesNotMatch(js, /supabase\(|supabaseRpc\(/);
+  const css = read("Assets/style/69-admin-user-manager.css");
+  assert.match(css, /\.tm-dp-formhost > \.modal-dialog\.tm-dp-docked\{position:static !important/);
+});
+
+test("Loans: the reminder message has its own tab after Manage", () => {
+  const js = read("Assets/app/ui/10-detail-panels.js");
+  assert.match(js, /\["manage", "Manage", "fa-solid fa-sliders"\], \["remind", dir === "given" \? "Reminder" : "Message"/);
+  assert.match(js, /if \(tab === "remind"\)/);
+});
+
+test("Panels redraw only what changed, and the theme rules no longer slow down every page change", () => {
+  const js = read("Assets/app/ui/10-detail-panels.js");
+  assert.match(js, /function memo\(key, fn\)/);
+  assert.match(js, /if \(!force && html === P\.lastBody\) return;/);
+  assert.match(js, /memo\("plan", \(\) =>/);
+  assert.match(read("index.html"), /Assets\/app\/core\/13-app-visible\.js\?v=/);
+  assert.match(read("Assets/app/core/13-app-visible.js"), /classList\.toggle\("tm-app-on"/);
+  for (const f of ["04-inventory.css", "20-themes-performance.css", "31-unified-theme-system.css", "app.bundle.css", "app.feature.bundle.css"]) {
+    const css = read(`Assets/style/${f}`);
+    assert.doesNotMatch(css, /:has\(#app:not\(\.hide\)\)/, f);
+    assert.doesNotMatch(css, /\.landing-main:has\(\.landing-hero-marketing\)/, f);
+  }
+  assert.match(read("Assets/style/20-themes-performance.css"), /body\.tm-app-on:not\(#tmAppOff\)/);
+});

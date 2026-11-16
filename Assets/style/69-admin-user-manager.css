@@ -382,3 +382,38 @@ html[data-triplem-theme-mode="dark"] .tm-dp-row-ico.is-bad{color:#f87171}
 .tm-dp-chart .tm-dp-pt circle{fill:var(--primary);stroke:var(--surface-elevated,#fff);stroke-width:2;opacity:0}
 .tm-dp-chart .tm-dp-pt:hover circle,.tm-dp-chart .tm-dp-pt:last-of-type circle{opacity:1}
 @media (max-width:700px){.tm-dp-rows li{grid-template-columns:34px minmax(0,1fr) auto}.tm-dp-row-act{grid-column:2/-1;justify-content:flex-start}}
+/* Detail panels · performance: long lists only paint the rows on screen */
+.tm-dp-rows li{content-visibility:auto;contain-intrinsic-size:auto 54px}
+.tm-dp-root .aum-body{contain:content}
+/* Wallet panel */
+.tm-dp-avatar.is-custom{display:grid;place-items:center;overflow:hidden}
+.tm-dp-avatar.is-custom::after{content:none}
+.tm-dp-avatar.is-custom :is(img,svg){max-width:30px;max-height:30px}
+.tm-dp-row-ico.is-info{color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent)}
+.tm-dp-row-amt b.is-in{color:#15803d}
+html[data-triplem-theme-mode="dark"] .tm-dp-row-amt b.is-in{color:#4ade80}
+.tm-dp-quick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:8px;margin-top:12px}
+.tm-dp-quick .aum-btn{justify-content:center;min-height:38px}
+.tm-dp-quick .tm-dp-icon-btn{width:38px;height:38px;border:1px solid var(--line)}
+.tm-dp-pager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.tm-dp-pager span{font-size:.72rem;color:var(--muted)}
+.tm-dp-pager .aum-btn{min-height:32px;padding:0 12px;font-size:.74rem}
+.tm-dp-pager .aum-btn[data-p] i.fa-chevron-right{order:2}
+/* Docked app forms (Spend / Receive / Transfer / New wallet) inside the panel body */
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-formhost{display:block;padding-top:10px}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-formhost > .modal-dialog.tm-dp-docked{position:static !important;inset:auto !important;transform:none !important;translate:none !important;width:auto !important;min-width:0 !important;max-width:none !important;height:auto !important;max-height:none !important;margin:0 !important;padding:0 !important;border:0 !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;animation:none !important;overflow:visible !important;display:block !important;opacity:1 !important;color:var(--text)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head{position:static !important;display:flex !important;align-items:center;gap:10px;margin:2px 0 12px !important;padding:0 !important;border:0 !important;background:none !important;box-shadow:none !important;min-height:0 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head > [data-close-modal]{display:none !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head :is(h3,h2){margin:0;font-size:.74rem !important;font-weight:600 !important;letter-spacing:.06em;text-transform:uppercase;color:var(--muted) !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head p{margin:2px 0 0;font-size:.74rem;color:var(--muted)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head .goods-modal-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-body{padding:0 !important;margin:0 !important;overflow:visible !important;max-height:none !important;height:auto !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea,.input,.select){background-color:var(--control-bg,var(--surface-elevated,#fff)) !important;background-image:none !important;border-color:var(--line) !important;color:var(--text) !important;-webkit-text-fill-color:var(--text) !important;caret-color:var(--primary)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea,.input,.select):focus{border-color:color-mix(in srgb,var(--primary) 58%,var(--line)) !important;box-shadow:0 0 0 3px var(--focus-ring,color-mix(in srgb,var(--primary) 22%,transparent)) !important;outline:none !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(input,textarea)::placeholder{color:var(--muted) !important;-webkit-text-fill-color:var(--muted) !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(select,.select) option{background:var(--surface-elevated,#fff);color:var(--text)}
+html[data-triplem-theme-mode="dark"] body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(select,.select,input[type="date"]){color-scheme:dark}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked label{color:var(--text)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-footer{position:sticky;bottom:-22px;z-index:2;display:flex !important;justify-content:flex-end;gap:8px;margin:14px -16px -22px !important;padding:12px 16px 16px !important;background:var(--surface-elevated,var(--modal-bg,#fff));border-top:1px solid var(--line)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-footer .btn{min-height:38px;border-radius:12px}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .expense-optional-details{border-radius:14px}
