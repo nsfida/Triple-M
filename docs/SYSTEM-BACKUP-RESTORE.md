@@ -23,6 +23,9 @@ Older (version 1) backups still open, validate, preview and restore.
    - It needs 212 and the later migrations, which are already deployed.
    - It creates one new table, `app_system_restore_undo`, which has RLS on and no API access.
    - It adds and replaces functions only. No existing table or record is changed.
+   Then run `migrations/230_system_backup_classify_external_tables.sql`. It only re-declares the catalogue so
+   three production tables that no migration created (`audit_log`, `profiles`, `user_permissions`) are
+   saved in the backup as reference data (Shared_Resources) and never written by a restore.
 2. **Website / Windows app:** publish the updated files. The Edge Functions and secrets are unchanged.
 
 ## What a system backup contains

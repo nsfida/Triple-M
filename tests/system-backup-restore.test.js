@@ -216,3 +216,11 @@ test("file-storage Edge Function: system backup actions are Main Admin only", { 
   assert.match(src, /callRpc\("app_system_restore_file_begin"/);
   assert.match(src, /validateBytes\(bytes, String\(b\.mime/); // real file type checked before writing
 });
+
+test("migration 230 only re-declares the catalogue and keeps the three external tables as reference data", { skip: !fs.existsSync(path.join(root, "migrations/230_system_backup_classify_external_tables.sql")) && "private migrations folder not present" }, () => {
+  const sql = fs.readFileSync(path.join(root, "migrations/230_system_backup_classify_external_tables.sql"), "utf8");
+  const code = sql.replace(/--.*$/gm, "");
+  assert.doesNotMatch(code, /\b(drop|truncate|alter|delete|update|insert)\b/i);
+  for (const t of ["audit_log", "profiles", "user_permissions"]) assert.match(code, new RegExp(`'${t}', 'system', 'system', 'history'`));
+  assert.match(code, /revoke all on function public\.app_system_backup__catalog\(\) from public, anon, authenticated/);
+});
