@@ -13331,10 +13331,10 @@ html[lang="ar"] body :is(button,input,select,textarea,optgroup,option,h1,h2,h3,h
 html[dir="rtl"] :is(input[type="number"],input[type="tel"],input[type="email"],input[type="url"],input[inputmode="decimal"],input[inputmode="numeric"]){direction:ltr;text-align:right}
 html[dir="rtl"] :is(.float-currency,.money,.amount,[data-amount],code,kbd,samp){unicode-bidi:isolate}
 /* Urdu Nastaliq is tall: give text room so it is never clipped */
-html[lang="ur"] body{line-height:1.95}
-html[lang="ur"] :is(p,li,dd,dt,label,small,td,th,summary,.settings-readonly-note,.aum-note,.tm-dp-note){line-height:1.95 !important}
-html[lang="ur"] :is(h1,h2,h3,h4,h5,h6){line-height:1.7 !important;letter-spacing:0 !important}
-html[lang="ur"] :is(button,.btn,.aum-btn,.chip,.pill,.tab,[role="tab"],.menu-item,.landing-nav-cta){line-height:1.8 !important;padding-block:2px}
+html[lang="ur"] body{line-height:2.05}
+html[lang="ur"] :is(p,li,dd,dt,label,small,td,th,summary,.settings-readonly-note,.aum-note,.tm-dp-note){line-height:2.05 !important}
+html[lang="ur"] :is(h1,h2,h3,h4,h5,h6){line-height:1.8 !important;letter-spacing:0 !important}
+html[lang="ur"] :is(button,.btn,.aum-btn,.chip,.pill,.tab,[role="tab"],.menu-item,.landing-nav-cta){line-height:1.9 !important;padding-block:2px}
 html[lang="ur"] :is(input,select,textarea){line-height:1.8}
 html:is([lang="ar"],[lang="ur"]) *:not(:is(.landing-brand-mark,.landing-brand-name,.auth-resume-brand,[aria-label="Triplem VIP"],[aria-label="Triplem VIP"] *,.landing-brand-mark *,.landing-brand-name *,.auth-resume-brand *)){letter-spacing:0 !important;text-transform:none !important}
 
@@ -13359,3 +13359,219 @@ html[dir="rtl"] .landing-nav-actions :is(a,button){white-space:nowrap}
 @media (max-width:1365px){
   html[dir="rtl"] .landing-nav .landing-brand-mark{display:none}
 }
+
+/* Urdu: Nastaliq letters stack higher than Latin, so plain text blocks (card descriptions,
+   panel notes, list rows) get a little more room between lines. Small labels inside chips,
+   badges and pills keep their compact height. */
+html[lang="ur"] body :is(div,span,a,strong,em,b):not(:has(*)):not(:is([class*="badge"],[class*="chip"],[class*="pill"],[class*="tag"],[class*="dot"],[class*="count"],[class*="kbd"],.fa,[class*="fa-"])){line-height:1.95}
+
+/* ===== SOURCE: Assets/style/72-bitcoin-v2.css ===== */
+/* Triplem VIP · Bitcoin section, new layout (2026-11-16) — page, wallet cards and the forms
+   shown inside the shared side panel. Same surfaces, radii and type scale as Loans/Assets. */
+
+/* the old page body stays in the DOM (its forms are borrowed by the panel) but is not shown */
+html body #app#app #bitcoinPanel.btc-v2-on > .card.section{display:none !important}
+
+.btc2{display:grid;gap:14px;padding-bottom:28px}
+.btc2-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.btc2-title h3{margin:0;font-size:1.45rem;font-weight:400;color:var(--text);letter-spacing:-.01em}
+.btc2-title p{margin:4px 0 0;font-size:.82rem;color:var(--muted)}
+.btc2-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btc2-caret{font-size:.6rem;opacity:.85}
+.btc2-menu-wrap{position:relative}
+.btc2-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:40;min-width:300px;max-width:calc(100vw - 24px);padding:6px;border-radius:14px;
+  background:var(--surface-elevated,var(--panel,#fff));border:1px solid color-mix(in srgb,var(--line) 85%,transparent);
+  box-shadow:0 18px 40px -18px rgba(15,23,42,.45),0 2px 6px rgba(15,23,42,.06);display:grid;gap:2px}
+.btc2-menu.is-small{min-width:210px}
+.btc2-menu-item{display:flex;gap:11px;align-items:center;width:100%;padding:9px 10px;border:0;border-radius:10px;background:none;color:var(--text);font:inherit;text-align:start;cursor:pointer}
+.btc2-menu-item:hover,.btc2-menu-item:focus-visible{background:color-mix(in srgb,var(--primary) 8%,transparent);outline:none}
+.btc2-menu-item > i{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:9px;color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent);font-size:.8rem}
+.btc2-menu-item span{display:grid;gap:1px;min-width:0}
+.btc2-menu-item b{font-weight:500;font-size:.82rem}
+.btc2-menu-item small{font-size:.7rem;color:var(--muted)}
+
+.btc2-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.btc2-tile{display:flex;gap:12px;align-items:center;padding:14px;border-radius:16px;min-width:0;
+  background:var(--surface-elevated,var(--panel));border:1px solid color-mix(in srgb,var(--line) 85%,transparent);
+  box-shadow:0 1px 2px rgba(15,23,42,.05),0 8px 20px -18px rgba(15,23,42,.35)}
+.btc2-tile > div{display:grid;gap:2px;min-width:0}
+.btc2-tile b{font-size:1.08rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;unicode-bidi:isolate;text-align:start}
+.btc2-tile small{font-size:.7rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btc2-tile-k{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.btc2-tile-ico{width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;border-radius:12px;color:#fff;background:linear-gradient(135deg,#f7931a,#f2a93b);font-size:1rem}
+.btc2-tile-ico.is-gold{background:linear-gradient(135deg,#f59e0b,#fbbf24)}
+.btc2-tile-ico.is-blue{background:linear-gradient(135deg,var(--primary,#2563eb),color-mix(in srgb,var(--primary,#2563eb) 70%,#60a5fa))}
+.btc2-tile-ico.is-green{background:linear-gradient(135deg,#0f766e,#14b8a6)}
+.btc2-tile.is-main{background:linear-gradient(135deg,color-mix(in srgb,#f7931a 10%,var(--surface-elevated,var(--panel))),var(--surface-elevated,var(--panel)))}
+.btc2-chg{display:inline-flex;gap:4px;align-items:center}
+.btc2-chg.is-up{color:#15803d !important}.btc2-chg.is-down{color:#dc2626 !important}
+.btc2-chg span{color:var(--muted)}
+
+.btc2-session{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border-radius:16px;cursor:pointer;font:inherit;color:var(--text);text-align:start;
+  background:color-mix(in srgb,var(--primary) 6%,var(--surface-elevated,var(--panel)));border:1px solid color-mix(in srgb,var(--primary) 35%,var(--line))}
+.btc2-session:hover{border-color:var(--primary)}
+.btc2-session-ico{width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;border-radius:11px;background:var(--primary);color:var(--on-primary,#fff)}
+.btc2-session-main{display:grid;gap:2px;min-width:0;flex:1}
+.btc2-session-main b{font-weight:500;font-size:.9rem}
+.btc2-session-bal{display:grid;gap:2px;text-align:end}
+.btc2-session-bal b{font-weight:500}.btc2-session-bal small{font-size:.7rem;color:var(--muted)}
+
+.btc2-note{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;font-size:.76rem;line-height:1.5;color:var(--text);
+  background:color-mix(in srgb,#f59e0b 9%,transparent);border:1px solid color-mix(in srgb,#f59e0b 22%,transparent)}
+.btc2-note i{color:#d97706;margin-top:2px}
+
+.btc2-tools{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.btc2-search{display:flex;align-items:center;gap:8px;min-width:min(320px,100%);flex:0 1 340px;border-bottom:1px solid var(--line);padding:4px 2px}
+.btc2-search i{color:var(--muted);font-size:.8rem}
+.btc2-search input{border:0;background:transparent;outline:none;font:inherit;font-size:.86rem;color:var(--text);width:100%;padding:4px 0}
+.btc2-search:focus-within{border-bottom-color:var(--primary)}
+.btc2-chips{display:flex;gap:6px;flex-wrap:wrap}
+.btc2 .aum-chip[aria-pressed="true"],.btc2-types .aum-chip[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:var(--on-primary,#fff)}
+
+.btc2-list{display:grid;gap:8px}
+.btc2-card{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(4,minmax(0,1fr)) auto;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;cursor:pointer;
+  background:var(--surface-elevated,var(--panel));border:1px solid color-mix(in srgb,var(--line) 85%,transparent);
+  box-shadow:0 1px 2px rgba(15,23,42,.05),0 8px 20px -18px rgba(15,23,42,.35);transition:border-color .15s ease,box-shadow .15s ease}
+.btc2-card:hover,.btc2-card:focus-visible{border-color:color-mix(in srgb,var(--primary) 45%,var(--line));outline:none;box-shadow:0 2px 4px rgba(15,23,42,.06),0 14px 26px -18px rgba(15,23,42,.4)}
+.btc2-card.is-open{border-color:color-mix(in srgb,var(--primary) 55%,var(--line))}
+.btc2-card-id{display:flex;align-items:center;gap:10px;min-width:0}
+.btc2-idx{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;font-size:.7rem;color:var(--primary);background:color-mix(in srgb,var(--primary) 12%,transparent)}
+.btc2-card-ico{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:12px;font-size:1.15rem;color:#fff;background:linear-gradient(135deg,#f7931a,#f2a93b)}
+.btc2-card-ico.is-test{background:linear-gradient(135deg,#64748b,#94a3b8)}
+.btc2-card-name{display:grid;gap:3px;min-width:0}
+.btc2-card-name > b{font-weight:400;font-size:.96rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btc2-card-name > small{font-size:.72rem;color:var(--muted)}
+.btc2-pills{display:flex;gap:5px;flex-wrap:wrap}
+.btc2-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:.64rem;line-height:1.4;color:var(--muted);background:color-mix(in srgb,var(--muted,#64748b) 12%,transparent)}
+.btc2-pill.is-watch{color:var(--primary);background:color-mix(in srgb,var(--primary) 12%,transparent)}
+.btc2-pill.is-keys{color:#15803d;background:color-mix(in srgb,#16a34a 13%,transparent)}
+.btc2-pill.is-live{color:#b45309;background:color-mix(in srgb,#f7931a 16%,transparent)}
+.btc2-pill.is-warn{color:#b45309;background:color-mix(in srgb,#f59e0b 16%,transparent);font-weight:400}
+.btc2-cell{display:grid;gap:3px;min-width:0}
+.btc2-cell small{font-size:.68rem;color:var(--muted)}
+.btc2-cell b{font-weight:400;font-size:.88rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btc2-card-act{display:flex;gap:6px;align-items:center}
+.btc2-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0 !important;direction:ltr;unicode-bidi:isolate}
+html[dir="rtl"] .btc2-chev{transform:scaleX(-1)}
+
+.btc2-empty{display:grid;justify-items:center;gap:8px;text-align:center;padding:34px 18px;border-radius:18px;border:1px dashed color-mix(in srgb,var(--line) 90%,transparent);background:color-mix(in srgb,var(--surface-elevated,var(--panel)) 70%,transparent)}
+.btc2-empty-ico{width:56px;height:56px;display:grid;place-items:center;border-radius:18px;font-size:1.6rem;color:#fff;background:linear-gradient(135deg,#f7931a,#f2a93b)}
+.btc2-empty h4{margin:4px 0 0;font-weight:500;font-size:1rem}
+.btc2-empty p{margin:0;max-width:520px;font-size:.8rem;color:var(--muted)}
+.btc2-empty-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.btc2-none{font-size:.82rem;color:var(--muted);text-align:center;padding:18px}
+.btc2-flash{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);z-index:20000;padding:9px 16px;border-radius:999px;font-size:.78rem;color:#fff;background:rgba(15,23,42,.9);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+.btc2-flash.is-on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── inside the side panel ─────────────────────────────────────────────────────────── */
+#tmDetailPanel .btc2-balance b{font-size:1.25rem;font-weight:500}
+#tmDetailPanel .btc2-rows .tm-dp-row-amt b.is-in{color:#15803d}
+#tmDetailPanel .btc2-rows .tm-dp-row-amt b.is-out{color:#b45309}
+html[data-triplem-theme-mode="dark"] #tmDetailPanel .btc2-rows .tm-dp-row-amt b.is-in{color:#4ade80}
+html[data-triplem-theme-mode="dark"] #tmDetailPanel .btc2-rows .tm-dp-row-amt b.is-out{color:#fbbf24}
+#tmDetailPanel .tm-dp-row-ico.is-self{color:var(--muted);background:color-mix(in srgb,var(--muted,#64748b) 12%,transparent)}
+#tmDetailPanel .btc2-rows li.is-selected .tm-dp-row-main b{color:var(--primary)}
+#tmDetailPanel .btc2-rows .tm-dp-row-main small.btc2-mono{white-space:normal;word-break:break-all;overflow:visible}
+#tmDetailPanel .btc2-rows .tm-dp-row-act{display:flex;gap:6px;align-items:center}
+#tmDetailPanel a.tm-dp-icon-btn{text-decoration:none}
+#tmDetailPanel .btc2-inline-search{margin:10px 0 4px}
+#tmDetailPanel .btc2-receive{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:start;margin-top:12px}
+#tmDetailPanel .btc2-qr{margin:0;padding:10px;border-radius:16px;background:#fff;border:1px solid color-mix(in srgb,var(--line) 85%,transparent);aspect-ratio:1/1;display:grid;place-items:center;position:relative}
+#tmDetailPanel .btc2-qr img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
+#tmDetailPanel .btc2-qr.is-loading img{opacity:.15}
+#tmDetailPanel .btc2-qr.is-loading::after{content:"";position:absolute;width:26px;height:26px;border-radius:50%;border:3px solid color-mix(in srgb,var(--primary) 25%,transparent);border-top-color:var(--primary);animation:btc2spin .8s linear infinite}
+@keyframes btc2spin{to{transform:rotate(360deg)}}
+#tmDetailPanel .btc2-receive-main{display:grid;gap:8px;min-width:0}
+#tmDetailPanel .btc2-receive-main > small{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+#tmDetailPanel .btc2-addr,#tmDetailPanel .btc2-uri{display:block;padding:10px 12px;border-radius:12px;font-size:.78rem;line-height:1.5;word-break:break-all;color:var(--text);
+  background:color-mix(in srgb,var(--primary) 6%,transparent);border:1px solid color-mix(in srgb,var(--primary) 18%,transparent);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;direction:ltr;text-align:left;unicode-bidi:isolate}
+#tmDetailPanel .btc2-uri{margin-top:10px;font-size:.72rem;color:var(--muted);background:transparent}
+#tmDetailPanel .btc2-req{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}
+#tmDetailPanel .btc2-types{margin-top:0}
+#tmDetailPanel .btc2-key{display:flex;gap:8px;align-items:center;min-width:0}
+#tmDetailPanel .btc2-key code{font-size:.72rem;word-break:break-all;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;direction:ltr;unicode-bidi:isolate;text-align:left}
+#tmDetailPanel .btc2-fees{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
+#tmDetailPanel .btc2-fee{display:grid;gap:2px;padding:9px 10px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;text-align:start;cursor:pointer}
+#tmDetailPanel .btc2-fee b{font-weight:500;font-size:.78rem}
+#tmDetailPanel .btc2-fee span{font-size:.74rem}
+#tmDetailPanel .btc2-fee small{font-size:.66rem;color:var(--muted)}
+#tmDetailPanel .btc2-fee:hover{border-color:color-mix(in srgb,var(--primary) 45%,var(--line))}
+#tmDetailPanel .btc2-fee.is-on{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%,transparent)}
+#tmDetailPanel .btc2-create{display:grid;gap:8px;margin:12px 0}
+#tmDetailPanel .btc2-choice{display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;text-align:start;cursor:pointer}
+#tmDetailPanel .btc2-choice:hover{border-color:color-mix(in srgb,var(--primary) 45%,var(--line));background:color-mix(in srgb,var(--primary) 5%,transparent)}
+#tmDetailPanel .btc2-choice > i{width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;border-radius:11px;color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent)}
+#tmDetailPanel .btc2-choice span{display:grid;gap:2px}
+#tmDetailPanel .btc2-choice b{font-weight:500;font-size:.84rem}
+#tmDetailPanel .btc2-choice small{font-size:.72rem;color:var(--muted)}
+
+/* the existing Bitcoin forms, shown in the panel with the panel's field style */
+#tmDetailPanel .btc2-formhost{display:grid;gap:12px;margin-top:12px}
+#tmDetailPanel .btc2-formhost > div{margin:0 !important}
+#tmDetailPanel .btc2-formhost label{display:block !important;margin:0 0 6px !important;font-size:.7rem !important;font-weight:400 !important;color:var(--muted) !important;text-transform:uppercase;letter-spacing:.05em}
+#tmDetailPanel .btc2-formhost :is(textarea,input:not([type=checkbox]):not([type=radio]):not([type=file]),select){
+  width:100%;box-sizing:border-box;padding:10px 12px !important;border-radius:12px !important;border:1px solid var(--line) !important;background:var(--surface,transparent) !important;
+  color:var(--text) !important;font:inherit !important;font-size:.84rem !important;box-shadow:none !important;min-height:42px}
+#tmDetailPanel .btc2-formhost textarea{min-height:88px !important;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace !important;direction:ltr;text-align:left}
+#tmDetailPanel .btc2-formhost :is(textarea,input):focus{border-color:var(--primary) !important;outline:none}
+#tmDetailPanel .btc2-formhost .btc-wif-scan-row{display:flex;gap:8px;align-items:stretch}
+#tmDetailPanel .btc2-formhost .tools{display:flex !important;flex-wrap:wrap;gap:8px;margin-top:10px !important}
+#tmDetailPanel .btc2-formhost .btn{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 14px !important;border-radius:999px !important;font-size:.76rem !important;border:1px solid var(--line) !important;background:transparent !important;color:var(--text) !important;box-shadow:none !important}
+#tmDetailPanel .btc2-formhost .btn.primary{background:var(--primary) !important;border-color:var(--primary) !important;color:var(--on-primary,#fff) !important}
+#tmDetailPanel .btc2-formhost .btn.btc-qr-scan-btn{min-width:44px;justify-content:center;padding:0 !important;border-radius:12px !important}
+#tmDetailPanel .btc2-formhost #btcWalletStatus{white-space:pre-line;padding:10px 12px !important;border-radius:12px;font-size:.76rem;color:var(--muted);border:1px dashed var(--line);background:transparent;text-align:start;margin:0 !important}
+#tmDetailPanel .btc2-formhost [style*="font-size:.76rem"],#tmDetailPanel .btc2-formhost [style*="font-size: .76rem"]{font-size:.72rem !important}
+#tmDetailPanel .btc2-formhost .btc-bulk-wallets-section{border:0 !important;box-shadow:none !important;background:none !important;padding:0 !important}
+#tmDetailPanel .btc2-send .btc2-send-dialog{display:block;padding:0 !important;margin:0 !important;max-height:none !important;overflow:visible !important}
+#tmDetailPanel .btc2-send .modal-grid{display:grid !important;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
+#tmDetailPanel .btc2-send .field.w12{grid-column:1/-1}
+#tmDetailPanel .btc2-send .field.w6{grid-column:span 6}
+#tmDetailPanel .btc2-send .btc-send-from-box{padding:10px 12px;border-radius:12px;font-size:.76rem;word-break:break-all;background:color-mix(in srgb,var(--primary) 6%,transparent);border:1px solid color-mix(in srgb,var(--primary) 18%,transparent)}
+#tmDetailPanel .btc2-send .btc-recipient-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--line) 85%,transparent);margin-bottom:8px;position:relative}
+#tmDetailPanel .btc2-send .btc-recipient-row .btc-recipient-title{grid-column:1/-1;font-size:.74rem;color:var(--muted)}
+#tmDetailPanel .btc2-send .btc-recipient-row .btc-recipient-address-field{grid-column:1/-1}
+#tmDetailPanel .btc2-send .btc-recipient-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+#tmDetailPanel .btc2-send .btc-remove-recipient-btn{position:absolute;top:8px;inset-inline-end:8px}
+#tmDetailPanel .btc2-send #btcSendStatus{white-space:pre-line;padding:10px 12px;border-radius:12px;font-size:.76rem;border:1px dashed var(--line);background:transparent;text-align:start}
+#tmDetailPanel .btc2-send .modal-footer{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:-1px;padding:10px 0 2px;background:var(--surface-elevated,var(--panel))}
+#tmDetailPanel .btc2-send .btc-guest-fee-box{padding:12px;border-radius:14px;background:color-mix(in srgb,#f59e0b 9%,transparent)}
+#tmDetailPanel .btc2-send .btc-guest-fee-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#tmDetailPanel .btc2-send .btc-guest-fee-address{grid-column:1/-1}
+#tmDetailPanel .btc2-send :is(input,textarea).input{direction:ltr;text-align:left}
+
+/* ── narrow screens ───────────────────────────────────────────────────────────────── */
+@media (max-width:1100px){
+  .btc2-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .btc2-card{grid-template-columns:minmax(0,1.5fr) repeat(2,minmax(0,1fr)) auto}
+  .btc2-hide-sm{display:none !important}
+}
+@media (max-width:640px){
+  .btc2-title h3{font-size:1.2rem}
+  .btc2-tile{padding:11px;gap:10px}
+  .btc2-tile-ico{width:34px;height:34px;flex-basis:34px;font-size:.86rem}
+  .btc2-tile b{font-size:.95rem}
+  .btc2-card{grid-template-columns:minmax(0,1fr) auto;gap:10px}
+  .btc2-card .btc2-cell{display:none}
+  .btc2-card .btc2-cell:nth-of-type(2){display:grid;grid-column:1/-1;order:3}
+  .btc2-idx{display:none}
+  .btc2-menu{inset-inline-end:auto;inset-inline-start:0;min-width:min(300px,calc(100vw - 32px))}
+  .btc2-actions .btc2-menu-wrap:last-child .btc2-menu{inset-inline-start:auto;inset-inline-end:0}
+  .btc2-session{flex-wrap:wrap}
+  .btc2-session .btc2-pill{display:none}
+  #tmDetailPanel .btc2-receive{grid-template-columns:1fr;justify-items:center}
+  #tmDetailPanel .btc2-qr{width:min(240px,70vw)}
+  #tmDetailPanel .btc2-receive-main{width:100%}
+  #tmDetailPanel .btc2-req{grid-template-columns:1fr}
+  #tmDetailPanel .btc2-fees{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #tmDetailPanel .btc2-send .field.w6{grid-column:1/-1}
+  #tmDetailPanel .btc2-send .btc-recipient-row{grid-template-columns:1fr}
+}
+@media (max-width:420px){
+  .btc2-tiles{grid-template-columns:1fr 1fr;gap:8px}
+  .btc2-tile-ico{display:none}
+}
+html body #app#app #bitcoinPanel .btc2 .aum-chip[aria-pressed="true"],#tmDetailPanel .btc2-types .aum-chip[aria-pressed="true"]{color:var(--on-primary,#fff) !important;-webkit-text-fill-color:var(--on-primary,#fff)}
+#tmDetailPanel .btc2-qr-off{display:grid;gap:8px;justify-items:center;text-align:center;font-size:.72rem;color:#64748b;padding:12px}
+#tmDetailPanel .btc2-qr-off i{font-size:2rem;color:#94a3b8}
+#tmDetailPanel .btc2-send .modal-footer{position:static;flex-direction:row !important;justify-content:flex-end !important;padding:12px 0 0}
+#tmDetailPanel .btc2-send .modal-footer .btn{width:auto !important;flex:0 0 auto !important;min-width:110px;justify-content:center}

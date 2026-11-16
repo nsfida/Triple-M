@@ -619,20 +619,26 @@ async function autoLogin(){
     return false;
   }
   if (!credential?.username || !credential?.sessionToken) {
+    // A language switch in this tab handed the current session over (01-config-constants.js).
+    try { credential = await takeLanguageSwitchHandoff(); } catch (_) { credential = null; }
+  }
+  if (!credential?.username || !credential?.sessionToken) {
     clearAuthResumingUi();
     return false;
   }
+  const keepRemember = credential.handoff !== true;
   showAuthResumingUi();
   if (els.zipUsernameInput){
     els.zipUsernameInput.value = credential.username;
   }
-  if (els.rememberMeCheckbox) {
+  if (els.rememberMeCheckbox && keepRemember) {
     els.rememberMeCheckbox.checked = true;
   }
+  if (!keepRemember) { try { sessionStorage.setItem(SESSION_USERNAME_KEY, credential.username); } catch (_) {} }
   const ok = await attemptUnlock({
     username: credential.username,
     rememberedCredential: credential,
-    remember: true,
+    remember: keepRemember,
     silentResume: true
   });
   if (!ok) {
@@ -893,6 +899,9 @@ async function completeAuthenticatedUnlock(user, sessionToken, { remember = fals
 /** Without Remember Me, revoke the server session when the tab/page is closed or refreshed. */
 function revokeNonRememberedSessionOnUnload(){
   if (state.sessionRememberMe) return;
+  // Switching language opens the same app in another language in this tab and hands the
+  // session over (saveLanguageSwitchHandoff): do not end it on the way.
+  if (window.__triplemLangHandoff && Date.now() - window.__triplemLangHandoff < 15000) return;
   if (!state.unlocked || !state.sessionToken) return;
   try {
     const dbConfig = typeof getSupabaseConfig === "function"

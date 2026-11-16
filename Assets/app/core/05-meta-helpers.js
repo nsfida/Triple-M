@@ -65,7 +65,11 @@ function positionFixedMenuDropdown(panel, anchorEl, options = {}){
   const panelWidth = Math.min(Math.max(measured.width || panel.offsetWidth || 0, minWidth), Math.max(minWidth, viewportWidth - margin * 2));
   const panelHeight = measured.height || panel.offsetHeight || 0;
 
-  let left = rect.right - panelWidth;
+  // Left-to-right pages open the menu under the trigger's right edge; right-to-left pages
+  // (Arabic, Urdu) mirror that and open it from the trigger's left edge.
+  const rtl = document.documentElement.dir === "rtl";
+  let left = rtl ? rect.left : rect.right - panelWidth;
+  if (rtl && left + panelWidth > viewportWidth - margin) left = rect.right - panelWidth;
   if (left < margin) left = Math.max(margin, rect.left);
   if (left + panelWidth > viewportWidth - margin) {
     left = Math.max(margin, viewportWidth - panelWidth - margin);

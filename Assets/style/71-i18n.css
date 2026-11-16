@@ -40,10 +40,10 @@ html[lang="ar"] body :is(button,input,select,textarea,optgroup,option,h1,h2,h3,h
 html[dir="rtl"] :is(input[type="number"],input[type="tel"],input[type="email"],input[type="url"],input[inputmode="decimal"],input[inputmode="numeric"]){direction:ltr;text-align:right}
 html[dir="rtl"] :is(.float-currency,.money,.amount,[data-amount],code,kbd,samp){unicode-bidi:isolate}
 /* Urdu Nastaliq is tall: give text room so it is never clipped */
-html[lang="ur"] body{line-height:1.95}
-html[lang="ur"] :is(p,li,dd,dt,label,small,td,th,summary,.settings-readonly-note,.aum-note,.tm-dp-note){line-height:1.95 !important}
-html[lang="ur"] :is(h1,h2,h3,h4,h5,h6){line-height:1.7 !important;letter-spacing:0 !important}
-html[lang="ur"] :is(button,.btn,.aum-btn,.chip,.pill,.tab,[role="tab"],.menu-item,.landing-nav-cta){line-height:1.8 !important;padding-block:2px}
+html[lang="ur"] body{line-height:2.05}
+html[lang="ur"] :is(p,li,dd,dt,label,small,td,th,summary,.settings-readonly-note,.aum-note,.tm-dp-note){line-height:2.05 !important}
+html[lang="ur"] :is(h1,h2,h3,h4,h5,h6){line-height:1.8 !important;letter-spacing:0 !important}
+html[lang="ur"] :is(button,.btn,.aum-btn,.chip,.pill,.tab,[role="tab"],.menu-item,.landing-nav-cta){line-height:1.9 !important;padding-block:2px}
 html[lang="ur"] :is(input,select,textarea){line-height:1.8}
 html:is([lang="ar"],[lang="ur"]) *:not(:is(.landing-brand-mark,.landing-brand-name,.auth-resume-brand,[aria-label="Triplem VIP"],[aria-label="Triplem VIP"] *,.landing-brand-mark *,.landing-brand-name *,.auth-resume-brand *)){letter-spacing:0 !important;text-transform:none !important}
 
@@ -68,3 +68,8 @@ html[dir="rtl"] .landing-nav-actions :is(a,button){white-space:nowrap}
 @media (max-width:1365px){
   html[dir="rtl"] .landing-nav .landing-brand-mark{display:none}
 }
+
+/* Urdu: Nastaliq letters stack higher than Latin, so plain text blocks (card descriptions,
+   panel notes, list rows) get a little more room between lines. Small labels inside chips,
+   badges and pills keep their compact height. */
+html[lang="ur"] body :is(div,span,a,strong,em,b):not(:has(*)):not(:is([class*="badge"],[class*="chip"],[class*="pill"],[class*="tag"],[class*="dot"],[class*="count"],[class*="kbd"],.fa,[class*="fa-"])){line-height:1.95}

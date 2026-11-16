@@ -872,7 +872,7 @@ function renderAssetsList() {
             <div class="asset-card-meta">
               <span>${escapeHtml(assetTypeLabel(asset.asset_type, asset.asset_type_other))}</span>
               <span class="asset-status asset-status-${escapeHtml(asset.status)}">${escapeHtml(assetStatusLabel(asset.status))}</span>
-              <span class="asset-card-owned">${escapeHtml(own.label || "—")}${own.ongoing ? " · ongoing" : ""}</span>
+              <span class="asset-card-owned"><span>${escapeHtml(own.label || "—")}</span>${own.ongoing ? " <span>· ongoing</span>" : ""}</span>
               ${typeof offlinePendingBadgeHtml === "function" ? offlinePendingBadgeHtml(asset.id) : ""}
             </div>
           </button>
@@ -1166,7 +1166,7 @@ function renderAssetDetail(assetId) {
           <div><dt>Status</dt><dd>${escapeHtml(assetStatusLabel(asset.status))}</dd></div>
           <div><dt>Currency</dt><dd>${escapeHtml(asset.currency)}</dd></div>
           <div><dt>Purchase date</dt><dd>${escapeHtml(asset.purchase_date || "—")}</dd></div>
-          <div><dt>Ownership</dt><dd>${escapeHtml(own.label || "—")} · ${Number(own.days || 0)} days${own.ongoing ? " (ongoing)" : ""}</dd></div>
+          <div><dt>Ownership</dt><dd><span>${escapeHtml(own.label || "—")}</span> · <span>${Number(own.days || 0)} days</span>${own.ongoing ? " <span>(ongoing)</span>" : ""}</dd></div>
           <div><dt>Description</dt><dd>${escapeHtml(asset.description || "—")}</dd></div>
         </dl>
       </div>

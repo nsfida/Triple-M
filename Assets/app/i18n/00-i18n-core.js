@@ -57,8 +57,10 @@
       const key = first ? "^" + first : last ? "$" + last : "";
       if (!key) continue; // a template made only of values cannot be matched safely
       if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key).push({ tpl, tr, order, re: null });
+      buckets.get(key).push({ tpl, tr, order, re: null, lit: literals.join("").length });
     }
+    // The most specific template wins: "Open installment plan for {0}" before "Open {0}".
+    for (const list of buckets.values()) list.sort((a, b) => b.lit - a.lit);
     // "{1-}" in a translation consumes value 1 without printing it (English plural endings
     // such as "item{1}" -> "s" have no place in Arabic or Urdu).
     const fill = (tr, order, values) => {
@@ -81,7 +83,8 @@
       }
       // 2. general values, looked up by the first or last word of the text
       const words = text.split(" ");
-      const cands = (buckets.get("^" + words[0]) || []).concat(buckets.get("$" + words[words.length - 1]) || []);
+      const head = buckets.get("^" + words[0]) || [], tail = buckets.get("$" + words[words.length - 1]) || [];
+      const cands = !head.length ? tail : !tail.length ? head : head.concat(tail).sort((a, b) => b.lit - a.lit);
       for (const c of cands) {
         if (!c.re) c.re = new RegExp("^" + c.tpl.split(PH).map((part, i) => (i % 2 === 0 ? esc(part) : "(.*?)")).join("") + "$");
         const m = c.re.exec(text);

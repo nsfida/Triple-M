@@ -199,10 +199,15 @@
     },
     {
       "path": "Assets/style/71-i18n.css",
-      "bytes": 7598,
-      "sha256": "b08cb0318547f1bd535e397f2c008be69387dd4261dcceb759f8a1d3e994d86b"
+      "bytes": 8053,
+      "sha256": "a06b3d3619dcf83beea36775ec6631e64be1f1b65a03b34a852055491d0a1a1e"
+    },
+    {
+      "path": "Assets/style/72-bitcoin-v2.css",
+      "bytes": 20597,
+      "sha256": "840df7d8229cac1f002030b214240967407e1aa08a88f501da00bb4230f2eb45"
     }
   ],
-  "bytes": 932323,
-  "sha256": "8a3e8034ee24011d63c8ccc88abd677ea54abfbbecd72a61a09c7608840dedb4"
+  "bytes": 953433,
+  "sha256": "6cc0ec6b47e5d2efa8922c6d1ff3994c8f78cc228c70823424b5d33eadac111e"
 }

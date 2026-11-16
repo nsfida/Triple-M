@@ -19,7 +19,8 @@
   const esc = v => (typeof escapeHtml === "function" ? escapeHtml(v) : String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])));
   const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
   const m = (n, cur) => { try { return money(num(n), cur); } catch (_) { return esc(`${cur || ""} ${num(n).toFixed(2)}`); } };
-  const plain = (n, cur) => { try { return `${cur ? cur + " " : ""}${num(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; } catch (_) { return `${cur} ${num(n).toFixed(2)}`; } };
+  const plainMoney = (n, cur) => { try { return `${cur ? cur + " " : ""}${num(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; } catch (_) { return `${cur} ${num(n).toFixed(2)}`; } };
+  const plain = plainMoney;
   const dd = v => { if (!v) return "—"; try { return displayDate(String(v).slice(0, 10)); } catch (_) { return String(v).slice(0, 10); } };
   const stamp = v => { try { return dateStamp(v); } catch (_) { const t = Date.parse(v); return Number.isFinite(t) ? t : 0; } };
   const today0 = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
@@ -45,7 +46,8 @@
   const lastMonths = n => { const out = []; const d = new Date(); d.setDate(15); for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 15); out.push(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}`); } return out; };
 
   // ── charts: single series, theme colour, values on hover (SVG <title>) ─────────────────
-  function barChart(points, cur, caption){
+  function barChart(points, cur, caption, fmt){
+    const plain = fmt || plainMoney;
     const W = 540, H = 150, top = 16, base = 120;
     const max = Math.max(...points.map(p => p.value), 0);
     if (!(max > 0)) return `<p class="aum-muted">No ${esc(caption.toLowerCase())} yet.</p>`;
@@ -62,7 +64,8 @@
     return `<figure class="tm-dp-chart"><figcaption>${esc(caption)} <span>highest ${esc(plain(max, cur))}</span></figcaption>
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(caption)}"><line class="tm-dp-base" x1="0" x2="${W}" y1="${base}" y2="${base}"></line>${bars}</svg></figure>`;
   }
-  function lineChart(points, cur, caption, lastWord = "now"){
+  function lineChart(points, cur, caption, lastWord = "now", fmt){
+    const plain = fmt || plainMoney;
     if (points.length < 2) return `<p class="aum-muted">Not enough history for ${esc(caption.toLowerCase())} yet.</p>`;
     const W = 540, H = 150, top = 14, base = 120;
     const vals = points.map(p => p.value), max = Math.max(...vals, 0), min = Math.min(...vals, 0);
@@ -110,9 +113,11 @@
     return el;
   }
   function iconUrl(key){ try { return new URL(workspaceNavIconUrl(key), document.baseURI).href; } catch (_) { return ""; } }
+  function leave(){ try { P.def?.onLeave?.(); } catch (_) {} }
   function open(def){
     const el = root();
     undock();
+    leave();
     P.def = def; P.tab = def.tab || def.tabs[0][0]; P.st = def.state || {}; P.built = null;
     render({ force: true });
     if (!P.def) return;
@@ -123,6 +128,7 @@
   function close(){
     if (!P.el) return;
     undock();
+    leave();
     P.el.classList.remove("is-open");
     P.def = null; P.built = null;
     document.documentElement.classList.remove("tm-dp-open");
@@ -133,7 +139,7 @@
       ? `<span class="aum-avatar tm-dp-avatar is-custom" aria-hidden="true">${head.avatar}</span>`
       : `<span class="aum-avatar tm-dp-avatar" style="--tm-sheet-icon:url('${esc(iconUrl(d.icon))}')" aria-hidden="true"></span>`;
     return `${avatar}
-        <div class="aum-id"><strong id="tmDpTitle">${esc(head.title)}</strong><small>${head.sub || ""}</small>
+        <div class="aum-id"><strong id="tmDpTitle"${head.userTitle ? ' translate="no"' : ""}>${esc(head.title)}</strong><small>${head.sub || ""}</small>
           <div class="aum-pills">${(head.pills || []).join("")}</div></div>
         <button type="button" class="aum-close" data-dp-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>`;
   }
@@ -174,6 +180,7 @@
   function switchTab(tab){
     if (!P.def) return;
     undock();
+    leave();
     P.tab = tab;
     render({ force: true });
     P.el.querySelector(`[data-dp-tab="${tab}"]`)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
@@ -998,5 +1005,15 @@
   else install();
   global.addEventListener("load", install);
 
-  global.TriplemDetailPanels = Object.freeze({ openLoan, openInstallment, openAsset, openDep, openNote, openWallet, openFormPanel, refresh, close, isOpen: () => !!P.def, toast });
+  // Shared building blocks for sections that define their own panels (Bitcoin).
+  const kit = Object.freeze({ esc, num, pill, section, kv, btn, iconBtn, note, statusCard, progress, stats, empty, barChart, lineChart, skel, monthKey, monthLabel, lastMonths });
+  const custom = Object.freeze({
+    open: def => open(def),
+    render: opts => render(opts || {}),
+    tab: t => switchTab(t),
+    current: () => P.def,
+    currentTab: () => P.tab,
+    body: () => P.el?.querySelector(".aum-body") || null
+  });
+  global.TriplemDetailPanels = Object.freeze({ openLoan, openInstallment, openAsset, openDep, openNote, openWallet, openFormPanel, refresh, close, isOpen: () => !!P.def, toast, kit, custom });
 })(typeof window !== "undefined" ? window : globalThis);

@@ -49,15 +49,17 @@
     const months = Math.floor((days % 365) / 30);
     const remDays = days - years * 365 - months * 30;
     const parts = [];
-    if (years) parts.push(`${years}y`);
-    if (months) parts.push(`${months}mo`);
-    if (!years && !months) parts.push(`${days}d`);
-    else if (remDays && years < 2) parts.push(`${remDays}d`);
+    const lang = (typeof document !== "undefined" && document.documentElement && document.documentElement.lang || "en").slice(0, 2);
+    const U = lang === "ar" ? { y: " سنة", mo: " شهر", d: " يوم" } : lang === "ur" ? { y: " سال", mo: " ماہ", d: " دن" } : { y: "y", mo: "mo", d: "d" };
+    if (years) parts.push(`${years}${U.y}`);
+    if (months) parts.push(`${months}${U.mo}`);
+    if (!years && !months) parts.push(`${days}${U.d}`);
+    else if (remDays && years < 2) parts.push(`${remDays}${U.d}`);
     return {
       days,
       months: years * 12 + months,
       years,
-      label: parts.join(" ") || "0d",
+      label: parts.join(lang === "ar" ? " و" : " ") || `0${U.d}`,
       end: end,
       ongoing: !parseDateOnly(endDate),
     };

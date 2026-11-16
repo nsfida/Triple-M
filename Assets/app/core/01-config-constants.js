@@ -183,6 +183,42 @@ async function decryptSessionCredentialEnvelope(stored){
   }
 }
 
+/* Language switch (2026-11-16). Changing the language opens /ar/, /ur/ or / in the same tab.
+   A signed-in session without Remember Me would normally end on that page change. Just before
+   the switch, the session is handed over: encrypted with this browser's non-exportable key,
+   kept in this tab's sessionStorage for at most 60 seconds, read once by the next page and
+   deleted. It never goes to localStorage and is never sent anywhere. */
+const LANG_HANDOFF_STORAGE_KEY = "triplem-lang-handoff-v1";
+const LANG_HANDOFF_MAX_AGE_MS = 60000;
+async function saveLanguageSwitchHandoff(){
+  try {
+    if (typeof state === "undefined" || !state || !state.unlocked || !state.sessionToken) return false;
+    if (state.sessionRememberMe) { window.__triplemLangHandoff = Date.now(); return true; } // resumes by itself
+    const username = state.currentUsername || (typeof sessionStorage !== "undefined" ? sessionStorage.getItem(SESSION_USERNAME_KEY) : "") || "";
+    if (!username || !window.crypto?.subtle) return false;
+    const key = await getCredentialEncryptionKey({ create: true });
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = new TextEncoder().encode(JSON.stringify({ version: 1, username, sessionToken: state.sessionToken, expiresAt: Date.now() + LANG_HANDOFF_MAX_AGE_MS }));
+    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+    sessionStorage.setItem(LANG_HANDOFF_STORAGE_KEY, JSON.stringify({ version: 1, iv: bytesToBase64(iv), data: bytesToBase64(new Uint8Array(encrypted)) }));
+    window.__triplemLangHandoff = Date.now();
+    return true;
+  } catch (err) {
+    console.warn("Language switch could not keep the session.", err);
+    return false;
+  }
+}
+async function takeLanguageSwitchHandoff(){
+  let stored = "";
+  try { stored = sessionStorage.getItem(LANG_HANDOFF_STORAGE_KEY) || ""; } catch { return null; }
+  if (!stored) return null;
+  try { sessionStorage.removeItem(LANG_HANDOFF_STORAGE_KEY); } catch {}
+  const cred = await decryptSessionCredentialEnvelope(stored);
+  if (!cred || !(Number(cred.expiresAt) > Date.now()) || Number(cred.expiresAt) - Date.now() > LANG_HANDOFF_MAX_AGE_MS) return null;
+  return { username: cred.username, sessionToken: cred.sessionToken, remember: false, handoff: true };
+}
+window.saveLanguageSwitchHandoff = saveLanguageSwitchHandoff;
+
 /** Only loads Remember Me credentials from localStorage (never sessionStorage). */
 async function loadEncryptedSessionCredential(){
   let stored = "";
@@ -212,6 +248,7 @@ function clearLegacyZipStorage(){
 
 function removeStoredSessionCredentials(){
   clearLegacyZipStorage();
+  try { sessionStorage.removeItem(LANG_HANDOFF_STORAGE_KEY); } catch {}
   try {
     sessionStorage.removeItem(SESSION_USERNAME_KEY);
   } catch {}

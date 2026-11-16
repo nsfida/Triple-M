@@ -817,7 +817,7 @@
         <label class="dam-select" id="damBackupDayRow"><span>Day</span><select id="damBackupWeekday">${WEEKDAYS.map((d, i) => `<option value="${i}">${d}</option>`).join("")}</select><select id="damBackupMonthday">${monthDays}</select></label>
         <label class="dam-select" id="damBackupTimeRow"><span>Time</span><input type="time" id="damBackupTime" value="21:00" step="60"></label>
         <label class="dam-select" id="damBackupKeepRow"><span>Keep</span><select id="damBackupKeep"><option value="5">Last 5</option><option value="10">Last 10</option><option value="20">Last 20</option><option value="30">Last 30</option><option value="0">All</option></select></label>
-        <div class="dam-row dam-folder"><div class="dam-row-text"><strong>Folder</strong><small id="damBackupFolder" title=""></small></div><div class="dam-btns"><button type="button" class="dam-btn" data-dam="backup-folder">Change</button><button type="button" class="dam-btn icon" data-dam="backup-open" title="Open folder" aria-label="Open folder"><i class="fa-solid fa-folder-open" aria-hidden="true"></i></button></div></div>
+        <div class="dam-row dam-folder"><div class="dam-row-text"><strong>Folder</strong><small id="damBackupFolder" title="" translate="no" dir="ltr"></small></div><div class="dam-btns"><button type="button" class="dam-btn" data-dam="backup-folder">Change</button><button type="button" class="dam-btn icon" data-dam="backup-open" title="Open folder" aria-label="Open folder"><i class="fa-solid fa-folder-open" aria-hidden="true"></i></button></div></div>
         <p class="dam-line" id="damBackupLine" aria-live="polite"></p>`));
     if (caps.has("applock")) items.push(accItem("security", "Security", `
         <label class="desktop-app-switch"><span>Lock with Windows Hello</span><input type="checkbox" role="switch" id="damLockSwitch"></label>
@@ -863,7 +863,7 @@
     return `
       <div class="dam-head">
         <span class="dam-logo" aria-hidden="true"><i class="fa-brands fa-windows"></i></span>
-        <div class="dam-head-text"><strong>Triplem VIP for Windows</strong><small id="damVersion">Version ${esc(info.version || "")}${info.arch ? ` · ${esc(info.arch)}` : ""}${(info.edition === "store" || info.packaged) ? " · Microsoft Store edition" : ""}</small></div>
+        <div class="dam-head-text"><strong>Triplem VIP for Windows</strong><small id="damVersion"><span>Version</span> <span dir="ltr">${esc(info.version || "")}</span>${info.arch ? ` · <span dir="ltr">${esc(info.arch)}</span>` : ""}${(info.edition === "store" || info.packaged) ? " · <span>Microsoft Store edition</span>" : ""}</small></div>
         <button type="button" class="dam-close" data-dam="close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
       <div class="dam-accordion">${items.join("")}</div>
@@ -1039,7 +1039,9 @@
     const vw = document.documentElement.clientWidth || window.innerWidth;
     // Same width as the bar (at least 340 px so the options stay readable).
     const width = Math.min(Math.max(r.width, 340), vw - 20);
-    let left = r.right - width;
+    // Mirrored on right-to-left pages: the menu starts under the bar's left edge.
+    let left = document.documentElement.dir === "rtl" ? r.left : r.right - width;
+    if (left + width > vw - 10) left = vw - 10 - width;
     if (left < 10) left = 10;
     menu.style.width = `${width}px`;
     menu.style.left = `${left}px`;

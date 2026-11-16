@@ -189,11 +189,33 @@
       return LANGS[v] ? v : "";
     } catch (_) { return ""; }
   }
+  // Before the page changes language, keep the signed-in session and the open section.
+  async function handOver(){
+    try {
+      if (!doc.body?.classList.contains("tm-app-on")) return;
+      const active = doc.querySelector("section.panel.active[id$='Panel']");
+      const home = doc.getElementById("workspaceHome");
+      const tab = home && !home.classList.contains("hide") ? "home" : active ? active.id.replace(/Panel$/, "") : "";
+      if (tab) sessionStorage.setItem("triplem-lang-handoff-tab", tab);
+      if (typeof global.saveLanguageSwitchHandoff === "function") await global.saveLanguageSwitchHandoff();
+    } catch (_) {}
+  }
+  function restoreSection(){
+    let tab = "";
+    try { tab = sessionStorage.getItem("triplem-lang-handoff-tab") || ""; sessionStorage.removeItem("triplem-lang-handoff-tab"); } catch (_) {}
+    if (!tab || tab === "home" || typeof global.activate !== "function") return;
+    setTimeout(() => { try { if (doc.getElementById(tab + "Panel")) global.activate(tab); } catch (_) {} }, 400);
+  }
+  async function go(lang, replace){
+    await handOver();
+    const url = urlFor(lang);
+    if (replace) location.replace(url); else location.assign(url);
+  }
   async function setLanguage(lang, { save = true } = {}){
     if (!LANGS[lang]) return;
     remember(lang);
     if (save) await saveAccountLanguage(lang);
-    if (lang !== LANG) location.assign(urlFor(lang));
+    if (lang !== LANG) await go(lang, false);
   }
   // After sign-in: the account's language wins (once per page load).
   let accountChecked = false;
@@ -201,9 +223,10 @@
     if (accountChecked || !signedInOwner()) return;
     accountChecked = true;
     const acct = await loadAccountLanguage();
+    if (!acct || acct === LANG) restoreSection();
     if (!acct) { await saveAccountLanguage(LANG); return; } // first time: keep what the user is using now
     remember(acct);
-    if (acct !== LANG) location.replace(urlFor(acct));
+    if (acct !== LANG) await go(acct, true);
   }
   function watchSignIn(){
     const check = () => { if (doc.body?.classList.contains("tm-app-on")) syncWithAccount(); else accountChecked = false; };

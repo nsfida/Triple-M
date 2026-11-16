@@ -25921,7 +25921,7 @@ h3.welcome-title{
 }
 .wallet-logo-menu-dropdown[data-wallet-logo-portaled="true"]{
   position:fixed !important;
-  left:auto !important;
+  right:auto !important;
   min-width:112px;
   max-width:min(180px, calc(100vw - 16px));
   margin:0;
@@ -27211,7 +27211,7 @@ body.tm-app-on:not(#tmAppOff) .expense-history-download-wrap:has(.expense-histor
 }
 body.tm-app-on:not(#tmAppOff) :is(.menu-dropdown.open,.asset-card-dropdown.open,.assets-pdf-menu.open,.expense-history-pdf-menu:not(.hide)){
   position:fixed !important;
-  left:auto !important;
+  right:auto !important;
   bottom:auto !important;
   z-index:13140 !important;
   max-width:calc(100vw - 20px)

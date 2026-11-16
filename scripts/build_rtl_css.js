@@ -12,7 +12,9 @@
  * Not mirrored:
  *  - rules whose selector already mentions [dir=rtl] / :dir(rtl) (written for RTL on purpose);
  *  - declarations after a /*rtl:ignore*\/ comment, or blocks under /*rtl:begin:ignore*\/ … /*rtl:end:ignore*\/;
- *  - `left:50%` / `right:50%` with translateX(-50%) (centring stays centring).
+ *  - `left:50%` / `right:50%` with translateX(-50%) (centring stays centring);
+ *  - `left:auto !important` / `right:auto !important` resets in rules with no other left/right
+ *    (they make room for positions set by script from on-screen measurements).
  *
  * Usage: node scripts/build_rtl_css.js [--check]
  */
@@ -79,7 +81,6 @@ function flipDecl(prop, value, ctx){
   else if (p === "background" && /\b(left|right)\b/.test(value)) nv = swapWord(value);
   else if (/^(transform-origin|perspective-origin)$/.test(p)) nv = swapWord(value);
   else if (p === "cursor") nv = value.replace(/\b(e|w|ne|nw|se|sw)-resize\b/g, m => ({ "e-resize": "w-resize", "w-resize": "e-resize", "ne-resize": "nw-resize", "nw-resize": "ne-resize", "se-resize": "sw-resize", "sw-resize": "se-resize" })[m]);
-  else if (p === "direction") nv = value.replace(/\bltr\b/, "rtl");
   else if ((p === "left" || p === "right") && /\b(left|right)\b/.test(value)) nv = swapWord(value);
   return [np, nv];
 }
@@ -87,11 +88,18 @@ function flipDecl(prop, value, ctx){
 function flipBlock(body){
   // body: declarations text of one rule (no nested rules)
   const centred = /translate(X)?\(\s*-50%/.test(body);
+  // `left:auto !important` / `right:auto !important` alone in a rule is a reset that lets
+  // script code place the element with an inline left/right measured on screen. Screen
+  // coordinates are the same in RTL, so such a reset must keep its side (flipping it would
+  // cancel the script's inline position and push menus off the window).
+  const sides = body.match(/(^|[;{\s])(left|right)\s*:\s*[^;}]+/g) || [];
+  const onlyAutoReset = sides.length > 0 && sides.every(d => /:\s*auto\s*!important/i.test(d));
   let ignoreNext = false;
   return body.replace(/(\/\*[\s\S]*?\*\/)|([-\w]+)\s*:\s*((?:[^;{}"'()]|"[^"]*"|'[^']*'|\([^()]*(?:\([^()]*\)[^()]*)*\))*)(;?)/g, (m, comment, prop, value, semi) => {
     if (comment) { if (/rtl:ignore/.test(comment)) ignoreNext = true; return m; }
     if (ignoreNext) { ignoreNext = false; return m; }
     if (prop.startsWith("--")) return m; // custom properties: values are used elsewhere
+    if (onlyAutoReset && /^(left|right)$/i.test(prop)) return m;
     const [np, nv] = flipDecl(prop, value, { centred });
     return `${np}:${nv}${semi}`;
   });
