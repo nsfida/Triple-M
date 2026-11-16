@@ -1,6 +1,26 @@
-/* Triplem VIP - System Backup engine (2026-11-10).
+/* Triplem VIP - System Backup engine (2026-11-10, format 2 on 2026-11-17).
  *
- * Format "triplem-vip-system-backup" version 1. No user interface here:
+ * Format "triplem-vip-system-backup" version 2 (written) and version 1 (still read).
+ *
+ * Version 2 layout (ZIP root):
+ *   Backup_Metadata/backup-header.json               plain: format, id, date, key-derivation settings
+ *   Backup_Metadata/README.txt                       plain
+ *   Backup_Metadata/backup-manifest.json.enc         contents, counts, relationships, every file's SHA-256
+ *   Backup_Metadata/checksums.json.enc, verification-report.json.enc
+ *   Database_Schema/01_...sql ... 10_...sql          PLAIN: structure only (no records, no credentials),
+ *   Database_Schema/INSTALL.md                       so they can be run in a new project's SQL editor.
+ *                                                    Their SHA-256 is in the encrypted manifest.
+ *   System_Configuration/<table>.ndjson.enc          system settings and catalogues (restorable)
+ *   Shared_Resources/<table>.ndjson.enc              support, analytics, history (reference)
+ *   Shared_Resources/Unattributed/<table>.ndjson.enc rows whose account no longer exists
+ *   Companies/<owner id>/<section>/<table>.ndjson.enc     business accounts (with their team)
+ *   Individuals/<owner id>/<section>/<table>.ndjson.enc   individual accounts
+ *   User_Accounts/accounts.json.enc                  every sign-in account and its owner / folder
+ *   User_Accounts/credentials/part-NNNN.ndjson.enc   OPTIONAL sign-in credentials (hashes, 2FA)
+ *   Storage_Files/<owner id>/<module>/<attachment id>.<ext>.enc   R2 files
+ *   Storage_Files/<owner id>/company-logos/<path>.enc            logos
+ *
+ * Version 1 layout (read only): No user interface here:
  * Assets/app/backup/03-system-backup.js drives it in the browser, and
  * scripts/system_backup_tool.js uses it from Node (decrypt / verify /
  * extract the schema package for a new Supabase project).
@@ -35,7 +55,7 @@
   "use strict";
 
   const FORMAT = "triplem-vip-system-backup";
-  const FORMAT_VERSION = 1;
+  const FORMAT_VERSION = 2;
   const ROOT = "TRIPLEM_VIP_SYSTEM_BACKUP/";
   const PBKDF2_ITERATIONS = 600000;
   const MB = 1024 * 1024;
@@ -71,6 +91,30 @@
     "019_triggers.sql",
     "020_rls_policies_grants_and_finalization.sql"
   ]);
+  // Version 2: exactly 10 files. The live catalog export assigns every object to one of the 20
+  // version-1 groups; those groups are merged here in the same dependency order.
+  const SCHEMA_FILES_V2 = Object.freeze([
+    "01_extensions_and_install_guard.sql",
+    "02_schema_privileges_types_and_sequences.sql",
+    "03_core_accounts_and_security_tables.sql",
+    "04_business_module_tables.sql",
+    "05_keys_constraints_and_indexes.sql",
+    "06_functions_and_procedures.sql",
+    "07_views_and_triggers.sql",
+    "08_rls_policies_grants_and_comments.sql",
+    "09_storage_realtime_and_main_admin.sql",
+    "10_final_validation.sql"
+  ]);
+  const SCHEMA_TITLES_V2 = Object.freeze([
+    "Extensions, prerequisites and the new-installation guard", "Schema privileges, types and sequences",
+    "Core account, organisation, security and authentication tables",
+    "Business module tables: wallets, expenses, loans, installments, inventory, assets, accounting, insurance, notes, messaging, AI, platform",
+    "Primary keys, unique and check constraints, foreign keys and indexes", "Functions and procedures",
+    "Views, materialized views and triggers", "Row level security, policies, grants and comments",
+    "Storage buckets and policies, Realtime, and the protected Main Admin account", "Final validation against the backup manifest"
+  ]);
+  const V1_TO_V2 = old => old === 1 ? 1 : old === 2 ? 2 : old <= 4 ? 3 : old <= 13 ? 4 : old <= 16 ? 5 : old === 17 ? 6 : old <= 19 ? 7 : 8;
+  const V2_STORAGE_KINDS = new Set(["storage_bucket", "storage_policy", "publication"]);
   const SCHEMA_TITLES = Object.freeze([
     "Extensions and prerequisites", "Schema privileges, types and sequences", "Core user and organisation tables",
     "Security and authentication tables", "Wallet and expense tables", "Loan and installment tables",
@@ -324,12 +368,36 @@
     new RegExp(`^${ROOT}attachments/${UUID}/[a-z_]{2,40}/${UUID}\\.(jpg|jpeg|png|webp|pdf)\\.enc$`, "i"),
     new RegExp(`^${ROOT}attachments/${UUID}/company-logos/[A-Za-z0-9_.\\-/]{1,300}\\.enc$`, "i")
   ];
+  const PATH_RULES_V2 = [
+    /^Backup_Metadata\/(backup-header\.json|README\.txt)$/,
+    /^Backup_Metadata\/(backup-manifest|checksums|verification-report)\.json\.enc$/,
+    /^Database_Schema\/(0[1-9]|10)_[a-z0-9_]{3,80}\.sql$/,
+    /^Database_Schema\/INSTALL\.md$/,
+    new RegExp(`^System_Configuration/${TABLE}\\.ndjson\\.enc$`),
+    new RegExp(`^Shared_Resources/(Unattributed/)?${TABLE}\\.ndjson\\.enc$`),
+    new RegExp(`^(Companies|Individuals)/${UUID}/${SECTION}/${TABLE}\\.ndjson\\.enc$`, "i"),
+    new RegExp(`^(Companies|Individuals)/${UUID}/profile/summary\\.json\\.enc$`, "i"),
+    /^User_Accounts\/accounts\.json\.enc$/,
+    /^User_Accounts\/credentials\/part-[0-9]{4}\.ndjson\.enc$/,
+    new RegExp(`^Storage_Files/${UUID}/[a-z_]{2,40}/${UUID}\\.(jpg|jpeg|png|webp|pdf)\\.enc$`, "i"),
+    new RegExp(`^Storage_Files/${UUID}/company-logos/[A-Za-z0-9_.\\-/]{1,300}\\.enc$`, "i")
+  ];
+  // Files of a version-2 archive that are stored without encryption (no secrets in them).
+  const isPlainV2 = path => /^Database_Schema\//.test(path) || /^Backup_Metadata\/(backup-header\.json|README\.txt)$/.test(path);
+  const LAYOUT = Object.freeze({
+    1: { root: ROOT, header: "backup-header.json", readme: "README.txt", manifest: "backup-manifest.json", checksums: "backup-verification/checksums.json",
+         report: "backup-verification/verification-report.json", plain: p => p === "backup-header.json" || p === "README.txt", rules: PATH_RULES },
+    2: { root: "", header: "Backup_Metadata/backup-header.json", readme: "Backup_Metadata/README.txt", manifest: "Backup_Metadata/backup-manifest.json",
+         checksums: "Backup_Metadata/checksums.json", report: "Backup_Metadata/verification-report.json", plain: isPlainV2, rules: PATH_RULES_V2 }
+  });
+  // Name of a logical file inside the ZIP.
+  const zipName = (version, path) => { const L = LAYOUT[version] || LAYOUT[2]; return L.root + path + (L.plain(path) ? "" : ".enc"); };
   function safeName(name) {
     const n = String(name || "");
     if (!n || n.length > 600 || /[\u0000-\u001f\\:*?"<>|]/.test(n) || n.startsWith("/") || /^[a-z]:/i.test(n)) return false;
     const parts = n.split("/");
     if (parts.some(p => p === ".." || p === "." || p === "")) return n.endsWith("/") && !parts.slice(0, -1).some(p => p === ".." || p === "." || p === "") ? "dir" : false;
-    return PATH_RULES.some(r => r.test(n)) ? "file" : "unknown";
+    return PATH_RULES.some(r => r.test(n)) || PATH_RULES_V2.some(r => r.test(n)) ? "file" : "unknown";
   }
 
   async function openZip(src) {
@@ -477,6 +545,190 @@
     });
     return files;
   }
+  // ---- Schema package, version 2 (10 files) -----------------------------------------------------
+  function schemaHeaderV2(i, meta) {
+    const no = String(i + 1).padStart(2, "0");
+    return [
+      `-- Triplem VIP database schema - file ${no} of 10: ${SCHEMA_TITLES_V2[i]}`,
+      `-- Exported from the live PostgreSQL catalog on ${meta.generatedAt} (backup ${meta.backupId}, PostgreSQL ${meta.serverVersion}).`,
+      "-- FOR A NEW, EMPTY SUPABASE PROJECT ONLY. Run the files in order in the SQL editor: 01, 02, ... 10.",
+      "-- Structure only: no customer records, no passwords, no keys or other credentials.",
+      "-- Never run these files against an existing Triplem VIP database. File 01 refuses to run on a",
+      "-- database that already has Triplem VIP tables, and files 02-10 refuse to run unless 01 ran first.",
+      "-- Each file is one transaction: if it fails, nothing from it is applied; fix the cause and run it again.",
+      ""
+    ].join("\n");
+  }
+  const sqlLit = v => v == null ? "NULL" : "'" + String(v).replace(/'/g, "''") + "'";
+  function buildSchemaFilesV2(objects, meta, coverage) {
+    const marker = `triplem-vip-schema-install:${meta.backupId}`;
+    const byFile = SCHEMA_FILES_V2.map(() => []);
+    const seen = new Set();
+    for (const o of objects) {
+      const f = Number(o.file);
+      if (!(f >= 1 && f <= 20)) throw new SystemBackupError("schema", `Schema object assigned to an unknown file: ${o.kind} ${o.name}`);
+      const key = `${o.kind}|${o.name}`;
+      if (seen.has(key) && !["comment", "grant", "function_grant", "column_grant", "schema_grant"].includes(o.kind)) {
+        throw new SystemBackupError("schema", `Duplicate schema object: ${o.kind} ${o.name}`);
+      }
+      seen.add(key);
+      const target = f === 20 && V2_STORAGE_KINDS.has(o.kind) ? 9 : V1_TO_V2(f);
+      byFile[target - 1].push(o);
+    }
+    const c = coverage || {};
+    const guardLater = no => ["DO $guard$", "BEGIN",
+      "  IF coalesce(obj_description('public'::regnamespace, 'pg_namespace'), '') NOT LIKE 'triplem-vip-schema-install:%' THEN",
+      `    RAISE EXCEPTION 'Run 01_extensions_and_install_guard.sql first. This file only runs during a new installation (file ${no} refused, nothing changed).';`,
+      "  END IF;", "END $guard$;", ""];
+    const files = [];
+    SCHEMA_FILES_V2.forEach((name, i) => {
+      const no = String(i + 1).padStart(2, "0");
+      const objs = byFile[i].sort((a, b) => a.seq - b.seq);
+      const parts = [schemaHeaderV2(i, meta), "BEGIN;", "SET LOCAL check_function_bodies = off;", "SET LOCAL search_path = public, extensions;", ""];
+      if (i === 0) {
+        parts.push("DO $guard$", "BEGIN",
+          "  IF to_regclass('public.app_users') IS NOT NULL THEN",
+          "    RAISE EXCEPTION 'This database already contains Triplem VIP tables. The schema package is only for a NEW, empty Supabase project. Nothing was changed.';",
+          "  END IF;",
+          "  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN",
+          "    RAISE EXCEPTION 'The Supabase roles anon, authenticated and service_role were not found. Run these files in the SQL editor of a Supabase project.';",
+          "  END IF;",
+          "END $guard$;", `COMMENT ON SCHEMA public IS '${marker}';`, "");
+      } else parts.push(...guardLater(no));
+      let last = "";
+      for (const o of objs) {
+        if (o.kind !== last) { parts.push(`-- ${o.kind.replace(/_/g, " ")}`); last = o.kind; }
+        parts.push(String(o.ddl).trim(), "");
+      }
+      if (i === 8) {
+        // The protected Main Admin: same id and username as in the backup, so restored records
+        // keep their author. A random one-time password is shown by the SELECT after COMMIT.
+        // Server-local keys are never copied from the source: the new system gets its own fresh
+        // random keys (2FA secrets in the credentials file are re-wrapped with the new key).
+        parts.push("-- fresh server-local keys for this new system (never copied from the source)",
+          "DO $keys$",
+          "BEGIN",
+          "  IF to_regclass('public.app_two_factor_server_keys') IS NOT NULL THEN",
+          "    INSERT INTO public.app_two_factor_server_keys(key_name, key_bytes) VALUES ('totp-wrap-v1', extensions.gen_random_bytes(32)) ON CONFLICT DO NOTHING;",
+          "  END IF;",
+          "  IF to_regclass('public.app_admin_security_pepper') IS NOT NULL THEN",
+          "    INSERT INTO public.app_admin_security_pepper(id, pepper) VALUES (1, extensions.gen_random_bytes(32)) ON CONFLICT DO NOTHING;",
+          "  END IF;",
+          "  IF to_regclass('public.app_user_backup_keys') IS NOT NULL THEN",
+          "    INSERT INTO public.app_user_backup_keys(id, secret) VALUES (1, extensions.gen_random_bytes(32)) ON CONFLICT DO NOTHING;",
+          "  END IF;",
+          "END $keys$;", "");
+        parts.push("-- protected Main Admin (same id and username as the source system)",
+          "CREATE TEMP TABLE IF NOT EXISTS triplem_install_admin(password text) ON COMMIT DROP;",
+          "DO $admin$",
+          "DECLARE pw text := encode(extensions.gen_random_bytes(12), 'base64');",
+          "BEGIN",
+          `  IF NOT EXISTS (SELECT 1 FROM public.app_users WHERE id = ${sqlLit(meta.adminId)}::uuid) THEN`,
+          "    INSERT INTO public.app_users (id, username, password_hash, display_name, role, is_protected, is_active, must_change_password)",
+          `    VALUES (${sqlLit(meta.adminId)}::uuid, ${sqlLit(meta.adminUsername)}, extensions.crypt(pw, extensions.gen_salt('bf')), 'Main Admin', 'admin', true, true, true);`,
+          "    INSERT INTO triplem_install_admin VALUES (pw);",
+          "  END IF;",
+          "END $admin$;",
+          "CREATE TABLE IF NOT EXISTS public.app_system_install_note (id int PRIMARY KEY, note text, created_at timestamptz NOT NULL DEFAULT now());",
+          "ALTER TABLE public.app_system_install_note ENABLE ROW LEVEL SECURITY;",
+          "REVOKE ALL ON TABLE public.app_system_install_note FROM PUBLIC, anon, authenticated;",
+          "INSERT INTO public.app_system_install_note(id, note) SELECT 1, 'Main Admin one-time password: ' || password FROM triplem_install_admin ON CONFLICT (id) DO NOTHING;",
+          "");
+      }
+      if (i === 9) {
+        const expect = [["tables", "(select count(*) from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and c.relname <> 'app_system_install_note' and not exists (select 1 from pg_depend d where d.classid = 'pg_class'::regclass and d.objid = c.oid and d.deptype = 'e'))", c.tables],
+          ["views", "(select count(*) from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'v')", c.views],
+          ["functions", "(select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f','p') and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e'))", c.functions],
+          ["triggers", "(select count(*) from pg_trigger t join pg_class c on c.oid = t.tgrelid where c.relnamespace = 'public'::regnamespace and not t.tgisinternal)", c.triggers],
+          ["policies", "(select count(*) from pg_policy p join pg_class c on c.oid = p.polrelid where c.relnamespace = 'public'::regnamespace)", c.policies],
+          ["constraints", "(select count(*) from pg_constraint co join pg_class c on c.oid = co.conrelid where c.relnamespace = 'public'::regnamespace and co.contype in ('p','u','c','x','f') and c.relname <> 'app_system_install_note')", c.constraints]];
+        parts.push("-- the one-time password note of file 09 is no longer needed",
+          "DROP TABLE IF EXISTS public.app_system_install_note;", "");
+        parts.push("-- validation: every object counted in the source catalog must exist here",
+          "DO $check$", "DECLARE problems text := '';", "BEGIN");
+        for (const [label, q, want] of expect) {
+          if (want == null) continue;
+          parts.push(`  IF ${q} <> ${Number(want)} THEN problems := problems || format('%s: expected ${Number(want)}, found %s; ', ${sqlLit(label)}, ${q}); END IF;`);
+        }
+        parts.push("  IF EXISTS (SELECT 1 FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r' AND NOT c.relrowsecurity AND c.relname <> 'app_system_install_note'",
+          "             AND EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid)) THEN",
+          "    problems := problems || 'a table with policies has row level security switched off; ';",
+          "  END IF;",
+          "  IF NOT EXISTS (SELECT 1 FROM public.app_users WHERE is_protected AND role = 'admin') THEN problems := problems || 'the protected Main Admin is missing (run file 09); '; END IF;",
+          "  IF to_regclass('public.app_two_factor_server_keys') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.app_two_factor_server_keys) THEN problems := problems || 'the two-factor server key is missing (run file 09); '; END IF;",
+          "  IF problems <> '' THEN RAISE EXCEPTION 'Validation failed: %', problems; END IF;",
+          "END $check$;",
+          "-- finalisation: restore the original schema comment and reload the API schema cache",
+          `COMMENT ON SCHEMA public IS ${meta.schemaComment == null ? "NULL" : sqlLit(meta.schemaComment)};`,
+          "NOTIFY pgrst, 'reload schema';", "");
+      }
+      if (!objs.length && i !== 8 && i !== 9) throw new SystemBackupError("schema", `Schema file ${name} would be empty. The schema package was not created.`);
+      parts.push("COMMIT;", "");
+      if (i === 8) parts.push("-- The one-time password of the Main Admin (shown once; it must be changed at the first sign-in):",
+        "SELECT note AS main_admin_sign_in FROM public.app_system_install_note WHERE id = 1;", "");
+      if (i === 9) parts.push("SELECT 'Triplem VIP schema installed and validated' AS result,",
+        "       (SELECT username FROM public.app_users WHERE is_protected AND role = 'admin' LIMIT 1) AS main_admin;", "");
+      files.push({ name, text: parts.join("\n"), objects: objs.length });
+    });
+    return files;
+  }
+  function schemaReadmeV2(meta, files, coverage) {
+    const c = coverage || {};
+    return `# Triplem VIP - restore into a new Supabase project
+
+Generated ${meta.generatedAt} (backup \`${meta.backupId}\`, PostgreSQL ${meta.serverVersion}).
+
+The 10 SQL files in this folder recreate the **structure** of the Triplem VIP database. They are not
+encrypted: they contain no customer records, no passwords and no keys. Their SHA-256 checksums are in the
+encrypted manifest, and the app checks them when you validate the backup.
+
+## Steps
+
+1. Create a **new** Supabase project (PostgreSQL ${String(meta.serverVersion || "").split(".")[0] || "15"} or newer).
+2. Optional but recommended: in Triplem VIP open **System Backup & Restore > Schema package > Check a backup file**
+   and select this ZIP. It verifies every file (including these SQL files) on your device, without a database.
+3. In the new project's **SQL editor**, run the files one by one, in order:
+${files.map((f, i) => `   ${i + 1}. \`${f.name}\``).join("\n")}
+   File 09 shows the **one-time password of the Main Admin** (\`${meta.adminUsername || "Main Admin"}\`). Copy it.
+   File 10 checks the result and ends with "Triplem VIP schema installed and validated".
+4. Deploy the Edge Functions from \`supabase/functions\` (\`file-storage\` with \`--no-verify-jwt\`) and set their secrets
+   (a new random \`TRIPLEM_STORAGE_ENCRYPTION_KEY\`, push and AI keys). Secrets are never in a backup.
+5. Point Triplem VIP at the new project: Supabase URL and publishable (anon) key in the app configuration.
+6. Sign in as \`${meta.adminUsername || "the Main Admin"}\` with the one-time password, choose a new password and set up the
+   Admin Security Key again.
+7. **Main Admin > File Storage**: enter the Cloudflare R2 credentials (the same bucket or a new one).
+8. **Main Admin > Backup > System Backup & Restore > Restore**: select this same ZIP and its password,
+   review the preview and restore. On a new database no safety backup is needed first.
+9. If the backup was made with **sign-in credentials**, every user signs in with the same password, Smart PIN,
+   passkeys and 2FA. Otherwise give each user a temporary password (Main Admin > Password Recovery).
+   Everyone signs in once more after the switch: sessions are never copied.
+
+## What the files contain (counted from the source catalog)
+
+| Object | Count |
+|---|---|
+| Tables | ${c.tables ?? "-"} |
+| Views / materialized views | ${c.views ?? "-"} / ${c.materialized_views ?? "-"} |
+| Functions and procedures | ${c.functions ?? "-"} |
+| Triggers | ${c.triggers ?? "-"} |
+| Row level security policies | ${c.policies ?? "-"} |
+| Indexes | ${c.indexes ?? "-"} |
+| Constraints | ${c.constraints ?? "-"} |
+| Extensions | ${c.extensions ?? "-"} |
+
+## Safety guards
+
+* File 01 refuses to run on a database that already has Triplem VIP tables, so it cannot touch production.
+* Files 02-10 refuse to run unless 01 has run (01 marks the new database, 10 removes the mark).
+* Each file is a single transaction.
+
+## With psql instead of the SQL editor
+
+\`\`\`
+for f in 0*.sql 10_*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f" || break; done
+\`\`\`
+`;
+  }
   function schemaReadme(meta, files, coverage) {
     const c = coverage || {};
     return `# Triplem VIP - database schema installation
@@ -574,8 +826,9 @@ values ('${meta.adminId || "<MAIN_ADMIN_ID from backup-manifest.json createdBy.i
     if (!Array.isArray(m.files) || !m.files.length) throw new SystemBackupError("corrupt", "The backup description is incomplete.");
     const seen = new Set();
     let expanded = 0;
+    const ver = m.formatVersion;
     for (const f of m.files) {
-      if (!f || typeof f.path !== "string" || safeName(ROOT + f.path + ".enc") !== "file" || seen.has(f.path)
+      if (!f || typeof f.path !== "string" || !LAYOUT[ver].rules.some(r => r.test(zipName(ver, f.path))) || seen.has(f.path)
           || !Number.isInteger(f.size) || f.size < 0 || !/^[0-9a-f]{64}$/.test(String(f.sha256))) {
         throw new SystemBackupError("corrupt", "The backup description lists an invalid file.");
       }
@@ -584,8 +837,9 @@ values ('${meta.adminId || "<MAIN_ADMIN_ID from backup-manifest.json createdBy.i
     }
     if (expanded > LIMITS.totalExpanded) throw new SystemBackupError("too_large", "The backup expands beyond the supported size.");
     const schema = m.files.filter(f => f.kind === "schema" && /\.sql$/.test(f.path));
-    if (schema.length !== 20 || schema.some((f, i) => f.path !== `database-schema/${SCHEMA_FILES[i]}`)) {
-      throw new SystemBackupError("corrupt", "The backup does not contain the 20 database schema files in order.");
+    const want = ver >= 2 ? SCHEMA_FILES_V2.map(n => `Database_Schema/${n}`) : SCHEMA_FILES.map(n => `database-schema/${n}`);
+    if (schema.length !== want.length || schema.some((f, i) => f.path !== want[i])) {
+      throw new SystemBackupError("corrupt", `The backup does not contain the ${want.length} database schema files in order.`);
     }
     return m;
   }
@@ -610,36 +864,42 @@ values ('${meta.adminId || "<MAIN_ADMIN_ID from backup-manifest.json createdBy.i
     if (zip.unknown.length) {
       throw new SystemBackupError("unexpected_files", `The archive contains files that a Triplem VIP system backup never has (${zip.unknown.slice(0, 3).join(", ")}${zip.unknown.length > 3 ? ", ..." : ""}). It was rejected.`);
     }
-    const header = parseHeader(await zip.read(ROOT + "backup-header.json"));
+    const version = zip.entries.has(LAYOUT[2].header) ? 2 : 1;
+    const L = LAYOUT[version];
+    // every entry must follow the rules of this archive's own layout (no mixing)
+    for (const name of zip.entries.keys()) if (!L.rules.some(r => r.test(name))) throw new SystemBackupError("unexpected_files", `The archive contains an unexpected file (${name}).`);
+    const header = parseHeader(await zip.read(L.root + L.header));
+    if (header.formatVersion !== version) throw new SystemBackupError("corrupt", "The backup header does not match its layout.");
     if (!password) throw new SystemBackupError("needs_password", "Enter the backup password.");
     const key = await deriveKey(password, unb64(header.encryption.salt), header.encryption.iterations);
     if (!await verifyKeyCheck(lib, key, header.backupId, header.encryption.keyCheck)) throw new SystemBackupError("password", "The password is not correct.");
-    const readFile = async (path, limit) => open(lib, key, header.backupId, path, await zip.read(ROOT + path + ".enc"), limit);
+    const readFile = async (path, limit) => L.plain(path) ? zip.read(zipName(version, path)) : open(lib, key, header.backupId, path, await zip.read(zipName(version, path)), limit);
     let manifest;
-    try { manifest = JSON.parse(dec.decode(await readFile("backup-manifest.json", LIMITS.manifest))); }
+    try { manifest = JSON.parse(dec.decode(await readFile(L.manifest, LIMITS.manifest))); }
     catch (e) { if (e instanceof SystemBackupError) throw e; throw new SystemBackupError("corrupt", "The backup description is damaged."); }
     validateManifest(manifest, header);
+    if (manifest.formatVersion !== version) throw new SystemBackupError("corrupt", "The backup description does not match its layout.");
     const digest = await sha256Hex(enc.encode(manifestDigestInput(manifest)));
     if (digest !== manifest.digest) throw new SystemBackupError("tampered", "The backup description was changed after it was created.");
     // Every listed file must be in the ZIP, and nothing else may be.
-    const listed = new Set(manifest.files.map(f => ROOT + f.path + ".enc"));
-    listed.add(ROOT + "backup-manifest.json.enc"); listed.add(ROOT + "backup-header.json"); listed.add(ROOT + "README.txt");
-    listed.add(ROOT + "backup-verification/checksums.json.enc"); listed.add(ROOT + "backup-verification/verification-report.json.enc");
-    for (const name of zip.entries.keys()) if (!listed.has(name)) throw new SystemBackupError("unexpected_files", `The archive contains an unexpected file (${name.replace(ROOT, "")}).`);
-    for (const f of manifest.files) if (!zip.entries.has(ROOT + f.path + ".enc")) throw new SystemBackupError("incomplete", `The backup is incomplete (${f.path} is missing).`);
+    const listed = new Set(manifest.files.map(f => zipName(version, f.path)));
+    for (const meta of [L.manifest, L.header, L.readme, L.checksums, L.report]) listed.add(zipName(version, meta));
+    for (const name of zip.entries.keys()) if (!listed.has(name)) throw new SystemBackupError("unexpected_files", `The archive contains an unexpected file (${name.replace(L.root, "")}).`);
+    for (const f of manifest.files) if (!zip.entries.has(zipName(version, f.path))) throw new SystemBackupError("incomplete", `The backup is incomplete (${f.path} is missing).`);
     const byPath = new Map(manifest.files.map(f => [f.path, f]));
     return {
-      zip, header, manifest, key,
+      zip, header, manifest, key, version,
       // Decrypt, size-check and hash-check one listed file.
       async file(path) {
         const f = byPath.get(path);
         if (!f) throw new SystemBackupError("incomplete", `Unknown file ${path}.`);
         const data = await readFile(path, Math.min(limitFor(f), f.size));
+        if (data.length > limitFor(f)) throw new SystemBackupError("too_large", `A file in the backup is larger than allowed (${path}).`);
         if (data.length !== f.size || await sha256Hex(data) !== f.sha256) throw new SystemBackupError("tampered", `A file in the backup does not match its checksum (${path}).`);
         return data;
       },
-      async checksums() { return JSON.parse(dec.decode(await readFile("backup-verification/checksums.json", LIMITS.manifest))); },
-      async report() { return JSON.parse(dec.decode(await readFile("backup-verification/verification-report.json", LIMITS.manifest))); }
+      async checksums() { return JSON.parse(dec.decode(await readFile(L.checksums, LIMITS.manifest))); },
+      async report() { return JSON.parse(dec.decode(await readFile(L.report, LIMITS.manifest))); }
     };
   }
 
@@ -719,7 +979,8 @@ values ('${meta.adminId || "<MAIN_ADMIN_ID from backup-manifest.json createdBy.i
   }
 
   return Object.freeze({
-    FORMAT, FORMAT_VERSION, ROOT, PBKDF2_ITERATIONS, LIMITS, SCHEMA_FILES, SCHEMA_TITLES, SystemBackupError, EXT,
+    FORMAT, FORMAT_VERSION, ROOT, PBKDF2_ITERATIONS, LIMITS, SCHEMA_FILES, SCHEMA_TITLES, SCHEMA_FILES_V2, SCHEMA_TITLES_V2, LAYOUT, zipName, isPlainV2,
+    buildSchemaFilesV2, schemaReadmeV2, SystemBackupError, EXT,
     sha256Hex, b64, unb64, crc32, concat, passwordProblem, deriveKey, seal, open, makeKeyCheck, verifyKeyCheck,
     ZipWriter, openZip, safeName, buildSchemaFiles, schemaReadme, manifestDigestInput, validateManifest, parseHeader,
     openArchive, verifyArchive, ndjsonLines, logoPathsIn, orderRows, batchLines, inflateLimited, UUID_RE

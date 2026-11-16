@@ -16,6 +16,7 @@ const fflate = require("../Assets/app/lib/fflate-0.8.2.min.js");
 const enc = new TextEncoder();
 const MIGRATION = path.join(root, "migrations/212_system_backup_restore.sql");
 const FUNCTION = path.join(root, "supabase/functions/file-storage/index.ts");
+const MIGRATION_229 = path.join(root, "migrations/229_system_backup_v2_credentials_and_restore_all.sql");
 
 const memSink = () => { const parts = []; return { parts, write: async b => { parts.push(Buffer.from(b)); }, close: async () => {} }; };
 async function zipOf(entries) {
@@ -77,6 +78,76 @@ test("schema package: exactly 20 ordered, guarded files; refuses empty files", (
   const readme = E.schemaReadme({ backupId: "b", generatedAt: "now", serverVersion: "16.4", adminId: "id-1", adminUsername: "boss" }, files, { tables: 136 });
   assert.match(readme, /'id-1', 'boss'/);
   assert.match(readme, /never runs these files/);
+});
+
+test("schema package v2: exactly 10 ordered, guarded, validated files; fresh server keys; no secrets", () => {
+  const objs = Array.from({ length: 20 }, (_, i) => ({ file: i + 1, seq: i + 1, kind: i === 16 ? "function" : "table", name: `t${i}`, ddl: i === 16 ? `CREATE FUNCTION public.f${i}() RETURNS int LANGUAGE sql AS $$ select 1 $$;` : `CREATE TABLE public.t${i} (id int);` }));
+  const meta = { backupId: "b2", generatedAt: "now", serverVersion: "16", schemaComment: "standard public schema", adminId: "00000000-0000-4000-8000-0000000000aa", adminUsername: "boss" };
+  const files = E.buildSchemaFilesV2(objs, meta, { tables: 19, functions: 1 });
+  assert.equal(files.length, 10);
+  assert.deepEqual(files.map(f => f.name), E.SCHEMA_FILES_V2);
+  files.forEach((f, i) => { assert.ok(f.name.startsWith(String(i + 1).padStart(2, "0") + "_")); assert.match(f.text, /^BEGIN;$/m); assert.match(f.text, /^COMMIT;$/m); });
+  assert.match(files[0].text, /already contains Triplem VIP tables/);
+  for (const f of files.slice(1)) assert.match(f.text, /Run 01_extensions_and_install_guard\.sql first/);
+  // file 09: same Main Admin id/username, one-time password, new random server keys (never copied)
+  assert.match(files[8].text, /'00000000-0000-4000-8000-0000000000aa'::uuid, 'boss'/);
+  assert.match(files[8].text, /must_change_password/);
+  assert.match(files[8].text, /app_two_factor_server_keys\(key_name, key_bytes\) VALUES \('totp-wrap-v1', extensions\.gen_random_bytes\(32\)\)/);
+  assert.match(files[8].text, /app_admin_security_pepper/);
+  // file 10: validation of counts, RLS, Main Admin, 2FA key; restores the schema comment
+  assert.match(files[9].text, /Validation failed/);
+  assert.match(files[9].text, /two-factor server key is missing/);
+  assert.match(files[9].text, /COMMENT ON SCHEMA public IS 'standard public schema';/);
+  for (const f of files) assert.doesNotMatch(f.text, /\$2[aby]\$\d\d\$|service_role_key|secret_access_key/i);
+  const readme = E.schemaReadmeV2(meta, files, { tables: 19 });
+  assert.match(readme, /01_extensions_and_install_guard\.sql/);
+});
+
+test("archive layouts: v2 keeps schema and header readable, v1 archives still open", () => {
+  assert.equal(E.zipName(2, "Database_Schema/01_extensions_and_install_guard.sql"), "Database_Schema/01_extensions_and_install_guard.sql");
+  assert.equal(E.zipName(2, "Backup_Metadata/backup-header.json"), "Backup_Metadata/backup-header.json");
+  assert.equal(E.zipName(2, "Backup_Metadata/backup-manifest.json"), "Backup_Metadata/backup-manifest.json.enc");
+  assert.equal(E.zipName(2, "User_Accounts/credentials/part-0001.ndjson"), "User_Accounts/credentials/part-0001.ndjson.enc");
+  assert.equal(E.zipName(1, "backup-header.json"), "TRIPLEM_VIP_SYSTEM_BACKUP/backup-header.json");
+  assert.equal(E.zipName(1, "README.txt"), "TRIPLEM_VIP_SYSTEM_BACKUP/README.txt");
+  assert.equal(E.zipName(1, "backup-manifest.json"), "TRIPLEM_VIP_SYSTEM_BACKUP/backup-manifest.json.enc");
+  assert.equal(E.isPlainV2("Companies/x/expenses/expense_entries.ndjson"), false);
+});
+
+test("restore selection: chosen accounts and categories only; profiles and team always kept", () => {
+  const cat = [{ table: "app_users", mode: "data", order: 1 }, { table: "expense_entries", mode: "data", order: 2 }, { table: "inventory_items", mode: "data", order: 3 }, { table: "app_settings", mode: "settings", order: 4 }];
+  const A = "00000000-0000-4000-8000-000000000001", B = "00000000-0000-4000-8000-000000000002";
+  const f = (table, owner, section, scope = "owner") => ({ kind: "data", table, owner, section, scope, records: 1, path: `${table}-${owner}-${section}` });
+  const m = { catalog: cat, owners: [{ id: A }, { id: B }], files: [f("app_users", A, "profile"), f("app_users", B, "profile"), f("expense_entries", A, "expenses"), f("inventory_items", A, "inventory"), f("expense_entries", B, "expenses"), f("app_settings", null, "system", "system")] };
+  const all = R.restorePlan(m, {});
+  assert.equal(all.length, 6);
+  const onlyA = R.restorePlan(m, { owners: new Set([A]), sections: new Set(["expenses"]) });
+  assert.deepEqual(onlyA.map(x => x.path).sort(), [`app_settings-null-system`, `app_users-${A}-profile`, `expense_entries-${A}-expenses`].sort());
+  assert.ok(!onlyA.some(x => x.owner === B));
+  assert.ok(!onlyA.some(x => x.section === "inventory"));
+  assert.equal(R.restorePlan(m, { owners: new Set([A]), system: false }).some(x => x.scope === "system"), false);
+});
+
+test("migration 229 is additive, Main Admin only, never touches protected or existing sign-in details", { skip: !fs.existsSync(MIGRATION_229) && "private migrations folder not present" }, () => {
+  const sql = fs.readFileSync(MIGRATION_229, "utf8");
+  const code = sql.replace(/--.*$/gm, "");
+  assert.doesNotMatch(code, /\bdrop\s+table\b/i);
+  assert.doesNotMatch(code, /\btruncate\b/i);
+  assert.doesNotMatch(code, /\bdelete\s+from\s+public\.(?!app_system)/i);
+  for (const fn of ["app_system_backup_export_owner", "app_system_backup_credentials_page", "app_system_restore_credentials", "app_system_restore_undo_updates", "app_system_backup_begin_v2", "app_system_restore_apply", "app_system_restore_verify"]) {
+    const body = sql.slice(sql.indexOf(`create or replace function public.${fn}(`));
+    assert.match(body.slice(0, 2000), /app_system_backup__admin\(\)/, `${fn} must require the protected Main Admin`);
+  }
+  const cred = sql.slice(sql.indexOf("create or replace function public.app_system_backup_credentials_page("), sql.indexOf("create or replace function public.app_system_restore_credentials("));
+  assert.doesNotMatch(cred.slice(0, 600), /\bstable\b/i, "credentials page must not be STABLE (it records progress)");
+  assert.match(cred, /is_protected/, "protected accounts are excluded");
+  const rc = sql.slice(sql.indexOf("create or replace function public.app_system_restore_credentials("), sql.indexOf("create or replace function public.app_system_restore_undo_updates("));
+  assert.match(rc, /'restored'/, "only accounts added by this restore get sign-in details");
+  const apply = sql.slice(sql.indexOf("create or replace function public.app_system_restore_apply("));
+  assert.match(apply, /'password_hash', 'smart_pin_hash'/);
+  assert.match(apply, /never changed by a restore/);
+  assert.match(apply, /insert into public\.app_system_restore_undo/);
+  assert.match(sql, /alter table public\.app_system_restore_undo enable row level security/);
 });
 
 test("restore plan never contains SQL, history, excluded or unattributed files", () => {

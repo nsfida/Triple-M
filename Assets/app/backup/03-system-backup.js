@@ -14,7 +14,7 @@
   "use strict";
   if (window.TriplemSystemBackup) return;
 
-  const V = "20261111-sysbackup2";
+  const V = "20261117-sysbackup3";
   const ENGINE_URL = `Assets/app/backup/04-system-backup-engine.js?v=${V}`;
   const RUNNER_URL = `Assets/app/backup/05-system-backup-runner.js?v=${V}`;
   const FFLATE_URL = "Assets/app/lib/fflate-0.8.2.min.js?v=0.8.2";
@@ -227,6 +227,8 @@
             <div class="tsb-meter" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
             <label class="tsb-field"><span>Repeat password</span><input class="tsb-input" type="password" id="tsbPw2" autocomplete="new-password" required></label>
             <p class="tsb-hint" id="tsbPwHint">Use 12+ characters with upper and lower case, numbers and symbols.</p>
+            <label class="tsb-check tsb-check--card"><input type="checkbox" id="tsbCreds">
+              <span><strong>Include sign-in credentials</strong><small>Encrypted password hashes, Smart PIN hashes, authenticator (2FA) secrets, recovery codes and passkeys, so users can sign in after a restore into a new project. The Main Admin's own credentials are never included. Keep this backup and its password especially safe.</small></span></label>
             <div class="tsb-actions"><button type="submit" class="btn tsb-primary"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Create System Backup</button></div>
             <p class="tsb-hint">${typeof window.showSaveFilePicker === "function" ? "You will choose where to save the ZIP. It is written directly to that file, so even very large backups do not fill memory." : "The ZIP downloads when it is ready."}</p>
           </form>
@@ -234,11 +236,13 @@
         <section class="tsb-card">
           <div class="tsb-card-head"><span class="tsb-card-icon is-info"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></span><div><h4>Backup information</h4><p>What the archive contains.</p></div></div>
           <ul class="tsb-list">
-            <li><i class="fa-solid fa-database"></i><div><strong>Database schema</strong><span>20 ordered SQL files read from the live catalog, for a new Supabase project.</span></div></li>
-            <li><i class="fa-solid fa-users"></i><div><strong>One folder per account</strong><span>Individuals and businesses, their team members and permissions, every module's records.</span></div></li>
+            <li><i class="fa-solid fa-database"></i><div><strong>Database schema</strong><span>10 ordered SQL files read from the live catalog, for a new Supabase project. Readable without the password; no data or secrets in them.</span></div></li>
+            <li><i class="fa-solid fa-folder-tree"></i><div><strong>Organised folders</strong><span>Companies, Individuals, User_Accounts, System_Configuration, Shared_Resources, Storage_Files, Backup_Metadata.</span></div></li>
+            <li><i class="fa-solid fa-users"></i><div><strong>One folder per account</strong><span>Individuals and businesses, their team members and permissions, every module's records, each account read as one consistent snapshot.</span></div></li>
             <li><i class="fa-solid fa-paperclip"></i><div><strong>Attachment files</strong><span>The actual receipts, invoices and PDFs from Cloudflare R2, checked against their SHA-256.</span></div></li>
             <li><i class="fa-solid fa-fingerprint"></i><div><strong>Integrity</strong><span>Manifest, SHA-256 of every file, AES-256-GCM per file, full read-back check.</span></div></li>
-            <li class="is-muted"><i class="fa-solid fa-ban"></i><div><strong>Never included</strong><span>Passwords, PINs, 2FA secrets, passkeys, sessions, R2 and server keys.</span></div></li>
+            <li><i class="fa-solid fa-key"></i><div><strong>Sign-in credentials (optional)</strong><span>Only when switched on, and only encrypted: hashes, 2FA secrets, recovery codes and passkeys.</span></div></li>
+            <li class="is-muted"><i class="fa-solid fa-ban"></i><div><strong>Never included</strong><span>Plain passwords, sessions, the Main Admin's credentials, R2 and server keys.</span></div></li>
           </ul>
         </section>
       </div>`;
@@ -254,7 +258,7 @@
       const problem = E.passwordProblem(p1.value);
       if (problem) { hint.textContent = problem; hint.className = "tsb-hint bad"; p1.focus(); return; }
       if (p1.value !== p2.value) { hint.textContent = "The two passwords are different."; hint.className = "tsb-hint bad"; p2.focus(); return; }
-      startBackup(p1.value);
+      startBackup(p1.value, !!f.querySelector("#tsbCreds")?.checked);
     });
   }
 
@@ -273,12 +277,12 @@
     } catch (_) { if (el.isConnected) el.remove(); }
   }
 
-  async function startBackup(password) {
+  async function startBackup(password, includeCredentials) {
     let lib, target;
     const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
     try {
       lib = await libs();
-      target = await chooseSink(`Triplem-VIP-System-Backup-${stamp}.zip`);
+      target = await chooseSink(`Triplem_VIP_Full_Backup_${stamp}.zip`);
     } catch (e) {
       if (e && e.name === "AbortError") return; // save dialog cancelled
       S.backup = { error: e.message }; return render();
@@ -289,7 +293,7 @@
     render();
     try {
       const res = await lib.R.createBackup(deps(lib), {
-        password, sink: target.sink, readBack: target.readBack, signal: S.abort.signal,
+        password, includeCredentials: !!includeCredentials, sink: target.sink, readBack: target.readBack, signal: S.abort.signal,
         onProgress: p => { S.backup.stage = p.stage; S.backup.p = { ...S.backup.p, ...p }; paintBackup(); }
       });
       S.backup = { result: res, target };
@@ -344,6 +348,7 @@
           ${tile("Team members", fmtNum(t.teamMembers), "", "fa-user-group")}
           ${tile("Records", fmtNum(t.records + t.systemRecords), "", "fa-table-list")}
           ${tile("Attachments", `${fmtNum(t.attachments)} · ${fmtBytes(t.attachmentBytes)}`, "", "fa-paperclip")}
+          ${m.credentials && m.credentials.included ? tile("Sign-in credentials", `${fmtNum(m.credentials.accounts)} accounts · encrypted`, "", "fa-key") : ""}
           ${tile(v ? `Integrity · ${fmtNum(v.files)} files` : "Integrity", v ? (v.ok ? "Verified" : "FAILED") : "Not checked", v && v.ok ? "ok" : "bad", "fa-fingerprint")}
         </div>
         ${(m.failures || []).length ? `<details class="tsb-details bad" open><summary>${m.failures.length} attachment file(s) could not be included</summary><ul>${m.failures.slice(0, 100).map(f => `<li>${esc(f.username)} · ${esc(f.module)} · ${esc(f.id)} — ${esc(f.reason)}</li>`).join("")}</ul></details>` : ""}
@@ -374,9 +379,10 @@
           <section class="tsb-card">
             <div class="tsb-card-head"><span class="tsb-card-icon is-info"><i class="fa-solid fa-shield" aria-hidden="true"></i></span><div><h4>How restore protects your data</h4><p>Built for a live system.</p></div></div>
             <ul class="tsb-list">
-              <li><i class="fa-solid fa-ban"></i><div><strong>The 20 SQL files are never run</strong><span>No CREATE, ALTER, DROP or TRUNCATE. The schema cannot change.</span></div></li>
-              <li><i class="fa-solid fa-plus"></i><div><strong>Only missing records are added</strong><span>Existing records are never overwritten or deleted.</span></div></li>
-              <li><i class="fa-solid fa-scale-balanced"></i><div><strong>Differences are kept and reported</strong><span>If a live record differs (even if older), the live one stays.</span></div></li>
+              <li><i class="fa-solid fa-ban"></i><div><strong>The SQL schema files are never run</strong><span>No CREATE, ALTER, DROP or TRUNCATE. The schema cannot change.</span></div></li>
+              <li><i class="fa-solid fa-eye"></i><div><strong>Preview first, then you choose</strong><span>New and existing records are shown separately. Add only the new ones, or also update records that differ.</span></div></li>
+              <li><i class="fa-solid fa-rotate-left"></i><div><strong>Updates can be undone</strong><span>Before a record is updated its current version is saved. Nothing is ever deleted.</span></div></li>
+              <li><i class="fa-solid fa-filter"></i><div><strong>Restore part of a backup</strong><span>Pick companies, individuals and categories.</span></div></li>
               <li><i class="fa-solid fa-route"></i><div><strong>Resumable</strong><span>Interrupted? Run it again: finished records are skipped, nothing is duplicated.</span></div></li>
               <li><i class="fa-solid fa-life-ring"></i><div><strong>Safety copy first</strong><span>A System Backup from the last 24 hours is required before restoring into existing data.</span></div></li>
             </ul>
@@ -407,8 +413,8 @@
       body.innerHTML = `${head}<section class="tsb-card tsb-progress"><div class="tsb-card-head"><span class="tsb-card-icon spin"><i class="fa-solid fa-rotate" aria-hidden="true"></i></span><div><h4>Restoring</h4><p>Keep this window open. If it is interrupted, start the same restore again: it resumes where it stopped.</p></div>
         <button type="button" class="btn tsb-danger-ghost" id="tsbStop"><i class="fa-solid fa-pause" aria-hidden="true"></i> Stop safely</button></div>
         <div class="tsb-bar"><i style="width:${pct}%"></i></div>
-        <div class="tsb-tiles">${tile("Added", fmtNum(o.restored), tone0(o.restored, "ok"), "fa-plus")}${tile("Already present", fmtNum(o.same), tone0(o.same, ""), "fa-equals")}${tile("Kept live (differs)", fmtNum(o.kept_live), tone0(o.kept_live, "warn"), "fa-scale-balanced")}${tile("Conflicts", fmtNum((o.conflict || 0) + (o.deleted_live || 0)), tone0((o.conflict || 0) + (o.deleted_live || 0), "warn"), "fa-triangle-exclamation")}${tile("Failed", fmtNum(o.failed), tone0(o.failed, "bad"), "fa-circle-xmark")}</div>
-        <p class="tsb-live-line">${p.stage === "files" ? `Restoring attachment files to Cloudflare R2… ${fmtNum(p.done)} / ${fmtNum(p.total)}` : p.stage === "verify" ? "Verifying restored records, ownership and schema…" : `Records ${fmtNum(p.done)} / ${fmtNum(p.total)} · ${esc(p.table || "")}`}</p></section>`;
+        <div class="tsb-tiles">${tile("Added", fmtNum(o.restored), tone0(o.restored, "ok"), "fa-plus")}${r.mode === "all" ? tile("Updated", fmtNum(o.updated), tone0(o.updated, "ok"), "fa-pen-to-square") : ""}${tile("Already present", fmtNum(o.same), tone0(o.same, ""), "fa-equals")}${tile("Kept live (differs)", fmtNum(o.kept_live), tone0(o.kept_live, "warn"), "fa-scale-balanced")}${tile("Conflicts", fmtNum((o.conflict || 0) + (o.deleted_live || 0)), tone0((o.conflict || 0) + (o.deleted_live || 0), "warn"), "fa-triangle-exclamation")}${tile("Failed", fmtNum(o.failed), tone0(o.failed, "bad"), "fa-circle-xmark")}</div>
+        <p class="tsb-live-line">${p.stage === "credentials" ? "Restoring sign-in details of the added accounts…" : p.stage === "files" ? `Restoring attachment files to Cloudflare R2… ${fmtNum(p.done)} / ${fmtNum(p.total)}` : p.stage === "verify" ? "Verifying restored records, ownership and schema…" : `Records ${fmtNum(p.done)} / ${fmtNum(p.total)} · ${esc(p.table || "")}`}</p></section>`;
       body.querySelector("#tsbStop").onclick = () => S.abort?.abort();
       return;
     }
@@ -429,16 +435,43 @@
       if (!v.ok) { const e = new Error(`${v.problems.length} file(s) in the archive failed the integrity check (first: ${v.problems[0].path} — ${v.problems[0].problem}). Nothing was restored.`); throw e; }
       r.phase = "Comparing with the database (read-only)…"; r.p = {}; render();
       const pv = await lib.R.preview(deps(lib), arch, { signal: S.abort.signal, onProgress: p => { r.p = p; render(); } });
-      r.arch = arch; r.preview = pv; r.integrity = v; r.step = "preview";
+      r.arch = arch; r.preview = pv; r.integrity = v; r.sel = null; r.previewPartial = false; r.step = "preview";
     } catch (e) {
       r.step = "select"; r.arch = null;
       setTimeout(() => { const m = document.getElementById("tsbOpenMsg"); if (m) { m.textContent = e.code === "aborted" ? "Validation stopped." : e.message; m.className = "tsb-hint bad"; } }, 0);
     } finally { S.busy = false; S.abort = null; render(); }
   }
 
+  const SECTION_NAMES = { expenses: "Expenses & wallets", accounting: "Accounting", inventory: "Inventory", loans: "Loans", installments: "Installments",
+    assets: "Assets", depreciation: "Depreciation", insurance: "Insurance", notes: "Notes & reminders", attachments: "Attachments", settings: "Settings", history: "History & logs" };
+  const sectionName = k => SECTION_NAMES[k] || (k.charAt(0).toUpperCase() + k.slice(1));
+  // The admin's choices on the preview page (kept while the page is redrawn).
+  function selection(r) {
+    const pv = r.preview;
+    if (!r.sel) {
+      const sections = Object.keys(pv.bySection || {}).filter(k => !["profile", "team", "system"].includes(k)).sort((a, b) => sectionName(a).localeCompare(sectionName(b)));
+      r.sel = { mode: "new", owners: new Set(pv.owners.map(o => o.id)), sections: new Set(sections), allSections: sections, system: true, credentials: !!pv.credentials.included };
+    }
+    return r.sel;
+  }
+  function restoreOptions(r) {
+    const sel = selection(r);
+    const allOwners = sel.owners.size === r.preview.owners.length, allSections = sel.sections.size === sel.allSections.length;
+    return { mode: sel.mode, owners: allOwners ? null : new Set(sel.owners), sections: allSections ? null : new Set(sel.sections), system: sel.system, credentials: sel.credentials };
+  }
   function renderPreview(body, head) {
-    const r = S.restore, pv = r.preview, a = pv.archive, c = pv.counts;
+    const r = S.restore, pv = r.preview, a = pv.archive, c = pv.counts, sel = selection(r);
     const rows = Object.entries(pv.byTable).sort((x, y) => (y[1].new || 0) - (x[1].new || 0));
+    const differs = (c.kept_live || 0) + (c.deleted_live || 0);
+    const partial = sel.owners.size !== pv.owners.length || sel.sections.size !== sel.allSections.length || !sel.system;
+    const ownerRow = o => {
+      const st = pv.byOwner[o.id] || {};
+      const name = o.kind === "business" ? (o.company_name || o.display_name || o.username) : (o.display_name || o.username);
+      return `<label class="tsb-pick"><input type="checkbox" data-owner="${esc(o.id)}" ${sel.owners.has(o.id) ? "checked" : ""}>
+        <span class="tsb-pick-name"><i class="fa-solid ${o.kind === "business" ? "fa-building" : "fa-user"}" aria-hidden="true"></i> ${esc(name)} <small>@${esc(o.username)}${o.team_members ? ` · ${fmtNum(o.team_members)} staff` : ""}</small></span>
+        <span class="tsb-pick-stats"><span class="ok">${fmtNum(st.new)} new</span><span>${fmtNum(st.same)} present</span><span class="warn">${fmtNum((st.kept_live || 0) + (st.deleted_live || 0))} differ</span></span></label>`;
+    };
+    const companies = pv.owners.filter(o => o.kind === "business"), people = pv.owners.filter(o => o.kind !== "business");
     body.innerHTML = `${head}
       <section class="tsb-card">
         <div class="tsb-card-head"><span class="tsb-card-icon is-ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><div><h4>Archive valid · ${fmtNum(r.integrity.files)} files verified</h4>
@@ -447,41 +480,91 @@
           ${tile("Users", fmtNum(a.users), "", "fa-users")}${tile("Individual accounts", fmtNum(a.individuals), "", "fa-user")}${tile("Businesses", fmtNum(a.businesses), "", "fa-building")}
           ${tile("Staff members", fmtNum(a.teamMembers), "", "fa-user-group")}${tile("Records", fmtNum(a.records), "", "fa-table-list")}${tile("Attachments", `${fmtNum(a.attachments)} · ${fmtBytes(a.attachmentBytes)}`, "", "fa-paperclip")}
         </div>
-        <h5 class="tsb-subhead">What the restore would do</h5>
+        <h5 class="tsb-subhead">Compared with this database${r.previewPartial ? " (selected part)" : ""}</h5>
         <div class="tsb-tiles tsb-tiles--5">
-          ${tile("New (will be added)", fmtNum(c.new), tone0(c.new, "ok"), "fa-plus")}${tile("Already present", fmtNum(c.same), tone0(c.same, ""), "fa-equals")}
-          ${tile("Live differs (kept)", fmtNum(c.kept_live), tone0(c.kept_live, "warn"), "fa-scale-balanced")}${tile("Conflicts", fmtNum((c.conflict || 0) + (c.deleted_live || 0)), tone0((c.conflict || 0) + (c.deleted_live || 0), "warn"), "fa-triangle-exclamation")}
+          ${tile("New (not in this database)", fmtNum(c.new), tone0(c.new, "ok"), "fa-plus")}${tile("Already present", fmtNum(c.same), tone0(c.same, ""), "fa-equals")}
+          ${tile("Existing but different", fmtNum(differs), tone0(differs, "warn"), "fa-scale-balanced")}${tile("Conflicts", fmtNum(c.conflict), tone0(c.conflict, "warn"), "fa-triangle-exclamation")}
           ${tile("Unreadable", fmtNum(c.invalid), tone0(c.invalid, "bad"), "fa-circle-xmark")}
         </div>
-        <p class="tsb-hint">${fmtNum(a.attachments)} attachment file(s) are checked against the bucket; only missing files are uploaded. The ${a.schemaFiles} SQL schema files in the archive are not used by a restore.</p>
+        <p class="tsb-hint">${fmtNum(a.attachments)} attachment file(s) are checked against the bucket; only missing files are uploaded. The ${a.schemaFiles} SQL schema files in the archive are not used by a restore.${pv.credentials.included ? ` Sign-in credentials for ${fmtNum(pv.credentials.accounts)} account(s) are included.` : ""}</p>
         <details class="tsb-details"><summary>By table (${rows.length})</summary>
-          <div class="tsb-table-wrap"><table class="tsb-table"><thead><tr><th>Table</th><th>New</th><th>Present</th><th>Kept live</th><th>Conflicts</th></tr></thead><tbody>
-          ${rows.map(([t, v]) => `<tr><td>${esc(t)}</td><td>${fmtNum(v.new)}</td><td>${fmtNum(v.same)}</td><td>${fmtNum(v.kept_live)}</td><td>${fmtNum((v.conflict || 0) + (v.deleted_live || 0) + (v.invalid || 0))}</td></tr>`).join("")}
+          <div class="tsb-table-wrap"><table class="tsb-table"><thead><tr><th>Table</th><th>New</th><th>Present</th><th>Differs</th><th>Conflicts</th></tr></thead><tbody>
+          ${rows.map(([t, v]) => `<tr><td>${esc(t)}</td><td>${fmtNum(v.new)}</td><td>${fmtNum(v.same)}</td><td>${fmtNum((v.kept_live || 0) + (v.deleted_live || 0))}</td><td>${fmtNum((v.conflict || 0) + (v.invalid || 0))}</td></tr>`).join("")}
           </tbody></table></div></details>
         ${pv.conflicts.length ? `<details class="tsb-details warn"><summary>Potential conflicts (${fmtNum(pv.conflicts.length)}${pv.conflicts.length >= 500 ? "+" : ""})</summary><ul>${pv.conflicts.slice(0, 200).map(x => `<li><strong>${esc(x.table)}</strong> ${esc(x.id)} — ${esc(x.reason)}</li>`).join("")}</ul></details>` : ""}
         ${(a.failures || []).length ? `<details class="tsb-details bad"><summary>${a.failures.length} file(s) were missing when this backup was made</summary><ul>${a.failures.slice(0, 100).map(f => `<li>${esc(f.username)} · ${esc(f.id)} — ${esc(f.reason)}</li>`).join("")}</ul></details>` : ""}
       </section>
+      <section class="tsb-card">
+        <div class="tsb-card-head"><span class="tsb-card-icon is-info"><i class="fa-solid fa-sliders" aria-hidden="true"></i></span><div><h4>What to restore</h4><p>Choose how existing records are treated, and which accounts and categories to include.</p></div></div>
+        <div class="tsb-modes" role="radiogroup" aria-label="Restore mode">
+          <label class="tsb-mode ${sel.mode === "new" ? "is-on" : ""}"><input type="radio" name="tsbMode" value="new" ${sel.mode === "new" ? "checked" : ""}>
+            <strong><i class="fa-solid fa-plus" aria-hidden="true"></i> Add new records only</strong><span>Adds the ${fmtNum(c.new)} record(s) that are not in this database. Existing records stay exactly as they are.</span></label>
+          <label class="tsb-mode ${sel.mode === "all" ? "is-on" : ""}"><input type="radio" name="tsbMode" value="all" ${sel.mode === "all" ? "checked" : ""}>
+            <strong><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Restore all</strong><span>Adds the new records and updates the ${fmtNum(differs)} existing record(s) that differ to the backup version. Each replaced version is saved and can be undone. Nothing is deleted; passwords of existing users never change.</span></label>
+        </div>
+        <details class="tsb-details" ${partial ? "open" : ""}><summary>Accounts and categories · ${fmtNum(sel.owners.size)} of ${fmtNum(pv.owners.length)} accounts · ${fmtNum(sel.sections.size)} of ${fmtNum(sel.allSections.length)} categories</summary>
+          <div class="tsb-pick-tools"><button type="button" class="btn tsb-secondary tiny" data-all="1">Select all</button><button type="button" class="btn tsb-secondary tiny" data-all="0">Clear</button></div>
+          ${companies.length ? `<h6 class="tsb-pick-head">Companies (${fmtNum(companies.length)})</h6><div class="tsb-picks">${companies.map(ownerRow).join("")}</div>` : ""}
+          ${people.length ? `<h6 class="tsb-pick-head">Individuals (${fmtNum(people.length)})</h6><div class="tsb-picks">${people.map(ownerRow).join("")}</div>` : ""}
+          <h6 class="tsb-pick-head">Categories</h6>
+          <div class="tsb-chips">${sel.allSections.map(k => `<label class="tsb-chipbox"><input type="checkbox" data-section="${esc(k)}" ${sel.sections.has(k) ? "checked" : ""}> ${esc(sectionName(k))}</label>`).join("")}</div>
+          <p class="tsb-hint">Account profiles and team members of the selected accounts are always included, so their records keep their owner.</p>
+          <label class="tsb-check"><input type="checkbox" id="tsbSys" ${sel.system ? "checked" : ""}> System settings and shared data</label>
+          ${pv.credentials.included ? `<label class="tsb-check"><input type="checkbox" id="tsbCredsR" ${sel.credentials ? "checked" : ""}> Sign-in details for accounts that are added (existing accounts are never changed)</label>` : ""}
+          <div class="tsb-actions"><button type="button" class="btn tsb-secondary" id="tsbRecount"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Update the preview for this selection</button></div>
+        </details>
+      </section>
       <section class="tsb-card tsb-confirm">
-        <div class="tsb-card-head"><span class="tsb-card-icon is-warn"><i class="fa-solid fa-hand" aria-hidden="true"></i></span><div><h4>Confirm restore</h4><p>Adds ${fmtNum(c.new)} missing record(s) to the live database. Nothing existing is changed or deleted.</p></div></div>
+        <div class="tsb-card-head"><span class="tsb-card-icon is-warn"><i class="fa-solid fa-hand" aria-hidden="true"></i></span><div><h4>Confirm restore</h4><p id="tsbConfirmText"></p></div></div>
         <label class="tsb-check"><input type="checkbox" id="tsbAck1"> I have a System Backup of the current data from the last 24 hours (the server checks this).</label>
         <label class="tsb-field tsb-field--inline"><span>Type <strong>RESTORE</strong> to confirm</span><input class="tsb-input" id="tsbConfirmWord" autocomplete="off" spellcheck="false"></label>
         <p class="tsb-hint" id="tsbConfirmMsg" role="status"></p>
         <div class="tsb-actions"><button type="button" class="btn tsb-secondary" id="tsbCancel">Cancel</button><button type="button" class="btn tsb-primary" id="tsbGo" disabled><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Start restore</button></div>
       </section>`;
-    const go = body.querySelector("#tsbGo"), ack = body.querySelector("#tsbAck1"), word = body.querySelector("#tsbConfirmWord");
-    const upd = () => { go.disabled = !(ack.checked && word.value.trim() === "RESTORE"); };
-    ack.onchange = upd; word.oninput = upd;
+    const go = body.querySelector("#tsbGo"), ack = body.querySelector("#tsbAck1"), word = body.querySelector("#tsbConfirmWord"), text = body.querySelector("#tsbConfirmText");
+    const paintConfirm = () => {
+      const nothing = !sel.owners.size && !sel.system;
+      text.textContent = nothing ? "Nothing is selected."
+        : sel.mode === "all" ? `Adds up to ${fmtNum(c.new)} missing record(s) and updates up to ${fmtNum(differs)} record(s) that differ${partial && !r.previewPartial ? " (fewer with the current selection)" : ""}. Replaced versions are saved for undo. Nothing is deleted.`
+        : `Adds up to ${fmtNum(c.new)} missing record(s)${partial && !r.previewPartial ? " (fewer with the current selection)" : ""}. Nothing existing is changed or deleted.`;
+      go.disabled = nothing || !(ack.checked && word.value.trim() === "RESTORE");
+    };
+    ack.onchange = paintConfirm; word.oninput = paintConfirm;
+    body.querySelectorAll('input[name="tsbMode"]').forEach(x => x.onchange = () => { sel.mode = x.value; body.querySelectorAll(".tsb-mode").forEach(l => l.classList.toggle("is-on", l.contains(x) ? x.checked : !x.checked)); paintConfirm(); });
+    body.querySelectorAll("[data-owner]").forEach(x => x.onchange = () => { x.checked ? sel.owners.add(x.dataset.owner) : sel.owners.delete(x.dataset.owner); r.previewPartial = false; paintConfirm(); });
+    body.querySelectorAll("[data-section]").forEach(x => x.onchange = () => { x.checked ? sel.sections.add(x.dataset.section) : sel.sections.delete(x.dataset.section); r.previewPartial = false; paintConfirm(); });
+    body.querySelectorAll("[data-all]").forEach(b => b.onclick = () => {
+      const on = b.dataset.all === "1";
+      sel.owners = new Set(on ? pv.owners.map(o => o.id) : []); sel.sections = new Set(on ? sel.allSections : []);
+      body.querySelectorAll("[data-owner],[data-section]").forEach(x => { x.checked = on; }); r.previewPartial = false; paintConfirm();
+    });
+    const sys = body.querySelector("#tsbSys"); if (sys) sys.onchange = () => { sel.system = sys.checked; paintConfirm(); };
+    const cr = body.querySelector("#tsbCredsR"); if (cr) cr.onchange = () => { sel.credentials = cr.checked; };
+    body.querySelector("#tsbRecount").onclick = async ev => {
+      const btn = ev.currentTarget, msg = body.querySelector("#tsbConfirmMsg");
+      btn.disabled = true; msg.className = "tsb-hint"; msg.textContent = "Comparing the selection with the database (read-only)…";
+      try {
+        const lib = await libs();
+        const opts = restoreOptions(r);
+        const fresh = await lib.R.preview(deps(lib), r.arch, { options: opts });
+        r.preview = { ...fresh, owners: pv.owners, byOwner: { ...pv.byOwner, ...fresh.byOwner } };
+        r.previewPartial = !!(opts.owners || opts.sections || !opts.system);
+        render();
+      } catch (e) { msg.className = "tsb-hint bad"; msg.textContent = e.message; btn.disabled = false; }
+    };
     body.querySelector("#tsbCancel").onclick = () => { S.restore = { step: "select", file: null }; render(); };
     go.onclick = () => runRestore();
+    paintConfirm();
   }
 
   async function runRestore() {
     const r = S.restore;
     const lib = await libs();
     S.busy = true; S.abort = new AbortController();
+    r.mode = selection(r).mode; r.undo = null;
     r.step = "restore"; r.p = { outcomes: {} }; render();
     try {
-      const res = await lib.R.restore(deps(lib), r.arch, { signal: S.abort.signal, onProgress: p => { r.p = { ...r.p, ...p, outcomes: { restored: p.restored ?? r.p.outcomes.restored, same: p.same ?? r.p.outcomes.same, kept_live: p.kept_live ?? r.p.outcomes.kept_live, conflict: p.conflict ?? r.p.outcomes.conflict, deleted_live: p.deleted_live ?? r.p.outcomes.deleted_live, failed: p.failed ?? r.p.outcomes.failed } }; render(); } });
+      const res = await lib.R.restore(deps(lib), r.arch, { options: restoreOptions(r), signal: S.abort.signal, onProgress: p => { r.p = { ...r.p, ...p, outcomes: { restored: p.restored ?? r.p.outcomes.restored, updated: p.updated ?? r.p.outcomes.updated, same: p.same ?? r.p.outcomes.same, kept_live: p.kept_live ?? r.p.outcomes.kept_live, conflict: p.conflict ?? r.p.outcomes.conflict, deleted_live: p.deleted_live ?? r.p.outcomes.deleted_live, failed: p.failed ?? r.p.outcomes.failed } }; render(); } });
       r.result = res; r.step = "report";
       try { r.report = await lib.R.reportRows(deps(lib), res.restoreId, { onlyIssues: true }); } catch (_) { r.report = null; }
     } catch (e) {
@@ -493,14 +576,16 @@
   function renderReport(body, head) {
     const r = S.restore, res = r.result, o = res.outcomes, v = res.verify || {};
     const ok = res.status === "completed", warn = res.status === "completed_with_warnings";
-    const rows = r.report?.rows || [];
+    // Existing accounts keep their own sign-in details by design: not an issue to review.
+    const credKept = (r.report?.rows || []).filter(x => x.table === "app_user_credentials" && x.outcome === "skipped").length;
+    const rows = (r.report?.rows || []).filter(x => !(x.table === "app_user_credentials" && x.outcome === "skipped"));
     body.innerHTML = `${head}
       <section class="tsb-card tsb-result ${ok ? "ok" : warn || res.stopped ? "warn" : "bad"}">
         <div class="tsb-result-head"><i class="fa-solid ${ok ? "fa-circle-check" : warn || res.stopped ? "fa-triangle-exclamation" : "fa-circle-xmark"}" aria-hidden="true"></i>
           <div><h4>${res.stopped ? "Restore stopped (resume by starting it again)" : ok ? "Restore completed and verified" : warn ? "Restore completed — review the report" : "Restore did not complete"}</h4>
-          <p>${res.resumed ? "Resumed an interrupted restore. " : ""}Restore id <code>${esc(res.restoreId)}</code></p></div></div>
-        <div class="tsb-tiles tsb-tiles--5">
-          ${tile("Added", fmtNum(o.restored), tone0(o.restored, "ok"), "fa-plus")}${tile("Already present", fmtNum(o.same), tone0(o.same, ""), "fa-equals")}${tile("Kept live (differs)", fmtNum(o.kept_live), tone0(o.kept_live, "warn"), "fa-scale-balanced")}
+          <p>${res.resumed ? "Resumed an interrupted restore. " : ""}${r.mode === "all" ? "Mode: restore all (new and changed records). " : "Mode: new records only. "}Restore id <code>${esc(res.restoreId)}</code></p></div></div>
+        <div class="tsb-tiles tsb-tiles--6">
+          ${tile("Added", fmtNum(o.restored), tone0(o.restored, "ok"), "fa-plus")}${tile("Updated", fmtNum(o.updated), tone0(o.updated, "ok"), "fa-pen-to-square")}${tile("Already present", fmtNum(o.same), tone0(o.same, ""), "fa-equals")}${tile("Kept live (differs)", fmtNum(o.kept_live), tone0(o.kept_live, "warn"), "fa-scale-balanced")}
           ${tile("Conflicts", fmtNum((o.conflict || 0) + (o.deleted_live || 0)), tone0((o.conflict || 0) + (o.deleted_live || 0), "warn"), "fa-triangle-exclamation")}${tile("Failed", fmtNum(o.failed), tone0(o.failed, "bad"), "fa-circle-xmark")}
         </div>
         <ul class="tsb-verify">
@@ -514,7 +599,12 @@
         ${rows.length ? `<details class="tsb-details warn" open><summary>${fmtNum(rows.length)} record(s) need attention</summary><div class="tsb-table-wrap"><table class="tsb-table"><thead><tr><th>Table</th><th>Record</th><th>Account</th><th>Outcome</th><th>Live updated</th><th>Backup updated</th><th>Reason</th></tr></thead><tbody>
           ${rows.slice(0, 300).map(x => `<tr><td>${esc(x.table)}</td><td><code>${esc(x.id)}</code></td><td>${esc(x.owner_username || x.owner || "")}</td><td>${esc(x.outcome.replace("_", " "))}</td><td>${esc(fmtDate(x.live_updated_at))}</td><td>${esc(fmtDate(x.backup_updated_at))}</td><td>${esc(x.reason)}</td></tr>`).join("")}
           </tbody></table></div>${rows.length > 300 ? `<p class="tsb-hint">Showing 300 of ${fmtNum(rows.length)}. Download the report for all.</p>` : ""}</details>` : ""}
-        ${Number(r.report?.totals?.app_users?.restored || 0) ? `<p class="tsb-hint"><i class="fa-solid fa-key"></i> ${fmtNum(r.report.totals.app_users.restored)} account(s) were added without a password (passwords are never in a backup). Give each one a temporary password in Password Recovery.</p>` : ""}
+        ${res.credentials && res.credentials.restored ? `<p class="tsb-hint ok"><i class="fa-solid fa-key"></i> ${fmtNum(res.credentials.restored)} added account(s) can sign in with their own password, Smart PIN, authenticator app and passkeys.</p>` : ""}
+        ${credKept ? `<p class="tsb-hint"><i class="fa-solid fa-user-lock"></i> ${fmtNum(credKept)} account(s) already existed here: their own passwords, PINs and 2FA were left unchanged.</p>` : ""}
+        ${res.credentials && res.credentials.failed ? `<p class="tsb-hint bad"><i class="fa-solid fa-key"></i> Sign-in details of ${fmtNum(res.credentials.failed)} account(s) could not be restored. Give each one a temporary password in Password Recovery.</p>` : ""}
+        ${Number(r.report?.totals?.app_users?.restored || 0) > Number(res.credentials?.restored || 0) ? `<p class="tsb-hint"><i class="fa-solid fa-key"></i> ${fmtNum(Number(r.report.totals.app_users.restored) - Number(res.credentials?.restored || 0))} added account(s) have no sign-in details from this backup. Give each one a temporary password in Password Recovery.</p>` : ""}
+        ${o.updated ? `<div class="tsb-undo"><p class="tsb-hint"><i class="fa-solid fa-rotate-left"></i> ${fmtNum(o.updated)} record(s) were updated. Their previous versions are saved.${r.undo ? ` <strong>${esc(r.undo)}</strong>` : ""}</p>
+          ${r.undo ? "" : `<button type="button" class="btn tsb-danger-ghost" id="tsbUndo"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Undo the updates</button>`}</div>` : ""}
         <div class="tsb-actions"><button type="button" class="btn tsb-secondary" id="tsbReport"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Download full report</button>
           ${res.stopped ? `<button type="button" class="btn tsb-primary" id="tsbResume"><i class="fa-solid fa-play" aria-hidden="true"></i> Resume restore</button>` : `<button type="button" class="btn tsb-primary" id="tsbDone">Done</button>`}</div>
       </section>`;
@@ -526,6 +616,16 @@
     };
     body.querySelector("#tsbDone")?.addEventListener("click", () => { S.restore = { step: "select", file: null }; render(); });
     body.querySelector("#tsbResume")?.addEventListener("click", () => runRestore());
+    body.querySelector("#tsbUndo")?.addEventListener("click", async ev => {
+      if (!window.confirm("Put back the previous version of every record this restore updated? Records changed by someone after the restore are left as they are.")) return;
+      const btn = ev.currentTarget; btn.disabled = true;
+      try {
+        const lib = await libs();
+        const u = await lib.R.undoUpdates(deps(lib), res.restoreId);
+        r.undo = `Undo finished: ${fmtNum(u.undone)} put back${u.changedSince ? `, ${fmtNum(u.changedSince)} left (changed after the restore)` : ""}${u.failed ? `, ${fmtNum(u.failed)} failed` : ""}.`;
+      } catch (e) { r.undo = e.message; }
+      render();
+    });
   }
 
   // ---- History tab ---------------------------------------------------------------------------
@@ -545,7 +645,7 @@
         const dur = i.finished_at ? Math.max(1, Math.round((new Date(i.finished_at) - new Date(i.started_at)) / 1000)) : null;
         const detail = i.kind === "backup"
           ? (s.totals ? `${fmtNum(s.totals.owners)} accounts · ${fmtNum((s.totals.records || 0) + (s.totals.systemRecords || 0))} records · ${fmtNum(s.totals.attachments)} files · ${fmtBytes(s.bytes)}${s.verified === true ? " · verified" : s.verified === false ? " · verification failed" : ""}` : "")
-          : (s.journal ? `${fmtNum(s.journal.restored)} added · ${fmtNum(s.journal.same)} present · ${fmtNum((s.journal.kept_live || 0) + (s.journal.conflict || 0))} kept/conflicts · ${fmtNum(s.journal.failed)} failed` : "");
+          : (s.journal ? `${s.mode === "all" ? `${fmtNum(s.journal.updated)} updated · ` : ""}${fmtNum(s.journal.restored)} added · ${fmtNum(s.journal.same)} present · ${fmtNum((s.journal.kept_live || 0) + (s.journal.conflict || 0))} kept/conflicts · ${fmtNum(s.journal.failed)} failed` : "");
         return `<tr><td class="tsb-hist-kind"><span class="tsb-kind ${i.kind}"><i class="fa-solid ${i.kind === "backup" ? "fa-box-archive" : "fa-clock-rotate-left"}"></i> ${i.kind === "backup" ? "Backup" : "Restore"}</span></td><td class="tsb-hist-status">${chip(i.status)}</td><td data-label="Started">${esc(fmtDate(i.started_at))}</td><td data-label="Duration">${dur == null ? "—" : dur < 90 ? `${dur}s` : `${Math.round(dur / 60)} min`}</td><td data-label="By">${esc(i.by || "")}</td><td class="tsb-hist-detail">${esc(detail)}</td></tr>`;
       }).join("")}</tbody></table></div>`;
   }
@@ -557,21 +657,40 @@
         <section class="tsb-card tsb-card--primary">
           <div class="tsb-card-head"><span class="tsb-card-icon"><i class="fa-solid fa-database" aria-hidden="true"></i></span><div><h4>Schema / migration package</h4><p>The structure of the Triplem VIP database for a NEW Supabase project. No records, no credentials.</p></div></div>
           <ul class="tsb-list">
-            <li><i class="fa-solid fa-list-ol"></i><div><strong>Exactly 20 ordered SQL files</strong><span>001 extensions → 003-013 tables by area → 014-016 constraints, keys, indexes → 017 functions → 018 views → 019 triggers → 020 RLS, policies, grants.</span></div></li>
+            <li><i class="fa-solid fa-list-ol"></i><div><strong>Exactly 10 ordered SQL files</strong><span>01 extensions → 02 types and sequences → 03-04 tables → 05 keys and indexes → 06 functions → 07 views and triggers → 08 security policies and grants → 09 storage and Main Admin → 10 validation.</span></div></li>
             <li><i class="fa-solid fa-magnifying-glass"></i><div><strong>Exported from the live catalog</strong><span>Not rebuilt from migration files: what is in the database is what you get.</span></div></li>
-            <li><i class="fa-solid fa-shield"></i><div><strong>Guarded</strong><span>File 001 refuses to run on a database that already has Triplem VIP tables; 002-020 refuse unless 001 ran first.</span></div></li>
+            <li><i class="fa-solid fa-shield"></i><div><strong>Guarded and validated</strong><span>File 01 refuses to run on a database that already has Triplem VIP tables; 02-10 refuse unless 01 ran first. File 10 checks every object.</span></div></li>
           </ul>
           <p class="tsb-hint" id="tsbSchemaMsg" role="status"></p>
           <div class="tsb-actions"><button type="button" class="btn tsb-primary" id="tsbSchemaDl"><i class="fa-solid fa-download" aria-hidden="true"></i> Download schema package (ZIP)</button></div>
         </section>
         <section class="tsb-card">
-          <div class="tsb-card-head"><span class="tsb-card-icon is-info"><i class="fa-solid fa-terminal" aria-hidden="true"></i></span><div><h4>From an encrypted system backup</h4><p>Every system backup contains the same 20 files, encrypted.</p></div></div>
-          <p class="tsb-text">To take them out of a backup without the app (for example on a new computer):</p>
-          <pre class="tsb-code">node scripts/system_backup_tool.js schema Triplem-VIP-System-Backup.zip ./schema</pre>
-          <p class="tsb-text">Then follow <code>SCHEMA_INSTALLATION_README.md</code>: run 001 → 020 in the SQL editor of the new project, create the Main Admin, deploy the Edge Functions and secrets, then restore the data from the same backup.</p>
-          <pre class="tsb-code">node scripts/system_backup_tool.js verify Triplem-VIP-System-Backup.zip</pre>
+          <div class="tsb-card-head"><span class="tsb-card-icon is-info"><i class="fa-solid fa-file-shield" aria-hidden="true"></i></span><div><h4>Check a backup file</h4><p>Opens a system backup on this device and checks every file. Nothing is uploaded and the database is not touched.</p></div></div>
+          <label class="tsb-drop" id="tsbChkDrop"><input type="file" id="tsbChkFile" accept=".zip,application/zip"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i><strong id="tsbChkName">Choose the ZIP file</strong><span>Read on this device only.</span></label>
+          <label class="tsb-field"><span>Backup password</span><input class="tsb-input" type="password" id="tsbChkPw" autocomplete="off"></label>
+          <p class="tsb-hint" id="tsbChkMsg" role="status"></p>
+          <div class="tsb-actions"><button type="button" class="btn tsb-secondary" id="tsbChk" disabled><i class="fa-solid fa-fingerprint" aria-hidden="true"></i> Check backup</button></div>
+          <p class="tsb-text">Each system backup also contains these 10 files in its <code>Database_Schema</code> folder, readable without the password, with <code>INSTALL.md</code>: run 01 → 10 in the SQL editor of the new project, sign in with the one-time Main Admin password shown by file 09, then restore the data from the same backup.</p>
         </section>
       </div>`;
+    let chkFile = null;
+    const chkInput = body.querySelector("#tsbChkFile"), chkBtn = body.querySelector("#tsbChk"), chkMsg = body.querySelector("#tsbChkMsg");
+    chkInput.onchange = () => { chkFile = chkInput.files?.[0] || null; body.querySelector("#tsbChkName").textContent = chkFile ? `${chkFile.name} · ${fmtBytes(chkFile.size)}` : "Choose the ZIP file"; chkBtn.disabled = !chkFile; };
+    chkBtn.onclick = async () => {
+      const pw = body.querySelector("#tsbChkPw").value;
+      if (!pw) { chkMsg.className = "tsb-hint bad"; chkMsg.textContent = "Enter the backup password."; return; }
+      chkBtn.disabled = true; chkMsg.className = "tsb-hint"; chkMsg.textContent = "Opening the archive…";
+      try {
+        const lib = await libs();
+        const arch = await lib.E.openArchive(lib.fflate, chkFile, pw);
+        const v = await lib.E.verifyArchive(arch, { onProgress: p => { if (p.total) chkMsg.textContent = `Checking every file against its SHA-256… ${fmtNum(p.done)} / ${fmtNum(p.total)}`; } });
+        const m = arch.manifest, t = m.totals || {};
+        if (!v.ok) { chkMsg.className = "tsb-hint bad"; chkMsg.textContent = `${fmtNum(v.problems.length)} file(s) failed the check (first: ${v.problems[0].path} — ${v.problems[0].problem}).`; return; }
+        chkMsg.className = "tsb-hint ok";
+        chkMsg.textContent = `Valid · ${fmtNum(v.files)} files verified · created ${fmtDate(m.createdAt)} · ${fmtNum(t.owners)} accounts · ${fmtNum((t.records || 0) + (t.systemRecords || 0))} records · ${fmtNum(t.attachments)} attachments${m.credentials && m.credentials.included ? ` · sign-in credentials for ${fmtNum(m.credentials.accounts)} accounts` : ""}.`;
+      } catch (e) { chkMsg.className = "tsb-hint bad"; chkMsg.textContent = e.message; }
+      finally { chkBtn.disabled = !chkFile; }
+    };
     body.querySelector("#tsbSchemaDl").onclick = async ev => {
       const btn = ev.currentTarget, msg = body.querySelector("#tsbSchemaMsg");
       btn.disabled = true; msg.className = "tsb-hint"; msg.textContent = "Reading the live database catalog…";
@@ -582,13 +701,13 @@
         const cov = b.coverage || a.coverage || {};
         const meta = { backupId: (crypto.randomUUID ? crypto.randomUUID() : "schema-only"), generatedAt: String(a.generatedAt || new Date().toISOString()), serverVersion: String(cov.server_version || ""), schemaComment: cov.schema_comment ?? null,
           adminId: window.state?.sessionUser?.id, adminUsername: window.state?.sessionUser?.username };
-        const files = lib.E.buildSchemaFiles([...(a.objects || []), ...(b.objects || [])], meta);
+        const files = lib.E.buildSchemaFilesV2([...(a.objects || []), ...(b.objects || [])], meta, cov);
         const zipFiles = {};
-        for (const f of files) zipFiles[`triplem-vip-schema/${f.name}`] = new TextEncoder().encode(f.text);
-        zipFiles["triplem-vip-schema/SCHEMA_INSTALLATION_README.md"] = new TextEncoder().encode(lib.E.schemaReadme(meta, files, cov));
+        for (const f of files) zipFiles[`Database_Schema/${f.name}`] = new TextEncoder().encode(f.text);
+        zipFiles["Database_Schema/INSTALL.md"] = new TextEncoder().encode(lib.E.schemaReadmeV2(meta, files, cov));
         const zipped = await new Promise((res, rej) => lib.fflate.zip(zipFiles, { level: 6 }, (e, d) => e ? rej(e) : res(d)));
-        downloadBlob(new Blob([zipped], { type: "application/zip" }), `Triplem-VIP-Schema-${meta.generatedAt.slice(0, 10)}.zip`);
-        msg.className = "tsb-hint ok"; msg.textContent = `20 SQL files · ${fmtNum(cov.tables)} tables, ${fmtNum(cov.functions)} functions, ${fmtNum(cov.triggers)} triggers, ${fmtNum(cov.policies)} policies.`;
+        downloadBlob(new Blob([zipped], { type: "application/zip" }), `Triplem_VIP_Schema_${meta.generatedAt.slice(0, 10)}.zip`);
+        msg.className = "tsb-hint ok"; msg.textContent = `10 SQL files · ${fmtNum(cov.tables)} tables, ${fmtNum(cov.functions)} functions, ${fmtNum(cov.triggers)} triggers, ${fmtNum(cov.policies)} policies.`;
       } catch (e) {
         msg.className = "tsb-hint bad"; msg.textContent = /administrator|security/i.test(e.message) ? "Main Admin access (with the Admin Security Key unlocked) is required." : e.message;
       } finally { btn.disabled = false; }

@@ -157,7 +157,7 @@ func pinRequestFile() string {
 // modify Windows security settings.
 
 const (
-	appVersion = "3.10.1"
+	appVersion = "3.10.2"
 
 	setupWidth  = 760
 	setupHeight = 548
@@ -633,6 +633,9 @@ func registerUninstall(installDir, exePath, iconPath string) error {
 	regSetString(h, "DisplayIcon", iconPath+",0")
 	regSetString(h, "UninstallString", `"`+exePath+`" --uninstall`)
 	regSetString(h, "URLInfoAbout", "https://triplem.vip/")
+	regSetString(h, "HelpLink", "https://triplem.vip/windows-store/")
+	regSetString(h, "URLUpdateInfo", "https://apps.microsoft.com/detail/9MV028GH5NPX")
+	regSetString(h, "Comments", "Triplem VIP for Windows. Microsoft Store ID 9MV028GH5NPX (TriplemVIP.TriplemVIP).")
 	regSetDWORD(h, "NoModify", 1)
 	regSetDWORD(h, "NoRepair", 1)
 	return nil

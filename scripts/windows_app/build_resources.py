@@ -23,7 +23,7 @@ VERSION_META = {
     "original": "TriplemVIP.exe",
 }
 
-MANIFEST = b'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">\n  <assemblyIdentity version="@VERSION@" processorArchitecture="*" name="TriplemVIP.Desktop" type="win32"/>\n  <description>Triplem VIP</description>\n  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges><requestedExecutionLevel level="asInvoker" uiAccess="false"/></requestedPrivileges></security></trustInfo>\n  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1"><application><supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/></application></compatibility>\n  <application xmlns="urn:schemas-microsoft-com:asm.v3"><windowsSettings>\n    <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>\n    <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2,PerMonitor</dpiAwareness>\n    <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>\n  </windowsSettings></application>\n</assembly>'''
+MANIFEST = b'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">\n  <assemblyIdentity version="@VERSION@" processorArchitecture="*" name="TriplemVIP.TriplemVIP" type="win32"/>\n  <description>Triplem VIP (Microsoft Store ID 9MV028GH5NPX, publisher Triplem VIP)</description>\n  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges><requestedExecutionLevel level="asInvoker" uiAccess="false"/></requestedPrivileges></security></trustInfo>\n  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1"><application><supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/></application></compatibility>\n  <application xmlns="urn:schemas-microsoft-com:asm.v3"><windowsSettings>\n    <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>\n    <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2,PerMonitor</dpiAwareness>\n    <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>\n  </windowsSettings></application>\n</assembly>'''
 
 def align(v, a=4):
     return (v + a - 1) & ~(a - 1)
@@ -79,6 +79,7 @@ def version_info(meta: dict) -> bytes:
     dotted = ".".join(str(p) for p in parts)
     strings = [
         ("CompanyName", "Triplem VIP"),
+        ("Comments", "Triplem VIP for Windows. Also published on the Microsoft Store: Store ID 9MV028GH5NPX, package TriplemVIP.TriplemVIP (publisher Triplem VIP). https://apps.microsoft.com/detail/9MV028GH5NPX"),
         ("FileDescription", meta["description"]),
         ("FileVersion", dotted),
         ("InternalName", meta["original"].rsplit(".", 1)[0]),
@@ -86,6 +87,9 @@ def version_info(meta: dict) -> bytes:
         ("OriginalFilename", meta["original"]),
         ("ProductName", "Triplem VIP"),
         ("ProductVersion", dotted),
+        ("PublisherDisplayName", "Triplem VIP"),
+        ("PackageFamilyName", "TriplemVIP.TriplemVIP_5xa2pdgfswx0g"),
+        ("MicrosoftStoreId", "9MV028GH5NPX"),
     ]
     string_nodes = [_ver_block(k, (v + "\0").encode("utf-16-le"), 1, len(v) + 1) for k, v in strings]
     table = _ver_block("040904B0", b"", 1, 0, string_nodes)

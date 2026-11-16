@@ -8,9 +8,12 @@
  * The backup password is read from the TRIPLEM_BACKUP_PASSWORD environment
  * variable, or asked for on the terminal. Nothing is sent anywhere.
  *
- * "schema" writes the 20 SQL files and SCHEMA_INSTALLATION_README.md needed to
- * install the database structure on a NEW Supabase project. "extract" writes
- * every decrypted file (customer data included): keep that folder private.
+ * "schema" writes the SQL files and their installation guide needed to install the
+ * database structure on a NEW Supabase project (10 files + INSTALL.md for backups
+ * made since November 2026, 20 files + SCHEMA_INSTALLATION_README.md for older ones;
+ * in a new backup they are also readable directly in its Database_Schema folder).
+ * "extract" writes every decrypted file (customer data included, and the sign-in
+ * credentials when the backup has them): keep that folder private and delete it after use.
  */
 "use strict";
 const fs = require("node:fs");
@@ -89,7 +92,9 @@ async function main() {
     if (cmd === "extract") {
       fs.writeFileSync(safeJoin(outDir, "backup-manifest.json"), JSON.stringify(m, null, 1));
     }
-    console.log(`Wrote ${n} file(s) to ${outDir}${cmd === "schema" ? " (20 SQL files + installation README)" : ""}.`);
+    const sqlCount = wanted.filter(f => f.kind === "schema").length;
+    console.log(`Wrote ${n} file(s) to ${outDir}${cmd === "schema" ? ` (${sqlCount} SQL files + installation guide)` : ""}.`);
+    if (cmd === "extract" && m.credentials && m.credentials.included) console.log("WARNING: the folder contains decrypted sign-in credentials (password hashes, 2FA secrets). Keep it private and delete it after use.");
   } catch (e) {
     console.error(e.message || e);
     process.exit(1);

@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	appVersionNative = "3.10.1"
+	appVersionNative = "3.10.2"
 	appOrigin        = "https://triplem.vip"
 	maxWebMessage    = 64 * 1024
 )

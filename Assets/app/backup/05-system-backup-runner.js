@@ -58,13 +58,17 @@
     return out;
   }
 
-  async function createBackup(deps, { password, sink, readBack, onProgress = () => {}, signal } = {}) {
+  // Version-2 folders
+  const ownerRoot = o => `${o.kind === "business" ? "Companies" : "Individuals"}/${o.id}`;
+  const SNAPSHOT_ROWS = 20000;   // accounts up to this size are read in one consistent snapshot
+
+  async function createBackup(deps, { password, sink, readBack, includeCredentials = false, onProgress = () => {}, signal } = {}) {
     const problem = E.passwordProblem(password);
     if (problem) throw new SystemBackupError("weak_password", problem);
     const lib = deps.fflate;
     const rpc = async (n, a) => unwrap(await deps.rpc(n, a || {}));
     onProgress({ stage: "start" });
-    const begin = await rpc("app_system_backup_begin", {});
+    const begin = await rpc("app_system_backup_begin_v2", { p_options: { credentials: !!includeCredentials } });
     if (!begin || begin.ok !== true || begin.format !== E.FORMAT) throw new SystemBackupError("server", "The server could not start the system backup.");
     const backupId = String(begin.backupId);
     const runId = String(begin.runId);
@@ -79,7 +83,9 @@
     const warnings = [];
     const failures = [];
     const verification = { sealedAndReopened: 0, schemaChecks: [] };
-    const totals = { users: 0, owners: owners.length, individuals: 0, businesses: 0, teamMembers: 0, records: 0, attachments: 0, attachmentBytes: 0, logos: 0, files: 0, systemRecords: 0, unattributedRecords: 0 };
+    const totals = { users: 0, owners: owners.length, individuals: 0, businesses: 0, teamMembers: 0, records: 0, attachments: 0, attachmentBytes: 0, logos: 0, files: 0, systemRecords: 0, unattributedRecords: 0,
+      credentialAccounts: 0, snapshotAccounts: 0, pagedAccounts: 0 };
+    const accounts = [];        // User_Accounts/accounts.json: every sign-in account and where its data is
     const tableTotals = {};
     let lastBeat = Date.now();
     const beat = async (stage, extra) => {
@@ -90,13 +96,19 @@
 
     const addFile = async (path, plain, meta) => {
       checkAbort(signal);
-      const sealed = await E.seal(lib, key, backupId, path, plain, { compress: meta.kind !== "attachment" || !/\.(jpg|jpeg|png|webp)$/i.test(path) });
-      // Re-open immediately: proves the sealed copy decrypts to exactly these bytes.
-      const back = await E.open(lib, key, backupId, path, sealed, plain.length);
       const sha = await E.sha256Hex(plain);
-      if (back.length !== plain.length || await E.sha256Hex(back) !== sha) throw new SystemBackupError("verify", `A file could not be verified while writing (${path}).`);
-      verification.sealedAndReopened += 1;
-      await writer.add(ROOT + path + ".enc", sealed);
+      if (E.isPlainV2(path)) {
+        // Schema SQL and its guide: stored as they are (no records, no secrets) so they can be run
+        // directly; their SHA-256 is in the encrypted manifest.
+        await writer.add(E.zipName(2, path), plain);
+      } else {
+        const sealed = await E.seal(lib, key, backupId, path, plain, { compress: meta.kind !== "attachment" || !/\.(jpg|jpeg|png|webp)$/i.test(path) });
+        // Re-open immediately: proves the sealed copy decrypts to exactly these bytes.
+        const back = await E.open(lib, key, backupId, path, sealed, plain.length);
+        if (back.length !== plain.length || await E.sha256Hex(back) !== sha) throw new SystemBackupError("verify", `A file could not be verified while writing (${path}).`);
+        verification.sealedAndReopened += 1;
+        await writer.add(E.zipName(2, path), sealed);
+      }
       if (meta.kind !== "meta") { files.push({ path, size: plain.length, sha256: sha, ...meta }); checksums[path] = sha; }
       totals.files += 1;
       return sha;
@@ -111,10 +123,10 @@
                     keyCheck: await E.makeKeyCheck(lib, key, backupId) },
       note: "Every file except this header and README.txt is encrypted. The password is required to read or restore it."
     };
-    await writer.add(ROOT + "backup-header.json", enc.encode(JSON.stringify(header, null, 2)));
-    await writer.add(ROOT + "README.txt", enc.encode(readme(header)));
+    await writer.add(E.zipName(2, E.LAYOUT[2].header), enc.encode(JSON.stringify(header, null, 2)));
+    await writer.add(E.zipName(2, E.LAYOUT[2].readme), enc.encode(readme(header, !!begin.credentials)));
 
-    // ---- 1. Database schema (20 files) ----
+    // ---- 1. Database schema (10 files) ----
     onProgress({ stage: "schema" });
     const partA = await rpc("app_system_schema_export", { p_from: 1, p_to: 16 });
     const partB = await rpc("app_system_schema_export", { p_from: 17, p_to: 20 });
@@ -122,7 +134,7 @@
     const coverage = partB.coverage || partA.coverage || {};
     const schemaMeta = { backupId, generatedAt: String(partA.generatedAt || createdAt), serverVersion: String(coverage.server_version || ""), schemaComment: coverage.schema_comment ?? null,
       adminId: begin.createdBy && begin.createdBy.id, adminUsername: begin.createdBy && begin.createdBy.username };
-    const schemaFiles = E.buildSchemaFiles(objects, schemaMeta);
+    const schemaFiles = E.buildSchemaFilesV2(objects, schemaMeta, coverage);
     // Coverage: every object counted in the live catalog appears in the package.
     const count = kind => objects.filter(o => o.kind === kind).length;
     const checks = [
@@ -140,8 +152,8 @@
       verification.schemaChecks.push({ object: name, exported: got, live: want, ok });
       if (!ok) warnings.push(`Schema export: ${name} exported ${got}, live catalog has ${want}.`);
     }
-    for (const f of schemaFiles) await addFile(`database-schema/${f.name}`, enc.encode(f.text), { kind: "schema", objects: f.objects });
-    await addFile("database-schema/SCHEMA_INSTALLATION_README.md", enc.encode(E.schemaReadme(schemaMeta, schemaFiles, coverage)), { kind: "schema-readme" });
+    for (const f of schemaFiles) await addFile(`Database_Schema/${f.name}`, enc.encode(f.text), { kind: "schema", objects: f.objects, plain: true });
+    await addFile("Database_Schema/INSTALL.md", enc.encode(E.schemaReadmeV2(schemaMeta, schemaFiles, coverage)), { kind: "schema-readme", plain: true });
 
     // ---- 2. Every owner's folder ----
     const exportTable = async (table, args) => {
@@ -169,19 +181,35 @@
       const logoPaths = new Set();
       const attachments = [];
       const counts = {};
-      for (const c of catalog) {
-        if (!["user", "team", "users"].includes(c.scope)) continue;
+      const folder = ownerRoot({ id: oid, kind: o.kind });
+      const ownerTables = catalog.filter(c => ["user", "team", "users"].includes(c.scope) && Number((o.tables || {})[c.table] || 0) > 0);
+      const expectedRows = ownerTables.reduce((n, c) => n + Number(o.tables[c.table] || 0), 0);
+      // One consistent snapshot of the whole account when it fits (a document and its lines,
+      // an expense and its wallet are read at the same instant); otherwise page by page.
+      let snap = null;
+      if (expectedRows && expectedRows <= SNAPSHOT_ROWS) {
+        try {
+          const r = await rpc("app_system_backup_export_owner", { p_owner: oid, p_tables: ownerTables.map(c => c.table), p_max_rows: SNAPSHOT_ROWS + 5000 });
+          if (r && r.ok && r.tables) snap = r.tables;
+        } catch (_) { snap = null; }
+      }
+      if (snap) totals.snapshotAccounts += 1; else if (expectedRows) totals.pagedAccounts += 1;
+      for (const c of ownerTables) {
         const expected = Number((o.tables || {})[c.table] || 0);
-        if (!expected) continue;
-        const lines = await exportTable(c.table, { owner: oid });
-        if (lines.length !== expected) warnings.push(`${c.table} for ${o.username}: ${expected} records when the backup started, ${lines.length} exported (records changed during the backup).`);
+        const lines = snap ? (snap[c.table] || []).map(l => typeof l === "string" ? l : JSON.stringify(l)) : await exportTable(c.table, { owner: oid });
+        if (!snap && lines.length !== expected) warnings.push(`${c.table} for ${o.username}: ${expected} records when the backup started, ${lines.length} exported (records changed during the backup; this account was read page by page).`);
         const groups = new Map();
         if (c.table === "app_users") {
-          for (const l of lines) { const r = JSON.parse(l); const sec = r.id === oid ? "profile" : "team"; if (!groups.has(sec)) groups.set(sec, []); groups.get(sec).push(l); }
+          for (const l of lines) {
+            const r = JSON.parse(l); const sec = r.id === oid ? "profile" : "team";
+            if (!groups.has(sec)) groups.set(sec, []); groups.get(sec).push(l);
+            accounts.push({ id: r.id, username: r.username, display_name: r.display_name || "", role: r.role, is_active: r.is_active,
+              owner: oid, owner_kind: o.kind, member: sec === "team" ? "team" : "owner", folder });
+          }
         } else groups.set(c.section, lines);
         for (const [section, ls] of groups) {
           const text = ls.join("\n") + "\n";
-          const path = `users/${oid}/${section}/${c.table}.ndjson`;
+          const path = `${folder}/${section}/${c.table}.ndjson`;
           await addFile(path, enc.encode(text), { kind: "data", table: c.table, owner: oid, section, records: ls.length, mode: c.mode, scope: c.scope });
           ownerFiles.push(path);
           for (const p of E.logoPathsIn(text)) logoPaths.add(p);
@@ -199,7 +227,7 @@
       for (const a of attachments) {
         checkAbort(signal);
         const ext = E.EXT[a.stored_mime] || "bin";
-        const path = `attachments/${oid}/${a.module}/${a.id}.${ext}`;
+        const path = `Storage_Files/${oid}/${a.module}/${a.id}.${ext}`;
         let bytes = null, why = "";
         try { bytes = await deps.fetchAttachment(a); } catch (e) { why = e && e.message || "download failed"; }
         if (bytes && Number(a.stored_size) && bytes.length !== Number(a.stored_size)) { why = `size ${bytes.length} does not match ${a.stored_size}`; bytes = null; }
@@ -218,14 +246,16 @@
         let bytes = null;
         try { bytes = await deps.fetchLogo(p); } catch (_) { bytes = null; }
         if (!bytes) { warnings.push(`Logo not found in storage (referenced by ${o.username}): ${p}`); continue; }
-        await addFile(`attachments/${oid}/company-logos/${p}`, bytes, { kind: "logo", owner: oid, logo: { path: p } });
+        await addFile(`Storage_Files/${oid}/company-logos/${p}`, bytes, { kind: "logo", owner: oid, logo: { path: p } });
         totals.logos += 1;
       }
       const summary = { id: oid, username: o.username, display_name: o.display_name, company_name: o.company_name, kind: o.kind, role: o.role,
         is_active: o.is_active, created_at: o.created_at, team_members: Number(o.team_members || 0), records: counts,
-        attachments: attachments.length, files: ownerFiles };
-      await addFile(`users/${oid}/profile/summary.json`, enc.encode(JSON.stringify(summary, null, 2)), { kind: "summary", owner: oid });
-      ownerSummaries.push({ id: oid, username: o.username, kind: o.kind, team_members: Number(o.team_members || 0), records: Object.values(counts).reduce((a, b) => a + b, 0), attachments: attachments.length });
+        attachments: attachments.length, files: ownerFiles, folder, consistentSnapshot: !!snap };
+      await addFile(`${folder}/profile/summary.json`, enc.encode(JSON.stringify(summary, null, 2)), { kind: "summary", owner: oid });
+      ownerSummaries.push({ id: oid, username: o.username, display_name: o.display_name || "", company_name: o.company_name || "", kind: o.kind, folder,
+        team_members: Number(o.team_members || 0), records: Object.values(counts).reduce((a, b) => a + b, 0), attachments: attachments.length, snapshot: !!snap,
+        sections: [...new Set(ownerTables.map(c => c.section).filter(x => x && x !== "profile"))] });
       await beat(`owners ${ownerNo}/${owners.length}`);
     }
 
@@ -235,40 +265,67 @@
       if (c.scope !== "system") continue;
       const lines = await exportTable(c.table, {});
       if (!lines.length) continue;
-      await addFile(`system-data/${c.table}.ndjson`, enc.encode(lines.join("\n") + "\n"), { kind: "data", table: c.table, scope: "system", section: "system", records: lines.length, mode: c.mode });
+      const where = ["data", "settings"].includes(c.mode) ? "System_Configuration" : "Shared_Resources";
+      await addFile(`${where}/${c.table}.ndjson`, enc.encode(lines.join("\n") + "\n"), { kind: "data", table: c.table, scope: "system", section: "system", records: lines.length, mode: c.mode });
       totals.systemRecords += lines.length;
       tableTotals[c.table] = (tableTotals[c.table] || 0) + lines.length;
     }
     for (const [table, n] of Object.entries(begin.orphans || {})) {
       const lines = await exportTable(table, { orphans: true });
       if (!lines.length) continue;
-      await addFile(`system-data/unattributed/${table}.ndjson`, enc.encode(lines.join("\n") + "\n"), { kind: "data", table, scope: "unattributed", section: "unattributed", records: lines.length, mode: "history" });
+      await addFile(`Shared_Resources/Unattributed/${table}.ndjson`, enc.encode(lines.join("\n") + "\n"), { kind: "data", table, scope: "unattributed", section: "unattributed", records: lines.length, mode: "history" });
       totals.unattributedRecords += lines.length;
-      warnings.push(`${lines.length} ${table} record(s) belong to an account that no longer exists; they are kept in system-data/unattributed (not restored).`);
+      warnings.push(`${lines.length} ${table} record(s) belong to an account that no longer exists; they are kept in Shared_Resources/Unattributed (not restored).`);
     }
     for (const t of begin.unclassified || []) warnings.push(`Table ${t} is new and not yet classified for system backups; it was not exported.`);
+
+    // ---- 3b. Accounts index and (optional) sign-in credentials ----
+    await addFile("User_Accounts/accounts.json", enc.encode(JSON.stringify({ accounts, owners: ownerSummaries.map(o => ({ id: o.id, username: o.username, kind: o.kind, folder: o.folder, team: accounts.filter(a => a.owner === o.id && a.member === "team").map(a => a.id) })) }, null, 1)),
+      { kind: "accounts", records: accounts.length });
+    if (begin.credentials) {
+      onProgress({ stage: "system", records: totals.records, attachments: totals.attachments, bytes: writer.offset, credentials: true });
+      let after = null, part = 0;
+      for (;;) {
+        checkAbort(signal);
+        const page = await rpc("app_system_backup_credentials_page", { p_run_id: runId, p_after: after, p_limit: 500 });
+        const got = Array.isArray(page && page.lines) ? page.lines.map(l => typeof l === "string" ? l : JSON.stringify(l)) : [];
+        if (got.length) {
+          part += 1;
+          await addFile(`User_Accounts/credentials/part-${String(part).padStart(4, "0")}.ndjson`, enc.encode(got.join("\n") + "\n"), { kind: "credentials", records: got.length });
+          totals.credentialAccounts += got.length;
+        }
+        if (!page || page.done || !got.length) break;
+        after = page.last;
+      }
+    }
 
     // ---- 4. Manifest, checksums, verification report ----
     const status = failures.length || warnings.some(w => /^Schema export|not yet classified/.test(w)) ? "completed_with_warnings" : (warnings.length ? "completed_with_warnings" : "completed");
     const manifest = {
       format: E.FORMAT, formatVersion: E.FORMAT_VERSION, backupId, createdAt, completedAt: now(),
-      app: header.app, schemaVersion: Number(begin.schemaVersion) || 212, database: begin.database || {},
+      app: header.app, schemaVersion: Number(begin.schemaVersion) || 229, database: begin.database || {},
+      layout: "Database_Schema, System_Configuration, Companies/<id>, Individuals/<id>, User_Accounts, Shared_Resources, Storage_Files, Backup_Metadata",
+      credentials: { included: !!begin.credentials, accounts: totals.credentialAccounts,
+        contents: begin.credentials ? "bcrypt password hashes, Smart PIN hashes, passkey public keys, recovery-key and recovery-code hashes, authenticator (2FA) secrets" : null },
+      consistency: { snapshotAccounts: totals.snapshotAccounts, pagedAccounts: totals.pagedAccounts,
+        rule: "Each account is read in one consistent database snapshot (up to 20,000 records); larger accounts are read page by page and counted." },
+      relationships: ownerSummaries.map(o => ({ owner: o.id, kind: o.kind, team: accounts.filter(a => a.owner === o.id && a.member === "team").map(a => a.id) })),
       createdBy: begin.createdBy || null,
       totals, tables: Object.entries(tableTotals).map(([table, records]) => ({ table, records, scope: catByTable.get(table)?.scope, mode: catByTable.get(table)?.mode })),
       catalog, owners: ownerSummaries,
       modules: await moduleInfo(deps, tableTotals),
       excluded: catalog.filter(c => c.scope === "excluded").map(c => ({ table: c.table, reason: c.reason })),
-      schema: { files: E.SCHEMA_FILES, coverage, objects: objects.length },
+      schema: { files: E.SCHEMA_FILES_V2, coverage, objects: objects.length, plain: true },
       warnings, failures, status,
-      restoreRules: "Restore never runs the SQL files. It adds only records that are missing; existing records are never overwritten or deleted. Records that differ are kept as they are and reported.",
+      restoreRules: "Restore never runs the SQL files and never deletes. Mode 'new' adds missing records only. Mode 'all' also updates records that differ from the backup, after saving their previous version (undo).",
       files
     };
     manifest.digest = await E.sha256Hex(enc.encode(E.manifestDigestInput(manifest)));
-    await addFile("backup-verification/checksums.json", enc.encode(JSON.stringify({ algorithm: "SHA-256", of: "decrypted file contents", files: checksums }, null, 1)), { kind: "meta" });
-    await addFile("backup-verification/verification-report.json", enc.encode(JSON.stringify({
+    await addFile(E.LAYOUT[2].checksums, enc.encode(JSON.stringify({ algorithm: "SHA-256", of: "decrypted file contents", files: checksums }, null, 1)), { kind: "meta" });
+    await addFile(E.LAYOUT[2].report, enc.encode(JSON.stringify({
       createdAt: now(), backupId, filesWritten: files.length, everyFileReopenedAndHashed: verification.sealedAndReopened, schemaCoverage: verification.schemaChecks,
       attachmentFailures: failures.length, warnings: warnings.length }, null, 2)), { kind: "meta" });
-    await addFile("backup-manifest.json", enc.encode(JSON.stringify(manifest, null, 1)), { kind: "meta" });
+    await addFile(E.LAYOUT[2].manifest, enc.encode(JSON.stringify(manifest, null, 1)), { kind: "meta" });
     onProgress({ stage: "finish", records: totals.records, attachments: totals.attachments, bytes: writer.offset });
     const written = await writer.finish();
 
@@ -291,22 +348,28 @@
         totals, warnings: warnings.length, failures: failures.slice(0, 200), bytes: written.bytes, entries: written.entries,
         verified: post ? post.ok : null, verifyProblems: post ? post.problems.slice(0, 50) : [] } });
     } catch (_) {}
-    return { backupId, runId, manifest, status: finalStatus, bytes: written.bytes, verification: post, filename: `Triplem-VIP-System-Backup-${createdAt.replace(/[:T]/g, "-").slice(0, 16)}.zip` };
+    return { backupId, runId, manifest, status: finalStatus, bytes: written.bytes, verification: post, filename: `Triplem_VIP_Full_Backup_${createdAt.replace(/[:T]/g, "-").slice(0, 16)}.zip` };
   }
 
-  function readme(h) {
+  function readme(h, credentials) {
     return [
-      "Triplem VIP - SYSTEM BACKUP", "===========================", "",
-      `Backup id: ${h.backupId}`, `Created:   ${h.createdAt}`, "",
-      "This archive holds the complete Triplem VIP database schema (20 SQL files), every account's",
-      "records (one folder per account owner, with its team), system data, and the attachment files.",
-      "Everything except this README and backup-header.json is encrypted with the backup password",
-      "(AES-256-GCM, key derived with PBKDF2-SHA-256). Without the password the contents cannot be read.", "",
-      "Restore: Triplem VIP > Main Admin > Backup > System Backup & Restore > Restore.",
-      "  The restore never runs the SQL files. It only adds missing records and never overwrites or deletes.", "",
-      "New Supabase project: decrypt the schema files with",
-      "  node scripts/system_backup_tool.js schema <this.zip> <output folder>",
-      "  then follow database-schema/SCHEMA_INSTALLATION_README.md.", "",
+      "Triplem VIP - FULL SYSTEM BACKUP", "================================", "",
+      `Backup id: ${h.backupId}`, `Created:   ${h.createdAt}`, `Sign-in credentials included: ${credentials ? "yes (encrypted)" : "no"}`, "",
+      "Folders:",
+      "  Database_Schema/       10 SQL files that recreate the database structure in a NEW Supabase project",
+      "                         (not encrypted: no records, no passwords, no keys), plus INSTALL.md",
+      "  Companies/<id>/        every business account with its team, one folder per account",
+      "  Individuals/<id>/      every individual account, one folder per account",
+      "  User_Accounts/         every sign-in account and its owner" + (credentials ? "; the encrypted sign-in credentials" : ""),
+      "  System_Configuration/  system settings and catalogues",
+      "  Shared_Resources/      support, analytics and history (kept for reference)",
+      "  Storage_Files/         receipts, invoices, PDFs and logos",
+      "  Backup_Metadata/       this README, the header, the manifest, checksums and the verification report", "",
+      "Everything outside Database_Schema and this README / header is encrypted with the backup password",
+      "(AES-256-GCM, key derived with PBKDF2-SHA-256, 600,000 iterations). Without the password it cannot be read.", "",
+      "Restore into this or another Triplem VIP database:",
+      "  Triplem VIP > Main Admin > Backup > System Backup & Restore > Restore. Nothing is ever deleted.", "",
+      "New Supabase project: follow Database_Schema/INSTALL.md (run 01 to 10 in the SQL editor, then restore this ZIP).", "",
       "Keep this file private and keep the password separately. Do not edit files inside the archive."
     ].join("\r\n");
   }
@@ -316,9 +379,20 @@
   // =====================================================================================
   // Restorable files, in safe order: organisations, owners' accounts, team
   // accounts, then every owner's tables in catalog order.
-  function restorePlan(manifest) {
+  // options.owners: Set of owner ids to restore (default: all). Their team accounts come with them.
+  // options.sections: Set of data categories (expenses, loans, inventory, ...); account profiles and
+  //   teams are always included for the selected owners. options.system === false skips system data.
+  function restorePlan(manifest, options = {}) {
     const cat = new Map((manifest.catalog || []).map(c => [c.table, c]));
-    const dataFiles = manifest.files.filter(f => f.kind === "data" && cat.has(f.table) && ["data", "settings"].includes(cat.get(f.table).mode) && f.scope !== "unattributed");
+    const pickOwners = options.owners instanceof Set && options.owners.size ? options.owners : null;
+    const sections = options.sections instanceof Set && options.sections.size ? options.sections : null;
+    const dataFiles = manifest.files.filter(f => f.kind === "data" && cat.has(f.table) && ["data", "settings"].includes(cat.get(f.table).mode) && f.scope !== "unattributed")
+      .filter(f => {
+        if (f.scope === "system" || !f.owner) return options.system !== false;
+        if (pickOwners && !pickOwners.has(f.owner)) return false;
+        if (sections && !["profile", "team"].includes(f.section) && !sections.has(f.section)) return false;
+        return true;
+      });
     const order = c => (cat.get(c.table) || {}).order || 0;
     const step = f => f.table === "app_organizations" ? 0 : f.table === "app_users" ? (f.section === "profile" ? 1 : 2) : 3;
     const owners = (manifest.owners || []).map(o => o.id);
@@ -326,12 +400,14 @@
     return dataFiles.slice().sort((a, b) => step(a) - step(b) || (step(a) === 3 ? (ownerIdx.get(a.owner) - ownerIdx.get(b.owner)) : 0) || order(a) - order(b) || (ownerIdx.get(a.owner) ?? 0) - (ownerIdx.get(b.owner) ?? 0));
   }
 
-  async function preview(deps, arch, { onProgress = () => {}, signal } = {}) {
+  async function preview(deps, arch, { onProgress = () => {}, signal, options = {} } = {}) {
     const rpc = async (n, a) => unwrap(await deps.rpc(n, a || {}));
     const m = arch.manifest;
-    const plan = restorePlan(m);
+    const plan = restorePlan(m, options);
     const counts = { new: 0, same: 0, kept_live: 0, deleted_live: 0, conflict: 0, invalid: 0 };
     const byTable = {};
+    const byOwner = {};
+    const bySection = {};
     const conflicts = [];
     const total = plan.reduce((n, f) => n + (f.records || 0), 0);
     let done = 0;
@@ -344,6 +420,12 @@
           counts[r.st] = (counts[r.st] || 0) + 1;
           const t = byTable[f.table] = byTable[f.table] || { new: 0, same: 0, kept_live: 0, deleted_live: 0, conflict: 0, invalid: 0 };
           t[r.st] = (t[r.st] || 0) + 1;
+          const ok = f.owner || "system";
+          const ow = byOwner[ok] = byOwner[ok] || { new: 0, same: 0, kept_live: 0, deleted_live: 0, conflict: 0, invalid: 0 };
+          ow[r.st] = (ow[r.st] || 0) + 1;
+          const sk = f.section || "system";
+          const se = bySection[sk] = bySection[sk] || { new: 0, same: 0, kept_live: 0, deleted_live: 0, conflict: 0, invalid: 0 };
+          se[r.st] = (se[r.st] || 0) + 1;
           if ((r.st === "conflict" || r.st === "invalid") && conflicts.length < 500) {
             let id = "";
             try { id = JSON.parse(batch[r.i]).id || ""; } catch (_) {}
@@ -355,29 +437,38 @@
       }
     }
     const atts = m.files.filter(f => f.kind === "attachment");
+    const creds = m.files.filter(f => f.kind === "credentials");
     return {
-      counts, byTable, conflicts,
+      counts, byTable, byOwner, bySection, conflicts,
+      owners: (m.owners || []).map(o => ({ id: o.id, username: o.username, display_name: o.display_name || "", company_name: o.company_name || "", kind: o.kind,
+        team_members: o.team_members, records: o.records, attachments: o.attachments, sections: o.sections || [] })),
+      credentials: { included: !!(m.credentials && m.credentials.included), accounts: creds.reduce((n, f) => n + (f.records || 0), 0) },
       archive: {
         backupId: m.backupId, createdAt: m.createdAt, createdBy: m.createdBy, app: m.app, status: m.status,
         users: m.totals.users, owners: m.totals.owners, individuals: m.totals.individuals, businesses: m.totals.businesses,
         teamMembers: m.totals.teamMembers, records: m.totals.records, systemRecords: m.totals.systemRecords,
         attachments: atts.length, attachmentBytes: atts.reduce((n, f) => n + f.size, 0), logos: m.files.filter(f => f.kind === "logo").length,
-        schemaFiles: m.files.filter(f => f.kind === "schema").length, warnings: m.warnings || [], failures: m.failures || []
+        schemaFiles: m.files.filter(f => f.kind === "schema").length, formatVersion: m.formatVersion, warnings: m.warnings || [], failures: m.failures || []
       },
       restorableRecords: total
     };
   }
 
-  async function restore(deps, arch, { onProgress = () => {}, signal } = {}) {
+  // options: { mode: "new" | "all", owners: Set, sections: Set, system: boolean, credentials: boolean }
+  async function restore(deps, arch, { onProgress = () => {}, signal, options = {} } = {}) {
     const rpc = async (n, a) => unwrap(await deps.rpc(n, a || {}));
     const m = arch.manifest;
-    const begin = await rpc("app_system_restore_begin", { p_backup_id: m.backupId, p_info: { createdAt: m.createdAt, records: m.totals.records, attachments: m.totals.attachments, app: m.app } });
+    const mode = options.mode === "all" ? "all" : "new";
+    const optInfo = { mode, owners: options.owners instanceof Set ? [...options.owners] : null, sections: options.sections instanceof Set ? [...options.sections] : null,
+      system: options.system !== false, credentials: options.credentials !== false };
+    const begin = await rpc("app_system_restore_begin", { p_backup_id: m.backupId, p_info: { createdAt: m.createdAt, records: m.totals.records, attachments: m.totals.attachments, app: m.app, formatVersion: m.formatVersion, options: optInfo } });
     if (!begin || begin.ok !== true) throw new SystemBackupError(begin && begin.reason || "server", begin && begin.message || "The server could not start the restore.");
     const restoreId = begin.restoreId;
     const cat = new Map((m.catalog || []).map(c => [c.table, c]));
-    const plan = restorePlan(m);
-    const result = { restoreId, resumed: !!begin.resumed, processed: 0, total: plan.reduce((n, f) => n + (f.records || 0), 0),
-      outcomes: { restored: 0, same: 0, kept_live: 0, deleted_live: 0, conflict: 0, failed: 0, skipped: 0 },
+    const plan = restorePlan(m, options);
+    const result = { restoreId, resumed: !!begin.resumed, mode, processed: 0, total: plan.reduce((n, f) => n + (f.records || 0), 0),
+      outcomes: { restored: 0, updated: 0, same: 0, kept_live: 0, deleted_live: 0, conflict: 0, failed: 0, skipped: 0 },
+      credentials: { restored: 0, skipped: 0, failed: 0, total: 0 },
       files: { restored: 0, present: 0, skipped: 0, failed: 0, total: 0 }, logos: { restored: 0, present: 0, failed: 0 }, stopped: false, errors: [] };
     const needFile = new Set();
     try {
@@ -399,6 +490,30 @@
           onProgress({ stage: "records", table: f.table, owner: f.owner, ...result.outcomes, done: result.processed, total: result.total });
         }
         if (result.stopped) break;
+      }
+      // Sign-in credentials: only for accounts this restore has just added (the server checks).
+      const credFiles = m.files.filter(f => f.kind === "credentials");
+      if (!result.stopped && credFiles.length && options.credentials !== false) {
+        const owners = options.owners instanceof Set && options.owners.size ? options.owners : null;
+        let allowed = null;
+        if (owners) {
+          const idx = JSON.parse(dec.decode(await arch.file("User_Accounts/accounts.json")));
+          allowed = new Set((idx.accounts || []).filter(a => owners.has(a.owner)).map(a => a.id));
+        }
+        onProgress({ stage: "credentials", done: 0, total: credFiles.reduce((n, f) => n + (f.records || 0), 0) });
+        for (const f of credFiles) {
+          if (signal && signal.aborted) { result.stopped = true; break; }
+          let lines = E.ndjsonLines(await arch.file(f.path));
+          if (allowed) lines = lines.filter(l => { try { return allowed.has(JSON.parse(l).id); } catch (_) { return false; } });
+          for (const batch of E.batchLines(lines, 200)) {
+            const res = await rpc("app_system_restore_credentials", { p_restore_id: restoreId, p_lines: batch });
+            for (const r of (res && res.results) || []) {
+              result.credentials.total += 1;
+              if (r.res === "restored") result.credentials.restored += 1; else if (r.res === "failed") result.credentials.failed += 1; else result.credentials.skipped += 1;
+            }
+            onProgress({ stage: "credentials", done: result.credentials.total });
+          }
+        }
       }
       // Attachment files: only for records the database now holds.
       if (!result.stopped) {
@@ -442,10 +557,10 @@
     let verify = null;
     try { verify = await rpc("app_system_restore_verify", { p_restore_id: restoreId }); } catch (e) { result.errors.push(e.message || String(e)); }
     result.verify = verify;
-    const clean = !result.stopped && !result.errors.length && verify && verify.ok && !result.files.failed && !result.logos.failed && !result.outcomes.failed;
+    const clean = !result.stopped && !result.errors.length && verify && verify.ok && !result.files.failed && !result.logos.failed && !result.outcomes.failed && !result.credentials.failed;
     const status = result.stopped ? "stopped" : result.errors.length && !result.processed ? "failed" : clean && !result.outcomes.conflict && !result.outcomes.kept_live && !result.outcomes.deleted_live ? "completed" : "completed_with_warnings";
     if (!result.stopped) {
-      try { await rpc("app_system_restore_finish", { p_restore_id: restoreId, p_status: status, p_summary: { outcomes: result.outcomes, files: result.files, logos: result.logos, verify: verify && { ok: verify.ok, missing: verify.missing, wrongOwner: verify.wrongOwner, schemaUnchanged: verify.schemaUnchanged }, errors: result.errors.slice(0, 20) } }); }
+      try { await rpc("app_system_restore_finish", { p_restore_id: restoreId, p_status: status, p_summary: { mode, outcomes: result.outcomes, credentials: result.credentials, files: result.files, logos: result.logos, verify: verify && { ok: verify.ok, missing: verify.missing, wrongOwner: verify.wrongOwner, schemaUnchanged: verify.schemaUnchanged }, errors: result.errors.slice(0, 20) } }); }
       catch (e) { result.errors.push(e.message || String(e)); }
     }
     result.status = status;
@@ -471,5 +586,9 @@
     return [cols.join(","), ...rows.map(r => cols.map(c => cell(r[c])).join(","))].join("\r\n") + "\r\n";
   }
 
-  return Object.freeze({ createBackup, preview, restore, restorePlan, reportRows, reportCsv, unwrap });
+  async function undoUpdates(deps, restoreId) {
+    return unwrap(await deps.rpc("app_system_restore_undo_updates", { p_restore_id: restoreId }));
+  }
+
+  return Object.freeze({ createBackup, preview, restore, restorePlan, reportRows, reportCsv, undoUpdates, unwrap });
 });

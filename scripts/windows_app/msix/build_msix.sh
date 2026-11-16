@@ -36,7 +36,9 @@ command -v "$MAKEMSIX" >/dev/null || { echo "makemsix not found (set MAKEMSIX)."
 export LD_LIBRARY_PATH="$(dirname "$(command -v "$MAKEMSIX")")/../lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 VERSION="$(sed -n 's/^ *Version="\([0-9.]*\)"$/\1/p' "$MSIX_DIR/AppxManifest.xml" | head -1)"
 
-bash "$ROOT/scripts/windows_app/build_windows_app.sh"
+# Build the app binaries into the temp folder only: the published installer and its
+# signed latest.json stay exactly as released (they must match byte for byte).
+TRIPLEM_OUT="$BUILD/TriplemVIP_Setup.msix-build.exe" bash "$ROOT/scripts/windows_app/build_windows_app.sh"
 
 # The Store packages carry the Microsoft Store edition of the app (-tags store):
 # no self-updater, no uninstaller and no registry autostart (Windows and the
