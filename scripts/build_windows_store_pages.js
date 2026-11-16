@@ -26,7 +26,7 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "..");
 const OUT = path.join(ROOT, "windows-store");
 const BASE = "https://triplem.vip";
-const MODIFIED = "2026-11-11";
+const MODIFIED = "2026-11-16";
 const PRODUCT_ID = "9MV028GH5NPX";
 const STORE_WEB = `https://apps.microsoft.com/detail/${PRODUCT_ID}`;
 const T = require(path.join(ROOT, "Assets/app/core/04-trial-terms.js"));
@@ -131,6 +131,7 @@ function indexPage() {
     ["Windows integration", "Windows notifications, taskbar jump list, tray icon, Windows Hello app lock, keyboard shortcuts, backups to a folder you choose and an offline copy of recent records."]
   ];
   const body = [
+    section("Get it from the Microsoft Store", `<p>Triplem VIP for Windows passed Microsoft Store certification and is published on the Microsoft Store (Store ID ${PRODUCT_ID}). It is a free download with a 14-day free trial of the Triplem VIP service.</p><p><a class="ws-btn" href="${STORE_WEB}?hl=en-us&amp;gl=AE" target="_blank" rel="noopener">Get Triplem VIP from the Microsoft Store</a></p><p>On Windows you can also open the Microsoft Store app and search for "Triplem VIP".</p>`, "get"),
     section("Before you install", ul([
       "<b>A Triplem VIP account is required.</b> You can create one in the app with a free 14-day trial (no card). The app opens your account at triplem.vip.",
       "<b>An internet connection is required</b> to sign in, sync and back up. Recently opened records stay available during short outages and sync later.",
@@ -168,16 +169,21 @@ function indexPage() {
     title: "Triplem VIP for Windows, Microsoft Store Edition Guide",
     description: "Triplem VIP for Windows from the Microsoft Store: requirements, features, the 14-day free trial and its limits, plans, Store-only updates, privacy and AI.",
     h1: "Triplem VIP for Windows, Microsoft Store edition",
-    lead: "A private workspace for expenses, inventory, assets, loans, installments, accounting and reports, as a Windows app. Requires a Triplem VIP account (free 14-day trial) and an internet connection.",
+    lead: "Now available on the Microsoft Store: a private workspace for expenses, inventory, assets, loans, installments, accounting and reports, as a Windows app. Requires a Triplem VIP account (free 14-day trial) and an internet connection.",
     body,
     jsonld: [{
       "@type": "SoftwareApplication",
-      "@id": `${BASE}/windows-store/#app`,
-      name: "Triplem VIP",
-      applicationCategory: "BusinessApplication",
+      "@id": `${BASE}/#windows-app`,
+      name: "Triplem VIP for Windows",
+      applicationCategory: "FinanceApplication",
+      applicationSubCategory: "AccountingSoftware",
       operatingSystem: "Windows 10 version 1809 or later, Windows 11",
-      url: `${BASE}/windows-store/`,
-      installUrl: STORE_WEB,
+      url: STORE_WEB.toLowerCase(),
+      mainEntityOfPage: `${BASE}/windows-store/`,
+      installUrl: STORE_WEB.toLowerCase(),
+      downloadUrl: STORE_WEB.toLowerCase(),
+      sameAs: [STORE_WEB.toLowerCase()],
+      identifier: { "@type": "PropertyValue", propertyID: "Microsoft Store ID", value: PRODUCT_ID },
       softwareRequirements: "Triplem VIP account, internet connection, Microsoft Edge WebView2 Runtime",
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD", description: "Free download; 14-day free trial of the Triplem VIP service; paid plans from Triplem VIP." },
       publisher: { "@id": `${BASE}/#organization` }

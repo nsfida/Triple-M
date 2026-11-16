@@ -90,6 +90,12 @@
       ]
     }
   ],
-  "related_applications": [],
+  "related_applications": [
+    {
+      "platform": "windows",
+      "url": "https://apps.microsoft.com/detail/9MV028GH5NPX",
+      "id": "9MV028GH5NPX"
+    }
+  ],
   "prefer_related_applications": false
 }

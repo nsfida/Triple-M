@@ -3,12 +3,20 @@
 > Triplem VIP is a private finance workspace combining Triplem AI, Financial Timeline, pure expense/receiving/transfer views, Installment Plans Bought/Sold, Accounting ERP and operational finance modules.
 
 Canonical page: https://triplem.vip/seo/triplem.html
-Last reviewed: 2026-09-22
+Last reviewed: 2026-11-16
 Maintained by: Triplem VIP / Nadeem Shahzad Fida
 
 ## What is Triplem VIP? Accounting ERP plus operational finance
 
 A private browser-based workspace that combines formal double-entry accounting with practical daily finance modules, controlled access, responsive design and layered account protection.
+
+## Where to use Triplem VIP
+
+Triplem VIP is one service with one account:
+
+- **Web app:** sign in at https://triplem.vip/ in any current browser on Windows, macOS, Linux, Android or iOS.
+- **Windows app on the Microsoft Store:** Triplem VIP for Windows 10 and Windows 11 passed Microsoft Store certification and is published on the Microsoft Store (Store ID 9MV028GH5NPX): https://apps.microsoft.com/detail/9MV028GH5NPX. Free download with a 14-day free trial; the Microsoft Store installs and updates it.
+- All of them open the same workspace, records and permissions.
 
 ## Triplem VIP now spans daily finance and formal accounting.
 
@@ -207,3 +215,5 @@ Email: info@triplem.vip
 Facebook: https://fb.com/triplem.vip
 
 TikTok: https://www.tiktok.com/@triplem.vip
+
+Microsoft Store: https://apps.microsoft.com/detail/9MV028GH5NPX

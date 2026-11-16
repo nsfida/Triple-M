@@ -191,8 +191,13 @@
       "path": "Assets/style/69-admin-user-manager.css",
       "bytes": 41628,
       "sha256": "5c810206e80f8bbae915b0ee8ffc063c8c31b142d9107a927e913995932f2df9"
+    },
+    {
+      "path": "Assets/style/70-ms-store.css",
+      "bytes": 9255,
+      "sha256": "6e4f9e1c84a1231d7dea1d1e68551a7231cb7b0603e601594def6a98cc3973a9"
     }
   ],
-  "bytes": 915362,
-  "sha256": "57e5ca169b6d926cc604adb5c70004b3a898ed852044530c6875a59bc0b3c09d"
+  "bytes": 924673,
+  "sha256": "be9a9fa38aaeeee0b01a0fd1c68803790dc02234d774c790cde1f00c5810a438"
 }

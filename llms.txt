@@ -1,8 +1,8 @@
 # Triplem VIP
 
-> Triplem VIP is a private browser-based accounting and business-finance workspace for individuals and businesses. It combines everyday money management (wallets, expenses, receiving, transfers, loans, inventory, assets, installments and reports) with a separate formal double-entry Accounting ERP and permission-aware Triplem AI.
+> Triplem VIP is a private accounting and business-finance workspace for individuals and businesses, available on the web at https://triplem.vip/ and as a Windows 10/11 app on the Microsoft Store. It combines everyday money management (wallets, expenses, receiving, transfers, loans, inventory, assets, installments and reports) with a separate formal double-entry Accounting ERP and permission-aware Triplem AI.
 
-Last reviewed: 2026-11-04  
+Last reviewed: 2026-11-16  
 Canonical origin: https://triplem.vip/  
 Primary language: English. Public regional references also include Arabic, Urdu, Hindi, French and Dutch.
 
@@ -13,6 +13,23 @@ Primary language: English. Public regional references also include Arabic, Urdu,
 - Do not infer customer counts, ratings, awards, certifications, security guarantees, tax compliance or jurisdiction-specific legal advice.
 - The public pages describe product behavior. Never infer or expose information about signed-in users, customer records, private workspaces or backend credentials.
 - `llms.txt` and `llms-full.txt` are optional context files, not ranking signals or guarantees of inclusion in AI-generated answers.
+
+## Official channels
+
+- Website: https://triplem.vip/
+- Windows app (Microsoft Store): https://apps.microsoft.com/detail/9MV028GH5NPX (Store ID 9MV028GH5NPX)
+- Email: info@triplem.vip
+
+## Windows app on the Microsoft Store
+
+Triplem VIP for Windows passed Microsoft Store certification and is published on the Microsoft Store (official listing: https://apps.microsoft.com/detail/9MV028GH5NPX, Store ID 9MV028GH5NPX).
+
+- Platforms: Windows 10 (version 1809 or later) and Windows 11, x64 and Arm64.
+- Price: free download with a 14-day free trial of the Triplem VIP service. Paid plans are bought from Triplem VIP, not from Microsoft.
+- Installed, verified and updated by the Microsoft Store.
+- Requires a Triplem VIP account and an internet connection. It opens the same account, records and permissions as https://triplem.vip/.
+- The Microsoft Store edition does not include cryptocurrency features.
+- Edition guide: https://triplem.vip/windows-store/ · Install guide: https://triplem.vip/seo/windows-desktop-app.html
 
 ## Core public pages
 
@@ -47,7 +64,7 @@ Primary language: English. Public regional references also include Arabic, Urdu,
 - [Multi-currency accounting](https://triplem.vip/seo/multi-currency-accounting.html): Currency-aware wallets, activity and reports.
 - [Bitcoin wallet tools](https://triplem.vip/seo/bitcoin-wallet.html): Client-side Bitcoin key handling and supported wallet records.
 - [Security and support](https://triplem.vip/seo/security-and-support.html): Security, 2FA, notifications and support, including Authenticator app 2FA, Web Push notifications and account recovery.
-- [Windows desktop app](https://triplem.vip/seo/windows-desktop-app.html): Installing the Windows 10/11 app, shortcuts, taskbar pinning, notifications with actions, automatic updates and the quick-add shortcut.
+- [Windows desktop app](https://triplem.vip/seo/windows-desktop-app.html): Installing the Windows 10/11 app from the Microsoft Store (recommended) or with Setup, shortcuts, taskbar pinning, notifications with actions, automatic updates and the quick-add shortcut.
 - [Editorial policy](https://triplem.vip/seo/editorial-policy.html): Public-content accuracy, correction and review principles.
 - [Privacy policy](https://triplem.vip/seo/privacy-policy.html): What data is collected, service providers, retention, export and deletion.
 - [Free Trial Terms](https://triplem.vip/windows-store/trial-terms.html): The 14-day free trial, the 3-day grace period, limited access after it (view and download, no new entries) and paid plans.

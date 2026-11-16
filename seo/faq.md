@@ -1,7 +1,7 @@
 # Triplem VIP Frequently Asked Questions
 
 Canonical page: https://triplem.vip/seo/faq.html
-Last reviewed: 2026-11-11
+Last reviewed: 2026-11-16
 
 Answers below are published on the canonical HTML page. Check that page for the current product wording and visual navigation.
 
@@ -29,7 +29,11 @@ After approval or trial signup, you receive credentials for your own workspace. 
 
 ### Do I need to install an app?
 
-No. Triplem VIP runs in the browser on desktop and mobile. A Windows 10 and 11 desktop app and iOS/Android install helpers are optional; they open the same workspace, data and permissions as the browser.
+No. Triplem VIP runs in the browser on desktop and mobile. On Windows 10 and 11 you can also install the official Triplem VIP app from the Microsoft Store, and iOS/Android install helpers are available. All of them open the same workspace, data and permissions as the browser.
+
+### Is Triplem VIP available on the Microsoft Store?
+
+Yes. Triplem VIP for Windows is published on the Microsoft Store for Windows 10 and Windows 11 (Store ID 9MV028GH5NPX, listing https://apps.microsoft.com/detail/9MV028GH5NPX). It is a free download with a 14-day free trial. The Microsoft Store installs, verifies and updates the app, and you sign in with the same Triplem VIP account and data you use at triplem.vip.
 
 ### Can I use Triplem VIP offline?
 

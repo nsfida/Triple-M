@@ -1,14 +1,30 @@
-# Triplem VIP Windows App | Native Desktop Access to triplem.vip
+# Triplem VIP Windows App on the Microsoft Store | Install & Setup Guide
 
-> Use Triplem VIP as a native Windows desktop app that loads the live triplem.vip workspace with the same account, data, permissions and web updates.
+> Install Triplem VIP for Windows 10 and 11 from the Microsoft Store. The official desktop app opens the same live account, data and permissions as triplem.vip.
 
-Reviewed: 2026-11-11
+Reviewed: 2026-11-16
+
+## Now on the Microsoft Store
+
+Triplem VIP for Windows passed Microsoft Store certification and is published on the Microsoft Store for Windows 10 and Windows 11.
+
+- Microsoft Store listing: https://apps.microsoft.com/detail/9MV028GH5NPX
+- Store ID: 9MV028GH5NPX
+- Price: free download with a 14-day free trial (paid plans are bought from Triplem VIP)
+- Installed, verified and updated by the Microsoft Store
+- Requires a Triplem VIP account and an internet connection
+
+### Install from the Microsoft Store (recommended)
+
+1. Open https://apps.microsoft.com/detail/9MV028GH5NPX on a Windows 10 or 11 PC, or search for "Triplem VIP" in the Microsoft Store app.
+2. Click Get or Install.
+3. Open Triplem VIP from the Start menu and sign in with your Triplem VIP account, or create one with the free 14-day trial.
 
 ## Native Windows access
 
 Triplem VIP can be installed as a dedicated Windows application. The installed app owns its Windows window and loads the live Triplem VIP service through Microsoft WebView2.
 
-## Install on Windows 10 or 11
+## Install with Setup from triplem.vip (alternative)
 
 1. Download TriplemVIP_Setup.exe from triplem.vip and run it. Setup installs for the current Windows user and needs no administrator rights.
 2. Accept the licence agreement.
@@ -30,7 +46,7 @@ These features are part of the Triplem VIP Windows app 3.6. Your account, record
 
 ## Same online workspace
 
-The Windows application is another access method for the same Triplem VIP account and Supabase-backed data. It does not create a separate offline database.
+The Windows application is another access method for the same Triplem VIP account and cloud data. It does not create a separate offline database.
 
 Normal website changes can appear in the desktop app without requiring a new desktop release for every web-interface update.
 

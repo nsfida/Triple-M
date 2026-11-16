@@ -1,15 +1,26 @@
-# Triplem VIP | Accounting Software & Business Finance
+# Triplem VIP | Accounting Software, Finance ERP & Windows App
 
 > Triplem VIP is a private browser-based accounting and business-finance workspace for expenses, inventory, loans, multi-currency accounts and reports, with formal double-entry books, reconciliation, security controls and permission-aware Triplem AI.
 
 Canonical page: https://triplem.vip/
-Last reviewed: 2026-11-04
+Last reviewed: 2026-11-16
 
 ## What Triplem VIP covers
 
 Triplem VIP brings wallets and accounts, expenses and receiving, internal transfers, inventory, loans, installment plans, assets and depreciation, notes, Bitcoin tools, financial reports, audit controls and a formal double-entry Accounting ERP into one private workspace.
 
 Triplem AI can assist eligible signed-in users with product guidance and authorized workspace information. Financial Timeline provides chronological visibility across permitted records without replacing the formal General Ledger.
+
+## Windows app on the Microsoft Store
+
+Triplem VIP for Windows passed Microsoft Store certification and is published on the Microsoft Store (official listing: https://apps.microsoft.com/detail/9MV028GH5NPX, Store ID 9MV028GH5NPX).
+
+- Platforms: Windows 10 (version 1809 or later) and Windows 11, x64 and Arm64.
+- Price: free download with a 14-day free trial of the Triplem VIP service. Paid plans are bought from Triplem VIP, not from Microsoft.
+- Installed, verified and updated by the Microsoft Store.
+- Requires a Triplem VIP account and an internet connection. It opens the same account, records and permissions as https://triplem.vip/.
+- The Microsoft Store edition does not include cryptocurrency features.
+- Edition guide: https://triplem.vip/windows-store/ · Install guide: https://triplem.vip/seo/windows-desktop-app.html
 
 ## International currency support
 
@@ -35,6 +46,8 @@ Triplem VIP is intended for users in any country. If a required currency is not 
 - [Interactive Demo](https://triplem.vip/Demo/)
 - [Technical Security & Infrastructure](https://triplem.vip/Security/)
 - [Founder](https://triplem.vip/Founder/)
+- [Triplem VIP for Windows on the Microsoft Store](https://apps.microsoft.com/detail/9MV028GH5NPX)
+- [Microsoft Store edition guide](https://triplem.vip/windows-store/)
 - [Full public product reference](https://triplem.vip/llms-full.txt)
 
 ## Worldwide availability

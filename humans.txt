@@ -20,13 +20,14 @@ Rendering: Static multi-page HTML with client-side application behavior; no SSR 
 Deployment: Static site with custom-domain CNAME and a host-style _headers configuration
 Hosting provider: TODO — confirm the actual production static-hosting provider; it is not explicitly identified in the source tree
 Product URL: https://triplem.vip/
+Windows app (Microsoft Store): https://apps.microsoft.com/detail/9MV028GH5NPX
 Public guide library: https://triplem.vip/seo/
 Regional availability guide: https://triplem.vip/regions/
 FAQ: https://triplem.vip/seo/faq.html
 Sitemap: https://triplem.vip/sitemap.xml
 AI discovery index: https://triplem.vip/llms.txt
 Full public product reference: https://triplem.vip/llms-full.txt
-Last reviewed: 2026/11/04
+Last reviewed: 2026/11/16
 
 /* CONTENT PRINCIPLES */
 Public pages describe current product behavior and avoid unsupported capability, customer, performance, award, certification, security-guarantee or compliance claims.

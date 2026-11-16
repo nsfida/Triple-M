@@ -17,7 +17,7 @@
 - [Insurance Management | Commission, Referrals & PDFs | Triplem VIP](https://triplem.vip/seo/insurance-management.md)
 - [Inventory Management | Stock, Customers & Invoices | Triplem VIP](https://triplem.vip/seo/inventory-management.md)
 - [Excel to Triplem VIP | Custom Finance Setup & Migration Guide](https://triplem.vip/seo/excel-to-triplem-vip.md)
-- [Triplem VIP Windows App | Native Desktop Access to triplem.vip](https://triplem.vip/seo/windows-desktop-app.md)
+- [Triplem VIP Windows App on the Microsoft Store | Install & Setup Guide](https://triplem.vip/seo/windows-desktop-app.md)
 
 - [Bank, Wallet & Card Account Details | Triplem VIP](https://triplem.vip/seo/account-details.md)
 - [Accounting ERP Software | Double-Entry Books, AR/AP & Reports | Triplem VIP](https://triplem.vip/seo/accounting-erp.md)

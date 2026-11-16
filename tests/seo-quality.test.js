@@ -79,13 +79,13 @@ test('sitemap, demo indexability, homepage search copy and maintained workflow r
   const postdeployWorkflow = read('.github/workflows/seo-postdeploy.yml');
   const packageJson = JSON.parse(read('package.json'));
 
-  assert.match(homepage, /<title>Triplem VIP \| Accounting Software, Finance ERP &amp; AI<\/title>/);
+  assert.match(homepage, /<title>Triplem VIP \| Accounting Software, Finance ERP &amp; Windows App<\/title>/);
   assert.match(homepage, /name="description" content="Accounting software for expenses, inventory, loans/);
-  assert.match(homepage, /"dateModified": "2026-11-04"/);
+  assert.match(homepage, /"dateModified": "2026-11-16"/);
   assert.match(homepage, /<meta property="og:image:width" content="1200" \/>/);
   assert.match(homepage, /og-card\.jpg/);
   assert.doesNotMatch(homepage, /"aggregateRating"/, "self-curated testimonials are not marked up as ratings");
-  assert.match(read('index.md'), /Last reviewed: 2026-11-04/);
+  assert.match(read('index.md'), /Last reviewed: 2026-11-16/);
   assert.doesNotMatch(homepage, /name="geo\.region"|name="geo\.placename"|name="subject"|name="category"/);
   for (const agent of ['robots', 'googlebot', 'bingbot']) {
     assert.match(demo, new RegExp(`<meta name="${agent}" content="noindex, follow"`));
@@ -121,7 +121,7 @@ test('sitemap freshness comes only from explicit content dates, never deployment
   assert.ok(entries.every(entry => !entry.loc.endsWith('/Demo/')));
   assert.ok(entries.some(entry => entry.loc === 'https://triplem.vip/seo/faq.html'));
   assert.ok(entries.every(entry => !entry.lastmod || sitemapBuilder.validIsoDate(entry.lastmod)));
-  assert.equal(entries.find(entry => entry.loc === 'https://triplem.vip/').lastmod, '2026-11-04');
+  assert.equal(entries.find(entry => entry.loc === 'https://triplem.vip/').lastmod, '2026-11-16');
   assert.ok(entries.every(entry => ['always','hourly','daily','weekly','monthly','yearly','never'].includes(entry.changefreq)));
   assert.ok(entries.every(entry => Number(entry.priority) >= 0 && Number(entry.priority) <= 1));
 });
@@ -158,7 +158,7 @@ test('humans.txt and LLM discovery references have current, explicit source boun
   const humans = read('humans.txt');
   const llms = read('llms.txt');
   const full = read('llms-full.txt');
-  assert.match(humans, /Last reviewed: 2026\/11\/04/);
+  assert.match(humans, /Last reviewed: 2026\/11\/16/);
   assert.match(humans, /Canonical HTML pages are authoritative/);
   assert.match(llms, /Markdown pages are supplementary reading copies/i);
   assert.match(llms, /optional context files, not ranking signals/i);
@@ -212,4 +212,34 @@ test('public SEO metadata, manifest icons and FAQ schema stay complete', () => {
     assert.match(robots, new RegExp(`User-agent: ${bot}`));
   }
   assert.ok(buildEntries().some(entry => entry.loc === 'https://triplem.vip/seo/faq.html'));
+});
+
+test('Microsoft Store availability is announced consistently (2026-11-16)', () => {
+  const homepage = read('index.html');
+  const listing = 'https://apps.microsoft.com/detail/9MV028GH5NPX';
+  // official links only: the Store listing, mode=direct (Microsoft's Store Web Installer) and the Store app protocol
+  assert.match(homepage, /id="microsoft-store"/);
+  assert.match(homepage, /https:\/\/get\.microsoft\.com\/images\/en-us%20dark\.svg/);
+  assert.match(homepage, /ms-windows-store:\/\/pdp\/\?ProductId=9MV028GH5NPX/);
+  const js = read('Assets/app/landing/03-ms-store.js');
+  assert.match(js, /detail\/\$\{PRODUCT_ID\}\?mode=direct/);
+  assert.doesNotMatch(homepage + js, /\.msixbundle|\.appxbundle|rg-adguard|store\.rg|msft-store\.tplant/i);
+  // promotion is hidden inside the Windows apps
+  assert.match(read('Assets/style/70-ms-store.css'), /html\.triplem-windows-app \[data-ms-store-promo\]/);
+  // structured data: one Windows app entity shared by the homepage and the Store edition page
+  const graph = JSON.parse(homepage.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])['@graph'];
+  const app = graph.find(n => n['@id'] === 'https://triplem.vip/#windows-app');
+  assert.ok(app);
+  assert.equal(app.installUrl, listing.toLowerCase());
+  assert.equal(app.identifier.value, '9MV028GH5NPX');
+  assert.ok(graph.find(n => n['@id'] === 'https://triplem.vip/#organization').sameAs.includes(listing.toLowerCase()));
+  assert.match(read('windows-store/index.html'), /"@id": "https:\/\/triplem\.vip\/#windows-app"/);
+  // FAQ, discovery files and the web manifest
+  assert.match(read('seo/faq.html'), /Is Triplem VIP available on the Microsoft Store\?/);
+  for (const f of ['llms.txt', 'llms-full.txt', 'index.md', 'humans.txt', 'seo/windows-desktop-app.md', 'seo/triplem.md']) {
+    assert.ok(read(f).includes(listing), f);
+  }
+  const manifest = JSON.parse(read('site.webmanifest'));
+  assert.deepEqual(manifest.related_applications, [{ platform: 'windows', url: listing, id: '9MV028GH5NPX' }]);
+  assert.equal(manifest.prefer_related_applications, false);
 });
