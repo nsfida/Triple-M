@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- i18n:redirect-start (English page only: reopen the language the visitor chose last time) -->
+  <script>(function(){try{var l=localStorage.getItem("triplem.lang"),p=location.pathname;if((l==="ar"||l==="ur")&&(p==="/"||p==="/index.html")&&!/[?&]lang=en\b/.test(location.search)){location.replace("/"+l+"/"+location.search+location.hash);}}catch(e){}})();</script>
+  <!-- i18n:redirect-end -->
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-TBKZB3FEVZ"></script>
   <script>
@@ -302,6 +305,8 @@
   <link rel="describedby" href="https://triplem.vip/llms.txt" />
   <link rel="alternate" type="text/markdown" href="https://triplem.vip/index.md" />
   <link rel="alternate" hreflang="en" href="https://triplem.vip/" />
+  <link rel="alternate" hreflang="ar" href="https://triplem.vip/ar/" />
+  <link rel="alternate" hreflang="ur" href="https://triplem.vip/ur/" />
   <link rel="alternate" hreflang="x-default" href="https://triplem.vip/" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="en_US" />
@@ -989,8 +994,12 @@
   <link rel="stylesheet" href="Assets/style/64-inventory-v2.css?v=20261111-inv2p8" />
   -->
   <!-- Deferred runtime is declared in <head> so downloads begin during HTML parsing; execution order and post-parse semantics remain unchanged. -->
+  <!-- i18n:scripts (English / العربية / اردو; the Arabic and Urdu pages add their dictionary before these) -->
+  <script defer src="Assets/app/i18n/00-i18n-core.js?v=20261116-i18n001"></script>
+  <script defer src="Assets/app/i18n/01-i18n-runtime.js?v=20261116-i18n001"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script defer src="Assets/app/i18n/02-i18n-pdf.js?v=20261116-i18n001"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script defer data-chartjs-loader="1" src="Assets/app/lib/chartjs-4.4.7/chart.umd.min.js"></script>
@@ -1174,6 +1183,7 @@
         </nav>
 
         <div class="landing-nav-actions">
+          <div class="landing-lang-picker" data-lang-picker="compact"></div>
           <div class="landing-visitor-alert-control" aria-label="Visitor notification preference">
             <i class="fa-solid fa-bell" aria-hidden="true"></i>
             <span id="visitorPushStatusLabel" class="landing-visitor-alert-label">Alerts Off</span>
@@ -1205,6 +1215,7 @@
         </div>
 
         <div class="landing-mobile-menu hide" id="landingMobileMenu" role="menu" aria-label="Landing sections menu" hidden>
+          <div class="landing-mobile-lang" data-lang-picker></div>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="about">About</button>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="features">Features</button>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="services">Services</button>
@@ -2943,6 +2954,7 @@
             <h3 id="loginTitle">Sign in</h3>
           </div>
         </div>
+        <div class="login-lang-row" data-lang-picker></div>
         <p class="login-panel-copy">Enter your username and password to open your private workspace.</p>
         <form class="login-form landing-login-form" onsubmit="return false;">
           <div class="form-group">

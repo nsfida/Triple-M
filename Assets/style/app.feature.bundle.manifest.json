@@ -196,8 +196,13 @@
       "path": "Assets/style/70-ms-store.css",
       "bytes": 9255,
       "sha256": "6e4f9e1c84a1231d7dea1d1e68551a7231cb7b0603e601594def6a98cc3973a9"
+    },
+    {
+      "path": "Assets/style/71-i18n.css",
+      "bytes": 7598,
+      "sha256": "b08cb0318547f1bd535e397f2c008be69387dd4261dcceb759f8a1d3e994d86b"
     }
   ],
-  "bytes": 924673,
-  "sha256": "be9a9fa38aaeeee0b01a0fd1c68803790dc02234d774c790cde1f00c5810a438"
+  "bytes": 932323,
+  "sha256": "8a3e8034ee24011d63c8ccc88abd677ea54abfbbecd72a61a09c7608840dedb4"
 }

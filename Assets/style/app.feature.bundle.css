@@ -13287,3 +13287,75 @@ html.triplem-store-app [data-ms-store-promo],
   #lockScreen .msstore-hero-chip,.msstore-badge,#lockScreen .msstore-hero-chip-arrow{transition:none}
 }
 #lockScreen .msstore-legal{margin:10px 0 0;color:#64748b;font-size:.64rem;line-height:1.4}
+
+/* ===== SOURCE: Assets/style/71-i18n.css ===== */
+/* Triplem VIP · languages (2026-11-16)
+   Language buttons, the Language card in Account settings, Arabic / Urdu fonts and the
+   right-to-left fixes that are not plain left/right mirroring (scripts/build_rtl_css.js
+   mirrors the rest). Rules for RTL pages are written with [dir="rtl"] so the mirroring
+   script leaves them as they are. */
+
+/* ── language button + menu ─────────────────────────────────────────── */
+.tm-lang{position:relative;display:inline-flex;align-items:center}
+.tm-lang-btn{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line,rgba(148,163,184,.35));background:var(--surface-elevated,rgba(255,255,255,.75));color:var(--text,#0f172a);font:inherit;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .18s ease,border-color .18s ease}
+.tm-lang-btn:hover,.tm-lang-btn:focus-visible{border-color:color-mix(in srgb,var(--primary,#2457d6) 45%,var(--line,#cbd5e1));background:color-mix(in srgb,var(--primary,#2457d6) 8%,var(--surface-elevated,#fff))}
+.tm-lang-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--primary,#2457d6) 55%,transparent);outline-offset:2px}
+.tm-lang-btn .fa-language{color:var(--primary,#2457d6);font-size:.95rem}
+.tm-lang-caret{font-size:.6rem;opacity:.65}
+.tm-lang-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:2147483000;min-width:168px;padding:6px;border-radius:14px;border:1px solid var(--line,rgba(148,163,184,.35));background:var(--surface-elevated,#fff);box-shadow:0 18px 40px rgba(15,23,42,.18)}
+.tm-lang-menu[hidden]{display:none}
+.tm-lang-menu button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:38px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--text,#0f172a);font-size:.88rem;font-weight:600;cursor:pointer;text-align:start}
+.tm-lang-menu button:hover,.tm-lang-menu button:focus-visible{background:color-mix(in srgb,var(--primary,#2457d6) 9%,transparent)}
+.tm-lang-menu button[aria-checked="true"]{color:var(--primary,#2457d6)}
+.tm-lang-menu button[lang="ar"]{font-family:"Noto Naskh Arabic",system-ui,sans-serif}
+.tm-lang-menu button[lang="ur"]{font-family:"Noto Nastaliq Urdu","Noto Naskh Arabic",system-ui,sans-serif;line-height:2}
+.landing-lang-picker{margin-inline-end:4px}
+.landing-mobile-lang{display:flex;justify-content:center;padding:6px 8px 10px}
+.login-lang-row,.signup-lang-row{display:flex;justify-content:flex-end;margin:0 0 8px}
+.signup-lang-row .tm-lang-btn{background:rgba(255,255,255,.12);color:inherit;border-color:rgba(255,255,255,.28)}
+
+/* ── Account settings › Language ────────────────────────────────────── */
+.tm-lang-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tm-lang-option{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 10px;border-radius:12px;border:1px solid var(--line,#cbd5e1);background:var(--surface,#fff);color:var(--text,#0f172a);font-size:.92rem;font-weight:600;cursor:pointer}
+.tm-lang-option.is-active{border-color:var(--primary,#2457d6);background:color-mix(in srgb,var(--primary,#2457d6) 9%,var(--surface,#fff));color:var(--primary,#2457d6)}
+.tm-lang-option[lang="ar"]{font-family:"Noto Naskh Arabic",system-ui,sans-serif}
+.tm-lang-option[lang="ur"]{font-family:"Noto Nastaliq Urdu","Noto Naskh Arabic",system-ui,sans-serif;line-height:2}
+@media (max-width:420px){.tm-lang-options{grid-template-columns:1fr}}
+
+/* ── Arabic and Urdu typography ─────────────────────────────────────── */
+html[lang="ar"]{--tm-font-i18n:Inter,"Noto Naskh Arabic","Noto Sans Arabic",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}
+html[lang="ur"]{--tm-font-i18n:Inter,"Noto Nastaliq Urdu","Noto Naskh Arabic",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}
+html[lang="ar"] body,html[lang="ur"] body,
+html[lang="ar"] body :is(button,input,select,textarea,optgroup,option,h1,h2,h3,h4,h5,h6,p,span,a,label,li,td,th,dt,dd,small,strong,b,em,div,section,article,aside,nav,header,footer,summary,legend,caption,figcaption,blockquote):not([class*="fa-"]):not(.symbol):not(.symbol-dirham):not(.symbol-riyal):not(.float-currency){font-family:var(--tm-font-i18n) !important}
+/* Amounts, codes and data entry stay in clear Latin digits */
+html[dir="rtl"] :is(input[type="number"],input[type="tel"],input[type="email"],input[type="url"],input[inputmode="decimal"],input[inputmode="numeric"]){direction:ltr;text-align:right}
+html[dir="rtl"] :is(.float-currency,.money,.amount,[data-amount],code,kbd,samp){unicode-bidi:isolate}
+/* Urdu Nastaliq is tall: give text room so it is never clipped */
+html[lang="ur"] body{line-height:1.95}
+html[lang="ur"] :is(p,li,dd,dt,label,small,td,th,summary,.settings-readonly-note,.aum-note,.tm-dp-note){line-height:1.95 !important}
+html[lang="ur"] :is(h1,h2,h3,h4,h5,h6){line-height:1.7 !important;letter-spacing:0 !important}
+html[lang="ur"] :is(button,.btn,.aum-btn,.chip,.pill,.tab,[role="tab"],.menu-item,.landing-nav-cta){line-height:1.8 !important;padding-block:2px}
+html[lang="ur"] :is(input,select,textarea){line-height:1.8}
+html:is([lang="ar"],[lang="ur"]) *:not(:is(.landing-brand-mark,.landing-brand-name,.auth-resume-brand,[aria-label="Triplem VIP"],[aria-label="Triplem VIP"] *,.landing-brand-mark *,.landing-brand-name *,.auth-resume-brand *)){letter-spacing:0 !important;text-transform:none !important}
+
+/* ── direction-aware icons (arrows and chevrons point the reading way) ── */
+html[dir="rtl"] :is(.fa-arrow-right,.fa-arrow-left,.fa-chevron-right,.fa-chevron-left,.fa-angle-right,.fa-angle-left,.fa-angles-right,.fa-angles-left,.fa-caret-right,.fa-caret-left,.fa-arrow-right-long,.fa-arrow-left-long,.fa-right-long,.fa-left-long,.fa-arrow-right-from-bracket,.fa-right-from-bracket,.fa-right-to-bracket,.fa-arrow-right-to-bracket,.fa-reply,.fa-share,.fa-arrow-up-right-from-square,.fa-up-right-from-square,.fa-list-ul,.fa-align-left,.fa-align-right,.fa-paper-plane,.fa-person-walking-arrow-right,.fa-arrow-trend-up,.fa-arrow-trend-down,.fa-chart-line,.fa-file-export,.fa-file-import,.fa-sign-out-alt,.fa-sign-in-alt,.fa-door-open,.fa-quote-left,.fa-quote-right){transform:scaleX(-1)}
+html[dir="rtl"] .fa-spin,html[dir="rtl"] .btn-loader{transform:none}
+/* phone numbers, IBANs, card numbers, usernames and e-mail addresses read left to right */
+html[dir="rtl"] :is(.ltr,[dir="ltr"],.username,.iban,.card-number,.account-number,.trn,.phone,.email){direction:ltr;unicode-bidi:isolate}
+
+/* ── brand wordmarks always read "TRIPLE M VIP" left to right ────────── */
+html[dir="rtl"] :is(.auth-resume-brand,.landing-brand-mark,.landing-brand-name,.brand-title,.brand,[aria-label="Triplem VIP"]){direction:ltr;unicode-bidi:isolate}
+html[dir="rtl"] .landing-nav-actions{gap:6px}
+html[dir="rtl"] .landing-nav-actions :is(a,button){white-space:nowrap}
+
+/* compact language button in the top bar */
+.tm-lang--compact .tm-lang-btn{gap:5px;min-height:34px;padding:0 10px;font-size:.76rem}
+.tm-lang--compact .tm-lang-caret{display:none}
+/* phones: the language choice lives in the ☰ menu, the top bar stays as before */
+@media (max-width:760px){
+  .landing-nav-actions .landing-lang-picker{display:none}
+}
+@media (max-width:1365px){
+  html[dir="rtl"] .landing-nav .landing-brand-mark{display:none}
+}

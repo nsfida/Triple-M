@@ -41,6 +41,7 @@ async function openTrialSignupModal(preferredPlan = "free"){
     <div class="modal-dialog trial-signup-dialog signup-v2-dialog" role="dialog" aria-modal="true" aria-labelledby="trialSignupTitle">
       <div class="modal-head trial-signup-head signup-v2-head">
         <div class="signup-hero-copy">
+          <div class="signup-lang-row" data-lang-picker></div>
           <p class="trial-signup-kicker"><i class="fa-solid fa-gem" aria-hidden="true"></i> Triplem VIP Membership</p>
           <h3 id="trialSignupTitle">Build your private finance workspace in minutes</h3>
           <p>One refined workspace for accounts, expenses, inventory, loans, assets and reports, with layered account protection, Live Support and authenticated in-app care.</p>

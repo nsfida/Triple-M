@@ -2559,6 +2559,19 @@ function openAccountPasswordChangeModal(){
   ["acctPasswordCurrent","acctPasswordNew","acctPasswordConfirm"].forEach(id => modal.querySelector(`#${id}`)?.addEventListener("keydown", event => { if(event.key === "Enter"){ event.preventDefault(); submitAccountPasswordChange({ currentTarget: modal.querySelector("#acctPasswordChangeSave") }); } }));
 }
 
+// App language (English / Arabic / Urdu). Saved to this account by Assets/app/i18n/01-i18n-runtime.js.
+function accountLanguageCardHtml(){
+  const i18n = window.TriplemI18n;
+  if (!i18n) return "";
+  const current = i18n.lang;
+  const options = Object.entries(i18n.languages).map(([code, info]) => `<button type="button" class="tm-lang-option${code === current ? " is-active" : ""}" role="radio" aria-checked="${code === current}" data-lang-choice="${code}" lang="${code}" dir="${info.dir}" translate="no"><span>${escapeHtml(info.native)}</span>${code === current ? '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>' : ""}</button>`).join("");
+  return `<section class="settings-card account-summary-card account-language-card">
+      <div class="settings-card-head"><span><i class="fa-solid fa-language"></i> Language</span></div>
+      <p class="settings-readonly-note">Choose the language of the app, invoices, receipts and PDFs. It is saved to your account and used on every device.</p>
+      <div class="tm-lang-options" role="radiogroup" aria-label="Language">${options}</div>
+    </section>`;
+}
+
 function renderAccountSettingsSummary(modal){
   if (!modal) return;
   const user = state.sessionUser || {};
@@ -2573,6 +2586,7 @@ function renderAccountSettingsSummary(modal){
       <div class="account-summary-profile"><img src="${escapeHtml(logo)}" alt="${escapeHtml(snap.displayName)}" onerror="this.onerror=null;this.src='Assets/logo/logo.png'" /><div><strong>${escapeHtml(snap.displayName)}</strong><span>@${escapeHtml(snap.username)}</span></div></div>
       <div class="account-summary-grid">${accountSettingsSummaryValue("Display name", snap.displayName)}${accountSettingsSummaryValue("Username", `@${snap.username}`)}</div>
     </section>
+    ${accountLanguageCardHtml()}
     <section class="settings-card account-summary-card${brandingLocked ? " settings-card-locked" : ""}">
       <div class="settings-card-head"><span><i class="fa-solid fa-building"></i> Company</span>${brandingLocked ? `<span class="settings-pill">Managed</span>` : `<button type="button" class="account-settings-edit-icon" id="accountCompanyEditBtn" aria-label="Edit company details" title="Edit company"><i class="fa-solid fa-pen"></i></button>`}</div>
       ${brandingLocked ? `<p class="settings-readonly-note"><i class="fa-solid fa-lock"></i> Company details are managed by the company main account.</p>` : ""}
