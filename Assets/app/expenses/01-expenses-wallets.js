@@ -572,10 +572,15 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     }
     return [];
   }
+  // A refresh of the same dates/search (after a save, a sync, …) keeps every record already on
+  // screen: it reloads as many rows as were loaded and shows no skeleton, so the page never
+  // shrinks and the scroll position is kept.
+  const refreshSameQuery = !append && state.expenseLazy.lastLoadedQueryKey === queryKey && Number(state.expenseLazy.lastLoadedCount || 0) > 0;
   state.expenseLazy.loadingActivity = true;
   state.expenseLazy.loadingAppend = !!append;
-  // Expenses history v3: skeleton rows while the new records load.
-  if (!append && state.expenseRecordView === "history" && window.TriplemExpenseHistory && expenseHistoryIsOpen()) {
+  state.expenseLazy.loadingRefresh = refreshSameQuery;
+  // Expenses history v3: skeleton rows while the new records (other dates / search) load.
+  if (!append && !refreshSameQuery && state.expenseRecordView === "history" && window.TriplemExpenseHistory && expenseHistoryIsOpen()) {
     try { window.TriplemExpenseHistory.showSkeleton(); } catch (_) {}
   }
   try {
@@ -587,7 +592,8 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     if (force || queryChanged || !append) state.expenseLazy.activityOffset = 0;
     const historyServerWindow = !search && state.expenseRecordView === "history" && state.expenseLazy.itemHistoryRpcAvailable !== false;
     // The flat history (v3) shows transactions directly: 40 per page, "Load more" adds the next.
-    const limit = historyServerWindow ? (window.TriplemExpenseHistory ? 40 : 10) : Number(state.expenseLazy.activityPageSize || 250);
+    const pageLimit = historyServerWindow ? (window.TriplemExpenseHistory ? 40 : 10) : Number(state.expenseLazy.activityPageSize || 250);
+    const limit = refreshSameQuery ? Math.min(500, Math.max(pageLimit, Number(state.expenseLazy.lastLoadedCount || 0))) : pageLimit;
     const offset = append ? Number(state.expenseLazy.activityOffset || 0) : 0;
     const searchAllDates = search && state.expenseHistorySearchScope !== "range";
     const page = searchAllDates && !append
@@ -616,6 +622,9 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     state.expenseLazy.activityQueryKey = queryKey;
     state.expenseLazy.activityOffset = offset + nextActions.length;
     state.expenseLazy.activityHasMore = page.hasMore;
+    state.expenseLazy.lastLoadedQueryKey = queryKey;
+    state.expenseLazy.lastLoadedCount = state.expenseLazy.activityOffset;
+    if (!append) state.expenseLazy.breakdownVersion = Number(state.expenseLazy.breakdownVersion || 0) + 1;
     if (!append) {
       if (state.expenseRecordView === "history") {
         try { await loadExpenseItemSummariesForCurrentQuery({ force: force || queryChanged }); }
@@ -638,8 +647,54 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     throw err;
   } finally {
     state.expenseLazy.loadingActivity = false;
+    state.expenseLazy.loadingRefresh = false;
   }
 }
+
+// ── Expenses history: categories counted per transaction ──────────────────────────────────
+// An item can have transactions in different categories (for example "Adjustment" as Food on
+// one day and Other on another), so the category buttons count transactions, never items. When
+// only the first page of the dates is loaded, the counts for the whole dates are read once in
+// the background (read only, up to 5,000 transactions); the result is kept until the records of
+// these dates are reloaded.
+const expenseTypeBreakdownState = { key: "", data: null };
+function expenseHistoryTypeBreakdown(){
+  if (typeof isExpenseLazyMode !== "function" || !isExpenseLazyMode()) return null;
+  const key = `${expenseLazyActivityQueryKey()}|${Number(state.expenseLazy.breakdownVersion || 0)}`;
+  if (expenseTypeBreakdownState.key === key) return expenseTypeBreakdownState.data;
+  expenseTypeBreakdownState.key = key;
+  expenseTypeBreakdownState.data = null;
+  (async () => {
+    const bounds = expenseActivityQueryBounds();
+    const search = String(state.search.expenses || "").trim();
+    const groupId = state.expenseWalletFilter && state.expenseWalletFilter !== "all" ? String(state.expenseWalletFilter) : "";
+    const types = new Map();
+    let count = 0, offset = 0, more = true, pages = 0;
+    while (more && pages < 10) {
+      pages += 1;
+      const page = await fetchExpenseActivityRpc({ from: bounds.from || null, to: bounds.to || null, search, groupId, limit: 500, offset });
+      for (const r of page.items || []) {
+        if (String(r.row_type || "").toUpperCase() !== "EXPENSE" || String(r.currency || "").toUpperCase() === "BTC") continue;
+        const entry = expenseActivityToEntry(r);
+        if (isInternalExpenseTransferRow(entry)) continue;
+        const type = String(entry._expenseMeta?.expenseType || r.expense_type || "Other").trim() || "Other";
+        const cur = r.currency || "AED";
+        const t = types.get(type) || { count: 0, byCur: new Map() };
+        t.count += 1; t.byCur.set(cur, Number(t.byCur.get(cur) || 0) + Number(r.amount || 0));
+        types.set(type, t); count += 1;
+      }
+      offset += (page.items || []).length;
+      more = page.hasMore === true && (page.items || []).length > 0;
+    }
+    return more ? { failed: true } : { types, count };
+  })().catch(() => ({ failed: true })).then(data => {
+    if (expenseTypeBreakdownState.key !== key) return;
+    expenseTypeBreakdownState.data = data;
+    try { if (typeof renderExpensesList === "function" && getActiveTabKey() === "expenses") renderExpensesList(); } catch (_) {}
+  });
+  return null;
+}
+window.expenseHistoryTypeBreakdown = expenseHistoryTypeBreakdown;
 
 async function ensureExpenseWalletDetailLoaded(groupId, { force = false } = {}){
   const gid = String(groupId || "").trim();
@@ -5262,7 +5317,8 @@ function renderExpensesList(){
       <div class="expense-collapsible-content">
         ${window.TriplemExpenseHistory.render({
           items,
-          loading: lazy && ((state.expenseLazy.loadingActivity && !state.expenseLazy.loadingAppend) || state.expenseLazy.activityDeferred === true),
+          loading: lazy && ((state.expenseLazy.loadingActivity && !state.expenseLazy.loadingAppend && !state.expenseLazy.loadingRefresh) || state.expenseLazy.activityDeferred === true),
+          refreshing: lazy && state.expenseLazy.loadingActivity && state.expenseLazy.loadingRefresh === true,
           loadingMore: lazy && state.expenseLazy.loadingActivity && state.expenseLazy.loadingAppend === true,
           hasMore: lazy && state.expenseLazy.activityHasMore === true,
           rangeText: expenseHistoryRangeText(),

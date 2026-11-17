@@ -130,7 +130,7 @@
     const curs = (typeof sortCurrenciesList === "function" ? sortCurrenciesList([...T.byCur.keys()]) : [...T.byCur.keys()]);
     const totals = curs.length ? curs.map(c => `<b>${m(T.byCur.get(c).total, c)}</b>`).join("") : `<b>${m(0, "")}</b>`;
     const vat = curs.filter(c => T.byCur.get(c).tax > 0).map(c => m(T.byCur.get(c).tax, c)).join(" · ");
-    const topType = [...T.types.entries()].sort((a, b) => b[1].count - a[1].count)[0];
+    const topType = T.typesExact === false ? null : [...T.types.entries()].sort(typeOrder)[0];
     const showing = T.count > shownCount ? `<small class="exh-sum-more">Showing ${shownCount} of ${T.count} · load more below</small>` : "";
     return `<div class="exh-sum">
       <div class="exh-sum-card is-main"><span class="exh-sum-label"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> Total spent</span><span class="exh-sum-total">${totals}</span>${showing}</div>
@@ -139,10 +139,14 @@
       <div class="exh-sum-card"><span class="exh-sum-label"><i class="fa-solid fa-crown" aria-hidden="true"></i> Most frequent</span><b class="exh-ellipsis">${topType ? esc(topType[0]) : "—"}</b><small>${topType ? `${topType[1].count} transaction${topType[1].count === 1 ? "" : "s"}` : "No transactions"}</small></div>
     </div>`;
   }
+  // Largest first; equal counts by name, so the buttons keep their places.
+  const typeOrder = (a, b) => (b[1].count - a[1].count) || String(a[0]).localeCompare(String(b[0]));
   function chipsHtml(T){
-    const types = [...T.types.entries()].sort((a, b) => b[1].count - a[1].count);
+    const types = [...T.types.entries()].sort(typeOrder);
     if (types.length < 2 && S.type === "all") return "";
-    const chip = (key, label, count, tone) => `<button type="button" class="exh-chip${S.type === key ? " is-on" : ""}" data-exh-type="${esc(key)}" aria-pressed="${S.type === key}"${tone ? ` style="--t:${tone}"` : ""}>${tone ? `<i class="exh-dot" aria-hidden="true"></i>` : ""}${esc(label)}<small>${esc(String(count))}</small></button>`;
+    // T.typesExact false: the counts for these dates are still being read — names only for now.
+    const n = count => T.typesExact === false ? "" : `<small>${esc(String(count))}</small>`;
+    const chip = (key, label, count, tone) => `<button type="button" class="exh-chip${S.type === key ? " is-on" : ""}" data-exh-type="${esc(key)}" aria-pressed="${S.type === key}"${tone ? ` style="--t:${tone}"` : ""}>${tone ? `<i class="exh-dot" aria-hidden="true"></i>` : ""}${esc(label)}${n(count)}</button>`;
     return `<div class="exh-chips" role="toolbar" aria-label="Filter by category">${chip("all", "All", T.count, "")}${types.map(([k, v]) => chip(k, k, v.count, toneFor(k))).join("")}</div>`;
   }
   function toolbarHtml(ctx){
@@ -248,12 +252,31 @@
     // keep selected rows only while they are on screen
     const ids = new Set(all.map(t => String(t.id)));
     for (const id of [...S.sel.keys()]) if (!ids.has(id)) S.sel.delete(id);
-    const types = new Set(all.map(t => String(t.expenseType || "Other")));
+    // One set of numbers whatever button is selected: totals for the whole dates (server when
+    // exact), categories counted per transaction — from the rows on screen when they are all
+    // loaded, otherwise from a one-time count of the whole dates.
+    const local = localTotals(all);
+    const T = { ...((!ctx.searching && serverTotals()) || local) };
+    if (!ctx.hasMore) { T.types = local.types; T.typesExact = true; }
+    else {
+      const B = (() => { try { return global.expenseHistoryTypeBreakdown?.() || null; } catch (_) { return null; } })();
+      if (B && !B.failed) { T.types = B.types; T.typesExact = true; }
+      else {
+        // Names of the loaded categories, without numbers, until the count arrives (or if the
+        // dates hold too many transactions to count here).
+        T.types = new Map([...local.types.keys()].map(k => [k, { count: 0, byCur: new Map() }]));
+        T.typesExact = false;
+      }
+    }
+    const types = new Set([...T.types.keys(), ...all.map(t => String(t.expenseType || "Other"))]);
     if (S.type !== "all" && !types.has(S.type)) S.type = "all";
     const filtered = S.type === "all" ? all : all.filter(t => String(t.expenseType || "Other") === S.type);
     S.list = sorted(filtered);
     S.byId = new Map(all.map(t => [String(t.id), t]));
-    const T = (S.type === "all" && !ctx.searching && serverTotals()) || localTotals(all);
+    // A category is selected but only part of the dates is loaded: load the rest of it.
+    const want = S.type === "all" ? 0 : num(T.types.get(S.type)?.count);
+    const have = filtered.filter(t => !t.auditStatus).length;
+    S.autoMore = S.type !== "all" && T.typesExact === true && ctx.hasMore && !ctx.loadingMore && !ctx.loading && have < want;
     const shown = all.filter(t => !t.auditStatus).length;
     if (ctx.loading && !all.length) return `<div class="exh">${skeletonHtml(7)}</div>`;
     const empty = !S.list.length
@@ -262,7 +285,12 @@
     const more = ctx.hasMore
       ? `<div class="exh-more"><button type="button" class="exh-btn expense-load-more" ${ctx.loadingMore ? "disabled" : ""}>${ctx.loadingMore ? `<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Loading…` : `<i class="fa-solid fa-angles-down" aria-hidden="true"></i> Load more transactions`}</button></div>`
       : (S.list.length > 6 ? `<div class="exh-end"><i class="fa-solid fa-check" aria-hidden="true"></i> All ${S.list.length} transactions shown</div>` : "");
-    return `<div class="exh${S.selecting ? " is-selecting" : ""}${ctx.loading ? " is-loading" : ""}">
+    if (S.autoMore) setTimeout(() => {
+      if (!S.autoMore) return;
+      const b = document.querySelector("#expensesList .exh .expense-load-more:not(:disabled)");
+      if (b) b.click();
+    }, 0);
+    return `<div class="exh${S.selecting ? " is-selecting" : ""}${ctx.loading ? " is-loading" : ""}${ctx.refreshing ? " is-refreshing" : ""}">
       ${all.length || T.count ? summaryHtml(T, shown) : ""}
       ${chipsHtml(T)}
       ${toolbarHtml(ctx)}

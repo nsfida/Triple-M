@@ -212,3 +212,29 @@ test("panel: every wallet-page row opens a full record view with actions", () =>
   assert.doesNotMatch(js, /Open Expenses history to see this record\./);
   assert.match(read("Assets/style/74-expenses-history-v3.css"), /\.tm-dp-route\{/);
 });
+
+// ── Category buttons count transactions, the same whatever is selected (2026-11-17 e) ─────
+test("history: category counts are per transaction and do not change with the selection", () => {
+  const js = read("Assets/app/expenses/07-expenses-history-v3.js");
+  assert.doesNotMatch(js, /S\.type === "all" && !ctx\.searching && serverTotals\(\)/);  // old: numbers depended on the selection
+  assert.match(js, /const T = \{ \.\.\.\(\(!ctx\.searching && serverTotals\(\)\) \|\| local\) \};/);
+  assert.match(js, /if \(!ctx\.hasMore\) \{ T\.types = local\.types; T\.typesExact = true; \}/);
+  assert.match(js, /global\.expenseHistoryTypeBreakdown\?\.\(\)/);
+  assert.match(js, /const typeOrder = \(a, b\) => \(b\[1\]\.count - a\[1\]\.count\) \|\| String\(a\[0\]\)\.localeCompare\(String\(b\[0\]\)\);/);
+  assert.match(js, /S\.autoMore = S\.type !== "all" && T\.typesExact === true && ctx\.hasMore/);
+  const w = read("Assets/app/expenses/01-expenses-wallets.js");
+  const i = w.indexOf("function expenseHistoryTypeBreakdown"), j = w.indexOf("async function ensureExpenseWalletDetailLoaded");
+  const body = w.slice(i, j);
+  assert.match(body, /fetchExpenseActivityRpc\(\{ from: bounds\.from \|\| null, to: bounds\.to \|\| null, search, groupId, limit: 500, offset \}\)/);
+  assert.match(body, /if \(isInternalExpenseTransferRow\(entry\)\) continue;/);
+  assert.doesNotMatch(body, /applyExpenseLazyEntries|state\.entries =|supabase\(/);   // read only, the list is untouched
+});
+
+test("history: a background refresh keeps the loaded rows and shows no skeleton", () => {
+  const w = read("Assets/app/expenses/01-expenses-wallets.js");
+  assert.match(w, /const refreshSameQuery = !append && state\.expenseLazy\.lastLoadedQueryKey === queryKey && Number\(state\.expenseLazy\.lastLoadedCount \|\| 0\) > 0;/);
+  assert.match(w, /if \(!append && !refreshSameQuery && state\.expenseRecordView === "history"/);
+  assert.match(w, /const limit = refreshSameQuery \? Math\.min\(500, Math\.max\(pageLimit, Number\(state\.expenseLazy\.lastLoadedCount \|\| 0\)\)\) : pageLimit;/);
+  assert.match(w, /!state\.expenseLazy\.loadingAppend && !state\.expenseLazy\.loadingRefresh\)/);
+  assert.match(w, /state\.expenseLazy\.loadingRefresh = false;/);
+});

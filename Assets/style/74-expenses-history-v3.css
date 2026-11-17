@@ -394,3 +394,6 @@ html body #app#app #expensesList .exh-sort select{font-weight:600;color:inherit 
   .tm-dp-route-mid i{transform:rotate(90deg)}
 }
 @media (prefers-reduced-motion:reduce){.tm-dp-route-w,.tm-dp-row-go{transition:none}}
+
+/* ── 2026-11-17 e: background refresh keeps the list (no skeleton, no jump) ── */
+#expensesList .exh.is-refreshing .exh-list{opacity:.72;transition:opacity .2s ease}
