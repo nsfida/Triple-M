@@ -273,6 +273,7 @@ async function unlockAdminSecurityWithKey(rawKey){
   adminSecurityState.configured = true;
   adminSecurityState.unlocked = true;
   adminSecurityState.unlockedThisPage = true;
+  try { window.dispatchEvent(new CustomEvent("triplem:admin-security-unlocked")); } catch (_) {}
   return result;
 }
 

@@ -1010,11 +1010,28 @@
     document.getElementById("adminPushSendBtn")?.addEventListener("click", () => sendAdminPush().catch(() => {}));
   }
 
+  // The flush runs under the Main Admin session, which the database refuses while the Admin
+  // security key is locked ("Admin security key required"). Asking anyway produced one database
+  // error a minute for as long as the Main Admin had the app open, so the flush waits for the key.
+  function adminSecurityKeyLocked() {
+    if (stateLocal.adminInboxKeyBlocked) return true;
+    try {
+      // eslint-disable-next-line no-undef
+      return typeof adminSecurityState !== "undefined" && !!adminSecurityState.configured && !adminSecurityState.unlocked;
+    } catch (_) { return false; }
+  }
+  window.addEventListener("triplem:admin-security-unlocked", () => { stateLocal.adminInboxKeyBlocked = false; });
+
   async function flushAdminInboxPushQueue() {
     if (stateLocal.adminInboxFlushPromise) return stateLocal.adminInboxFlushPromise;
+    if (adminSecurityKeyLocked()) return { ok: false, queued: false, locked: true };
     stateLocal.adminInboxLastFlushAt = Date.now();
     stateLocal.adminInboxFlushPromise = invoke("admin_inbox_flush", { limit: 20 })
       .catch(error => {
+        if (/security key/i.test(String(error?.message || error || ""))) {
+          stateLocal.adminInboxKeyBlocked = true;
+          return { ok: false, queued: false, locked: true };
+        }
         console.warn("Triplem VIP admin notification push flush skipped", error?.message || error);
         return { ok: false, queued: false };
       })
@@ -1028,6 +1045,7 @@
   const ADMIN_INBOX_FLUSH_MIN_GAP_MS = 4000;
   const ADMIN_INBOX_FLUSH_READ_GAP_MS = 60000;
   function scheduleAdminInboxFlush(options = {}) {
+    if (adminSecurityKeyLocked()) return false;
     const elapsed = Date.now() - Number(stateLocal.adminInboxLastFlushAt || 0);
     const mutating = options?.mutating !== false;
     if (!mutating && elapsed < ADMIN_INBOX_FLUSH_READ_GAP_MS) return false;

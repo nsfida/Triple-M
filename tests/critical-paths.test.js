@@ -3449,8 +3449,8 @@ it('SEO refresh covers Financial Timeline, Bought/Sold installments, current exp
   assert.match(sitemap, /https:\/\/triplem\.vip\/seo\/windows-desktop-app\.html/);
 
   const seoPages = fs.readdirSync(path.join(root, 'seo')).filter(name => name.endsWith('.html'));
-  assert.equal(seoPages.length, 34);
-  const authorityPages = new Set(['multi-currency-accounting.html', 'month-end-close.html', 'finance-workflow-playbook.html', 'editorial-policy.html', 'privacy-policy.html']);
+  assert.equal(seoPages.length, 36); // + Terms and Conditions, Refund Policy (2026-11-17)
+  const authorityPages = new Set(['multi-currency-accounting.html', 'month-end-close.html', 'finance-workflow-playbook.html', 'editorial-policy.html', 'privacy-policy.html', 'terms-and-conditions.html', 'refund-policy.html']);
   for (const page of seoPages) {
     const html = readFile(path.join('seo', page));
     assert.match(html, /42-public-accounting-seo\.css\?v=(?:20260910-security-parity006|20260911-seo-geo-authority007)/, `${page} should use the unified SEO visual stylesheet`);

@@ -1,4 +1,4 @@
-/* Triplem VIP · Terms and Conditions and Free Trial Terms (version 2026-11-11.2)
+/* Triplem VIP · Terms and Conditions and Free Trial Terms (version 2026-11-17.1)
  *
  * One source for the wording used in three places:
  *   1. the in-app overlay opened from the trial banner ("Trial Terms and Conditions"),
@@ -22,8 +22,8 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 
-  const VERSION = "2026-11-11.2";
-  const EFFECTIVE = "11 November 2026";
+  const VERSION = "2026-11-17.1";
+  const EFFECTIVE = "17 November 2026";
   const CONTACT = "info@triplem.vip";
   const BILLING = "billing@triplem.vip";
   const TRIAL_DAYS = 14;
@@ -121,6 +121,7 @@
       "{{prices}}",
       "Limited-time offer: Pro Monthly includes 30 additional days and Pro Yearly 60 additional days, added after the payment is approved.",
       "How payment works: you pay by bank transfer directly to Triplem VIP. The app shows the plan, the amount, the currency and the bank account before you confirm, asks you to confirm that you are starting a purchase, and asks for the transfer receipt. A Triplem VIP administrator then checks the transfer.",
+      "On the website and the direct-download apps you can also pay by credit or debit card. Card orders are processed by our online reseller Paddle.com, the Merchant of Record for all our card orders. Pro starts as soon as the card payment goes through, and the plan renews automatically until you cancel. In the Microsoft Store edition plans are paid by bank transfer.",
       "When the payment is approved, full access returns immediately and every record is exactly where you left it. A paid sign-up gets provisional Pro access while the payment is checked. If a payment cannot be verified, the request is declined; in cases of misuse the account may be suspended."
     ] },
     { id: "data", title: "11. Your data", list: [
@@ -132,7 +133,9 @@
     ] },
     { id: "payments", title: "12. Renewals and refunds", list: [
       "Paid plans do not renew automatically. Before a plan ends you are reminded in the app, and you renew it yourself.",
+      "Exception: a plan paid by card renews automatically at the end of each paid period until you cancel it in Plan & Subscription › Manage billing. Cancelling stops future renewals; your access continues until the end of the period already paid.",
       "When a paid plan ends, the same grace period and limited access apply as after a trial.",
+      "14-day money-back guarantee: you can ask for a full refund within 14 days of any payment, with no questions asked. Details: Refund Policy, https://triplem.vip/seo/refund-policy.html.",
       `Payment questions and refund requests: ${BILLING}. They are handled under the Terms and Conditions and the consumer law that applies to you.`
     ] },
     { id: "store", title: "13. Windows app from the Microsoft Store", list: [
@@ -183,10 +186,13 @@
     ] },
     { id: "plans", title: "7. Plans, prices and payment", list: [
       "Paid plans (Pro Monthly, Pro Yearly and team seats) are paid by bank transfer directly to Triplem VIP and approved by a Triplem VIP administrator. Prices are shown in your regional currency, and the app asks you to confirm the purchase before you submit it.",
-      "Paid plans do not renew automatically. You are reminded before a plan ends and you renew it yourself.",
+      "Pro Monthly and Pro Yearly can also be paid by credit or debit card on the website and the direct-download apps. Our order process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of Record for all our card orders. Paddle provides all customer service inquiries and handles returns for card orders. Paddle's buyer terms also apply to card orders, and the receipt comes from Paddle.",
+      "Plans paid by bank transfer do not renew automatically. You are reminded before a plan ends and you renew it yourself.",
+      "Plans paid by card renew automatically at the end of each paid period, at the price shown when you subscribed, until you cancel in Plan & Subscription › Manage billing. Cancelling stops future renewals; your access continues until the end of the period already paid. If a renewal payment fails, Pro access ends when the paid period ends.",
       "A plan you have paid for keeps its features until it ends. We do not remove value from a plan during its paid period.",
       "The Windows app from the Microsoft Store is free to download. Plans are bought from Triplem VIP, not from Microsoft.",
-      `Payment questions and refund requests: ${BILLING}. Refunds are handled case by case and as required by the consumer law that applies to you.`
+      "14-day money-back guarantee: you can ask for a full refund within 14 days of any payment, by card or bank transfer, with no questions asked. A refund removes the Pro time that payment added. Details: Refund Policy, https://triplem.vip/seo/refund-policy.html.",
+      `Payment questions and refund requests: ${BILLING}.`
     ] },
     { id: "ending", title: "8. When a trial or plan ends", paras: [
       "When a free trial or a paid plan ends, you keep full access for a 3-day grace period. After that, the account has limited access until a plan is approved: it stays active, you can sign in, view, search and download every record, report, export, receipt, invoice, document and backup, and use your account settings and support; new entries, changes and deletions in any section are paused. The account is not switched off and records are not deleted because a plan has ended. Full access returns as soon as a plan is approved.",

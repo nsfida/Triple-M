@@ -52,6 +52,7 @@ We use a small number of providers who process data only to deliver the service:
 - Your browser or operating system push service (for example Google, Apple, Microsoft or Mozilla) delivers notifications you enabled.
 - Website hosting and content delivery networks serve the public website files, fonts and icons.
 - Microsoft Store distributes the Windows app; Microsoft handles Store accounts, downloads and payments under its own privacy statement.
+- Paddle.com is the Merchant of Record for card payments: it processes your name, email address, country and card details to take the payment, handle taxes, receipts and refunds, under its own privacy notice. Triplem VIP never receives your full card number.
 
 ## Data stored on your device
 

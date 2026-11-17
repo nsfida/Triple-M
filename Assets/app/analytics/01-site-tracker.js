@@ -191,7 +191,11 @@
     }, Math.max(200, delay));
   }
 
+  // When the server refuses analytics (no permission, function missing) the tracker stops for
+  // this page instead of retrying every few seconds and filling the database error log.
+  let refused = false;
   async function flush(isHeartbeat){
+    if (refused) return;
     if (queue.flushing) return;
     const hasWork = queue.pageviewPending || queue.events.length || isHeartbeat;
     if (!hasWork) return;
@@ -247,6 +251,7 @@
         keepalive: !!isHeartbeat
       });
       if (!res.ok) {
+        if ([401, 403, 404].includes(res.status)) { refused = true; queue.events.length = 0; queue.pageviewPending = false; return; }
         if (pageview) queue.pageviewPending = true;
         if (events.length) queue.events.unshift(...events);
       }

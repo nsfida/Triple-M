@@ -31,7 +31,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <!-- Compatibility-aware CSP baseline. Also deploy the response headers in _headers; meta CSP cannot set frame-ancestors. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self' https://triplem.vip; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.coingecko.com https://api.country.is https://blockchair.com https://blockstream.info https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://huggingface.co https://*.huggingface.co https://cdn-lfs.huggingface.co https://cas-bridge.xethub.hf.co; worker-src 'self' blob:; manifest-src 'self' https://triplem.vip; media-src 'self' data: blob: https:; frame-src 'self'; upgrade-insecure-requests" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self' https://triplem.vip; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.paddle.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.paddle.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.coingecko.com https://api.country.is https://blockchair.com https://blockstream.info https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://huggingface.co https://*.huggingface.co https://cdn-lfs.huggingface.co https://cas-bridge.xethub.hf.co https://*.paddle.com; worker-src 'self' blob:; manifest-src 'self' https://triplem.vip; media-src 'self' data: blob: https:; frame-src 'self' https://*.paddle.com; upgrade-insecure-requests" />
   <script>
     /* Clickjacking guard: CSP frame-ancestors and X-Frame-Options are ignored in
        <meta> tags and are not applied by every static host, so refuse to run
@@ -1014,7 +1014,7 @@
   <script defer src="Assets/app/core/00-performance.js?v=20260916-hardening001&amp;swurl=20261104-001"></script>
   <script defer src="Assets/app/core/00-activity.js?v=20261031-idle004"></script>
   <script defer src="Assets/app/core/00-currency-registry.js?v=20260911-001"></script>
-  <script defer src="Assets/app/analytics/01-site-tracker.js?v=20261031-idle-optimization-002"></script>
+  <script defer src="Assets/app/analytics/01-site-tracker.js?v=20261031-idle-optimization-002-ln1"></script>
   <script defer src="Assets/app/lib/tax-math.js"></script>
   <script defer src="Assets/app/lib/loan-math.js"></script>
   <script defer src="Assets/app/lib/permissions.js?accounting=149001&team=168001&insurance=171001"></script>
@@ -1026,7 +1026,7 @@
   <script defer src="Assets/app/core/02-state.js?v=20260909-triplem-ai-158&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/inventory-catalog.js"></script>
   <script defer src="Assets/app/core/03-els.js?v=20260903-admin-overlay126&pagination=155&help=20260922-001&amp;inv2=20261110-216&amp;trial=20261111-store1&amp;u14=20261114-b"></script>
-  <script defer src="Assets/app/core/04-trial-terms.js?v=20261111-access2"></script>
+  <script defer src="Assets/app/core/04-trial-terms.js?v=20261117-card1"></script>
   <script defer src="Assets/app/core/05-limited-access.js?v=20261111-access2"></script>
   <script defer src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001&accounting=149001&audit=154&ai=158&team=168001&amp;teamfix=20260917-169&insurancefix=171001&contact=20260922-001&amp;offline=20261104-001&amp;store=20261106-001&amp;bgmotion=20261110-001&amp;inv2=20261110-215&amp;u14=20261114-b"></script>
   <script defer src="Assets/app/auth/03-two-factor.js?v=20260904-account-security138&security=146"></script>
@@ -1077,7 +1077,7 @@
   <script defer src="Assets/app/assets/01-assets.js?v=20261009-assets-critical-fixes&build011=001&build013=filter001&build016=assets-wallet-currency002&amp;u14=20261114-b"></script>
   <script defer src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2&build010=001&build013=filter001&build016=dep-wallet002&amp;u14=20261114-b&amp;dp=20261114-1"></script>
   <script defer src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001&accounting=149001&accountingui=002&ai=158&team=168001&amp;teamfix=20260917-169&insurancefix=171001&billingcontact=20260922-001&amp;sysbackup=20261117-229&amp;inv2=20261110-216&amp;u14=20261114-b"></script>
-  <script defer src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
+  <script defer src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading-ln1"></script>
   <script defer src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading&idle=20261031-005"></script>
   <script defer src="Assets/app/admin/04-admin-user-manager.js?v=20261114-aum001"></script>
   <script defer src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156&messages=167&logopt=20261031-001&amp;notifyopt=20261031-002&amp;idle=20261031-005&amp;inbox=20261105-001&amp;desktop=20261105-360&amp;report=20261106-001&amp;coalesce=20261110-001"></script>
@@ -1090,8 +1090,9 @@
   <script defer src="Assets/app/ui/10-detail-panels.js?v=20261117-dp012"></script>
   <script defer src="Assets/app/ui/11-pdf-progress.js?v=20261117-pdfp001"></script>
   <script defer src="Assets/app/ui/12-account-panels.js?v=20261117-ap001"></script>
+  <script defer src="Assets/app/billing/01-card-payments.js?v=20261117-card2"></script>
   <script defer src="Assets/app/bitcoin/02-bitcoin-v2.js?v=20261116-btc2-001"></script>
-  <script defer src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139&amp;admininbox=20260917-169&amp;notifyopt=20261031-002&amp;offline=20261104-001&amp;winapp=20261105-001&amp;wns=20261105-360"></script>
+  <script defer src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139&amp;admininbox=20260917-169&amp;notifyopt=20261031-002&amp;offline=20261104-001&amp;winapp=20261105-001&amp;wns=20261105-360-ln1"></script>
   <script defer src="Assets/app/backup/01-backup-engine.js?v=20261111-backup002"></script>
   <script defer src="Assets/app/backup/02-backup-ui.js?v=20261111-backup381"></script>
   <script defer src="Assets/app/desktop/01-windows-desktop.js?v=20261114-desktop390"></script>
@@ -2933,7 +2934,8 @@
               <p class="section-kicker">Policies</p>
               <h3 id="policyTitle">Clear terms for responsible use and private data handling.</h3>
               <div class="landing-policy-grid">
-                <article><h3>Terms and conditions</h3><p>Access is provided to approved users only. Users are responsible for entering accurate records, protecting their login credentials, reviewing exported reports, and requesting support when a setup or data concern appears.</p></article>
+                <article><h3>Terms and conditions</h3><p>Users are responsible for entering accurate records, protecting their login credentials, reviewing exported reports, and requesting support when a setup or data concern appears. Pro plans renew until cancelled; card payments are sold through Paddle.com, our Merchant of Record. Read the full <a href="/seo/terms-and-conditions.html">Terms and Conditions</a>.</p></article>
+                <article><h3>Refund policy</h3><p>A full refund within 14 days of any payment, no questions asked — for card and bank-transfer payments. Read the <a href="/seo/refund-policy.html">Refund Policy</a>.</p></article>
                 <article><h3>Privacy policy summary</h3><p>Financial records are used to operate the dashboard features requested by the user. Passwords, Smart PINs, Authenticator enrollment secrets and recovery codes should never be shared with support or posted publicly. <span class="store-hide-crypto">Bitcoin private-key workflows are client-side: keys remain in the browser and should only be used on trusted devices.</span></p></article>
                 <article><h3>Full Privacy Policy</h3><p>Read what data Triplem VIP collects, which providers process it, how long it is kept and how to export or delete it: <a href="/seo/privacy-policy.html">triplem.vip/seo/privacy-policy.html</a>.</p></article>
                 <article><h3>Data responsibility</h3><p>Backups and exports are available so users can keep copies of important finance data. Browser-notification permission remains device-specific, while safe presentation preferences such as the authenticated workspace theme may follow the account across devices.</p></article>

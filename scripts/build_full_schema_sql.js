@@ -246,6 +246,8 @@ const CANONICAL_MIGRATION_FILES = [
   "228_admin_user_manager.sql",
   "229_system_backup_v2_credentials_and_restore_all.sql",
   "230_system_backup_classify_external_tables.sql",
+  "231_paddle_card_payments.sql",
+  "232_site_analytics_ingest_grant.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

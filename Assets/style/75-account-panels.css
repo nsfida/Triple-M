@@ -156,3 +156,50 @@ html body .triplem-apps-overlay .triplem-apps-body{flex:1 1 auto;min-height:0;pa
 [dir="rtl"] .tm-acct-pref > .fa-chevron-right{transform:scaleX(-1)}
 html body .modal.tm-sheet-account .settings-field{display:grid;gap:5px}
 html body .modal.tm-sheet-account .settings-field :is(input,select,textarea){width:100% !important;max-width:none !important}
+
+/* ═══ Plan & Subscription · card payments (Paddle) ═══ */
+.settings-pill.bad{background:rgba(220,38,38,.1);color:var(--danger,#dc2626)}
+.settings-pill.muted{background:var(--surface-2,rgba(100,116,139,.12));color:var(--muted,#64748b)}
+#planSubscriptionModal .tm-pay-method{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:4px 0 12px}
+#planSubscriptionModal .tm-pay-opt{position:relative;display:flex;align-items:flex-start;gap:10px;padding:12px 13px;border:1px solid var(--line,rgba(15,23,42,.12));border-radius:14px;background:var(--surface,#fff);cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease}
+#planSubscriptionModal .tm-pay-opt input{position:absolute;opacity:0;pointer-events:none}
+#planSubscriptionModal .tm-pay-opt > i{flex:0 0 34px;width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:var(--primary-soft,rgba(37,99,235,.1));color:var(--primary,#2563eb);font-size:.95rem}
+#planSubscriptionModal .tm-pay-opt span{display:grid;gap:2px;min-width:0}
+#planSubscriptionModal .tm-pay-opt strong{font-size:.86rem;font-weight:650}
+#planSubscriptionModal .tm-pay-opt small{font-size:.72rem;color:var(--muted,#64748b);line-height:1.35}
+#planSubscriptionModal .tm-pay-opt.selected{border-color:var(--primary,#2563eb);box-shadow:0 0 0 3px var(--primary-soft,rgba(37,99,235,.14));background:linear-gradient(var(--primary-soft,rgba(37,99,235,.05)),var(--primary-soft,rgba(37,99,235,.05))),var(--surface,#fff)}
+#planSubscriptionModal .tm-pay-opt:focus-within{outline:2px solid var(--primary,#2563eb);outline-offset:2px}
+#planSubscriptionModal .tm-pay-test{position:absolute;top:-8px;inset-inline-end:10px;padding:1px 7px;border-radius:999px;background:#f59e0b;color:#111;font-size:.62rem;font-style:normal;font-weight:700;letter-spacing:.02em}
+#planSubscriptionModal .tm-pay-card-box{display:grid;gap:10px}
+#planSubscriptionModal .tm-pay-total strong small{font-size:.72rem;font-weight:500;color:var(--muted,#64748b)}
+#planSubscriptionModal .tm-pay-secure{margin:0;display:flex;align-items:center;justify-content:center;gap:6px;font-size:.72rem;color:var(--muted,#64748b)}
+#planSubscriptionModal .tm-pay-secure i{color:var(--success,#16a34a)}
+#planSubscriptionModal .tm-pay-go span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#planSubscriptionModal .tm-pay-note{display:flex;align-items:center;gap:8px;margin:4px 0 10px;padding:10px 12px;border-radius:12px;background:var(--primary-soft,rgba(37,99,235,.08));font-size:.78rem}
+#planSubscriptionModal .tm-card-billing{display:grid;gap:10px;margin:12px 0;padding:14px;border:1px solid var(--line,rgba(15,23,42,.12));border-radius:16px;background:var(--surface,#fff)}
+#planSubscriptionModal .tm-card-billing-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+#planSubscriptionModal .tm-card-billing-head h4{margin:2px 0 0;font-size:.98rem}
+#planSubscriptionModal .tm-card-billing-text{margin:0;font-size:.8rem;color:var(--text-secondary,var(--muted,#475569))}
+#planSubscriptionModal .tm-card-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--surface-2,rgba(100,116,139,.1));font-size:.74rem;font-variant-numeric:tabular-nums}
+#planSubscriptionModal .tm-card-billing-actions{display:flex;flex-wrap:wrap;gap:6px}
+#planSubscriptionModal .tm-card-billing-actions .btn.danger{color:var(--danger,#dc2626)}
+#planSubscriptionModal .tm-card-pays{display:grid;gap:6px;border-top:1px solid var(--line,rgba(15,23,42,.1));padding-top:10px}
+#planSubscriptionModal .tm-card-pays-title{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#64748b)}
+#planSubscriptionModal .tm-card-pays ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+#planSubscriptionModal .tm-card-pays li{display:flex;align-items:center;gap:10px;padding:6px 4px}
+#planSubscriptionModal .tm-card-pays li > div{display:grid;gap:1px;flex:1 1 auto;min-width:0}
+#planSubscriptionModal .tm-card-pays li strong{font-size:.86rem;font-variant-numeric:tabular-nums}
+#planSubscriptionModal .tm-card-pays li small{font-size:.72rem;color:var(--muted,#64748b)}
+#planSubscriptionModal .tm-card-inv{width:32px;height:32px;flex:0 0 32px;border-radius:50%}
+#planSubscriptionModal .tm-card-billing-foot{margin:0;font-size:.7rem;color:var(--muted,#64748b)}
+@media (max-width:520px){#planSubscriptionModal .tm-pay-method{grid-template-columns:1fr}}
+/* the side-sheet footer rule forces display:flex; keep hidden parts hidden in this panel */
+html body #planSubscriptionModal.modal:is(#sh-a,*):is(#sh-b,*) .hide{display:none !important}
+#planSubscriptionModal .tm-pay-status{display:flex;gap:12px;align-items:flex-start;padding:16px;border-radius:16px;border:1px solid var(--line,rgba(15,23,42,.12));background:var(--primary-soft,rgba(37,99,235,.06))}
+#planSubscriptionModal .tm-pay-status > i{font-size:1.2rem;margin-top:2px;color:var(--primary,#2563eb)}
+#planSubscriptionModal .tm-pay-status.is-late{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.35)}
+#planSubscriptionModal .tm-pay-status.is-late > i{color:#d97706}
+#planSubscriptionModal .tm-pay-status strong{display:block;font-size:.9rem;font-weight:650}
+#planSubscriptionModal .tm-pay-status p{margin:4px 0 0;font-size:.78rem;line-height:1.45;color:var(--text-secondary,var(--muted,#475569))}
+#planSubscriptionModal .tm-pay-status small{display:block;margin-top:4px;font-size:.7rem;color:var(--muted,#64748b);font-variant-numeric:tabular-nums}
+#planSubscriptionModal .tm-pay-status-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
