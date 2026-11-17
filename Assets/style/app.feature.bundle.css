@@ -13926,3 +13926,47 @@ html body .tm-dp-root :is(.tm-dp-txhero,.tm-dp-txsplit,.aum-stats,.tm-dp-rows) :
 html body #walletsOverviewSection .summary.expense-overview .overview-card-actions .tiny:has(> .fa-file-pdf){
   width:28px !important;min-width:28px !important;padding:0 !important;border:0 !important;background:transparent !important;box-shadow:none !important;color:rgba(255,255,255,.85) !important;font-size:.86rem !important}
 html body #walletsOverviewSection .summary.expense-overview .overview-card-actions .tiny:has(> .fa-file-pdf):hover{color:#fde68a !important}
+
+/* ── 2026-11-17 b: one button style for the whole history page ─────────────────────────────
+   Category chips, "Search in", sort, Select / PDF / CSV / Done and Load more use the same plain
+   text-tab look as the date buttons (Today · Yesterday · …): no pill borders or fills, muted text,
+   the active one in the primary colour with a short underline. */
+html body #app#app #expensesList .exh-chips{gap:2px;padding:0}
+html body #app#app #expensesList .exh-chip,
+html body #app#app #expensesList .exh-scope button{position:relative;min-height:32px;padding:0 12px;border:0 !important;border-radius:10px;background:none !important;
+  color:var(--muted,#64748b) !important;font-size:.76rem;font-weight:600;box-shadow:none !important;transition:color .15s ease,background-color .15s ease}
+html body #app#app #expensesList .exh-chip .exh-dot{display:none}
+html body #app#app #expensesList .exh-chip small{font-weight:600;color:inherit !important;opacity:.7}
+html body #app#app #expensesList .exh-chip.is-on,
+html body #app#app #expensesList .exh-scope button[aria-checked="true"]{color:var(--primary,#2457d6) !important;background:none !important}
+html body #app#app #expensesList .exh-chip.is-on small{color:inherit !important;opacity:.85}
+html body #app#app #expensesList .exh-chip.is-on::after,
+html body #app#app #expensesList .exh-scope button[aria-checked="true"]::after{content:"";position:absolute;left:12px;right:12px;bottom:2px;height:2px;border-radius:2px;background:var(--primary,#2457d6)}
+
+#expensesList .exh-bar{padding:0;border:0;border-radius:0;background:none}
+#expensesList .exh-bar.is-selecting{padding:6px 8px;border:0;border-radius:12px;background:color-mix(in srgb,var(--panel,#fff) 92%,transparent);box-shadow:0 10px 24px -18px rgba(15,23,42,.45)}
+#expensesList .exh-range{font-size:.76rem}
+#expensesList .exh-btn,
+#expensesList .exh-sort{min-height:32px;padding:0 12px;border:0 !important;border-radius:10px;background:none !important;box-shadow:none !important;
+  color:var(--muted,#64748b) !important;font-size:.76rem;font-weight:600}
+#expensesList .exh-btn i,#expensesList .exh-sort i{color:var(--primary,#2457d6) !important}
+#expensesList .exh-btn.is-primary{color:var(--primary,#2457d6) !important}
+#expensesList .exh-btn.is-primary i{color:var(--primary,#2457d6) !important}
+#expensesList .exh-btn[aria-expanded="true"]{color:var(--primary,#2457d6) !important}
+html body.tm-app-on:not(#tmAppOff) #app#app #expensesList .exh-sort select,
+html body #app#app #expensesList .exh-sort select{font-weight:600;color:inherit !important;background:transparent !important;border:0 !important;box-shadow:none !important}
+#expensesList .exh-sort select option{color:var(--text,#0f172a);background:var(--panel,#fff)}
+#expensesList .exh-sort:focus-within{outline:2px solid color-mix(in srgb,var(--primary,#2457d6) 45%,transparent);outline-offset:1px}
+#expensesList .exh-more .exh-btn{color:var(--primary,#2457d6) !important}
+@media (max-width:640px){
+  #expensesList .exh-bar .exh-btn{width:auto;padding:0 10px}
+  #expensesList .exh-bar .exh-sort{flex:0 1 auto;margin-inline-start:auto;padding:0 8px}
+  #expensesList .exh-bar .exh-sort select{width:auto}
+  #expensesList .exh-bar.is-selecting .exh-btn:not(.is-primary) span{display:none}
+}
+@media (hover:hover){
+  html body #app#app #expensesList .exh-chip:hover,
+  html body #app#app #expensesList .exh-scope button:hover{color:var(--text,#0f172a) !important;background:color-mix(in srgb,var(--primary,#2457d6) 7%,transparent) !important}
+  #expensesList .exh-btn:hover:not(:disabled),
+  #expensesList .exh-sort:hover{color:var(--text,#0f172a) !important;background:color-mix(in srgb,var(--primary,#2457d6) 7%,transparent) !important;filter:none}
+}
