@@ -97,8 +97,20 @@ test("wallet panel: Activity has Go to date (on or before the chosen day) and ro
   assert.match(js, /fetchExpenseActivityRpc\(\{ groupId: gid, to: st\.at \|\| null, limit: WALLET_PAGE/);
   assert.match(js, /"goto-clear":/);
   // typing a year must not redraw the field half-way (0002, 0020, 0202, …)
-  assert.match(js, /if \(Number\(m\[1\]\) < 1900 \|\| \(f\.max && v > f\.max\) \|\| v === st\.at\) return;/);
+  assert.match(js, /if \(!m \|\| Number\(m\[1\]\) < 1900 \|\| \(input\.max && v > input\.max\) \|\| v === st\.at\) return;/);
+  // typing over an earlier date waits for a pause / Enter / blur; a calendar pick moves at once
+  assert.match(js, /input\.addEventListener\("change", \(\) => \{ if \(typing\) later\(\); else commit\(\); \}\);/);
+  assert.match(js, /if \(e\.target\.closest\?\.\("\[data-dp-goto\]"\)\) return;/);
   assert.match(js, /data-dp-act="w-tx"/);
+});
+
+test("wallet panel: Receive / Transfer saved in the panel confirm inside the panel", () => {
+  const js = read("Assets/app/ui/10-detail-panels.js");
+  assert.match(js, /global\.showMoneyAddedSuccessOverlay = function\(walletName, amount, currency\)\{\n\s+if \(panelForm\(\) && showDoneSheet\(/);
+  assert.match(js, /global\.showTransferSuccessOverlay = function\(fromAccount, toAccount, amount, currency\)\{\n\s+if \(panelForm\(\) && showDoneSheet\(/);
+  assert.match(js, /return base\.apply\(this, arguments\);/);      // outside the panel: the page overlay as before
+  assert.match(js, /if \(doneSheetOpen\(\)\) \{ closeDoneSheet\(\); return; \}/);
+  assert.match(read("Assets/style/74-expenses-history-v3.css"), /\.tm-dp-done\{/);
 });
 
 test("PDF progress: compact bar for every PDF (jsPDF hook + PDF buttons), never blocks the page", () => {

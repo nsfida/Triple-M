@@ -132,6 +132,7 @@
   function close(){
     if (!P.el) return;
     txReturnAfterEdit = "";
+    const sheet = P.el.querySelector(".tm-dp-done"); if (sheet) { clearTimeout(sheet._h); sheet.remove(); }
     undock();
     leave();
     P.el.classList.remove("is-open");
@@ -196,6 +197,48 @@
     t.innerHTML = `<i class="fa-solid ${ok ? "fa-circle-check" : "fa-triangle-exclamation"}" aria-hidden="true"></i><span>${esc(msg)}</span>`;
     clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("is-on"), ok ? 2400 : 5000);
   }
+  // ── "Money added" / "Transfer successful": when a Receive or Transfer form docked in the panel
+  //    is saved, the confirmation shows inside the panel (over its content) instead of the
+  //    full-page overlay. Done, a click outside the card, Escape or 4 seconds close it. ──
+  function doneSheetOpen(){ return !!P.el?.querySelector(".tm-dp-done"); }
+  function closeDoneSheet(){
+    const el = P.el?.querySelector(".tm-dp-done"); if (!el) return;
+    clearTimeout(el._h);
+    el.classList.remove("is-on");
+    setTimeout(() => el.remove(), 220);
+    requestAnimationFrame(() => P.el?.querySelector(".aum-close")?.focus({ preventScroll: true }));
+  }
+  function walletChip(name){
+    let icon = "";
+    try { icon = typeof global.getWalletIconHtml === "function" ? global.getWalletIconHtml(name, 16) : ""; } catch (_) {}
+    return `<span class="tm-dp-done-wallet" title="${esc(name)}">${icon}<b translate="no">${esc(name)}</b></span>`;
+  }
+  function showDoneSheet({ title, amount, currency, from = "", to = "" }){
+    const panel = P.el?.querySelector(".aum-panel"); if (!panel) return false;
+    panel.querySelector(".tm-dp-done")?.remove();
+    let amt = "";
+    try { amt = typeof global.money === "function" ? global.money(amount, currency) : esc(`${currency} ${amount}`); } catch (_) { amt = esc(`${currency} ${amount}`); }
+    const route = from && to
+      ? `${walletChip(from)}<i class="fa-solid fa-arrow-right tm-dp-done-arrow" aria-hidden="true"></i>${walletChip(to)}`
+      : walletChip(to || from);
+    const el = document.createElement("div");
+    el.className = "tm-dp-done";
+    el.setAttribute("role", "alertdialog");
+    el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-labelledby", "tmDpDoneTitle");
+    el.innerHTML = `<div class="tm-dp-done-card">
+        <span class="tm-dp-done-icon" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="23"></circle><path d="M15 27l7.5 7.5L38 19"></path></svg></span>
+        <h3 id="tmDpDoneTitle">${esc(title)}</h3>
+        <div class="tm-dp-done-amt">${amt}</div>
+        <div class="tm-dp-done-route">${route}</div>
+        <button type="button" class="aum-btn is-primary" data-dp-done>Done</button>
+      </div>`;
+    el.addEventListener("click", e => { if (e.target.closest("[data-dp-done]") || !e.target.closest(".tm-dp-done-card")) closeDoneSheet(); });
+    panel.appendChild(el);
+    requestAnimationFrame(() => { el.classList.add("is-on"); el.querySelector("[data-dp-done]")?.focus({ preventScroll: true }); });
+    el._h = setTimeout(closeDoneSheet, 4000);
+    return true;
+  }
   async function onClick(e){
     const t = e.target;
     if (t.closest("[data-dp-close]")) return close();
@@ -213,6 +256,7 @@
     if (e.key !== "Escape" || !P.def || !P.el?.classList.contains("is-open")) return;
     if (document.querySelector(".modal:not(.hide)")) return; // the dialog on top closes first
     e.stopPropagation();
+    if (doneSheetOpen()) { closeDoneSheet(); return; }
     if (P.dock && P.def.afterForm) { const id = P.dock.modal.id; undock(); P.def.afterForm(false, id); return; }
     close();
   });
@@ -813,21 +857,42 @@
     if (!btc) tabs.push(["spend", "Spend", "fa-solid fa-arrow-up"], ["receive", "Receive", "fa-solid fa-arrow-down"], ["transfer", "Transfer", "fa-solid fa-right-left"]);
     tabs.push(["activity", "Activity", "fa-solid fa-list"], ["insights", "Insights", "fa-solid fa-chart-column"], ["details", "Details", "fa-solid fa-address-card"]);
 
+    // "Go to date": the list moves when a complete date is chosen. A date picked from the calendar
+    // moves it at once. A typed date moves it when the typing stops (a short pause), on Enter or
+    // when the field loses focus — so typing over an earlier date (day, month, then year) is never
+    // interrupted by the list redrawing the field in the middle.
+    function wireGoto(input, st){
+      if (!input || input._dpWired) return;
+      input._dpWired = true;
+      let typing = false, timer = 0;
+      const commit = () => {
+        clearTimeout(timer); timer = 0;
+        const v = String(input.value || "");
+        if (!v) { if (st.at) { st.at = ""; st.focusGoto = document.activeElement === input; loadPage(st, 1); } return; }
+        const m = /^(\d{4})-\d{2}-\d{2}$/.exec(v);
+        if (!m || Number(m[1]) < 1900 || (input.max && v > input.max) || v === st.at) return;
+        st.at = v;
+        st.focusGoto = document.activeElement === input;
+        loadPage(st, 1);
+      };
+      const later = () => { clearTimeout(timer); timer = setTimeout(commit, 1100); };
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); typing = false; commit(); return; }
+        if (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete" || e.key === "ArrowUp" || e.key === "ArrowDown") { typing = true; later(); }
+      });
+      input.addEventListener("change", () => { if (typing) later(); else commit(); });
+      input.addEventListener("blur", () => { typing = false; if (timer) commit(); });
+      // Back from a redraw that this field asked for: keep the keyboard in it.
+      if (st.focusGoto) {
+        if (!("ontouchstart" in global)) input.focus({ preventScroll: true });
+        if (st.actState === "ready") st.focusGoto = false;
+      }
+    }
     open({
       walletId: gid, icon: "expenses", tabs, tab: tabs.some(t => t[0] === tab) ? tab : "overview", state: st0,
       onChange(e, st){
-        const f = e.target.closest?.("[data-dp-goto]");
-        if (!f) return;
-        // While a date is typed the browser reports every step of the year (0002, 0020, 0202, …).
-        // Only a complete, real date (year 1900 or later, not after today) moves the list, so the
-        // field is never redrawn in the middle of typing.
-        const v = String(f.value || "");
-        const m = /^(\d{4})-\d{2}-\d{2}$/.exec(v);
-        if (!m) { if (!v && st.at) { st.at = ""; st.focusGoto = true; loadPage(st, 1); } return; }
-        if (Number(m[1]) < 1900 || (f.max && v > f.max) || v === st.at) return;
-        st.at = v;
-        st.focusGoto = true;
-        loadPage(st, 1);
+        // The "Go to date" field is handled in after(): typing must never be cut off by a redraw.
+        if (e.target.closest?.("[data-dp-goto]")) return;
       },
       head(){
         const a = ACC(); if (!a) return null;
@@ -912,12 +977,7 @@
       after(tab, body, st){
         if (FORM_TABS[tab]) { const host = body.querySelector(".tm-dp-formhost"); fillForm(FORM_TABS[tab][0], host, formInvoke(tab)); return; }
         if ((tab === "activity" || tab === "overview") && st.actState === "idle") loadPage(st, 1);
-        // Keep the keyboard in the date field after the list moved to the chosen date.
-        if (tab === "activity" && st.focusGoto) {
-          const input = body.querySelector("[data-dp-goto]");
-          if (input && !("ontouchstart" in global)) input.focus({ preventScroll: true });
-          if (st.actState === "ready") st.focusGoto = false;
-        }
+        if (tab === "activity") wireGoto(body.querySelector("[data-dp-goto]"), st);
       },
       // The docked form was saved or cancelled: back to the overview with fresh numbers.
       afterForm(){
@@ -1318,6 +1378,22 @@
       const args = arguments;
       return routeForm("transfer", "transfer", String(fromGroupId || ""), () => baseFn.openTransferModal.apply(this, args));
     };
+    // A Receive / Transfer saved from a form docked in the panel confirms inside the panel.
+    const panelForm = () => !!(P.dock && P.el?.classList.contains("is-open"));
+    if (typeof global.showMoneyAddedSuccessOverlay === "function") {
+      const base = global.showMoneyAddedSuccessOverlay;
+      global.showMoneyAddedSuccessOverlay = function(walletName, amount, currency){
+        if (panelForm() && showDoneSheet({ title: "Money Successfully Added!", amount, currency, to: String(walletName || "") })) return;
+        return base.apply(this, arguments);
+      };
+    }
+    if (typeof global.showTransferSuccessOverlay === "function") {
+      const base = global.showTransferSuccessOverlay;
+      global.showTransferSuccessOverlay = function(fromAccount, toAccount, amount, currency){
+        if (panelForm() && showDoneSheet({ title: "Transfer Successful!", amount, currency, from: String(fromAccount?.person_name || ""), to: String(toAccount?.person_name || "") })) return;
+        return base.apply(this, arguments);
+      };
+    }
     // Saving or cancelling a docked form closes it through closeModal(): bring the panel back.
     global.closeModal = function(id){
       const d = P.dock;

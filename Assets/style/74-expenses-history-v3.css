@@ -312,3 +312,33 @@ html body #app#app #expensesList .exh-sort select{font-weight:600;color:inherit 
   #expensesList .exh-btn:hover:not(:disabled),
   #expensesList .exh-sort:hover{color:var(--text,#0f172a) !important;background:color-mix(in srgb,var(--primary,#2457d6) 7%,transparent) !important;filter:none}
 }
+
+/* ── 2026-11-17 c: "Money added" / "Transfer successful" inside the side panel ─────────────── */
+.aum-panel .tm-dp-done{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:color-mix(in srgb,var(--panel,#fff) 72%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  border-radius:inherit;opacity:0;transition:opacity .2s ease}
+.aum-panel .tm-dp-done.is-on{opacity:1}
+.tm-dp-done-card{width:min(400px,100%);display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 18px 20px;text-align:center;
+  border-radius:20px;border:1px solid var(--line,#e2e8f0);background:var(--panel,#fff);color:var(--text,#0f172a);
+  box-shadow:0 24px 60px -24px rgba(15,23,42,.45);transform:translateY(10px) scale(.97);transition:transform .25s cubic-bezier(.2,.9,.3,1.2)}
+.tm-dp-done.is-on .tm-dp-done-card{transform:none}
+.tm-dp-done-icon{width:64px;height:64px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,#16a34a 12%,transparent)}
+.tm-dp-done-icon svg{width:46px;height:46px;fill:none;stroke:#16a34a;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.tm-dp-done-icon circle{stroke-dasharray:145;stroke-dashoffset:145;animation:tmDpDraw .55s ease-out .05s forwards}
+.tm-dp-done-icon path{stroke-dasharray:36;stroke-dashoffset:36;animation:tmDpDraw .35s ease-out .5s forwards}
+@keyframes tmDpDraw{to{stroke-dashoffset:0}}
+.tm-dp-done-card h3{margin:4px 0 0;font-size:1.02rem;font-weight:700;color:var(--text,#0f172a)}
+.tm-dp-done-amt{font-size:1.6rem;font-weight:800;color:#16a34a;line-height:1.2;font-variant-numeric:tabular-nums}
+.tm-dp-done-amt .money,.tm-dp-done-amt .amount{font-size:inherit !important;color:inherit}
+.tm-dp-done-route{display:flex;flex-wrap:nowrap;min-width:0;align-items:center;justify-content:center;gap:8px;max-width:100%}
+.tm-dp-done-wallet{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:5px 10px;border-radius:999px;
+  background:color-mix(in srgb,var(--primary,#2457d6) 8%,transparent);font-size:.8rem}
+.tm-dp-done-wallet b{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm-dp-done-wallet img{width:16px;height:16px;object-fit:contain}
+.tm-dp-done-arrow{color:var(--muted,#64748b);font-size:.78rem}
+[dir="rtl"] .tm-dp-done-arrow{transform:scaleX(-1)}
+.tm-dp-done-card [data-dp-done]{margin-top:8px;min-width:132px;justify-content:center}
+@media (prefers-reduced-motion:reduce){
+  .aum-panel .tm-dp-done,.tm-dp-done-card{transition:none}
+  .tm-dp-done-icon circle,.tm-dp-done-icon path{animation:none;stroke-dashoffset:0}
+}
