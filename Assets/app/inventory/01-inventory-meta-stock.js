@@ -636,17 +636,75 @@ function sortCurrenciesList(values){
 }
 
 function findTransferPartnerForExpense(expenseEntry){
-  const transferMatch = String(expenseEntry.notes || "").match(/Transfer to ([^:]+?)(?::|$)/);
-  if (!transferMatch) return null;
-  const toWalletName = transferMatch[1].trim();
-  return state.entries.find(e =>
-    e.id !== expenseEntry.id &&
-    hasExpenseAccountTag(e.notes) &&
-    expenseMetaFromNotes(e.notes).rowType === "TOPUP" &&
-    String(e.person_name || "").trim() === toWalletName &&
-    e.notes.includes(`Transfer from ${expenseEntry.person_name}`)
-  ) || null;
+  return findExpenseTransferPartner(expenseEntry);
 }
+
+/** The text of a transfer note without the hidden [TAG:…] markers. */
+function expenseTransferPlainNote(notes){
+  return String(notes || "").replace(/\[[A-Z_]+(?::[^\]]*)?\]/g, " ").replace(/\s{2,}/g, " ").trim();
+}
+
+/**
+ * The other half of an internal wallet transfer: money out (expense row) ↔ money in (top-up row).
+ * Both halves are saved together, so the best match has the same creation time, then the same
+ * date and a matching amount. Several identical transfers between the same two wallets on the
+ * same day are therefore paired correctly. Rows that carry none of these keep the old rule
+ * (the first row whose note and wallet name match).
+ */
+function findExpenseTransferPartner(entry, pool = null, { strict = false } = {}){
+  if (!entry || !hasExpenseAccountTag(entry.notes || "") || entry.entry_kind === "principal") return null;
+  const meta = expenseMetaFromNotes(entry.notes || "");
+  const rowType = String(meta.rowType || "").toUpperCase();
+  const out = rowType === "EXPENSE";
+  if (!out && rowType !== "TOPUP") return null;
+  const text = expenseTransferPlainNote(entry.notes);
+  const nameMatch = out ? text.match(/Transfer to (.+?)(?::|$)/) : text.match(/Transfer from (.+?)(?::|$)/);
+  if (!nameMatch) return null;
+  const partnerName = nameMatch[1].trim();
+  const selfName = String(entry.person_name || "").trim();
+  const wantType = out ? "TOPUP" : "EXPENSE";
+  const back = out ? `Transfer from ${selfName}` : `Transfer to ${selfName}`;
+  const rows = Array.isArray(pool) ? pool : state.entries;
+  const loose = rows.filter(e =>
+    e && e.id !== entry.id && e.entry_kind !== "principal" &&
+    hasExpenseAccountTag(e.notes || "") &&
+    String(expenseMetaFromNotes(e.notes || "").rowType || "").toUpperCase() === wantType &&
+    expenseTransferPlainNote(e.notes).includes(back)
+  );
+  // Prefer the wallet named in the note; a wallet renamed since keeps the old (note-only) rule.
+  const named = loose.filter(e => String(e.person_name || "").trim() === partnerName);
+  const candidates = named.length ? named : loose;
+  if (!candidates.length) return null;
+  const t0 = Date.parse(entry.created_at || "") || 0;
+  // strict: only a half saved at the same moment counts (used to decide whether the right half
+  // is already loaded; when it is not, it is read from the server first).
+  if (strict) {
+    if (!t0) return null;
+    const near = candidates.filter(e => { const t = Date.parse(e.created_at || "") || 0; return t && Math.abs(t - t0) <= 5000; });
+    if (!near.length) return null;
+    candidates.splice(0, candidates.length, ...near);
+  }
+  if (candidates.length === 1) return candidates[0];
+  const amountOk = e => {
+    const exp = out ? entry : e, top = out ? e : entry;
+    const expText = out ? text : expenseTransferPlainNote(e.notes);
+    const d = expText.match(/:\s*([\d.]+)\s+(\w+)\s*(?:→|->)\s*([\d.]+)\s+(\w+)/);
+    const expAmt = Number(exp.action_amount || 0), topAmt = Number(top.action_amount || 0);
+    if (d) return Math.abs(Number(d[3]) - topAmt) < 0.011 && Math.abs(Number(d[1]) - expAmt) < 0.011;
+    return Math.abs(expAmt - topAmt) < 0.0001;
+  };
+  const scored = candidates.map((e, i) => {
+    const t = Date.parse(e.created_at || "") || 0;
+    const gap = t0 && t ? Math.abs(t - t0) : Infinity;
+    let score = 0;
+    if (gap <= 5000) score += 8;
+    if (String(e.action_date || "").slice(0, 10) === String(entry.action_date || "").slice(0, 10)) score += 4;
+    if (amountOk(e)) score += 2;
+    return { e, score, gap, i };
+  }).sort((a, b) => (b.score - a.score) || (a.gap - b.gap) || (a.i - b.i));
+  return scored[0].e;
+}
+window.findExpenseTransferPartner = findExpenseTransferPartner;
 
 function parseTransferExpenseDetails(tx, fromAccount){
   const raw = String(tx.notes || "");

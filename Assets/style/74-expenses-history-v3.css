@@ -262,7 +262,7 @@ html body #walletsOverviewSection .wallet-details-card .overview-card-actions .t
 
 /* Amounts keep their size here (a global phone rule shrinks .money .amount in tables). */
 html body #expensesList .exh :is(.money,.money .amount,.money .symbol),
-html body .tm-dp-root :is(.tm-dp-txhero,.tm-dp-txsplit,.aum-stats,.tm-dp-rows) :is(.money,.money .amount,.money .symbol){font-size:inherit !important;line-height:inherit;font-weight:inherit}
+html body .tm-dp-root :is(.tm-dp-txhero,.tm-dp-txsplit,.aum-stats,.tm-dp-rows,.aum-kv,.tm-dp-route) :is(.money,.money .amount,.money .symbol){font-size:inherit !important;line-height:inherit;font-weight:inherit}
 @media (max-width:640px){ #expensesList .exh-meta .exh-sep:has(+ .exh-note){display:none} }
 /* Summary card: its PDF button is a plain icon too. */
 html body #walletsOverviewSection .summary.expense-overview .overview-card-actions .tiny:has(> .fa-file-pdf){
@@ -342,3 +342,55 @@ html body #app#app #expensesList .exh-sort select{font-weight:600;color:inherit 
   .aum-panel .tm-dp-done,.tm-dp-done-card{transition:none}
   .tm-dp-done-icon circle,.tm-dp-done-icon path{animation:none;stroke-dashoffset:0}
 }
+
+/* ── 2026-11-17 d: every wallet-page record opens in the panel (money added, transfers, spends) ── */
+/* Row icons: shown on hover / keyboard focus with a mouse; on touch screens a tap opens the record
+   (all actions are inside). A small chevron tells the row opens. */
+#tmDetailPanel .tm-dp-row-click .tm-dp-row-go{font-size:.7rem;color:var(--muted,#64748b);opacity:.55;margin-inline-start:2px;transition:transform .15s ease,opacity .15s ease}
+#tmDetailPanel .tm-dp-row-click:hover .tm-dp-row-go{opacity:1;transform:translateX(2px)}
+[dir="rtl"] #tmDetailPanel .tm-dp-row-click .tm-dp-row-go{transform:scaleX(-1)}
+[dir="rtl"] #tmDetailPanel .tm-dp-row-click:hover .tm-dp-row-go{transform:scaleX(-1) translateX(2px)}
+@media (hover:hover){
+  #tmDetailPanel .tm-dp-row-click .tm-dp-row-act .tm-dp-icon-btn{opacity:0;transition:opacity .15s ease}
+  #tmDetailPanel .tm-dp-row-click:is(:hover,:focus-within) .tm-dp-row-act .tm-dp-icon-btn{opacity:1}
+}
+@media (hover:none){
+  #tmDetailPanel .tm-dp-row-click .tm-dp-row-act .tm-dp-icon-btn{display:none}
+}
+@media (max-width:700px){
+  #tmDetailPanel .tm-dp-row-click{grid-template-columns:34px minmax(0,1fr) auto auto}
+  #tmDetailPanel .tm-dp-row-click .tm-dp-row-act{grid-column:auto;justify-content:flex-end}
+}
+/* Loading a record from the server */
+#tmDetailPanel .tm-dp-rows li.is-busy{pointer-events:none}
+#tmDetailPanel .tm-dp-rows li.is-busy .tm-dp-row-go::before{content:"\f110";display:inline-block;animation:tmDpSpin .8s linear infinite}
+#tmDetailPanel .tm-dp-rows li.is-busy .tm-dp-row-go{opacity:1;color:var(--primary,#2457d6)}
+#tmDetailPanel .tm-dp-rows li.is-busy{background:color-mix(in srgb,var(--primary,#2457d6) 6%,transparent)}
+@keyframes tmDpSpin{to{transform:rotate(360deg)}}
+
+/* Transfer: From → To wallets */
+.tm-dp-route{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:stretch;gap:8px;margin:10px 0 4px}
+.tm-dp-route-w{display:grid;justify-items:start;gap:2px;min-width:0;padding:12px 14px;text-align:start;border-radius:16px;
+  border:1px solid var(--line,#e2e8f0);background:var(--panel,#fff);color:var(--text,#0f172a);cursor:pointer;font:inherit;
+  transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+@media (hover:hover){.tm-dp-route-w:hover:not(:disabled){border-color:color-mix(in srgb,var(--primary,#2457d6) 45%,var(--line,#e2e8f0));box-shadow:0 8px 20px -16px rgba(15,23,42,.5);transform:translateY(-1px)}}
+.tm-dp-route-w:focus-visible{outline:2px solid var(--primary,#2457d6);outline-offset:2px}
+.tm-dp-route-w:disabled{cursor:default}
+.tm-dp-route-logo{display:grid;place-items:center;width:34px;height:34px;margin-bottom:4px;border-radius:11px;background:color-mix(in srgb,var(--primary,#2457d6) 8%,transparent)}
+.tm-dp-route-logo img{width:22px;height:22px;object-fit:contain}
+.tm-dp-route-w small{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted,#64748b)}
+.tm-dp-route-w b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem;font-weight:650}
+.tm-dp-route-w em{font-style:normal;font-size:.82rem;font-weight:650;font-variant-numeric:tabular-nums}
+.tm-dp-route-w em.is-out{color:var(--danger,#dc2626)}
+.tm-dp-route-w em.is-in{color:#16a34a}
+.tm-dp-route-w em :is(.money,.amount){font-size:inherit !important;color:inherit}
+.tm-dp-route-mid{display:grid;place-items:center;align-content:center;gap:4px;padding:0 2px;color:var(--primary,#2457d6)}
+.tm-dp-route-mid i{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--primary,#2457d6) 10%,transparent);font-size:.78rem}
+.tm-dp-route-mid small{font-size:.6rem;color:var(--muted,#64748b);white-space:nowrap}
+[dir="rtl"] .tm-dp-route-mid i{transform:scaleX(-1)}
+@media (max-width:480px){
+  .tm-dp-route{grid-template-columns:1fr;gap:6px}
+  .tm-dp-route-mid{grid-auto-flow:column;justify-content:center}
+  .tm-dp-route-mid i{transform:rotate(90deg)}
+}
+@media (prefers-reduced-motion:reduce){.tm-dp-route-w,.tm-dp-row-go{transition:none}}

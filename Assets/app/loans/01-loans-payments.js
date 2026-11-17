@@ -884,31 +884,13 @@ async function deleteTransfer(entry) {
   let transferPartner = null;
   let transferType = "";
   
-  if (isExpenseTransfer) {
-    // This is the expense (money out) part, find the top-up (money in) part
-    const transferMatch = entry.notes.match(/Transfer to ([^:]+?)(?::|$)/);
-    if (transferMatch) {
-      const toWalletName = transferMatch[1];
-      transferPartner = state.entries.find(e => 
-        e.id !== entry.id &&
-        hasExpenseAccountTag(e.notes) &&
-        expenseMetaFromNotes(e.notes).rowType === "TOPUP" &&
-        e.notes.includes(`Transfer from ${entry.person_name}`)
-      );
-      transferType = "expense";
-    }
-  } else if (isTopupTransfer) {
-    // This is the top-up (money in) part, find the expense (money out) part
-    const transferMatch = entry.notes.match(/Transfer from ([^:]+?)(?::|$)/);
-    if (transferMatch) {
-      const fromWalletName = transferMatch[1];
-      transferPartner = state.entries.find(e => 
-        e.id !== entry.id &&
-        hasExpenseAccountTag(e.notes) &&
-        expenseMetaFromNotes(e.notes).rowType === "EXPENSE" &&
-        e.notes.includes(`Transfer to ${entry.person_name}`)
-      );
-      transferType = "topup";
+  // The exact other half (same save time, date and amount) — never another transfer between
+  // the same two wallets.
+  if (isExpenseTransfer || isTopupTransfer) {
+    const note = typeof expenseTransferPlainNote === "function" ? expenseTransferPlainNote(entry.notes) : String(entry.notes || "");
+    if (isExpenseTransfer ? /Transfer to /.test(note) : /Transfer from /.test(note)) {
+      transferPartner = typeof findExpenseTransferPartner === "function" ? findExpenseTransferPartner(entry) : null;
+      transferType = isExpenseTransfer ? "expense" : "topup";
     }
   }
   

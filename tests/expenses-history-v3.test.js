@@ -80,13 +80,13 @@ test("history v3: search can cover all dates or only the selected dates", () => 
 test("transaction opens in the side panel (not a floating dialog), with overview, details, item history and change log", () => {
   const js = read("Assets/app/ui/10-detail-panels.js");
   assert.match(js, /function openExpenseTx\(id, opts = \{\}\)/);
-  assert.match(js, /function openExpenseRecord\(type, id\)/);
+  assert.match(js, /function openExpenseRecord\(type, id, opts = \{\}\)/);
   assert.match(js, /global\.openExpenseTransactionDetail = f/);
   assert.match(js, /global\.openExpenseRecordDetail = f/);
   for (const tab of ['["overview", "Overview"', '["details", "Details"', '["item", "This item"', '["history", "Change log"']) assert.ok(js.includes(tab), tab);
   for (const act of ["tx-edit", "tx-dup", "tx-pdf", "tx-copy", "tx-delete", "tx-go", "tx-att", "tx-item-all", "tx-back"]) assert.ok(js.includes(`"${act}"`), act);
   // after Edit is saved the panel returns to the transaction
-  assert.match(js, /if \(txReturnAfterEdit\) \{ const back = txReturnAfterEdit; txReturnAfterEdit = ""; if \(openExpenseTx\(back\)\) return; \}/);
+  assert.match(js, /if \(back\.type === "expense" \? openExpenseTx\(back\.id, \{ keepBack: true \}\) : openExpenseRecord\(back\.type, back\.id, \{ keepBack: true \}\)\) return;/);
   assert.doesNotMatch(js, /supabase\(|supabaseRpc\(/);
   assert.match(read("Assets/app/expenses/03-expense-audit-pagination.js"), /loadHistory, historyHtml, logicalEditCount,/);
 });
@@ -147,4 +147,68 @@ test("Arabic and Urdu: new texts are translated", () => {
   const keys = new Set(rows.map(r => r[0]));
   for (const k of ["Preparing PDF", "PDF ready", "Go to date", "This item", "Change log", "Newest first", "already exists", "Add this spend to the same item, or keep it separate?"]) assert.ok(keys.has(k), k);
   for (const r of rows) assert.ok(r[1] && r[2], r[0]);
+});
+
+// ── Wallet page records open in the panel (2026-11-17 d) ──────────────────────────────────
+function loadPartnerFinder(entries){
+  const src = read("Assets/app/inventory/01-inventory-meta-stock.js");
+  const pick = name => { const i = src.indexOf(`function ${name}(`); assert.ok(i >= 0, name); let d = 0, j = src.indexOf("{\n", i); for (; j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) break; } return src.slice(i, j + 1); };
+  const ctx = {
+    window: {}, state: { entries },
+    hasExpenseAccountTag: n => /\[EXPENSE_ACCOUNT\]/.test(String(n || "")),
+    expenseMetaFromNotes: n => ({ rowType: (String(n || "").match(/\[ETYPE:([A-Z]+)\]/) || [])[1] || "", expenseType: (String(n || "").match(/\[XTYPE:([^\]]+)\]/) || [])[1] || "" })
+  };
+  vm.createContext(ctx);
+  vm.runInContext([pick("expenseTransferPlainNote"), pick("findExpenseTransferPartner"), "window.f = findExpenseTransferPartner;"].join("\n"), ctx);
+  return ctx.window.f;
+}
+
+test("transfer halves pair exactly, even with several identical transfers on the same day", () => {
+  const out = (id, at) => ({ id, person_name: "Petty Cash", entry_kind: "partial", action_date: "2026-11-17", action_amount: 25, created_at: at, notes: "[EXPENSE_ACCOUNT] Transfer to Shop Cash Drawer [ETYPE:EXPENSE] [XTYPE:Transfer]" });
+  const inn = (id, at) => ({ id, person_name: "Shop Cash Drawer", entry_kind: "partial", action_date: "2026-11-17", action_amount: 25, created_at: at, notes: "[EXPENSE_ACCOUNT] Transfer from Petty Cash [ETYPE:TOPUP] [XTYPE:Transfer]" });
+  const rows = [out("e1", "2026-11-17T10:01:39.497Z"), out("e2", "2026-11-17T10:02:06.336Z"), out("e3", "2026-11-17T10:02:59.707Z"),
+    inn("t1", "2026-11-17T10:01:39.497Z"), inn("t2", "2026-11-17T10:02:06.336Z"), inn("t3", "2026-11-17T10:02:59.707Z")];
+  const find = loadPartnerFinder(rows);
+  assert.equal(find(rows[1]).id, "t2");
+  assert.equal(find(rows[4]).id, "e2");
+  assert.equal(find(rows[2]).id, "t3");
+  // strict: a half saved at another moment is not accepted as "already loaded"
+  assert.equal(find(rows[1], [rows[3], rows[5]], { strict: true }), null);
+  assert.equal(find(rows[1], [rows[3], rows[4], rows[5]], { strict: true }).id, "t2");
+  // older records without a save time keep the old rule
+  const legacy = [out("x1", null), inn("y1", null)];
+  assert.equal(loadPartnerFinder(legacy)(legacy[0]).id, "y1");
+  // a renamed wallet keeps the note-only rule
+  const renamed = [out("r1", "2026-01-01T00:00:00Z"), { ...inn("s1", "2026-01-01T00:00:00Z"), person_name: "Shop Drawer (renamed)" }];
+  assert.equal(loadPartnerFinder(renamed)(renamed[0]).id, "s1");
+});
+
+test("delete of a transfer uses the exact pairing", () => {
+  const js = read("Assets/app/loans/01-loans-payments.js");
+  assert.match(js, /transferPartner = typeof findExpenseTransferPartner === "function" \? findExpenseTransferPartner\(entry\) : null;/);
+  assert.match(read("Assets/app/inventory/01-inventory-meta-stock.js"), /function findTransferPartnerForExpense\(expenseEntry\)\{\n  return findExpenseTransferPartner\(expenseEntry\);/);
+});
+
+test("records from a wallet page load on demand and never show in lists", () => {
+  const js = read("Assets/app/expenses/01-expenses-wallets.js");
+  assert.match(js, /function hydrateExpenseActivityRows\(rows\)\{/);
+  assert.match(js, /entry\._expenseOnDemand = true;/);
+  assert.match(js, /markDbSnapshotRows\(add\.concat\(\[\.\.\.replace\.values\(\)\]\)\);/);      // database copies: never re-saved
+  assert.match(js, /hasExpenseAccountTag\(e\.notes\) && !e\._expenseOnDemand\)\)/);         // kept out of every wallet list
+  assert.match(js, /if \(old && \(!old\._expenseOnDemand \|\| state\.pendingDbSyncIds\?\.has\?\.\(old\.id\)\)\) continue;/);
+  assert.match(js, /findExpenseTransferPartner\(entry, null, \{ strict: true \}\)/);
+  assert.match(js, /\|\| expenseTransferEventDirect\(id\);/);
+  // the hydrate path does not write anything to the database
+  const start = js.indexOf("function hydrateExpenseActivityRows"), end = js.indexOf("async function fetchExpenseGlobalSearchActivityRpc");
+  assert.doesNotMatch(js.slice(start, end), /supabase\(|queueDatabasePatch|persist[A-Z]|saveEntries/);
+});
+
+test("panel: every wallet-page row opens a full record view with actions", () => {
+  const js = read("Assets/app/ui/10-detail-panels.js");
+  assert.match(js, /const ok = await openWalletRecord\(b\.dataset\.type, b\.dataset\.id, \{ fromWallet: gid, fromTab: P\.tab, list \}\);/);
+  for (const a of ["rec-edit", "rec-again", "rec-pdf", "rec-copy", "rec-delete", "rec-att", "rec-wallet", "rec-go", "rec-copy-ref"]) assert.match(js, new RegExp(`"${a}"`));
+  assert.match(js, /tabs: \[\["overview", "Overview", "fa-solid fa-receipt"\], \["details", "Details", "fa-solid fa-circle-info"\], \["history", "Change log"/);
+  assert.match(js, /class="tm-dp-route"/);
+  assert.doesNotMatch(js, /Open Expenses history to see this record\./);
+  assert.match(read("Assets/style/74-expenses-history-v3.css"), /\.tm-dp-route\{/);
 });

@@ -180,6 +180,99 @@ async function fetchExpenseActivityRpc({ from = null, to = null, search = "", gr
 }
 
 
+// ── Records opened from a wallet page ─────────────────────────────────────────────────────
+// Wallet pages (side panel → Activity) list records straight from the server. To view, edit,
+// download or delete one of them, the record (and, for a transfer, its other half) is added to
+// the local records as a database copy — marked _expenseOnDemand so it never shows up in any list
+// (lists keep showing only what their own query loaded). The next refresh of Expenses replaces
+// them with fresh rows. Nothing here writes to the database.
+function hydrateExpenseActivityRows(rows){
+  if (typeof isExpenseLazyMode !== "function" || !isExpenseLazyMode()) return 0;
+  const byId = new Map(state.entries.map(e => [String(e.id), e]));
+  const add = [], replace = new Map();
+  for (const r of Array.isArray(rows) ? rows : [rows]) {
+    if (!r?.id || !r.group_id) continue;
+    const t = String(r.row_type || "").toUpperCase();
+    if (t !== "TOPUP" && t !== "EXPENSE") continue;
+    const old = byId.get(String(r.id));
+    // A loaded (listed) row or one waiting to be saved is never replaced; an earlier on-demand
+    // copy is refreshed with the newer server row.
+    if (old && (!old._expenseOnDemand || state.pendingDbSyncIds?.has?.(old.id))) continue;
+    const entry = expenseActivityToEntry(r);
+    entry._expenseOnDemand = true;
+    if (old) replace.set(String(r.id), entry); else add.push(entry);
+    byId.set(String(r.id), entry);
+  }
+  if (!add.length && !replace.size) return 0;
+  if (replace.size) {
+    unmarkDbSnapshotRows(state.entries.filter(e => replace.has(String(e.id))));
+    state.entries = state.entries.map(e => replace.get(String(e.id)) || e);
+  }
+  state.entries = state.entries.concat(add);
+  markDbSnapshotRows(add.concat([...replace.values()]));
+  invalidateExpenseAccountsSyncCache();
+  return add.length + replace.size;
+}
+window.hydrateExpenseActivityRows = hydrateExpenseActivityRows;
+
+const expenseRecordPartnerRows = new Map(); // record id → server row of its transfer partner
+
+/** The server row of the other half of a transfer row (looked up on the partner wallet's day). */
+async function fetchExpenseTransferPartnerRow(row, { fresh = false } = {}){
+  const id = String(row?.id || "");
+  if (!fresh && expenseRecordPartnerRows.has(id)) return expenseRecordPartnerRows.get(id);
+  const entry = state.entries.find(e => String(e.id) === id);
+  if (!entry) return null;
+  const meta = expenseMetaFromNotes(entry.notes || "");
+  const out = String(meta.rowType || "").toUpperCase() === "EXPENSE";
+  const text = expenseTransferPlainNote(entry.notes);
+  const nm = out ? text.match(/Transfer to (.+?)(?::|$)/) : text.match(/Transfer from (.+?)(?::|$)/);
+  if (!nm) return null;
+  const name = nm[1].trim();
+  const day = String(entry.action_date || "").slice(0, 10);
+  const wallets = getExpenseAccounts({ applyUiFilters: false }).filter(a => String(a.person_name || "").trim() === name && a.group_id !== entry.group_id);
+  const pool = [];
+  for (const w of wallets) {
+    // The other half is saved with the same date; a wider window covers a date edited on one side.
+    const tries = [[day, day], [null, null]];
+    for (const [from, to] of tries) {
+      try {
+        const page = await fetchExpenseActivityRpc({ groupId: w.group_id, from, to, search: from ? "" : (out ? `Transfer from ${entry.person_name}` : `Transfer to ${entry.person_name}`), limit: 200 });
+        const rows = (page.items || []).filter(x => String(x.row_type || "").toUpperCase() === (out ? "TOPUP" : "EXPENSE"));
+        if (rows.length) { pool.push(...rows); break; }
+      } catch (_) {}
+    }
+  }
+  if (!pool.length) { expenseRecordPartnerRows.set(id, null); return null; }
+  const candidates = pool.map(x => ({ x, e: expenseActivityToEntry(x) }));
+  const best = findExpenseTransferPartner(entry, candidates.map(c => c.e));
+  const hit = best ? candidates.find(c => c.e === best)?.x || null : null;
+  expenseRecordPartnerRows.set(id, hit);
+  return hit;
+}
+
+/**
+ * Makes one record from a wallet page ready to view, edit, download or delete.
+ * type: "expense" | "topup" | "transfer" | "opening". Returns true when the record is available.
+ */
+async function ensureExpenseRecordReady(type, row, { fresh = false } = {}){
+  const id = String(row?.id || "");
+  if (!id) return false;
+  if (row.row_type && (fresh || !state.entries.some(e => String(e.id) === id))) hydrateExpenseActivityRows([row]);
+  if (!state.entries.some(e => String(e.id) === id)) return false;
+  if (type === "transfer") {
+    const entry = state.entries.find(e => String(e.id) === id);
+    // Read the other half from the server unless the one saved together with it is already here.
+    if (fresh || !findExpenseTransferPartner(entry, null, { strict: true })) {
+      const partner = await fetchExpenseTransferPartnerRow(row, { fresh });
+      if (partner) hydrateExpenseActivityRows([partner]);
+    }
+  }
+  return true;
+}
+window.ensureExpenseRecordReady = ensureExpenseRecordReady;
+window.expenseRecordPartnerRow = id => expenseRecordPartnerRows.get(String(id)) || null;
+
 async function fetchExpenseGlobalSearchActivityRpc({ search = "", groupId = "", maxRows = 5000 } = {}){
   const pageSize = 500;
   const cap = Math.max(pageSize, Number(maxRows) || 5000);
@@ -1134,7 +1227,8 @@ async function loadGoodsScopeLazyOrFull(options = {}){
 }
 
 function buildExpenseAccountsUnfiltered(){
-  const accounts = groupByLoan(getActiveEntries().filter(e => e.direction === "taken" && hasExpenseAccountTag(e.notes)))
+  // Records opened one by one from a wallet page (_expenseOnDemand) stay out of every list.
+  const accounts = groupByLoan(getActiveEntries().filter(e => e.direction === "taken" && hasExpenseAccountTag(e.notes) && !e._expenseOnDemand))
     .map(group => {
       const principal = group.principal;
       const principalMeta = expenseMetaFromNotes(principal?.notes);
@@ -2283,9 +2377,45 @@ function expenseTopupRecordById(txId){
 }
 window.getExpenseTopupByIdForExport = expenseTopupRecordById;
 
+/** A transfer built straight from its two rows: works for any date and any list filter. */
+function expenseTransferEventDirect(recordId){
+  const id = String(recordId || "");
+  const entry = state.entries.find(e => String(e.id) === id && hasExpenseAccountTag(e.notes || "") && e.entry_kind !== "principal");
+  if (!entry) return null;
+  const meta = expenseMetaFromNotes(entry.notes || "");
+  if (String(meta.expenseType || "").toLowerCase() !== "transfer") return null;
+  const out = String(meta.rowType || "").toUpperCase() === "EXPENSE";
+  const partner = findExpenseTransferPartner(entry);
+  const expenseRow = out ? entry : partner;
+  const topupRow = out ? partner : entry;
+  if (!expenseRow) return null;
+  const accounts = getExpenseAccounts({ applyUiFilters: false });
+  const fromAcc = accounts.find(a => a.group_id === expenseRow.group_id);
+  if (!fromAcc) return null;
+  const toAcc = topupRow ? accounts.find(a => a.group_id === topupRow.group_id) : null;
+  const p = parseTransferExpenseDetails(expenseRow, fromAcc);
+  const st = row => String(row?._expenseAuditStatus || "").toLowerCase();
+  return {
+    expenseId: expenseRow.id,
+    topupId: topupRow?.id || null,
+    date: expenseRow.action_date,
+    fromWallet: fromAcc.person_name,
+    toWallet: toAcc?.person_name || p.toWallet,
+    fromGroupId: fromAcc.group_id,
+    toGroupId: toAcc?.group_id || topupRow?.group_id || "",
+    fromAccountType: fromAcc.accountType,
+    toAccountType: toAcc?.accountType || "",
+    amtOut: p.amtOut, curOut: p.curOut, amtIn: p.amtIn, curIn: p.curIn, rate: p.rate, sameCurrency: p.sameCurrency,
+    notesExpense: expenseRow.notes,
+    notesTopup: topupRow?.notes || "",
+    auditStatus: (st(expenseRow) === "archived" || st(topupRow) === "archived") ? "archived" : (st(expenseRow) === "deleted" || st(topupRow) === "deleted") ? "deleted" : ""
+  };
+}
+
 function expenseTransferEventById(recordId){
   const id = String(recordId || "");
-  const event = buildTransferEvents(getExpenseAccounts({ applyUiFilters: false })).find(ev => String(ev.expenseId) === id || String(ev.topupId) === id);
+  const event = buildTransferEvents(getExpenseAccounts({ applyUiFilters: false })).find(ev => String(ev.expenseId) === id || String(ev.topupId) === id)
+    || expenseTransferEventDirect(id);
   if (!event) return null;
   const expenseEntry = state.entries.find(row => String(row.id) === String(event.expenseId));
   const topupEntry = state.entries.find(row => String(row.id) === String(event.topupId));
@@ -2439,6 +2569,16 @@ function expenseTransactionRecordById(txId){
     const key = expenseItemHistoryKey(row.currency, row.item_name);
     const summary = state.expenseLazy.itemSummaryByKey?.get?.(key) || { item_name: row.item_name, expense_type: row.expense_type, currency: row.currency };
     return expenseItemHistoryRowToTransaction(row, summary);
+  }
+  // A record opened from a wallet page (not part of any loaded list).
+  const onDemand = state.entries.find(row => String(row.id) === id && row._expenseOnDemand);
+  if (onDemand) {
+    const account = accounts.find(a => a.group_id === onDemand.group_id);
+    if (account) {
+      const item = groupExpenseItems([{ row: onDemand, account }])[0];
+      const tx = (item?.txs || []).find(t => String(t.id) === id);
+      if (tx) return { ...tx, itemName: item.displayName, currency: item.currency };
+    }
   }
   if (window.ExpenseAudit) return ExpenseAudit.inactiveExpenseTransactionById(id);
   return null;

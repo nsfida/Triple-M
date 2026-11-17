@@ -214,10 +214,10 @@
     },
     {
       "path": "Assets/style/74-expenses-history-v3.css",
-      "bytes": 30158,
-      "sha256": "947e21637f6ddb0c250aaee75cbba6423ca38321dceb22174356a1f3d43f4ace"
+      "bytes": 34231,
+      "sha256": "5254c26c293fd56a198c96983df7ada43e71f0a2539175c31592bd377ed16de8"
     }
   ],
-  "bytes": 990215,
-  "sha256": "8d46ddd00dba53402c44cbc1994783214f6b5f3b2000cb7bb75ee0bbf9deb33f"
+  "bytes": 994288,
+  "sha256": "7d42b95a2d58f6b26307436c9f168486f42438e357c41a1dc87570dee91e60d2"
 }

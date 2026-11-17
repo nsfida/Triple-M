@@ -131,7 +131,7 @@
   }
   function close(){
     if (!P.el) return;
-    txReturnAfterEdit = "";
+    txReturnAfterEdit = null;
     const sheet = P.el.querySelector(".tm-dp-done"); if (sheet) { clearTimeout(sheet._h); sheet.remove(); }
     undock();
     leave();
@@ -796,17 +796,17 @@
   function walletRowsHtml(rows, cur, at = ""){
     return `<ul class="tm-dp-rows">${rows.map(row => {
       const i = walletRowInfo(row);
-      if (row.id && !row._opening && !txRowCache.has(String(row.id))) txRowCache.set(String(row.id), row);
+      if (row.id && !row._opening) txRowCache.set(String(row.id), row); // always the latest server copy
       const tone = i.transfer ? "info" : i.inbound ? "in" : "out";
       const icon = i.transfer ? "fa-right-left" : i.inbound ? "fa-arrow-down" : "fa-arrow-up";
       const id = esc(row.id || "");
       const att = global.TriplemAttachments && row.id && !row._opening ? (TriplemAttachments.iconHtml?.(i.inbound ? "topup" : "expense", row.id) || "") : "";
       const target = at && String(row.activity_date || "").slice(0, 10) === at ? " is-target" : "";
-      const open = row.id && !row._opening ? ` data-dp-act="w-tx" data-id="${id}" data-type="${i.type}" role="button" tabindex="0" title="Open transaction"` : "";
+      const open = row.id ? ` data-dp-act="w-tx" data-id="${id}" data-type="${i.type}" role="button" tabindex="0" title="Open transaction"` : "";
       return `<li class="tm-dp-row-click${target}"${open}><span class="tm-dp-row-ico is-${tone}" aria-hidden="true"><i class="fa-solid ${icon}"></i></span>
         <span class="tm-dp-row-main"><b>${esc(i.label)}</b><small>${esc(dd(row.activity_date))}${i.typeLabel ? ` · ${esc(i.typeLabel)}` : ""}${i.note ? ` · ${esc(String(i.note).slice(0, 70))}` : ""}</small></span>
         <span class="tm-dp-row-amt"><b class="${i.inbound ? "is-in" : "is-out"}">${i.inbound ? "+" : "−"}${m(Math.abs(num(row.amount)), row.currency || cur)}</b>${i.reference ? `<small>${esc(i.reference)}</small>` : ""}</span>
-        <span class="tm-dp-row-act">${att}${i.local && i.type !== "opening" ? `${canEdit() ? iconBtn("tx-edit", "Edit", "fa-solid fa-pen", `data-id="${id}" data-type="${i.type}"`) : ""}${iconBtn("tx-pdf", "PDF", "fa-solid fa-file-pdf", `data-id="${id}" data-type="${i.type}"`)}${canDelete() ? iconBtn("tx-delete", "Delete", "fa-solid fa-trash", `data-id="${id}" data-type="${i.type}"`, true) : ""}` : ""}</span></li>`;
+        <span class="tm-dp-row-act">${att}${row.id && i.type !== "opening" ? `${canEdit() ? iconBtn("tx-edit", "Edit", "fa-solid fa-pen", `data-id="${id}" data-type="${i.type}"`) : ""}${iconBtn("tx-pdf", "Download PDF", "fa-solid fa-file-pdf", `data-id="${id}" data-type="${i.type}"`)}${canDelete() ? iconBtn("tx-delete", "Delete", "fa-solid fa-trash", `data-id="${id}" data-type="${i.type}"`, true) : ""}` : ""}<i class="fa-solid fa-chevron-right tm-dp-row-go" aria-hidden="true"></i></span></li>`;
     }).join("")}</ul>`;
   }
 
@@ -834,6 +834,8 @@
       let res = null;
       try {
         if (lazyExpenses() && typeof fetchExpenseActivityRpc === "function") {
+          // Saves and deletes made a moment ago reach the database first.
+          try { if (typeof waitForExpenseWrites === "function") await waitForExpenseWrites(8000); } catch (_) {}
           // "Go to date": the page starts at that date (everything on or before it, newest first).
           const r = await fetchExpenseActivityRpc({ groupId: gid, to: st.at || null, limit: WALLET_PAGE, offset: (page - 1) * WALLET_PAGE });
           res = { items: r.items || [], total: num(r.total), totalPages: Math.max(1, num(r.totalPages) || 1), hasMore: r.hasMore === true };
@@ -981,7 +983,10 @@
       },
       // The docked form was saved or cancelled: back to the overview with fresh numbers.
       afterForm(){
-        if (txReturnAfterEdit) { const back = txReturnAfterEdit; txReturnAfterEdit = ""; if (openExpenseTx(back)) return; }
+        if (txReturnAfterEdit) {
+          const back = txReturnAfterEdit; txReturnAfterEdit = null;
+          if (back.type === "expense" ? openExpenseTx(back.id, { keepBack: true }) : openExpenseRecord(back.type, back.id, { keepBack: true })) return;
+        }
         const st = P.st;
         st.recent = null; st.act = null; st.actState = "idle";
         // Show the wallet's own (already updated) totals now; refresh the monthly totals from the
@@ -999,19 +1004,31 @@
         "go-activity": () => switchTab("activity"),
         page: (b, st) => loadPage(st, num(b.dataset.p)),
         "goto-clear": (_, st) => { st.at = ""; loadPage(st, 1); },
-        "w-tx": (b, st) => {
-          const id = b.dataset.id, type = b.dataset.type;
-          const ok = type === "expense" ? openExpenseTx(id, { fromWallet: gid, fromTab: P.tab })
-            : openExpenseRecord(type === "transfer" ? "transfer" : "topup", id);
-          if (!ok) toast("Open Expenses history to see this record.", false);
+        "w-tx": async (b, st) => {
+          const li = b.closest("li") || b;
+          if (li.classList.contains("is-busy")) return;
+          li.classList.add("is-busy"); li.setAttribute("aria-busy", "true");
+          try {
+            const list = walletPageList(st, P.tab);
+            const ok = await openWalletRecord(b.dataset.type, b.dataset.id, { fromWallet: gid, fromTab: P.tab, list });
+            if (!ok) toast("This record could not be loaded. Check your connection and try again.", false);
+          } finally { li.classList.remove("is-busy"); li.removeAttribute("aria-busy"); }
         },
         pdf: () => downloadExpenseAccountPDF(gid),
         edit: () => { const a = walletAccount(gid); if (a?.principal?.id) openEditModal(a.principal.id); },
         delete: async () => { const a = walletAccount(gid); if (a?.principal?.id) await deleteEntry(a.principal.id); refresh(); },
         reveal: (b, st) => { st.reveal[b.dataset.key] = !st.reveal[b.dataset.key]; render({ keepScroll: true }); },
-        "tx-edit": async b => { if (b.dataset.type === "transfer") return openTransferEditModal(b.dataset.id); if (!(typeof openExpenseTransactionEditModal === "function" && openExpenseTransactionEditModal(b.dataset.id))) openEditModal(b.dataset.id); },
-        "tx-pdf": async b => { await runExpenseRecordPdf(b.dataset.type, b.dataset.id); },
-        "tx-delete": async (b, st) => { await runExpenseRecordDelete(b.dataset.type, b.dataset.id); st.recent = null; st.act = null; st.actState = "idle"; loadPage(st, st.page || 1); }
+        // Row icons work for every row on the page: the record is loaded first when needed.
+        "tx-edit": async b => {
+          if (!(await rowReady(b))) return;
+          editRecord(b.dataset.type, b.dataset.id, false);
+        },
+        "tx-pdf": async b => { if (!(await rowReady(b))) return; await runExpenseRecordPdf(b.dataset.type, b.dataset.id); },
+        "tx-delete": async (b, st) => {
+          if (!(await rowReady(b))) return;
+          await runExpenseRecordDelete(b.dataset.type, b.dataset.id);
+          st.recent = null; st.act = null; st.actState = "idle"; loadPage(st, st.page || 1);
+        }
       }
     });
     if (lazyExpenses()) loadChart(P.st);
@@ -1024,8 +1041,8 @@
   // history across all dates and the change log. Edit / Duplicate / PDF / Delete use the app's
   // own functions.
   const txRowCache = new Map();   // rows that are not in state.entries (wallet pages, item history)
-  let txBackTo = null;            // { walletId, tab } when opened from a wallet
-  let txReturnAfterEdit = "";     // reopen this transaction after its Edit form is saved
+  let txBackTo = null;            // { walletId, tab, list: [{ id, type }] } when opened from a wallet page
+  let txReturnAfterEdit = null;   // { type, id }: reopen this record after its Edit form is saved
 
   function txRecord(id){
     let tx = null;
@@ -1042,10 +1059,21 @@
   const longDate = d => { try { return new Date(`${String(d).slice(0, 10)}T12:00:00`).toLocaleDateString((global.TriplemI18n && global.TriplemI18n.lang !== "en" ? global.TriplemI18n.locale : undefined), { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return dd(d); } };
 
   function txNavHtml(id){
+    // Opened from a wallet page: Previous / Next walk through that page (money in, out, transfers).
+    const list = txBackTo?.list || [];
+    const w = list.findIndex(x => String(x.id) === String(id));
+    const back = txBackTo ? `<button type="button" class="tm-dp-back" data-dp-act="tx-back"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Back to wallet</button>` : "";
+    if (w >= 0) {
+      const prev = list[w - 1], next = list[w + 1];
+      return `<div class="tm-dp-txbar">${back}<span class="tm-dp-txnav">
+          ${iconBtn("rec-go", "Previous transaction", "fa-solid fa-chevron-up", prev ? `data-id="${esc(prev.id)}" data-type="${esc(prev.type)}"` : "disabled")}
+          <small>${w + 1} of ${list.length}</small>
+          ${iconBtn("rec-go", "Next transaction", "fa-solid fa-chevron-down", next ? `data-id="${esc(next.id)}" data-type="${esc(next.type)}"` : "disabled")}
+        </span></div>`;
+    }
     let order = [];
     try { order = global.TriplemExpenseHistory?.order?.() || []; } catch (_) {}
     const i = order.indexOf(String(id));
-    const back = txBackTo ? `<button type="button" class="tm-dp-back" data-dp-act="tx-back"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Back to wallet</button>` : "";
     if (i < 0 && !back) return "";
     const nav = i < 0 ? "" : `<span class="tm-dp-txnav">
         ${iconBtn("tx-go", "Previous transaction", "fa-solid fa-chevron-up", `data-id="${esc(order[i - 1] || "")}"${i > 0 ? "" : " disabled"}`)}
@@ -1053,6 +1081,57 @@
         ${iconBtn("tx-go", "Next transaction", "fa-solid fa-chevron-down", `data-id="${esc(order[i + 1] || "")}"${i < order.length - 1 ? "" : " disabled"}`)}
       </span>`;
     return `<div class="tm-dp-txbar">${back || `<span class="tm-dp-txbar-label">Expenses history</span>`}${nav}</div>`;
+  }
+
+  // ── records from a wallet page: loaded on demand, then opened here ─────────────────────
+  // A wallet page lists records straight from the server. Before a record is shown, edited,
+  // downloaded or deleted, it (and the other half of a transfer) is loaded as a database copy.
+  async function readyRecord(type, id){
+    const rid = String(id || "");
+    if (!rid) return false;
+    const has = () => { try { return state.entries.some(e => String(e.id) === rid); } catch (_) { return false; } };
+    const row = txRowCache.get(rid);
+    if (row && lazyExpenses() && typeof global.ensureExpenseRecordReady === "function") {
+      try { await global.ensureExpenseRecordReady(type === "opening" ? "topup" : type, row); } catch (_) {}
+    }
+    return has() || (type === "expense" && !!txRecord(rid));
+  }
+  async function openWalletRecord(type, id, opts = {}){
+    if (!(await readyRecord(type, id))) return false;
+    return type === "expense" ? openExpenseTx(id, opts) : openExpenseRecord(type, id, opts);
+  }
+  async function rowReady(b){
+    const li = b.closest("li");
+    li?.classList.add("is-busy");
+    try {
+      const ok = await readyRecord(b.dataset.type, b.dataset.id);
+      if (!ok) toast("This record could not be loaded. Check your connection and try again.", false);
+      return ok;
+    } finally { li?.classList.remove("is-busy"); }
+  }
+  // Rows of the wallet page that is on screen, in order (for Previous / Next).
+  function walletPageList(st, tab){
+    const rows = tab === "overview" ? (st.recent || []) : (st.act?.items || []);
+    return rows.filter(r => r?.id).map(r => ({ id: String(r.id), type: walletRowInfo(r).type }));
+  }
+  // Edit any record; with back=true the panel returns to it after saving.
+  function editRecord(type, id, back){
+    const rid = String(id || "");
+    txReturnAfterEdit = back ? { type, id: rid } : null;
+    if (back) txRowCache.delete(rid);
+    if (type === "transfer") {
+      if (typeof openTransferEditModal === "function") openTransferEditModal(rid);
+      return;
+    }
+    if (type === "opening") {
+      txReturnAfterEdit = null;
+      openEditModal(rid);
+      return;
+    }
+    if (!(typeof openExpenseTransactionEditModal === "function" && openExpenseTransactionEditModal(rid))) {
+      txReturnAfterEdit = null;
+      if (type === "topup" || type === "expense") openEditModal(rid);
+    }
   }
 
   function txItemData(tx, st){
@@ -1108,7 +1187,7 @@
   function openExpenseTx(id, opts = {}){
     const txId = String(id || "").trim();
     if (!txId || !txRecord(txId)) return false;
-    if (opts.fromWallet) txBackTo = { walletId: opts.fromWallet, tab: opts.fromTab || "activity" };
+    if (opts.fromWallet) txBackTo = { walletId: opts.fromWallet, tab: opts.fromTab || "activity", list: opts.list || [] };
     else if (!opts.keepBack) txBackTo = null;
     const TX = () => memo("tx", () => txRecord(txId));
     open({
@@ -1199,6 +1278,7 @@
       onChange(){},
       actions: {
         "tx-go": b => { const nid = b.dataset.id; if (nid) openExpenseTx(nid, { keepBack: true, tab: P.tab === "item" ? "overview" : P.tab }); },
+        "rec-go": async b => { if (!(await openWalletRecord(b.dataset.type, b.dataset.id, { keepBack: true }))) toast("This record could not be loaded.", false); },
         "tx-back": () => { const b = txBackTo; txBackTo = null; if (b) openWallet(b.walletId, b.tab); },
         "tx-wallet": () => { const tx = TX(); if (tx?.group_id) openWallet(tx.group_id, "overview"); },
         "tx-copy-ref": async () => { await navigator.clipboard.writeText(txRef(txId)); toast("Reference copied"); },
@@ -1211,13 +1291,15 @@
         },
         "tx-pdf": async () => { if (typeof downloadExpenseTransactionPDF === "function") await downloadExpenseTransactionPDF(txId); },
         "tx-att": () => { try { TriplemAttachments.openViewer("expense", String(txId).toLowerCase()); } catch (_) {} },
-        "tx-edit": () => {
-          txReturnAfterEdit = txId;
+        "tx-edit": async () => {
+          await readyRecord("expense", txId);
+          txReturnAfterEdit = { type: "expense", id: txId };
+          txRowCache.delete(txId); // read the saved values from the server next time
           if (!(typeof openExpenseTransactionEditModal === "function" && openExpenseTransactionEditModal(txId))) openEditModal(txId);
         },
         "tx-dup": () => {
           const tx = TX(); if (!tx?.group_id) return;
-          txReturnAfterEdit = "";
+          txReturnAfterEdit = null;
           global.openExpenseModal("expense", tx.group_id);
           const form = global.els?.expenseEntryForm || document.getElementById("expenseEntryForm");
           if (!form) return;
@@ -1228,7 +1310,11 @@
           set("amount", num(tx.netAmount && num(tx.taxAmount) && String(tx.taxMode || "").toUpperCase() === "ADD" ? tx.netAmount : tx.amount).toFixed(2));
           set("notes", tx.notes && tx.notes !== "—" ? tx.notes : "");
         },
-        "tx-delete": async () => { await deleteEntry(txId); refresh(); },
+        "tx-delete": async () => {
+          await readyRecord("expense", txId);
+          await deleteEntry(txId);
+          if (!state.entries.some(e => String(e.id) === txId)) { txRowCache.delete(txId); leaveDeleted(); } else refresh();
+        },
         "tx-item-all": () => {
           const tx = TX(); if (!tx) return;
           close();
@@ -1244,57 +1330,240 @@
     return true;
   }
 
-  // Money added / opening balance / internal transfer records: the same panel, simpler content.
-  function openExpenseRecord(type, id){
-    const kind = String(type || "expense").toLowerCase();
-    if (kind === "expense") return openExpenseTx(id);
+  // After a record was deleted: back to the wallet page it came from (or redraw).
+  function leaveDeleted(){
+    const b = txBackTo;
+    if (b) { txBackTo = null; openWallet(b.walletId, b.tab || "activity"); toast("Moved to the Recycle Bin"); }
+    else refresh();
+  }
+
+  // ── Money added · Opening balance · Wallet transfer ─────────────────────────────────────
+  // The same panel as an expense: Overview, Details and Change log, with every action
+  // (Edit, Add again / Repeat transfer, PDF, Copy, Attachments, Delete), links to the wallets
+  // and Previous / Next through the wallet page it was opened from.
+  const recRef = (id, inbound) => { const c = String(id || "").replace(/-/g, "").slice(0, 10).toUpperCase(); return c ? `${inbound ? "TX" : "EXP"}-${c}` : ""; };
+  const timeText = v => { const t = v ? new Date(v) : null; if (!t || Number.isNaN(t.getTime())) return ""; try { return t.toLocaleTimeString((global.TriplemI18n && global.TriplemI18n.lang !== "en" ? global.TriplemI18n.locale : undefined), { hour: "2-digit", minute: "2-digit" }); } catch (_) { return ""; } };
+  const walletLogo = (name, size = 20) => { try { return getWalletIconHtml(name || "Wallet", size, getWalletCustomLogoMap().get(String(name || "").trim().toLowerCase()) || ""); } catch (_) { return ""; } };
+  const attCount = (kind, id) => { if (!id) return 0; try { const a = TriplemAttachments._test.counts(kind, String(id).toLowerCase()); return num(a.stored) + num(a.pending); } catch (_) { return 0; } };
+  const detailField = key => `detail_${String(key).replace(/[A-Z]/g, c => "_" + c.toLowerCase())}`;
+  function setField(form, name, value){
+    const f = form?.querySelector(`[name="${name}"]`);
+    if (!f || value == null) return;
+    f.value = value;
+    f.dispatchEvent(new Event("input", { bubbles: true }));
+    f.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function openExpenseRecord(type, id, opts = {}){
+    let kind = String(type || "expense").toLowerCase();
+    if (kind === "expense") return openExpenseTx(id, opts);
     const rid = String(id || "");
-    const REC = () => memo("rec", () => { try { return kind === "transfer" ? expenseTransferEventById(rid) : expenseTopupRecordById(rid); } catch (_) { return null; } });
-    if (!REC()) return false;
-    txBackTo = null;
+    const lookT = () => { try { return expenseTransferEventById(rid); } catch (_) { return null; } };
+    const lookM = () => { try { return expenseTopupRecordById(rid); } catch (_) { return null; } };
+    // A received transfer whose sending half cannot be found is shown as money added.
+    if (kind === "transfer" && !lookT()) kind = lookM() ? "topup" : kind;
+    if (kind === "opening") kind = "topup";
+    const isT = kind === "transfer";
+    const look = isT ? lookT : lookM;
+    if (!look()) return false;
+    if (opts.fromWallet) txBackTo = { walletId: opts.fromWallet, tab: opts.fromTab || "activity", list: opts.list || [] };
+    else if (!opts.keepBack) txBackTo = null;
+    const REC = () => memo("rec", look);
+    const recType = r => isT ? "transfer" : (r?.isOpeningBalance ? "opening" : "topup");
+
+    // The record left the local copy (Expenses refreshed): read it again from the server.
+    function refetch(st){
+      if (st.refetch === "loading" || st.refetch === "gone") return;
+      const last = st.last;
+      if (!last || !lazyExpenses() || typeof fetchExpenseActivityRpc !== "function") { st.refetch = "gone"; return; }
+      st.refetch = "loading";
+      (async () => {
+        let found = false;
+        try {
+          const page = await fetchExpenseActivityRpc({ groupId: last.gid, from: last.date, to: last.date, limit: 200 });
+          const row = (page.items || []).find(x => String(x.id) === rid);
+          if (row) {
+            txRowCache.set(rid, row);
+            await global.ensureExpenseRecordReady?.(isT ? "transfer" : "topup", row, { fresh: true });
+            found = !!look();
+          }
+        } catch (_) {}
+        st.refetch = found ? "idle" : "gone";
+        if (P.def?.recId === rid) render({ keepScroll: true });
+      })();
+    }
+
     open({
-      txId: rid, icon: "expenses", state: { log: null, logState: "idle" },
-      tabs: [["overview", "Overview", "fa-solid fa-receipt"], ["history", "Change log", "fa-solid fa-clock-rotate-left"]],
+      txId: rid, recId: rid, icon: "expenses", tab: opts.tab || "overview",
+      state: { log: null, logState: "idle", last: null, refetch: "idle" },
+      tabs: [["overview", "Overview", "fa-solid fa-receipt"], ["details", "Details", "fa-solid fa-circle-info"], ["history", "Change log", "fa-solid fa-clock-rotate-left"]],
       head(){
-        const r = REC(); if (!r) return null;
-        if (kind === "transfer") return { title: "Wallet transfer", avatar: `<span class="tm-dp-txico" style="--t:#2563eb"><i class="fa-solid fa-right-left"></i></span>`,
-          sub: `${esc(r.fromWallet || "—")} → ${esc(r.toWallet || "—")}`, pills: [pill(plain(r.amtOut, r.curOut), "info", "fa-solid fa-right-left"), pill(dd(r.date), "", "fa-regular fa-calendar")] };
-        return { title: r.isOpeningBalance ? "Opening balance" : (r.isTransfer ? "Transfer received" : "Money added"), avatar: `<span class="tm-dp-txico" style="--t:#16a34a"><i class="fa-solid fa-arrow-down"></i></span>`,
-          sub: `${esc(r.wallet || "Wallet")} · ${esc(r.accountType || "")}`, pills: [pill(`+${plain(r.amount, r.currency)}`, "ok", "fa-solid fa-arrow-down"), pill(dd(r.date), "", "fa-regular fa-calendar")] };
+        const r = REC(), st = P.st;
+        if (!r) {
+          refetch(st);
+          return st.refetch === "gone"
+            ? { title: "Record not available", sub: "It was deleted or moved.", pills: [pill("Not found", "warn", "fa-solid fa-triangle-exclamation")] }
+            : { title: "Loading…", sub: "", pills: [] };
+        }
+        st.last = { gid: isT ? (String(r.topupId) === rid ? r.toGroupId : r.fromGroupId) : r.group_id, date: String(r.date || "").slice(0, 10) };
+        const pills = [];
+        if (r.auditStatus) pills.push(pill(r.auditStatus === "archived" ? "Permanently deleted" : "Deleted", "warn", "fa-solid fa-trash-can"));
+        if (isT) {
+          pills.unshift(pill(plain(r.amtOut, r.curOut), "info", "fa-solid fa-right-left"));
+          if (!r.auditStatus) pills.push(pill(dd(r.date), "", "fa-regular fa-calendar"));
+          return { title: "Wallet transfer", avatar: `<span class="tm-dp-txico" style="--t:#2563eb"><i class="fa-solid fa-right-left"></i></span>`,
+            sub: `<span translate="no">${esc(r.fromWallet || "—")}</span> → <span translate="no">${esc(r.toWallet || "—")}</span>`, pills };
+        }
+        pills.unshift(pill(`+${plain(r.amount, r.currency)}`, "ok", "fa-solid fa-arrow-down"));
+        if (!r.auditStatus) pills.push(pill(dd(r.date), "", "fa-regular fa-calendar"));
+        return { title: r.isOpeningBalance ? "Opening balance" : (r.isTransfer ? "Transfer received" : "Money added"),
+          avatar: `<span class="tm-dp-txico" style="--t:#16a34a"><i class="fa-solid ${r.isOpeningBalance ? "fa-wallet" : "fa-arrow-down"}"></i></span>`,
+          sub: `<span translate="no">${esc(r.wallet || "Wallet")}</span>${r.accountType ? ` · ${esc(r.accountType)}` : ""}`, pills };
       },
       render(tab, st){
-        const r = REC(); if (!r) return "";
-        if (tab === "history") {
-          if (st.logState === "idle" && global.ExpenseAudit?.loadHistory) {
-            st.logState = "loading";
-            const ids = kind === "transfer" ? [r.expenseId, r.topupId].filter(Boolean) : [rid];
-            ExpenseAudit.loadHistory(ids, { force: true }).then(ev => { st.log = ev || []; st.logState = "ready"; render({ keepScroll: true }); }).catch(() => { st.log = []; st.logState = "ready"; render({ keepScroll: true }); });
-          }
-          if (st.logState !== "ready" && global.ExpenseAudit?.loadHistory) return section("Change log", skel(3));
-          return section("Change log", global.ExpenseAudit?.historyHtml ? ExpenseAudit.historyHtml(st.log || []) : empty("No changes recorded."));
+        const r = REC();
+        if (!r) {
+          if (st.refetch === "gone") return note("This record is no longer available. It may have been deleted on another device.", "warn", "fa-solid fa-triangle-exclamation")
+            + (txBackTo ? `<div class="aum-actions is-left">${btn("tx-back", "Back to wallet", "fa-solid fa-chevron-left")}</div>` : "");
+          return section("Transaction", skel(4));
         }
+        const nav = txNavHtml(rid);
+        const inactive = !!r.auditStatus;
         let details = [];
-        try { details = expenseDetailsForDisplay(r.details, kind === "transfer" ? "transfer" : "topup"); } catch (_) {}
-        const status = r.auditStatus;
-        const acts = status ? note("This record was deleted and is read-only.", "warn", "fa-solid fa-lock") + `<div class="aum-actions is-left">${btn("rec-pdf", "Download PDF", "fa-solid fa-file-pdf")}</div>`
-          : `<div class="tm-dp-txacts">${canEdit() ? btn("rec-edit", r.isOpeningBalance ? "Edit wallet" : "Edit", "fa-solid fa-pen", { primary: true }) : ""}${btn("rec-pdf", "PDF", "fa-solid fa-file-pdf")}${canDelete() && !r.isOpeningBalance ? btn("rec-delete", "Delete", "fa-solid fa-trash", { danger: true }) : ""}</div>`;
-        if (kind === "transfer") {
-          return `<div class="tm-dp-txhero is-transfer"><small>Transferred</small><strong>${m(r.amtOut, r.curOut)}</strong><span>${esc(longDate(r.date))}</span>
-              <div class="tm-dp-txsplit"><span><small>From</small><b>${esc(r.fromWallet || "—")}</b></span><span><small>${r.sameCurrency ? "Same currency" : `Rate ${esc(String(r.rate || 1))}`}</small><b><i class="fa-solid fa-arrow-right"></i></b></span><span><small>To</small><b>${esc(r.toWallet || "—")} · ${m(r.amtIn, r.curIn)}</b></span></div></div>`
-            + section("Notes", (r.notesExpense || r.notesTopup) ? `<p class="tm-dp-note">${esc(cleanExpenseNote(r.notesExpense || r.notesTopup || ""))}</p>` : empty("No notes."))
-            + (details.length ? section("Details", kv(details.map(x => [x.label, esc(x.value)]))) : "")
+        try { details = expenseDetailsForDisplay(r.details, isT ? "transfer" : "topup"); } catch (_) {}
+        if (tab === "history") {
+          if (st.logState !== "ready") {
+            if (st.logState === "idle" && global.ExpenseAudit?.loadHistory) {
+              st.logState = "loading";
+              const ids = isT ? [r.expenseId, r.topupId].filter(Boolean) : [rid];
+              ExpenseAudit.loadHistory(ids, { force: true })
+                .then(ev => { st.log = ev || []; st.logState = "ready"; if (P.def?.recId === rid) render({ keepScroll: true }); })
+                .catch(() => { st.log = []; st.logState = "ready"; if (P.def?.recId === rid) render({ keepScroll: true }); });
+            }
+            if (!global.ExpenseAudit?.loadHistory) { st.log = []; st.logState = "ready"; }
+            else return nav + section("Change log", skel(3));
+          }
+          const html = global.ExpenseAudit?.historyHtml ? ExpenseAudit.historyHtml(st.log || []) : empty("No changes recorded.");
+          return nav + section("Change log", `<p class="aum-muted">Every edit, deletion and restore of this ${isT ? "transfer (both wallets)" : "record"}, with who made it and when.</p>${html}`);
+        }
+        if (tab === "details") {
+          const recRows = isT
+            ? [["Reference (sent)", `<span class="tm-dp-mono">${esc(recRef(r.expenseId, false))}</span>`], r.topupId ? ["Reference (received)", `<span class="tm-dp-mono">${esc(recRef(r.topupId, true))}</span>`] : null,
+               ["From account type", esc(r.fromAccountType || "—")], ["To account type", esc(r.toAccountType || "—")],
+               ["Conversion rate", esc(r.sameCurrency ? "1 (same currency)" : String(r.rate || "—"))],
+               ["Record ids", `<span class="tm-dp-mono tm-dp-small">${esc([r.expenseId, r.topupId].filter(Boolean).join(" · "))}</span>`], ["Recorded", esc(recordedAt(r.createdAt))]]
+            : [["Reference", `<span class="tm-dp-mono">${esc(recRef(r.id, true))}</span>`], ["Account type", esc(r.accountType || "—")], ["Currency", esc(r.currency || "—")],
+               ["Record id", `<span class="tm-dp-mono tm-dp-small">${esc(r.id)}</span>`], ["Recorded", esc(recordedAt(r.createdAt))]];
+          return nav + section(isT ? "Transfer details" : "Payment details", details.length ? kv(details.map(x => [x.label, esc(x.value)]))
+              : note(`No optional details were added${isT ? " (method, reference, …)" : " (source, payer, receipt number, …)"}. ${inactive ? "" : "Use <b>Edit</b> to add them."}`, "info"))
+            + section("Record", kv(recRows));
+        }
+        // overview
+        const acts = inactive
+          ? note(`This ${isT ? "transfer" : "record"} was ${r.auditStatus === "archived" ? "permanently deleted" : "deleted"}. It is kept read-only for your records${r.auditStatus === "archived" ? "" : " and can be restored from the Recycle Bin"}.`, "warn", "fa-solid fa-lock")
+            + `<div class="aum-actions is-left is-wrap">${btn("rec-pdf", "Download PDF", "fa-solid fa-file-pdf")}${btn("rec-copy", "Copy details", "fa-regular fa-copy")}</div>`
+          : `<div class="tm-dp-txacts">
+              ${canEdit() ? btn("rec-edit", r.isOpeningBalance ? "Edit wallet" : "Edit", "fa-solid fa-pen", { primary: true }) : ""}
+              ${canEdit() && !r.isOpeningBalance ? btn("rec-again", isT ? "Repeat" : "Add again", isT ? "fa-solid fa-rotate-right" : "fa-regular fa-clone") : ""}
+              ${btn("rec-pdf", "PDF", "fa-solid fa-file-pdf")}
+              ${btn("rec-copy", "Copy", "fa-regular fa-copy")}
+              ${canDelete() && !r.isOpeningBalance ? btn("rec-delete", "Delete", "fa-solid fa-trash", { danger: true }) : ""}
+            </div>`;
+        if (isT) {
+          const nOut = attCount("expense", r.expenseId), nIn = attCount("topup", r.topupId), nAtt = nOut + nIn;
+          let userNote = "";
+          try { userNote = typeof expenseTransferUserNote === "function" ? expenseTransferUserNote(r) : ""; } catch (_) {}
+          const time = timeText(r.createdAt);
+          const side = (label, name, gidW, amt, cur, tone) => `<button type="button" class="tm-dp-route-w" data-dp-act="rec-wallet" data-gid="${esc(gidW || "")}"${gidW ? "" : " disabled"}>
+              <span class="tm-dp-route-logo">${walletLogo(name, 28)}</span><small>${esc(label)}</small><b translate="no">${esc(name || "—")}</b><em class="is-${tone}">${tone === "out" ? "−" : "+"}${m(amt, cur)}</em></button>`;
+          return nav + `<div class="tm-dp-txhero is-transfer${inactive ? " is-inactive" : ""}"><small>Amount transferred</small><strong>${m(r.amtOut, r.curOut)}</strong><span>${esc(longDate(r.date))}${time ? ` · ${esc(time)}` : ""}</span></div>`
+            + `<div class="tm-dp-route">${side("From", r.fromWallet, r.fromGroupId, r.amtOut, r.curOut, "out")}
+                <span class="tm-dp-route-mid" aria-hidden="true"><i class="fa-solid fa-arrow-right"></i><small>${r.sameCurrency ? "Same currency" : `Rate ${esc(String(r.rate || 1))}`}</small></span>
+                ${side("To", r.toWallet, r.toGroupId, r.amtIn, r.curIn, "in")}</div>`
+            + (r.topupId ? "" : note("The receiving half of this transfer was not found. Edit and delete may be limited.", "warn", "fa-solid fa-triangle-exclamation"))
+            + section("Transfer", kv([
+                ["Date", esc(dd(r.date))],
+                ["Sent", m(r.amtOut, r.curOut)],
+                ["Received", m(r.amtIn, r.curIn)],
+                ["Reference", `<span class="tm-dp-mono">${esc(recRef(r.expenseId, false))}</span> ${iconBtn("rec-copy-ref", "Copy reference", "fa-regular fa-copy")}`],
+                ["Recorded", esc(recordedAt(r.createdAt))]
+              ]))
+            + section("Notes", userNote ? `<p class="tm-dp-note" translate="no">${esc(userNote)}</p>` : empty("No notes."))
+            + section("Attachments", nAtt ? `<div class="aum-actions is-left is-wrap">${nOut ? btn("rec-att", `Sent side · ${nOut}`, "fa-solid fa-paperclip", { data: `data-kind="expense" data-id="${esc(r.expenseId)}"` }) : ""}${nIn ? btn("rec-att", `Received side · ${nIn}`, "fa-solid fa-paperclip", { data: `data-kind="topup" data-id="${esc(r.topupId)}"` }) : ""}</div>`
+                : empty(inactive ? "No attachments." : "No attachments. Use Edit to add a receipt or bank slip."))
             + section("Actions", acts);
         }
-        return `<div class="tm-dp-txhero is-in"><small>${r.isOpeningBalance ? "Opening balance" : "Amount received"}</small><strong>+${m(r.amount, r.currency)}</strong><span>${esc(longDate(r.date))}</span></div>`
-          + section("Record", kv([["Wallet", esc(r.wallet || "—")], ["Account type", esc(r.accountType || "—")], ["Date", esc(dd(r.date))], ["Recorded", esc(recordedAt(r.createdAt))]]))
-          + section("Notes", r.notes && r.notes !== "—" ? `<p class="tm-dp-note">${esc(r.notes)}</p>` : empty("No notes."))
-          + (details.length ? section("Details", kv(details.map(x => [x.label, esc(x.value)]))) : "")
+        const nAtt = attCount("topup", r.id);
+        const time = timeText(r.createdAt);
+        const notes = String(r.notes || "").trim();
+        const source = (details.find(x => x.key === "sourceType") || {}).value;
+        return nav + `<div class="tm-dp-txhero is-in${inactive ? " is-inactive" : ""}"><small>${r.isOpeningBalance ? "Opening balance" : "Amount received"}</small><strong>+${m(r.amount, r.currency)}</strong><span>${esc(longDate(r.date))}${time ? ` · ${esc(time)}` : ""}</span></div>`
+          + section(r.isOpeningBalance ? "Wallet" : "Transaction", kv([
+              ["Received into", r.group_id ? `<button type="button" class="tm-dp-link" data-dp-act="rec-wallet" data-gid="${esc(r.group_id)}">${walletLogo(r.wallet)} <span translate="no">${esc(r.wallet || "Wallet")}</span> <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button>` : esc(r.wallet || "—")],
+              ["Type", esc(r.isOpeningBalance ? "Opening balance" : r.isTransfer ? "Transfer received" : "Top-up")],
+              source ? ["Source", esc(source)] : null,
+              ["Date", esc(dd(r.date))],
+              r.isOpeningBalance ? null : ["Reference", `<span class="tm-dp-mono">${esc(recRef(r.id, true))}</span> ${iconBtn("rec-copy-ref", "Copy reference", "fa-regular fa-copy")}`],
+              ["Recorded", esc(recordedAt(r.createdAt))]
+            ]))
+          + (r.isTransfer && !r.isOpeningBalance ? note("This money came from a wallet transfer whose sending half was not found.", "info", "fa-solid fa-right-left") : "")
+          + section("Notes", notes && notes !== "—" ? `<p class="tm-dp-note" translate="no">${esc(notes)}</p>` : empty("No notes."))
+          + (r.isOpeningBalance ? "" : section("Attachments", nAtt ? `<div class="aum-actions is-left">${btn("rec-att", `View ${nAtt} attachment${nAtt === 1 ? "" : "s"}`, "fa-solid fa-paperclip", { data: `data-kind="topup" data-id="${esc(r.id)}"` })}</div>`
+              : empty(inactive ? "No attachments." : "No attachments. Use Edit to add a receipt or bank slip.")))
           + section("Actions", acts);
       },
       actions: {
-        "rec-edit": async () => { await runExpenseRecordEdit(kind === "transfer" ? "transfer" : (REC()?.isOpeningBalance ? "opening" : "topup"), rid); },
-        "rec-pdf": async () => { await runExpenseRecordPdf(kind === "transfer" ? "transfer" : (REC()?.isOpeningBalance ? "opening" : "topup"), rid); },
-        "rec-delete": async () => { await runExpenseRecordDelete(kind === "transfer" ? "transfer" : "topup", rid); refresh(); }
+        "tx-back": () => { const b = txBackTo; txBackTo = null; if (b) openWallet(b.walletId, b.tab); },
+        "rec-go": async b => { if (!(await openWalletRecord(b.dataset.type, b.dataset.id, { keepBack: true }))) toast("This record could not be loaded.", false); },
+        "rec-wallet": b => { const g = b.dataset.gid; if (g && !openWallet(g, "overview")) toast("This wallet is not available.", false); },
+        "rec-copy-ref": async () => { const r = REC(); if (!r) return; await navigator.clipboard.writeText(isT ? recRef(r.expenseId, false) : recRef(r.id, true)); toast("Reference copied"); },
+        "rec-copy": async () => {
+          const r = REC(); if (!r) return;
+          const lines = isT
+            ? [`Wallet transfer`, `From: ${r.fromWallet} (${plain(r.amtOut, r.curOut)})`, `To: ${r.toWallet} (${plain(r.amtIn, r.curIn)})`, ...(r.sameCurrency ? [] : [`Rate: ${r.rate}`]), `Date: ${dd(r.date)}`, `Reference: ${recRef(r.expenseId, false)}`]
+            : [r.isOpeningBalance ? "Opening balance" : "Money added", `Amount: ${plain(r.amount, r.currency)}`, `Wallet: ${r.wallet}`, `Date: ${dd(r.date)}`, ...(r.isOpeningBalance ? [] : [`Reference: ${recRef(r.id, true)}`])];
+          const n = isT ? (typeof expenseTransferUserNote === "function" ? expenseTransferUserNote(r) : "") : (r.notes && r.notes !== "—" ? r.notes : "");
+          if (n) lines.push(`Notes: ${n}`);
+          const co = company(); if (co) lines.unshift(co);
+          await navigator.clipboard.writeText(lines.join("\n")); toast("Details copied");
+        },
+        "rec-att": b => { try { TriplemAttachments.openViewer(b.dataset.kind, String(b.dataset.id).toLowerCase()); } catch (_) {} },
+        "rec-pdf": async () => { const r = REC(); if (!r) return; await runExpenseRecordPdf(recType(r), isT ? r.expenseId : rid); },
+        "rec-edit": async () => {
+          const r = REC(); if (!r) return;
+          await readyRecord(recType(r), rid);
+          if (r.isOpeningBalance) { editRecord("opening", rid, false); return; }
+          editRecord(recType(r), isT ? r.expenseId : rid, true);
+          if (isT && txReturnAfterEdit) txReturnAfterEdit = { type: "transfer", id: rid };
+        },
+        "rec-again": () => {
+          const r = REC(); if (!r) return;
+          txReturnAfterEdit = null;
+          if (isT) {
+            if (!r.fromGroupId) return;
+            global.openTransferModal(r.fromGroupId);
+            const f = document.getElementById("transferForm");
+            const to = document.getElementById("transferToWallet");
+            if (to && r.toGroupId && [...to.options].some(o => o.value === r.toGroupId)) { to.value = r.toGroupId; to.dispatchEvent(new Event("change", { bubbles: true })); }
+            setField(f, "amount", num(r.amtOut).toFixed(2));
+            if (!r.sameCurrency) setField(f, "conversion_rate", String(r.rate || 1));
+            try { if (typeof calculateReceivedAmount === "function") calculateReceivedAmount(); } catch (_) {}
+            return;
+          }
+          if (!r.group_id) return;
+          global.openExpenseModal("topup", r.group_id);
+          const f = global.els?.expenseTopupForm || document.getElementById("expenseTopupForm");
+          setField(f, "amount", num(r.amount).toFixed(2));
+          if (r.notes && r.notes !== "—") setField(f, "notes", r.notes);
+          Object.entries(r.details || {}).forEach(([k, v]) => setField(f, detailField(k), v));
+        },
+        "rec-delete": async () => {
+          const r = REC(); if (!r) return;
+          await readyRecord(recType(r), rid);
+          await runExpenseRecordDelete(recType(r), isT ? r.expenseId : rid);
+          const gone = isT ? !state.entries.some(e => String(e.id) === String(r.expenseId)) : !state.entries.some(e => String(e.id) === rid);
+          if (gone) { txRowCache.delete(rid); leaveDeleted(); } else refresh();
+        }
       }
     });
     return true;
