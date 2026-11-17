@@ -57,3 +57,10 @@ test("terms name Paddle as Merchant of Record and the 14-day refund", () => {
   assert.match(terms, /Plans paid by card renew automatically/);
   for (const p of ["seo/terms-and-conditions.html", "seo/refund-policy.html"]) assert.match(read(p), /Paddle/);
 });
+
+test("migration 233 only re-declares the event handler with quantity support", { skip: !exists("migrations/233_card_payment_quantity.sql") }, () => {
+  const code = read("migrations/233_card_payment_quantity.sql").replace(/--.*$/gm, "");
+  assert.match(code, /paid_months := \(case when period = 'yearly' then 12 else 1 end\) \* qty;/);
+  assert.equal((code.match(/create or replace function/g) || []).length, 1);
+  assert.doesNotMatch(code, /\b(create table|alter table|drop |truncate)\b/i);
+});
