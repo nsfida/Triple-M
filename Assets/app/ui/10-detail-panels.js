@@ -818,7 +818,15 @@
       onChange(e, st){
         const f = e.target.closest?.("[data-dp-goto]");
         if (!f) return;
-        st.at = /^\d{4}-\d{2}-\d{2}$/.test(f.value) ? f.value : "";
+        // While a date is typed the browser reports every step of the year (0002, 0020, 0202, …).
+        // Only a complete, real date (year 1900 or later, not after today) moves the list, so the
+        // field is never redrawn in the middle of typing.
+        const v = String(f.value || "");
+        const m = /^(\d{4})-\d{2}-\d{2}$/.exec(v);
+        if (!m) { if (!v && st.at) { st.at = ""; st.focusGoto = true; loadPage(st, 1); } return; }
+        if (Number(m[1]) < 1900 || (f.max && v > f.max) || v === st.at) return;
+        st.at = v;
+        st.focusGoto = true;
         loadPage(st, 1);
       },
       head(){
@@ -904,6 +912,12 @@
       after(tab, body, st){
         if (FORM_TABS[tab]) { const host = body.querySelector(".tm-dp-formhost"); fillForm(FORM_TABS[tab][0], host, formInvoke(tab)); return; }
         if ((tab === "activity" || tab === "overview") && st.actState === "idle") loadPage(st, 1);
+        // Keep the keyboard in the date field after the list moved to the chosen date.
+        if (tab === "activity" && st.focusGoto) {
+          const input = body.querySelector("[data-dp-goto]");
+          if (input && !("ontouchstart" in global)) input.focus({ preventScroll: true });
+          if (st.actState === "ready") st.focusGoto = false;
+        }
       },
       // The docked form was saved or cancelled: back to the overview with fresh numbers.
       afterForm(){

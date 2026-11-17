@@ -96,6 +96,8 @@ test("wallet panel: Activity has Go to date (on or before the chosen day) and ro
   assert.match(js, /data-dp-goto/);
   assert.match(js, /fetchExpenseActivityRpc\(\{ groupId: gid, to: st\.at \|\| null, limit: WALLET_PAGE/);
   assert.match(js, /"goto-clear":/);
+  // typing a year must not redraw the field half-way (0002, 0020, 0202, …)
+  assert.match(js, /if \(Number\(m\[1\]\) < 1900 \|\| \(f\.max && v > f\.max\) \|\| v === st\.at\) return;/);
   assert.match(js, /data-dp-act="w-tx"/);
 });
 
