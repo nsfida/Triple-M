@@ -1833,8 +1833,9 @@ it("129 adds Authenticator recovery, protected Admin temporary passwords, and re
   assert.match(css, /#accountSettingsModal \.account-settings-overview\{width:calc\(100vw - 30px\)!important/);
   assert.match(css, /\.landing-live-chat-launcher\{width:50px!important;height:50px!important/);
   assert.match(css, /@media\(min-width:821px\)\{#trialSignupModal \.signup-v2-dialog\{width:min\(980px/);
-  assert.match(signup, /signup-v2-value-strip/);
-  assert.match(signup, /Authenticator 2FA/);
+  // 2026-11-17: the sign-up is a plain side panel (no benefit strip); recovery set-up stays.
+  assert.match(signup, /class="modal-dialog settings-sheet su-dialog"/);
+  assert.doesNotMatch(signup, /signup-v2-value-strip/);
 
   assert.match(seo, /Authenticator App 2FA/);
   assert.match(seo, /Web Push notifications/);
@@ -3473,7 +3474,8 @@ it('166 polishes the signup plan cards and keeps signup progress inside the scro
   assert.match(signup, /signup-plan-title">Free 14 Days/);
   assert.match(signup, /signup-plan-title">Pro Monthly/);
   assert.match(signup, /signup-plan-title">Pro Yearly/);
-  assert.match(signup, /signup-v2-body">\s*<div class="signup-v2-progress"/);
+  // 2026-11-17: step bar sits under the panel header, outside the scrolling body
+  assert.match(signup, /<div class="su-steps" aria-hidden="true"><\/div>\s*<div class="modal-body settings-sheet-body su-body">/);
   assert.match(css, /\.signup-v2-progress\{[^}]*position:static/);
   assert.match(css, /@media\(min-width:821px\)\{\.signup-plan-card\{padding:17px!important;min-height:164px!important\}\.signup-plan-badge\{left:auto!important;right:14px;top:14px/);
   assert.match(css, /\.signup-plan-title\{font-size:1\.02rem!important;font-weight:900!important/);

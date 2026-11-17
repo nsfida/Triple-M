@@ -121,8 +121,17 @@
     return ["ar", "de", "es", "fr", "it", "nl", "pt", "ja", "ko", "zh", "ru", "tr", "pl", "sv", "da", "no", "hu", "id", "th", "vi", "uk", "cs", "fi", "el", "he", "ro", "sk"].includes(l) ? l : "en";
   }
 
-  async function payByCard(period, ui){
-    const start = await rpc("app_card_checkout_start", { p_period: period });
+  // Sign-up checkouts are marked so the paid time starts at the payment (migration 234); an older
+  // database without app_card_checkout_start_v2 uses the first version.
+  async function startCheckout(period, context){
+    try { return await rpc("app_card_checkout_start_v2", { p_period: period, p_context: context || null }); }
+    catch (e) {
+      if (!/app_card_checkout_start_v2|could not find the function|pgrst202|schema cache/i.test(String(e?.message || e))) throw e;
+      return await rpc("app_card_checkout_start", { p_period: period });
+    }
+  }
+  async function payByCard(period, ui, opts = {}){
+    const start = await startCheckout(period, opts.context);
     const Paddle = await loadPaddle();
     const dark = String(document.documentElement.dataset.triplemThemeMode || "light") === "dark";
     let completedTxn = null;
@@ -143,14 +152,33 @@
     ui.waiting("Complete the payment in the secure Paddle window…");
     const outcome = await done;
     onPaddleEvent = null;
-    if (outcome !== "completed") { ui.reset(); return; }
+    if (outcome !== "completed") { ui.reset(); finish(opts); return; }
     try { Paddle.Checkout.close(); } catch (_) {}
     await confirmActivation(period, completedTxn, ui);
+    finish(opts);
   }
 
   // After Paddle's success screen: Pro is switched on when Paddle's signed notification reaches our
   // server. The panel shows that step instead of a frozen button, and keeps checking in the
   // background if the confirmation is late.
+  function finish(opts){ const f = opts?.onDone; if (opts) opts.onDone = null; try { f?.(); } catch (_) {} }
+
+  // After sign-up with "Pay by card": Plan & Subscription opens with the plan chosen and Paddle's
+  // checkout starts at once (the purchase was already confirmed in the sign-up panel).
+  let pendingSignup = null;
+  async function payFromSignup(period, opts = {}){
+    pendingSignup = { period: period === "yearly" ? "yearly" : "monthly", onDone: opts.onDone || null, context: "signup" };
+    try { await global.openPlanSubscriptionModal(); }
+    catch (_) { dropSignup("Your account is ready. You can pay by card any time from Plan & Subscription."); }
+    if (pendingSignup) dropSignup("Your account is ready. You can pay by card any time from Plan & Subscription.");
+  }
+  function dropSignup(message){
+    const p = pendingSignup; pendingSignup = null;
+    if (!p) return;
+    if (message) notify(message, true);
+    finish(p);
+  }
+
   async function confirmActivation(period, txn, ui){
     const started = Date.now();
     ui.status("wait");
@@ -330,13 +358,20 @@
       },
       onCheck(fn){ ui._check = fn; }
     };
-    go.onclick = async () => {
+    const pay = async (opts = {}) => {
       err.textContent = ""; err.classList.remove("show");
       if (!box.querySelector(".tm-pay-agree")?.checked) return ui.error("Please confirm the purchase first.");
       ui.waiting("Opening secure checkout…");
-      try { await payByCard(selectedPeriod(), ui); }
-      catch (e) { onPaddleEvent = null; ui.reset(); ui.error(e?.message || "The card checkout could not be started."); }
+      try { await payByCard(selectedPeriod(), ui, opts); }
+      catch (e) { onPaddleEvent = null; ui.reset(); ui.error(e?.message || "The card checkout could not be started."); finish(opts); }
     };
+    go.onclick = () => pay();
+    if (pendingSignup) {
+      const p = pendingSignup; pendingSignup = null;
+      body.querySelector(`[data-plan-period="${p.period}"]`)?.click();
+      const agree = box.querySelector(".tm-pay-agree"); if (agree) agree.checked = true;
+      setTimeout(() => { render(); pay({ context: p.context, onDone: p.onDone }); }, 60);
+    }
   }
 
   // Wrap the app's Plan & Subscription panel (its own code keeps doing everything it did).
@@ -354,5 +389,6 @@
   }
   if (!install()) document.addEventListener("DOMContentLoaded", install, { once: true });
 
-  global.TriplemCardPayments = Object.freeze({ config: CONFIG, enabled, billing, enhance });
+  const openInvoice = transactionId => openLink(async () => (await fn({ action: "invoice", transaction_id: transactionId })).url);
+  global.TriplemCardPayments = Object.freeze({ config: CONFIG, enabled, billing, enhance, payFromSignup, openInvoice });
 })(window);

@@ -249,6 +249,7 @@ const CANONICAL_MIGRATION_FILES = [
   "231_paddle_card_payments.sql",
   "232_site_analytics_ingest_grant.sql",
   "233_card_payment_quantity.sql",
+  "234_card_signup.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

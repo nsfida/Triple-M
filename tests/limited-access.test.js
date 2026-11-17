@@ -59,7 +59,7 @@ test("new sign-ups get Inventory 2.0 only; the Main Admin can still enable Class
   assert.doesNotMatch(sql, /app_admin_inventory_access_set\(/);
   const signup = read("Assets/app/auth/02-auth-welcome-trial.js");
   assert.doesNotMatch(signup, /key: "inventory_classic"/);
-  assert.match(signup, /New accounts use Inventory 2\.0/);
+  assert.match(signup, /key: "inventory_v2"/); // 2026-11-17: the sign-up panel lists modules without notes
 });
 
 test("client: limited access explained, refusals caught, offline queues refuse, no locked overlay", () => {

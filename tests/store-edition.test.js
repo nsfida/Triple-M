@@ -121,8 +121,7 @@ test("sign-up: module choice, trial facts, required terms, purchase confirmation
   }
   assert.match(src, /\.\.\.\(storeNoCrypto \? \[\] : \[\{ key: "bitcoin"/);
   assert.match(src, /id="trialTermsAccept"/);
-  assert.match(src, /data-open-terms="trial"/);
-  assert.match(src, /How the free trial works/);
+  assert.match(src, /data-su-terms="trial"/); // 2026-11-17: the terms open inside the sign-up panel
   assert.match(src, /id="trialPurchaseConfirm"/);
   assert.match(src, /supabaseRpc\("app_signup_v4", \{[\s\S]*p_modules: modules,[\s\S]*p_client:[\s\S]*p_terms_accepted: true,[\s\S]*p_terms_version: termsVersion/);
   assert.match(src, /if \(!missingFn\(v4Error\)\) throw v4Error;/);

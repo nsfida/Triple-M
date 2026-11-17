@@ -12761,8 +12761,9 @@ html body #app .header .brand #mainAppSubtitle:empty{display:none !important}
    Colours come from the theme tokens, so every light and dark theme works. The panel sits just
    below the app's dialogs, so a confirmation or the records viewer opens on top of it. */
 
-.aum-root{position:fixed;inset:0;z-index:2147482000;pointer-events:none;visibility:hidden}
-.aum-root.is-open{pointer-events:auto;visibility:visible}
+/* 2026-11-17: panels slide in from the side and slide back out when closed (visibility waits for the slide) */
+.aum-root{position:fixed;inset:0;z-index:2147482000;pointer-events:none;visibility:hidden;transition:visibility 0s linear .26s}
+.aum-root.is-open{pointer-events:auto;visibility:visible;transition-delay:0s}
 .aum-backdrop{position:absolute;inset:0;background:rgba(8,15,30,.38);opacity:0;transition:opacity .2s ease}
 .aum-root.is-open .aum-backdrop{opacity:1}
 .aum-panel{
@@ -12771,10 +12772,10 @@ html body #app .header .brand #mainAppSubtitle:empty{display:none !important}
   border:1px solid var(--line,rgba(15,23,42,.12));border-radius:22px;
   background:linear-gradient(var(--surface-elevated,#fff),var(--surface-elevated,#fff)),var(--bg,#fff);color:var(--text,#0f172a);
   box-shadow:0 30px 70px rgba(8,15,30,.28),0 2px 8px rgba(8,15,30,.08);
-  opacity:0;transform:translateX(-28px);transition:opacity .2s ease,transform .24s cubic-bezier(.22,.75,.22,1);
+  opacity:.4;transform:translateX(-104%);transition:opacity .22s ease,transform .26s cubic-bezier(.4,0,.2,1);
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:400;font-size:13px;line-height:1.45;
 }
-.aum-root.is-open .aum-panel{opacity:1;transform:none}
+.aum-root.is-open .aum-panel{opacity:1;transform:none;transition:opacity .2s ease,transform .3s cubic-bezier(.22,.75,.22,1)}
 .aum-frame{display:flex;flex-direction:column;min-height:0;flex:1}
 html.aum-open body{overflow:hidden}
 
@@ -12937,12 +12938,12 @@ html[data-triplem-theme-mode="dark"] .aum-pill.is-bad{color:#f87171}
 
 @keyframes aumSpin{to{transform:rotate(360deg)}}
 @media (max-width:700px){
-  .aum-panel{top:auto;right:0;left:0;bottom:0;width:auto;height:92dvh;border-radius:22px 22px 0 0;transform:translateY(40px)}
+  .aum-panel{top:auto;right:0;left:0;bottom:0;width:auto;height:92dvh;border-radius:22px 22px 0 0;transform:translateY(100%)}
   .aum-grid{grid-template-columns:1fr}
   .aum-field.is-inline{grid-template-columns:1fr}
   .aum-danger{flex-direction:column;align-items:stretch}
 }
-@media (prefers-reduced-motion:reduce){.aum-panel,.aum-backdrop,.aum-toast{transition:none}.aum-skel{animation:none}}
+@media (prefers-reduced-motion:reduce){.aum-root,.aum-panel,.aum-backdrop,.aum-toast{transition:none}.aum-skel{animation:none}}
 /* Dialogs opened from the panel (records, payment review, confirmations) stay on top of it. */
 html.aum-open body .modal:not(.hide){z-index:2147482600 !important}
 .aum-form[data-aum-form="username"]{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}
@@ -12966,10 +12967,16 @@ html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog{
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:400;
 }
 
-html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-dialog{animation:tmSheetIn .24s cubic-bezier(.22,.75,.22,1)}
+html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-dialog{animation:tmSheetIn .3s cubic-bezier(.22,.75,.22,1)}
 html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-backdrop{animation:tmSheetFade .2s ease}
-@keyframes tmSheetIn{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@keyframes tmSheetIn{from{opacity:.4;transform:translateX(-104%)}to{opacity:1;transform:none}}
 @keyframes tmSheetFade{from{opacity:0}to{opacity:1}}
+/* Closing: a copy of the panel slides back out (ui/09-side-sheets.js), so every way of closing animates */
+html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*):is(#sh-b,*){display:block !important;pointer-events:none !important}
+html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*) > .modal-dialog{animation:tmSheetOut .26s cubic-bezier(.4,0,.2,1) forwards}
+html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*) > .modal-backdrop{animation:tmSheetFadeOut .24s ease forwards}
+@keyframes tmSheetOut{from{opacity:1;transform:none}to{opacity:.4;transform:translateX(-104%)}}
+@keyframes tmSheetFadeOut{from{opacity:1}to{opacity:0}}
 
 /* A form wrapping head + body + footer behaves like the dialog itself */
 html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog > form{display:flex !important;flex-direction:column !important;flex:1 1 auto !important;min-height:0 !important;margin:0 !important}
@@ -13053,10 +13060,11 @@ html body .modal.tm-sheet:is(#sh-a,*) :is(.section-details-metric,.section-detai
 @media (max-width:700px){
   html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog,
   html body .modal.tm-sheet.tm-sheet-wide:is(#sh-a,*):is(#sh-b,*) > .modal-dialog{top:auto !important;right:0 !important;left:0 !important;bottom:0 !important;width:auto !important;height:92dvh !important;border-radius:22px 22px 0 0 !important}
-  @keyframes tmSheetIn{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+  @keyframes tmSheetIn{from{opacity:.6;transform:translateY(100%)}to{opacity:1;transform:none}}
+  @keyframes tmSheetOut{from{opacity:1;transform:none}to{opacity:.6;transform:translateY(100%)}}
   html body .modal.tm-sheet:is(#sh-a,*) .section-details-actions:not(.hide),#installmentPlanModal .tm-sheet-actions{margin-right:0}
 }
-@media (prefers-reduced-motion:reduce){html body .modal.tm-sheet.tm-sheet-in > :is(.modal-dialog,.modal-backdrop){animation:none !important}}
+@media (prefers-reduced-motion:reduce){html body .modal.tm-sheet:is(.tm-sheet-in,.tm-sheet-out) > :is(.modal-dialog,.modal-backdrop){animation:none !important}}
 /* Panels: content starts at the top (no stretched rows), close button pinned top-right */
 html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) :is(.modal-body,.settings-sheet-body){align-content:start !important;justify-content:flex-start !important;grid-auto-rows:auto !important}
 html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) :is(.modal-head,.settings-sheet-head){padding-left:60px !important}
@@ -14244,3 +14252,86 @@ html body #planSubscriptionModal.modal:is(#sh-a,*):is(#sh-b,*) .hide{display:non
 #planSubscriptionModal .tm-pay-status p{margin:4px 0 0;font-size:.78rem;line-height:1.45;color:var(--text-secondary,var(--muted,#475569))}
 #planSubscriptionModal .tm-pay-status small{display:block;margin-top:4px;font-size:.7rem;color:var(--muted,#64748b);font-variant-numeric:tabular-nums}
 #planSubscriptionModal .tm-pay-status-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+
+/* ═══ Sign-up panel (2026-11-17) ═══ */
+#trialSignupModal .su-dialog{font-size:13px}
+#trialSignupModal .su-head{align-items:center !important}
+#trialSignupModal .su-head .signup-lang-row{order:98;margin:0 auto 0 0;display:flex}
+#trialSignupModal .su-head .signup-lang-row .tm-lang-btn{background:transparent;color:var(--text);border:1px solid var(--line);border-radius:999px}
+#trialSignupModal .su-steps{display:flex;gap:6px;padding:10px 16px 0;flex:none}
+#trialSignupModal .su-steps span{flex:1;height:4px;border-radius:999px;background:color-mix(in srgb,var(--muted,#64748b) 18%,transparent);transition:background .2s ease}
+#trialSignupModal .su-steps span.on{background:var(--primary,#2563eb)}
+#trialSignupModal .su-body{display:block !important}
+#trialSignupModal .su-step,#trialSignupModal .su-terms{display:grid;gap:10px}
+#trialSignupModal .su-step.hide,#trialSignupModal .su-terms.hide,#trialSignupModal .su-accept.hide{display:none !important}
+#trialSignupModal .su-label{margin:8px 0 0;font-size:.66rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+#trialSignupModal .su-seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--muted,#64748b) 9%,transparent)}
+#trialSignupModal .su-seg.hide{display:none}
+#trialSignupModal .su-seg-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:6px 10px;border:0;border-radius:11px;background:transparent;color:var(--muted);font:inherit;font-weight:500;cursor:pointer;transition:background .15s ease,color .15s ease,box-shadow .15s ease}
+#trialSignupModal .su-seg-btn.selected{background:var(--surface-elevated,#fff);color:var(--text);box-shadow:0 1px 3px rgba(8,15,30,.12)}
+#trialSignupModal .su-plans{display:grid;gap:8px}
+#trialSignupModal .su-plan{display:grid;grid-template-columns:20px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-elevated,#fff);color:var(--text);font:inherit;text-align:start;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease}
+#trialSignupModal .su-plan:hover{border-color:color-mix(in srgb,var(--primary) 40%,var(--line))}
+#trialSignupModal .su-plan.selected{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 14%,transparent)}
+#trialSignupModal .su-radio{width:18px;height:18px;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--muted) 60%,transparent);display:grid;place-items:center}
+#trialSignupModal .su-plan.selected .su-radio{border-color:var(--primary)}
+#trialSignupModal .su-plan.selected .su-radio::after{content:"";width:9px;height:9px;border-radius:50%;background:var(--primary)}
+#trialSignupModal .su-plan-main{display:grid;gap:1px;min-width:0}
+#trialSignupModal .su-plan-main strong{font-size:.9rem;font-weight:600 !important;letter-spacing:0 !important}
+#trialSignupModal .su-plan-main small{font-size:.72rem;color:var(--muted)}
+#trialSignupModal .su-plan[data-signup-plan="monthly"] .su-plan-main small,#trialSignupModal .su-plan[data-signup-plan="yearly"] .su-plan-main small{color:var(--success,#15803d)}
+#trialSignupModal .su-plan-price{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:end}
+#trialSignupModal .su-plan-price small{display:block;font-size:.68rem;font-weight:400;color:var(--muted)}
+#trialSignupModal .su-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+#trialSignupModal .su-span-2{grid-column:1 / -1}
+#trialSignupModal .su-field{display:grid;gap:5px;min-width:0;margin:0}
+#trialSignupModal .su-field > span{font-size:.72rem;font-weight:500;color:var(--text)}
+#trialSignupModal .su-opt{font-style:normal;font-weight:400;color:var(--muted);font-size:.68rem;margin-inline-start:4px}
+#trialSignupModal .su-field .input,#trialSignupModal .su-team-seats .input{min-height:40px;border-radius:12px}
+#trialSignupModal .su-check{display:flex;align-items:flex-start;gap:10px;margin:4px 0 0;font-size:.8rem;line-height:1.45;color:var(--text);cursor:pointer}
+#trialSignupModal .su-check input{flex:none;width:17px;height:17px;margin:1px 0 0;accent-color:var(--primary)}
+#trialSignupModal .su-team{display:grid;gap:8px;padding-top:6px;border-top:1px solid var(--line)}
+#trialSignupModal .su-team-seats{display:flex;align-items:center;gap:10px}
+#trialSignupModal .su-team-seats.hide{display:none}
+#trialSignupModal .su-team-seats .input{width:96px}
+#trialSignupModal .su-muted{font-size:.74rem;color:var(--muted)}
+#trialSignupModal .su-chips{display:flex;flex-wrap:wrap;gap:6px}
+#trialSignupModal .su-chip{position:relative;display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface-elevated,#fff);font-size:.78rem;cursor:pointer;user-select:none;transition:border-color .15s ease,background .15s ease,color .15s ease}
+#trialSignupModal .su-chip input{position:absolute;opacity:0;pointer-events:none}
+#trialSignupModal .su-chip i{color:var(--muted);font-size:.78rem}
+#trialSignupModal .su-chip:has(input:checked){border-color:var(--primary);background:color-mix(in srgb,var(--primary) 9%,var(--surface-elevated,#fff));color:var(--text)}
+#trialSignupModal .su-chip:has(input:checked) i{color:var(--primary)}
+#trialSignupModal .su-chip:focus-within{outline:2px solid var(--primary);outline-offset:2px}
+#trialSignupModal .su-logo{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#trialSignupModal .su-logo .input{flex:1 1 220px;min-height:40px;border-radius:12px}
+#trialSignupModal .su-logo .admin-logo-preview{width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}
+#trialSignupModal .su-summary{display:grid;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-elevated,#fff)}
+#trialSignupModal .su-summary:empty{display:none}
+#trialSignupModal .su-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:5px 0;font-size:.82rem}
+#trialSignupModal .su-row strong{font-weight:600;font-variant-numeric:tabular-nums}
+#trialSignupModal .su-row strong small{font-weight:400;color:var(--muted)}
+#trialSignupModal .su-row.su-muted{font-size:.72rem}
+#trialSignupModal .su-total{border-top:1px solid var(--line);margin-top:4px;padding-top:9px}
+#trialSignupModal .su-bank{display:grid;gap:10px}
+#trialSignupModal .su-bank.hide,#trialSignupModal .su-pay-note.hide{display:none}
+#trialSignupModal .su-banks{display:grid;gap:8px}
+#trialSignupModal .su-bank-opt{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface-elevated,#fff);cursor:pointer}
+#trialSignupModal .su-bank-opt input{position:absolute;opacity:0;pointer-events:none}
+#trialSignupModal .su-bank-opt img{width:36px;height:36px;object-fit:contain;border-radius:8px}
+#trialSignupModal .su-bank-opt span{display:grid;gap:1px;min-width:0}
+#trialSignupModal .su-bank-opt strong{font-size:.84rem;font-weight:600}
+#trialSignupModal .su-bank-opt small{font-size:.7rem;color:var(--muted);overflow-wrap:anywhere}
+#trialSignupModal .su-bank-opt.selected{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 14%,transparent)}
+#trialSignupModal .su-accept{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+#trialSignupModal .su-link{display:inline;padding:0;border:0;background:none;color:var(--primary);font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+#trialSignupModal .su-terms-body{display:grid;gap:4px;font-size:.8rem;line-height:1.55}
+#trialSignupModal .su-terms-body .tt-section h3{font-size:.86rem !important;font-weight:600 !important;letter-spacing:0 !important;text-transform:none !important;color:var(--text) !important;margin:12px 0 4px !important}
+#trialSignupModal .su-terms-body p,#trialSignupModal .su-terms-body li{color:var(--text-secondary,var(--text))}
+#trialSignupModal .su-terms-body ul{margin:4px 0;padding-inline-start:18px}
+#trialSignupModal .su-foot{display:flex !important;align-items:center;gap:8px}
+#trialSignupModal .su-foot-spacer{flex:1}
+#trialSignupModal .su-foot .hide{display:none !important}
+#trialSignupModal .lock-error.show{margin-top:10px}
+@media (max-width:560px){#trialSignupModal .su-grid{grid-template-columns:1fr}}
+/* the side-sheet rules force buttons and blocks visible; keep hidden parts hidden in the sign-up panel */
+html body #trialSignupModal.modal:is(#sh-a,*):is(#sh-b,*) .hide{display:none !important}

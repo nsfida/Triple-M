@@ -2443,6 +2443,12 @@ function openAccountCompanyEditModal(parentModal){
           <label class="settings-field">Email<input id="acctCompanyEditEmail" class="input settings-input" type="email" autocomplete="email" value="${escapeHtml(snap.email)}" /></label>
           <label class="settings-field">Mobile<input id="acctCompanyEditPhone" class="input settings-input" type="tel" autocomplete="tel" value="${escapeHtml(snap.phone)}" /></label>
           <label class="settings-field settings-span-2">Address<input id="acctCompanyEditAddress" class="input settings-input" value="${escapeHtml(snap.address)}" placeholder="Street, city, country" /></label>
+          <label class="settings-field">Trade licence no.<input id="acctCompanyEditLicense" class="input settings-input" data-company-extra="trade_license" /></label>
+          <label class="settings-field">Website<input id="acctCompanyEditWebsite" class="input settings-input" type="url" inputmode="url" placeholder="https://" data-company-extra="website" /></label>
+          <label class="settings-field">Industry<select id="acctCompanyEditIndustry" class="input settings-input" data-company-extra="industry"><option value="">Select…</option>${["Retail & e-commerce","Wholesale & distribution","Restaurants & food","Construction & real estate","Professional services","Manufacturing","Transport & logistics","Healthcare","Education","Technology","Other"].map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("")}</select></label>
+          <label class="settings-field">Company size<select id="acctCompanyEditSize" class="input settings-input" data-company-extra="size"><option value="">Select…</option>${["1–5","6–20","21–50","51–200","200+"].map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)} people</option>`).join("")}</select></label>
+          <label class="settings-field">City<input id="acctCompanyEditCity" class="input settings-input" data-company-extra="city" /></label>
+          <label class="settings-field">Financial year starts<select id="acctCompanyEditFiscal" class="input settings-input" data-company-extra="fiscal_year_start_month">${["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => `<option value="${i + 1}">${m}</option>`).join("")}</select></label>
           <label class="settings-field settings-span-2">Company logo
             <div class="settings-logo-row account-logo-maintenance-row">
               <input id="acctCompanyEditLogoFile" class="input settings-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" />
@@ -2458,6 +2464,16 @@ function openAccountCompanyEditModal(parentModal){
       </div>
     </div>`;
   bindAdminLogoPicker("acctCompanyEdit", user.id || null);
+  // Company details without a column of their own (set at sign-up, 2026-11-17) live in the
+  // account's preferences under "company_profile".
+  let companyExtra = {};
+  (async () => {
+    try {
+      const rows = await supabase(`app_user_prefs?select=pref_value&owner_id=eq.${encodeURIComponent(user.id)}&pref_key=eq.company_profile&limit=1`);
+      companyExtra = JSON.parse(rows?.[0]?.pref_value || "{}") || {};
+    } catch (_) { companyExtra = {}; }
+    modal.querySelectorAll("[data-company-extra]").forEach(el => { const v = companyExtra[el.dataset.companyExtra]; if (v != null && v !== "") el.value = String(v); });
+  })();
   const deleteLogoBtn = modal.querySelector("#acctCompanyEditLogoDelete");
   if (deleteLogoBtn) deleteLogoBtn.onclick = async () => {
     const ok = await requireSmartPinConfirm({
@@ -2505,6 +2521,14 @@ function openAccountCompanyEditModal(parentModal){
         p_company_address: modal.querySelector("#acctCompanyEditAddress").value.trim()
       });
       await syncAccountSettingsSession(updated);
+      const extra = { ...companyExtra };
+      modal.querySelectorAll("[data-company-extra]").forEach(el => { extra[el.dataset.companyExtra] = el.dataset.companyExtra === "fiscal_year_start_month" ? Number(el.value || 1) : el.value.trim(); });
+      try {
+        await supabase("app_user_prefs?on_conflict=owner_id,pref_key", {
+          method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify({ owner_id: user.id, pref_key: "company_profile", pref_value: JSON.stringify(extra) })
+        });
+      } catch (e) { console.warn("Company details could not be saved", e); }
       close();
       renderAccountSettingsSummary(parentModal);
     } catch (ex) {

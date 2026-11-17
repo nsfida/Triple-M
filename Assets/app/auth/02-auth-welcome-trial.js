@@ -1,4 +1,8 @@
 /* Modularized from script.js lines 28570-29321 — trial/welcome + loan wallet helpers. Load order must be preserved. */
+/* Sign-up (2026-11-17): one side panel, the same size as every other panel. Short steps, no
+ * marketing text: Plan → Account → Company (company accounts) → Workspace → Payment (Pro).
+ * Pro is paid by card through Paddle by default (bank transfer stays available); the Terms open
+ * inside the panel. The account is created with app_signup_v4 exactly as before. */
 async function openTrialSignupModal(preferredPlan = "free"){
   try { if (typeof closeSignInOverlay === "function") closeSignInOverlay(); } catch (_) {}
   try { if (window.TRIPLEM_REGIONAL_CURRENCY_READY) await window.TRIPLEM_REGIONAL_CURRENCY_READY; } catch (_) {}
@@ -12,297 +16,334 @@ async function openTrialSignupModal(preferredPlan = "free"){
 
   // Microsoft Store version: no Bitcoin (Store policy 10.2.6), so BTC is not offered at sign-up there.
   const storeNoCrypto = typeof cryptoFeaturesHidden === "function" && cryptoFeaturesHidden();
+  const storeEdition = !!window.TriplemStore?.active;
   const workspaceCurrencies = (window.TriplemCurrencyRegistry?.codes?.() || SUPPORTED_CURRENCIES || []).slice()
     .filter(code => !(storeNoCrypto && String(code).toUpperCase() === "BTC"));
   const regionalCurrency = typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD";
   const prices = TRIPLEM_PUBLIC_PLAN_PRICES;
   const teamPrices = TRIPLEM_PUBLIC_TEAM_PRICES;
+  const card = window.TriplemCardPayments || null;
+  const cardUsd = card?.config?.usd || { monthly: 13.99, yearly: 149 };
   const normalizedPreferredPlan = ["free","monthly","yearly"].includes(String(preferredPlan || "").toLowerCase()) ? String(preferredPlan).toLowerCase() : "free";
-  const stateSignup = { step: 1, plan: normalizedPreferredPlan, accountType: "individual", receiptBase64: "" };
+  const S = { step: "plan", plan: normalizedPreferredPlan, accountType: "individual", pay: "card", terms: null };
   const money = (v, c = regionalCurrency) => regionalMoneyHtml(v, c);
-  const priceLines = period => `<span><b>${escapeHtml(regionalCurrency)}</b> ${money(prices[period][regionalCurrency], regionalCurrency)}</span>`;
+  const usd = n => `US$${Number(n).toLocaleString("en-US", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+  const periodName = p => (p === "yearly" ? "Pro Yearly" : "Pro Monthly");
   // 2026-11-11: the modules the new workspace starts with (app_signup_v4, migration 223).
   // Selected by default; the user can change them. The Microsoft Store edition has no Bitcoin module.
   const SIGNUP_MODULES = [
-    { key: "expenses", icon: "fa-wallet", title: "Expenses & Wallets", text: "Spending, income, wallets, transfers and receipts.", on: true },
-    { key: "inventory_v2", icon: "fa-boxes-stacked", title: "Inventory 2.0", text: "Products, variants, stock by location, purchases, sales, POS, barcodes and labels.", on: true },
-    { key: "assets", icon: "fa-building-columns", title: "Assets", text: "Asset register with depreciation schedules.", on: true },
-    { key: "loans", icon: "fa-hand-holding-dollar", title: "Loans", text: "Money lent and borrowed, repayments and balances.", on: true },
-    { key: "installments", icon: "fa-calendar-days", title: "Installments", text: "Installment plans, due dates and collections.", on: true },
-    { key: "notes", icon: "fa-note-sticky", title: "Notes & Reminders", text: "Notes, checklists and reminders.", on: true },
-    ...(storeNoCrypto ? [] : [{ key: "bitcoin", icon: "fa-brands fa-bitcoin", title: "Bitcoin", text: "Bitcoin wallets and records (adds the BTC currency).", on: true }]),
-    { key: "accounting", icon: "fa-book", title: "Accounting", text: "Double-entry books, chart of accounts and statements.", on: false }
+    { key: "expenses", icon: "fa-wallet", title: "Expenses & Wallets", on: true },
+    { key: "inventory_v2", icon: "fa-boxes-stacked", title: "Inventory 2.0", on: true },
+    { key: "assets", icon: "fa-building-columns", title: "Assets", on: true },
+    { key: "loans", icon: "fa-hand-holding-dollar", title: "Loans", on: true },
+    { key: "installments", icon: "fa-calendar-days", title: "Installments", on: true },
+    { key: "notes", icon: "fa-note-sticky", title: "Notes & Reminders", on: true },
+    ...(storeNoCrypto ? [] : [{ key: "bitcoin", icon: "fa-brands fa-bitcoin", title: "Bitcoin", on: true }]),
+    { key: "accounting", icon: "fa-book", title: "Accounting", on: false }
   ];
-  const moduleCardsHtml = () => SIGNUP_MODULES.map(m => `<label class="signup-module-card"><input type="checkbox" name="trialModules" value="${m.key}"${m.on ? " checked" : ""} /><span class="signup-module-icon"><i class="${m.icon.startsWith("fa-brands") ? m.icon : `fa-solid ${m.icon}`}" aria-hidden="true"></i></span><span><strong>${escapeHtml(m.title)}</strong><small>${escapeHtml(m.text)}</small></span><span class="signup-module-check" aria-hidden="true"><i class="fa-solid fa-check"></i></span></label>`).join("");
+  const INDUSTRIES = ["Retail & e-commerce", "Wholesale & distribution", "Restaurants & food", "Construction & real estate", "Professional services", "Manufacturing", "Transport & logistics", "Healthcare", "Education", "Technology", "Other"];
+  const SIZES = ["1–5", "6–20", "21–50", "51–200", "200+"];
+  const COUNTRIES = [["AE", "United Arab Emirates"], ["SA", "Saudi Arabia"], ["PK", "Pakistan"], ["QA", "Qatar"], ["OM", "Oman"], ["KW", "Kuwait"], ["BH", "Bahrain"], ["IN", "India"], ["GB", "United Kingdom"], ["US", "United States"], ["ZZ", "Other"]];
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const regionCode = String((typeof getRegionalCountryCode === "function" ? getRegionalCountryCode() : "") || "").toUpperCase();
+  const defaultCountry = COUNTRIES.some(c => c[0] === regionCode) ? regionCode : "ZZ";
+  const defaultVat = (() => { try { const r = Number(window.TriplemCurrencyRegistry?.taxDefault?.(regionalCurrency)?.rate); return Number.isFinite(r) ? r : 0; } catch (_) { return 0; } })();
   const termsVersion = window.TriplemTerms?.VERSION || "2026-11-11";
+  const opt = (v, label, sel) => `<option value="${escapeHtml(v)}"${sel ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  const field = (id, label, input, cls = "") => `<label class="su-field${cls ? ` ${cls}` : ""}" for="${id}"><span>${label}</span>${input}</label>`;
+  const optional = `<em class="su-opt">optional</em>`;
 
   modal.innerHTML = `
     <div class="modal-backdrop" data-trial-close="1"></div>
-    <div class="modal-dialog trial-signup-dialog signup-v2-dialog" role="dialog" aria-modal="true" aria-labelledby="trialSignupTitle">
-      <div class="modal-head trial-signup-head signup-v2-head">
-        <div class="signup-hero-copy">
-          <div class="signup-lang-row" data-lang-picker></div>
-          <p class="trial-signup-kicker"><i class="fa-solid fa-gem" aria-hidden="true"></i> Triplem VIP Membership</p>
-          <h3 id="trialSignupTitle">Build your private finance workspace in minutes</h3>
-          <p>One refined workspace for accounts, expenses, inventory, loans, assets and reports, with layered account protection, Live Support and authenticated in-app care.</p>
-        </div>
-        <button type="button" class="btn ghost trial-signup-close" data-trial-close="1" aria-label="Close">✕</button>
+    <div class="modal-dialog settings-sheet su-dialog" role="dialog" aria-modal="true" aria-labelledby="trialSignupTitle">
+      <div class="settings-sheet-head su-head">
+        <div><h3 id="trialSignupTitle">Create your account</h3><p id="trialSignupStepLabel"></p></div>
+        <div class="signup-lang-row" data-lang-picker="compact"></div>
+        <button type="button" class="btn ghost tiny" data-trial-close="1" aria-label="Close">✕</button>
       </div>
-      <div class="signup-offer-spotlight" role="note" aria-label="Limited-time Triplem VIP offers">
-        <span class="signup-offer-icon" aria-hidden="true"><i class="fa-solid fa-bolt"></i></span>
-        <div><small>Limited-time membership offer</small><strong>Start with 14 days free, or unlock bonus Pro time after payment approval.</strong><p>Pro Monthly includes <b>30 additional days free</b>. Pro Yearly includes <b>60 additional days free</b>.</p></div>
-        <span class="signup-offer-seal"><i class="fa-solid fa-shield-halved"></i> Secure setup</span>
-      </div>
-      <div class="signup-v2-value-strip" aria-label="Triplem VIP account benefits">
-        <span><i class="fa-solid fa-shield-halved"></i><b>Authenticator 2FA + Recovery</b><small>Encrypted TOTP protection</small></span>
-        <span><i class="fa-solid fa-headset"></i><b>Support Care</b><small>Visitor + in-app channels</small></span>
-        <span><i class="fa-solid fa-building"></i><b>Private Workspace</b><small>Owner-isolated records</small></span>
-        <span><i class="fa-solid fa-palette"></i><b>Personalized</b><small>Branding + themes</small></span>
-      </div>
-      <div class="modal-body trial-signup-body signup-v2-body">
-        <div class="signup-v2-progress" aria-label="Signup progress">
-          <span class="active" data-signup-progress="1">1 <small>Plan</small></span>
-          <span data-signup-progress="2">2 <small>Account &amp; modules</small></span>
-          <span data-signup-progress="3">3 <small>Details</small></span>
-          <span data-signup-progress="4">4 <small>Payment</small></span>
-        </div>
-        <section class="signup-v2-step" data-signup-step="1">
-          <div class="signup-plan-grid">
-            <button type="button" class="signup-plan-card signup-plan-card--free ${stateSignup.plan === "free" ? "selected" : ""}" data-signup-plan="free">
-              <span class="signup-plan-badge"><i class="fa-solid fa-star"></i> Start free</span>
-              <span class="signup-plan-icon"><i class="fa-solid fa-gift"></i></span><strong class="signup-plan-title">Free 14 Days</strong>
-              <b>No payment · no card</b><small>Explore the complete workspace before choosing a paid plan.</small>
-              <span class="signup-plan-benefit"><i class="fa-solid fa-check"></i> Full workspace access</span>
-            </button>
-            <button type="button" class="signup-plan-card signup-plan-card--monthly ${stateSignup.plan === "monthly" ? "selected" : ""}" data-signup-plan="monthly">
-              <span class="signup-plan-badge signup-plan-badge--offer"><i class="fa-solid fa-bolt"></i> +30 days free</span>
-              <span class="signup-plan-icon"><i class="fa-solid fa-calendar-check"></i></span><strong class="signup-plan-title">Pro Monthly</strong>
-              <div class="signup-price-lines">${priceLines("monthly")}</div>
-              <small>Limited offer applied after administrator payment approval.</small>
-              <span class="signup-plan-benefit"><i class="fa-solid fa-check"></i> Flexible monthly membership</span>
-            </button>
-            <button type="button" class="signup-plan-card signup-plan-card--yearly ${stateSignup.plan === "yearly" ? "selected" : ""}" data-signup-plan="yearly">
-              <span class="signup-plan-badge signup-plan-badge--best"><i class="fa-solid fa-crown"></i> Best value · +60 days</span>
-              <span class="signup-plan-icon"><i class="fa-solid fa-crown"></i></span><strong class="signup-plan-title">Pro Yearly</strong>
-              <div class="signup-price-lines">${priceLines("yearly")}</div>
-              <small>Limited offer applied after administrator payment approval.</small>
-              <span class="signup-plan-benefit"><i class="fa-solid fa-check"></i> Longer uninterrupted access</span>
-            </button>
+      <div class="su-steps" aria-hidden="true"></div>
+      <div class="modal-body settings-sheet-body su-body">
+        <section class="su-step" data-su-step="plan">
+          <div class="su-label">Account type</div>
+          <div class="su-seg" role="radiogroup" aria-label="Account type">
+            <button type="button" class="su-seg-btn selected" data-signup-type="individual" role="radio" aria-checked="true"><i class="fa-solid fa-user" aria-hidden="true"></i> Individual</button>
+            <button type="button" class="su-seg-btn" data-signup-type="company" role="radio" aria-checked="false"><i class="fa-solid fa-building" aria-hidden="true"></i> Company</button>
           </div>
-          <div class="signup-trial-facts" role="note" aria-labelledby="signupTrialFactsTitle">
-            <strong id="signupTrialFactsTitle"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> How the free trial works</strong>
-            <ul>
-              <li><b>14 days free</b> from sign-up, with full access to the modules you choose. No card and no automatic charge; it never turns into a paid plan by itself.</li>
-              <li><b>Grace period:</b> when the trial ends you keep full access for 3 more days, and the app shows the exact end date.</li>
-              <li><b>Then limited access:</b> your account stays active and you can still sign in, view and download all records, reports, PDFs, CSV files, receipts, invoices and backups. New entries, changes and deletions are paused until a Pro plan is approved. <b>Nothing is deleted</b> and the account is not switched off.</li>
-              <li><b>Limits:</b> Triplem AI is enabled on request and uses your own Google Gemini key; Insurance is enabled on request; an internet connection is required.</li>
-              <li><b>Paid plans</b> are paid by bank transfer directly to Triplem VIP and approved by an administrator. They do not renew automatically.</li>
-            </ul>
-            <button type="button" class="signup-terms-link" data-open-terms="trial">Read the full Free Trial Terms</button>
+          <div class="su-label">Plan</div>
+          <div class="su-plans" role="radiogroup" aria-label="Plan">
+            <button type="button" class="su-plan" data-signup-plan="free" role="radio"><span class="su-radio" aria-hidden="true"></span><span class="su-plan-main"><strong class="signup-plan-title">Free 14 Days</strong><small>No payment</small></span><span class="su-plan-price">Free</span></button>
+            <button type="button" class="su-plan" data-signup-plan="monthly" role="radio"><span class="su-radio" aria-hidden="true"></span><span class="su-plan-main"><strong class="signup-plan-title">Pro Monthly</strong><small>+1 month free</small></span><span class="su-plan-price">${money(prices.monthly[regionalCurrency])}<small>/ month</small></span></button>
+            <button type="button" class="su-plan" data-signup-plan="yearly" role="radio"><span class="su-radio" aria-hidden="true"></span><span class="su-plan-main"><strong class="signup-plan-title">Pro Yearly</strong><small>+2 months free</small></span><span class="su-plan-price">${money(prices.yearly[regionalCurrency])}<small>/ year</small></span></button>
           </div>
         </section>
 
-        <section class="signup-v2-step hide" data-signup-step="2">
-          <div class="signup-type-grid">
-            <button type="button" class="signup-type-card selected" data-signup-type="individual"><i class="fa-solid fa-user"></i><strong>Individual</strong><small>Personal private workspace</small></button>
-            <button type="button" class="signup-type-card" data-signup-type="company"><i class="fa-solid fa-building"></i><strong>Company</strong><small>Company branding, TRN, team option</small></button>
+        <section class="su-step hide" data-su-step="account">
+          <div class="su-grid">
+            ${field("trialDisplayName", "Full name", `<input id="trialDisplayName" class="input" autocomplete="name" />`)}
+            ${field("trialUsername", "Username", `<input id="trialUsername" class="input" autocomplete="username" autocapitalize="off" spellcheck="false" />`)}
+            ${field("trialEmail", "Email", `<input id="trialEmail" class="input" type="email" autocomplete="email" />`)}
+            ${field("trialMobile", "Mobile number", `<input id="trialMobile" class="input" type="tel" autocomplete="tel" />`)}
+            ${field("trialPassword", "Password", `<div class="admin-password-row signup-password-row"><input id="trialPassword" class="input" type="password" autocomplete="new-password" placeholder="8+ characters, A–z, 0–9" /><button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPassword" aria-label="Show password"><i class="fa-solid fa-eye"></i></button></div>`)}
+            ${field("trialPasswordConfirm", "Confirm password", `<div class="admin-password-row signup-password-row"><input id="trialPasswordConfirm" class="input" type="password" autocomplete="new-password" /><button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPasswordConfirm" aria-label="Show password"><i class="fa-solid fa-eye"></i></button></div>`)}
           </div>
-          <div class="signup-modules" role="group" aria-labelledby="signupModulesTitle">
-            <div class="signup-detail-head"><span><i class="fa-solid fa-table-cells-large"></i></span><div><strong id="signupModulesTitle">Choose your workspace modules</strong><small>The recommended modules are selected. Untick what you do not need; Dashboard, Reports and Currency settings are always included. Support can add or remove modules later without touching your records.</small></div></div>
-            <div class="signup-module-grid">${moduleCardsHtml()}</div>
-            <p class="help signup-module-note">New accounts use Inventory 2.0. Insurance, Triplem AI and the Classic inventory are enabled by Triplem VIP on request.</p>
-          </div>
+          <label class="su-check" for="trialRecoverySetup"><input id="trialRecoverySetup" type="checkbox" checked /><span>Set up password recovery after sign-up</span></label>
         </section>
 
-        <section class="signup-v2-step hide" data-signup-step="3">
-          <div class="signup-details-stack">
-            <div class="signup-detail-section">
-              <div class="signup-detail-head"><span><i class="fa-solid fa-id-card"></i></span><div><strong>Account identity</strong><small>Your private sign-in and contact details</small></div></div>
-              <div class="signup-v2-form-grid">
-                <div class="form-group"><label class="form-label" for="trialDisplayName">Full name</label><input id="trialDisplayName" class="input" autocomplete="name" placeholder="Your full name" /></div>
-                <div class="form-group"><label class="form-label" for="trialUsername">Username</label><input id="trialUsername" class="input" autocomplete="username" placeholder="Choose a username" /></div>
-                <div class="form-group"><label class="form-label" for="trialEmail">Email</label><input id="trialEmail" class="input" type="email" autocomplete="email" placeholder="Email address" /></div>
-                <div class="form-group"><label class="form-label" for="trialMobile">Mobile number</label><input id="trialMobile" class="input" type="tel" autocomplete="tel" placeholder="Mobile number" /></div>
-              </div>
-            </div>
-
-            <div class="signup-detail-section company-signup-field hide">
-              <div class="signup-detail-head"><span><i class="fa-solid fa-building"></i></span><div><strong>Company profile</strong><small>Business identity shown on workspace documents</small></div></div>
-              <div class="signup-v2-form-grid">
-                <div class="form-group"><label class="form-label" for="trialCompany">Company name</label><input id="trialCompany" class="input" autocomplete="organization" placeholder="Company name" /></div>
-                <div class="form-group"><label class="form-label" for="trialTrn">TRN</label><input id="trialTrn" class="input" placeholder="Tax registration number" /></div>
-                <div class="form-group signup-span-2"><label class="form-label" for="trialAddress">Company address</label><input id="trialAddress" class="input" autocomplete="street-address" placeholder="Street, city, country" /></div>
-              </div>
-            </div>
-
-            <div class="signup-detail-section">
-              <div class="signup-detail-head"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Workspace setup</strong><small>Currency, identity mark and company team</small></div></div>
-              <div class="signup-v2-form-grid">
-                <div class="form-group signup-span-2"><label class="form-label">Workspace currencies</label>${checkboxGridHtml("trialCurrencies", workspaceCurrencies, [regionalCurrency])}<p class="help">${storeNoCrypto ? "Choose one or more." : "Choose one or more. The Bitcoin module adds BTC automatically."}</p></div>
-                <div class="form-group"><label class="form-label" for="trialBillingCurrency">Primary / billing currency</label><select id="trialBillingCurrency" class="input" aria-label="Regional billing currency"><option value="${escapeHtml(regionalCurrency)}">${escapeHtml(regionalCurrency)}</option></select></div>
-                <div class="form-group"><label class="form-label" for="trialLogoFile">Logo <span class="trial-optional">optional</span></label><input id="trialLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" /><input id="trialLogoUrl" type="hidden" value="" /><div class="admin-logo-preview-wrap"><img id="trialLogoPreview" class="admin-logo-preview hide" src="" alt="Logo preview" /><span id="trialLogoStatus" class="help">PNG, JPG, WebP or GIF.</span></div></div>
-                <div class="form-group company-signup-field signup-span-2 signup-team-field hide">
-                  <label class="signup-team-toggle" for="trialTeamEnabled"><input id="trialTeamEnabled" type="checkbox" /><span><strong>Add paid team members</strong><small>Team members share this company workspace and inherit its approved plan.</small></span></label>
-                  <div id="trialTeamSeatWrap" class="signup-team-seat-wrap hide"><div><label class="form-label" for="trialTeamSeats">Number of team members</label><input id="trialTeamSeats" class="input" type="number" min="1" max="50" value="1" /></div><p id="trialTeamPriceHint" class="help signup-team-price"></p></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="signup-detail-section signup-security-section">
-              <div class="signup-detail-head"><span><i class="fa-solid fa-shield-halved"></i></span><div><strong>Secure your account</strong><small>Use a strong password you do not reuse elsewhere</small></div></div>
-              <div class="signup-v2-form-grid">
-                <div class="form-group"><label class="form-label" for="trialPassword">Password</label><div class="admin-password-row signup-password-row"><input id="trialPassword" class="input" type="password" autocomplete="new-password" placeholder="8+ chars, upper, lower, number" /><button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPassword" aria-label="Show password"><i class="fa-solid fa-eye"></i></button></div></div>
-                <div class="form-group"><label class="form-label" for="trialPasswordConfirm">Confirm password</label><div class="admin-password-row signup-password-row"><input id="trialPasswordConfirm" class="input" type="password" autocomplete="new-password" placeholder="Repeat password" /><button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPasswordConfirm" aria-label="Show password"><i class="fa-solid fa-eye"></i></button></div></div>
-              </div>
-              <label class="signup-recovery-setup-card" for="trialRecoverySetup">
-                <input id="trialRecoverySetup" type="checkbox" checked />
-                <span class="signup-recovery-setup-icon"><i class="fa-solid fa-life-ring"></i></span>
-                <span><strong>Set up self-service password recovery after sign-up</strong><small>Add a Recovery Key, compatible Passkey, Authenticator 2FA, or a trusted browser. You can skip this and configure it later in Account Settings.</small></span>
-                <span class="signup-recovery-setup-check"><i class="fa-solid fa-check"></i></span>
-              </label>
+        <section class="su-step hide" data-su-step="company">
+          <div class="su-grid">
+            ${field("trialCompany", "Company name", `<input id="trialCompany" class="input" autocomplete="organization" />`, "su-span-2")}
+            ${field("trialLicense", `Trade licence no. ${optional}`, `<input id="trialLicense" class="input" />`)}
+            ${field("trialTrn", `TRN / VAT no. ${optional}`, `<input id="trialTrn" class="input" />`)}
+            ${field("trialIndustry", "Industry", `<select id="trialIndustry" class="input">${opt("", "Select…", true)}${INDUSTRIES.map(i => opt(i, i)).join("")}</select>`)}
+            ${field("trialCompanySize", "Company size", `<select id="trialCompanySize" class="input">${opt("", "Select…", true)}${SIZES.map(z => opt(z, `${z} people`)).join("")}</select>`)}
+            ${field("trialCountry", "Country", `<select id="trialCountry" class="input">${COUNTRIES.map(([c, n]) => opt(c, n, c === defaultCountry)).join("")}</select>`)}
+            ${field("trialCity", "City", `<input id="trialCity" class="input" autocomplete="address-level2" />`)}
+            ${field("trialAddress", "Address", `<input id="trialAddress" class="input" autocomplete="street-address" />`, "su-span-2")}
+            ${field("trialCompanyEmail", `Company email ${optional}`, `<input id="trialCompanyEmail" class="input" type="email" autocomplete="off" />`)}
+            ${field("trialCompanyPhone", `Company phone ${optional}`, `<input id="trialCompanyPhone" class="input" type="tel" autocomplete="off" />`)}
+            ${field("trialWebsite", `Website ${optional}`, `<input id="trialWebsite" class="input" type="url" inputmode="url" placeholder="https://" />`)}
+            ${field("trialFiscalStart", "Financial year starts", `<select id="trialFiscalStart" class="input">${MONTHS.map((m, i) => opt(String(i + 1), m, i === 0)).join("")}</select>`)}
+            ${field("trialVatRate", `VAT rate (%)`, `<input id="trialVatRate" class="input" type="number" min="0" max="100" step="0.01" value="${escapeHtml(String(defaultVat))}" />`)}
+          </div>
+          <div class="su-team">
+            <label class="su-check" for="trialTeamEnabled"><input id="trialTeamEnabled" type="checkbox" /><span>Add team members</span></label>
+            <div id="trialTeamSeatWrap" class="su-team-seats hide">
+              <input id="trialTeamSeats" class="input" type="number" min="1" max="50" value="1" aria-label="Number of team members" />
+              <span id="trialTeamPriceHint" class="su-muted"></span>
             </div>
           </div>
         </section>
 
-        <section class="signup-v2-step hide" data-signup-step="4">
-          <div class="signup-payment-summary" id="trialPaymentSummary"></div>
-          <div class="signup-bank-grid">
-            <label class="signup-bank-card selected"><input type="radio" name="trialPaymentBank" value="hbl" checked /><img src="Assets/logo/wallet_logos/HBL.png" alt="HBL" /><span><strong>HBL</strong><small>Account Title: NADEEM</small><small>Account Number: 19227900107403</small><small>IBAN: PK87HABB0019227900107403</small><small>Branch: KHAWARI</small></span></label>
-            <label class="signup-bank-card"><input type="radio" name="trialPaymentBank" value="enbd" /><img src="Assets/logo/wallet_logos/Emirates NBD.png" alt="Emirates NBD" /><span><strong>Emirates NBD</strong><small>Name: Nadeem Shahzad Fida</small><small>IBAN: AE060260001015884837801</small><small>Account No: 1015884837801</small></span></label>
+        <section class="su-step hide" data-su-step="workspace">
+          <div class="su-label">Modules</div>
+          <div class="su-chips" role="group" aria-label="Modules">${SIGNUP_MODULES.map(m => `<label class="su-chip"><input type="checkbox" name="trialModules" value="${m.key}"${m.on ? " checked" : ""} /><i class="${m.icon.startsWith("fa-brands") ? m.icon : `fa-solid ${m.icon}`}" aria-hidden="true"></i><span>${escapeHtml(m.title)}</span></label>`).join("")}</div>
+          <div class="su-label">Currencies</div>
+          ${checkboxGridHtml("trialCurrencies", workspaceCurrencies, [regionalCurrency])}
+          <select id="trialBillingCurrency" class="hide" aria-hidden="true" tabindex="-1"><option value="${escapeHtml(regionalCurrency)}">${escapeHtml(regionalCurrency)}</option></select>
+          <div class="su-label">Logo ${optional}</div>
+          <div class="su-logo">
+            <img id="trialLogoPreview" class="admin-logo-preview hide" src="" alt="Logo preview" />
+            <input id="trialLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" aria-label="Logo" />
+            <input id="trialLogoUrl" type="hidden" value="" />
+            <span id="trialLogoStatus" class="su-muted"></span>
           </div>
-          <div class="form-group signup-receipt-field"><label class="form-label" for="trialReceiptFile">Attach transfer receipt</label><input id="trialReceiptFile" class="input" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" /><p class="help">PNG, JPG, WebP or PDF · maximum 5MB. The receipt is kept private for administrator review.</p></div>
-          <div class="signup-pending-note"><i class="fa-solid fa-shield-halved"></i><span>Your account opens immediately with provisional <strong>Pro access</strong>. Payment remains <strong>Pending approval</strong> until the administrator verifies the transfer.</span></div>
-          <label class="signup-purchase-confirm" for="trialPurchaseConfirm"><input id="trialPurchaseConfirm" type="checkbox" /><span id="trialPurchaseConfirmText">I am starting a purchase of this plan. I pay by bank transfer directly to Triplem VIP (payment provider: the bank account I choose above); the plan does not renew automatically.${storeNoCrypto ? " Microsoft is not the seller of Triplem VIP plans." : ""}</span></label>
         </section>
 
-        <div class="signup-terms-accept hide" id="trialTermsBlock">
-          <label for="trialTermsAccept"><input id="trialTermsAccept" type="checkbox" /><span>I have read and accept the <button type="button" class="signup-terms-link" data-open-terms="terms">Terms and Conditions</button> and the <button type="button" class="signup-terms-link" data-open-terms="trial">Free Trial Terms</button> (version ${escapeHtml(termsVersion)}), and I am 18 or older.</span></label>
-        </div>
+        <section class="su-step hide" data-su-step="payment">
+          <div class="su-seg su-pay-seg" role="radiogroup" aria-label="Payment method">
+            <button type="button" class="su-seg-btn" data-su-pay="card" role="radio"><i class="fa-regular fa-credit-card" aria-hidden="true"></i> Card</button>
+            <button type="button" class="su-seg-btn" data-su-pay="bank" role="radio"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Bank transfer</button>
+          </div>
+          <p class="su-muted su-pay-note hide" id="trialPayNote"></p>
+          <div class="su-summary" id="trialPaymentSummary"></div>
+          <div class="su-bank hide" data-su-bank>
+            <div class="su-banks">
+              <label class="su-bank-opt selected"><input type="radio" name="trialPaymentBank" value="hbl" checked /><img src="Assets/logo/wallet_logos/HBL.png" alt="" /><span><strong>HBL</strong><small>NADEEM · 19227900107403</small><small>IBAN PK87HABB0019227900107403 · Khawari</small></span></label>
+              <label class="su-bank-opt"><input type="radio" name="trialPaymentBank" value="enbd" /><img src="Assets/logo/wallet_logos/Emirates NBD.png" alt="" /><span><strong>Emirates NBD</strong><small>Nadeem Shahzad Fida · 1015884837801</small><small>IBAN AE060260001015884837801</small></span></label>
+            </div>
+            ${field("trialReceiptFile", "Transfer receipt", `<input id="trialReceiptFile" class="input" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" />`)}
+          </div>
+          <label class="su-check su-confirm" for="trialPurchaseConfirm"><input id="trialPurchaseConfirm" type="checkbox" /><span id="trialPurchaseConfirmText"></span></label>
+        </section>
 
+        <section class="su-terms hide" data-su-terms-view>
+          <div class="su-seg" role="tablist" aria-label="Documents">
+            <button type="button" class="su-seg-btn" data-su-terms-tab="terms" role="tab">Terms and Conditions</button>
+            <button type="button" class="su-seg-btn" data-su-terms-tab="trial" role="tab">Free Trial Terms</button>
+          </div>
+          <div class="su-terms-body trial-terms-body"></div>
+        </section>
+
+        <label class="su-check su-accept hide" id="trialTermsBlock" for="trialTermsAccept"><input id="trialTermsAccept" type="checkbox" /><span>I accept the <button type="button" class="su-link" data-su-terms="terms">Terms and Conditions</button> and the <button type="button" class="su-link" data-su-terms="trial">Free Trial Terms</button>, and I am 18 or older.</span></label>
         <div id="trialSignupError" class="lock-error"></div>
-        <div class="modal-footer trial-signup-footer signup-v2-footer">
-          <button type="button" class="btn ghost hide" id="trialSignupBack">Back</button>
-          <span class="signup-v2-footer-spacer"></span>
-          <button type="button" class="btn ghost" data-trial-close="1">Cancel</button>
-          <button type="button" class="btn primary" id="trialSignupNext">Continue</button>
-          <button type="button" class="btn primary hide" id="trialSignupSave">Sign up</button>
-        </div>
+      </div>
+      <div class="settings-sheet-footer su-foot">
+        <button type="button" class="btn ghost" id="trialSignupBack">Back</button>
+        <span class="su-foot-spacer"></span>
+        <button type="button" class="btn primary" id="trialSignupNext">Continue</button>
+        <button type="button" class="btn primary hide" id="trialSignupSave">Create account</button>
       </div>
     </div>`;
 
-  const err = modal.querySelector("#trialSignupError");
-  const nextBtn = modal.querySelector("#trialSignupNext");
-  const backBtn = modal.querySelector("#trialSignupBack");
-  const saveBtn = modal.querySelector("#trialSignupSave");
+  const $ = sel => modal.querySelector(sel);
+  const err = $("#trialSignupError");
+  const nextBtn = $("#trialSignupNext");
+  const backBtn = $("#trialSignupBack");
+  const saveBtn = $("#trialSignupSave");
+  const showError = m => { err.textContent = m; err.classList.add("show"); err.scrollIntoView?.({ block: "nearest" }); };
+  const clearError = () => { err.textContent = ""; err.classList.remove("show"); };
   const close = () => {
-    try {
-      const passwordInput = modal.querySelector("#trialPassword");
-      const confirmInput = modal.querySelector("#trialPasswordConfirm");
-      if (passwordInput) passwordInput.value = "";
-      if (confirmInput) confirmInput.value = "";
-    } catch (_) {}
+    try { const p = $("#trialPassword"), c = $("#trialPasswordConfirm"); if (p) p.value = ""; if (c) c.value = ""; } catch (_) {}
     modal.classList.add("hide"); modal.setAttribute("aria-hidden", "true");
     try { document.body.style.overflow = ""; } catch (_) {}
     try { document.removeEventListener("keydown", onTrialEsc, true); } catch (_) {}
   };
-  const onTrialEsc = e => { if (e.key === "Escape" && !modal.classList.contains("hide")) { e.preventDefault(); close(); } };
+  const onTrialEsc = e => {
+    if (e.key !== "Escape" || modal.classList.contains("hide")) return;
+    e.preventDefault();
+    if (S.terms) return showTerms(null);
+    close();
+  };
   modal.querySelectorAll("[data-trial-close]").forEach(el => { el.onclick = close; });
   document.addEventListener("keydown", onTrialEsc, true);
+  modal.addEventListener("input", () => { if (err.classList.contains("show")) clearError(); });
 
-  const updateCompanyFields = () => {
-    const company = stateSignup.accountType === "company";
-    modal.querySelectorAll(".company-signup-field").forEach(el => el.classList.toggle("hide", !company));
-  };
+  // ── what the user chose ──
+  const company = () => S.accountType === "company";
+  const paid = () => S.plan !== "free";
   const currentTeamSeats = () => {
-    if (stateSignup.accountType !== "company" || !modal.querySelector("#trialTeamEnabled")?.checked) return 0;
-    return Math.max(1, Math.min(50, Number(modal.querySelector("#trialTeamSeats")?.value || 1)));
+    if (!company() || !$("#trialTeamEnabled")?.checked) return 0;
+    return Math.max(1, Math.min(50, Number($("#trialTeamSeats")?.value || 1)));
   };
-  const updateTeamPrice = () => {
-    const wrap = modal.querySelector("#trialTeamSeatWrap");
-    const enabled = !!modal.querySelector("#trialTeamEnabled")?.checked;
-    if (wrap) wrap.classList.toggle("hide", !enabled);
-    const hint = modal.querySelector("#trialTeamPriceHint");
-    if (!hint) return;
-    if (stateSignup.plan === "free") { hint.textContent = "Team seats are included during the 14-day free period."; return; }
-    const c = regionalCurrency;
-    const seats = currentTeamSeats();
-    const unit = teamPrices[stateSignup.plan][c];
-    hint.innerHTML = `${money(unit, c)} per team member ${stateSignup.plan === "monthly" ? "monthly" : "yearly"} · ${seats} seat${seats === 1 ? "" : "s"} = ${money(unit * seats, c)}`;
-  };
+  const cardAvailable = () => !!card && !storeEdition && card.enabled?.() !== false && !currentTeamSeats();
+  const payMethod = () => (cardAvailable() && S.pay === "card" ? "card" : "bank");
+  const steps = () => ["plan", "account", ...(company() ? ["company"] : []), "workspace", ...(paid() ? ["payment"] : [])];
+  const STEP_NAMES = { plan: "Plan", account: "Account", company: "Company", workspace: "Workspace", payment: "Payment" };
   const selectedModules = () => [...modal.querySelectorAll('input[name="trialModules"]:checked')].map(i => i.value);
-  const updatePaymentSummary = () => {
-    const el = modal.querySelector("#trialPaymentSummary"); if (!el || stateSignup.plan === "free") return;
-    const c = regionalCurrency;
-    const seats = currentTeamSeats();
-    const base = prices[stateSignup.plan][c];
-    const unit = teamPrices[stateSignup.plan][c];
-    const team = unit * seats;
-    el.innerHTML = `<p class="section-kicker">Bank transfer</p><h4>${stateSignup.plan === "monthly" ? "Pro Monthly" : "Pro Yearly"}</h4><div class="signup-payment-kv"><span>Base plan</span><strong>${money(base,c)}</strong></div>${seats ? `<div class="signup-payment-kv"><span>${seats} team member${seats===1?"":"s"}</span><strong>${money(team,c)}</strong></div>` : ""}<div class="signup-payment-kv total"><span>Total to transfer</span><strong>${money(base+team,c)}</strong></div><p>${stateSignup.plan === "monthly" ? "Limited offer includes 30 additional days free after approval." : "Limited offer includes 60 additional days free after approval."}</p>`;
+
+  const updateTeamPrice = () => {
+    const enabled = !!$("#trialTeamEnabled")?.checked;
+    $("#trialTeamSeatWrap")?.classList.toggle("hide", !enabled);
+    const hint = $("#trialTeamPriceHint"); if (!hint) return;
+    if (!paid()) { hint.textContent = "Included during the free days"; return; }
+    const seats = currentTeamSeats(), unit = teamPrices[S.plan][regionalCurrency];
+    hint.innerHTML = `× ${money(unit)} / ${S.plan === "monthly" ? "month" : "year"} = ${money(unit * seats)}`;
   };
-  const showStep = step => {
-    stateSignup.step = step;
-    modal.querySelectorAll("[data-signup-step]").forEach(el => el.classList.toggle("hide", Number(el.dataset.signupStep) !== step));
-    modal.querySelectorAll("[data-signup-progress]").forEach(el => el.classList.toggle("active", Number(el.dataset.signupProgress) <= step));
-    const paymentProgress = modal.querySelector('[data-signup-progress="4"]');
-    if (paymentProgress) paymentProgress.classList.toggle("hide", stateSignup.plan === "free");
-    const progress = modal.querySelector(".signup-v2-progress");
-    if (progress) progress.style.gridTemplateColumns = stateSignup.plan === "free" ? "repeat(3,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))";
-    backBtn.classList.toggle("hide", step === 1);
-    const finalStep = stateSignup.plan === "free" ? 3 : 4;
-    nextBtn.classList.toggle("hide", step >= finalStep);
-    saveBtn.classList.toggle("hide", step !== finalStep);
-    modal.querySelector("#trialTermsBlock")?.classList.toggle("hide", step !== finalStep);
-    if (step === 3) { updateCompanyFields(); updateTeamPrice(); }
-    if (step === 4) updatePaymentSummary();
+  const updatePayment = () => {
+    const method = payMethod();
+    const seg = modal.querySelector(".su-pay-seg");
+    seg?.classList.toggle("hide", !cardAvailable());
+    modal.querySelectorAll("[data-su-pay]").forEach(b => { const on = b.dataset.suPay === method; b.classList.toggle("selected", on); b.setAttribute("aria-checked", String(on)); });
+    const note = $("#trialPayNote");
+    const teamNote = !!currentTeamSeats() && !!card && !storeEdition;
+    note?.classList.toggle("hide", !teamNote);
+    if (note && teamNote) note.textContent = "Plans with team members are paid by bank transfer.";
+    modal.querySelector("[data-su-bank]")?.classList.toggle("hide", method !== "bank");
+    const el = $("#trialPaymentSummary");
+    const p = S.plan, bonus = p === "yearly" ? 2 : 1;
+    if (el && paid()) {
+      if (method === "card") {
+        el.innerHTML = `<div class="su-row"><span>${escapeHtml(periodName(p))}</span><strong>${escapeHtml(usd(cardUsd[p]))} <small>/ ${p === "yearly" ? "year" : "month"}</small></strong></div>
+          <div class="su-row"><span>Bonus</span><strong>+${bonus} month${bonus > 1 ? "s" : ""}</strong></div>
+          <div class="su-row su-muted"><span>Renews automatically · cancel any time</span><span>Paddle</span></div>`;
+      } else {
+        const seats = currentTeamSeats(), base = prices[p][regionalCurrency], team = teamPrices[p][regionalCurrency] * seats;
+        el.innerHTML = `<div class="su-row"><span>${escapeHtml(periodName(p))}</span><strong>${money(base)}</strong></div>
+          ${seats ? `<div class="su-row"><span>${seats} team member${seats === 1 ? "" : "s"}</span><strong>${money(team)}</strong></div>` : ""}
+          <div class="su-row"><span>Bonus</span><strong>+${bonus} month${bonus > 1 ? "s" : ""}</strong></div>
+          <div class="su-row su-total"><span>Total to transfer</span><strong>${money(base + team)}</strong></div>`;
+      }
+    }
+    const confirm = $("#trialPurchaseConfirmText");
+    if (confirm) confirm.textContent = method === "card"
+      ? `I am buying ${periodName(p)} for ${usd(cardUsd[p])} per ${p === "yearly" ? "year" : "month"}. Paddle.com is the Merchant of Record for this order. The plan renews automatically until I cancel it.`
+      : `I am starting a purchase of this plan. I pay by bank transfer directly to Triplem VIP (payment provider: the bank account I choose above); the plan does not renew automatically.${storeNoCrypto ? " Microsoft is not the seller of Triplem VIP plans." : ""}`;
   };
 
-  modal.querySelectorAll("[data-signup-plan]").forEach(card => card.onclick = () => {
-    stateSignup.plan = card.dataset.signupPlan;
-    modal.querySelectorAll("[data-signup-plan]").forEach(x => x.classList.toggle("selected", x === card));
-  });
-  modal.querySelectorAll("[data-signup-type]").forEach(card => card.onclick = () => {
-    stateSignup.accountType = card.dataset.signupType;
-    modal.querySelectorAll("[data-signup-type]").forEach(x => x.classList.toggle("selected", x === card));
-    updateCompanyFields();
-  });
-  modal.querySelectorAll('.signup-bank-card input[type="radio"]').forEach(radio => radio.onchange = () => {
-    modal.querySelectorAll(".signup-bank-card").forEach(x => x.classList.toggle("selected", !!x.querySelector("input")?.checked));
-  });
-  modal.querySelector("#trialTeamEnabled").onchange = updateTeamPrice;
-  modal.querySelector("#trialTeamSeats").oninput = updateTeamPrice;
+  const showStep = name => {
+    const list = steps();
+    if (!list.includes(name)) name = list[list.length - 1];
+    S.step = name;
+    const i = list.indexOf(name), last = i === list.length - 1;
+    modal.querySelectorAll("[data-su-step]").forEach(el => el.classList.toggle("hide", el.dataset.suStep !== name));
+    $("#trialSignupStepLabel").textContent = `Step ${i + 1} of ${list.length} · ${STEP_NAMES[name]}`;
+    modal.querySelector(".su-steps").innerHTML = list.map((s, k) => `<span class="${k <= i ? "on" : ""}"></span>`).join("");
+    backBtn.classList.toggle("hide", i === 0);
+    nextBtn.classList.toggle("hide", last);
+    saveBtn.classList.toggle("hide", !last);
+    $("#trialTermsBlock").classList.toggle("hide", !last);
+    if (last) saveBtn.innerHTML = paid() && payMethod() === "card" ? `<i class="fa-solid fa-lock" aria-hidden="true"></i> Create account and pay` : "Create account";
+    if (name === "company") updateTeamPrice();
+    if (name === "payment") updatePayment();
+    clearError();
+    const body = modal.querySelector(".su-body"); if (body) body.scrollTop = 0;
+  };
 
-  const validateDetails = () => {
-    const username = modal.querySelector("#trialUsername").value.trim();
-    const password = modal.querySelector("#trialPassword").value;
-    const confirm = modal.querySelector("#trialPasswordConfirm").value;
-    const displayName = modal.querySelector("#trialDisplayName").value.trim();
-    const email = modal.querySelector("#trialEmail").value.trim();
-    const mobile = modal.querySelector("#trialMobile").value.trim();
-    const company = modal.querySelector("#trialCompany").value.trim();
-    const address = modal.querySelector("#trialAddress").value.trim();
-    if (!displayName) throw new Error("Please enter your name.");
-    if (!username) throw new Error("Please choose a username.");
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Please enter a valid email address.");
-    if (!mobile || mobile.length < 6) throw new Error("Please enter a valid mobile number.");
-    if (stateSignup.accountType === "company" && !company) throw new Error("Please enter the company name.");
-    if (stateSignup.accountType === "company" && !address) throw new Error("Please enter the company address.");
-    if (!readCheckboxGrid(modal, "trialCurrencies").length) throw new Error("Select at least one workspace currency.");
-    assertPasswordPolicy(password);
-    if (password !== confirm) throw new Error("Passwords do not match.");
+  // ── Terms inside the panel ──
+  const termsPrices = () => {
+    try {
+      return (window.TriplemCurrencyRegistry?.billingCurrencies?.() || []).filter(c => !(window.TriplemStore?.isCryptoCode?.(c.code)))
+        .map(c => ({ code: c.code, monthly: c.billing?.monthly, yearly: c.billing?.yearly, teamMonthly: c.billing?.teamMonthly, teamYearly: c.billing?.teamYearly }));
+    } catch (_) { return []; }
+  };
+  const showTerms = which => {
+    S.terms = which;
+    const view = modal.querySelector("[data-su-terms-view]");
+    const T = window.TriplemTerms;
+    if (which && T?.sectionsHtml) {
+      view.querySelector(".su-terms-body").innerHTML = T.sectionsHtml(which === "trial" ? T.TRIAL : T.TERMS, { prices: termsPrices(), regional: regionalCurrency, toc: false });
+      view.querySelectorAll("[data-su-terms-tab]").forEach(b => { const on = b.dataset.suTermsTab === which; b.classList.toggle("selected", on); b.setAttribute("aria-selected", String(on)); });
+    }
+    const on = !!which;
+    view.classList.toggle("hide", !on);
+    modal.querySelectorAll("[data-su-step]").forEach(el => el.classList.toggle("hide", on || el.dataset.suStep !== S.step));
+    $("#trialTermsBlock").classList.toggle("hide", on || S.step !== steps().at(-1));
+    modal.querySelector(".su-foot").classList.toggle("is-terms", on);
+    nextBtn.classList.toggle("hide", on || S.step === steps().at(-1));
+    saveBtn.classList.toggle("hide", on || S.step !== steps().at(-1));
+    backBtn.classList.toggle("hide", !on && S.step === steps()[0]);
+    $("#trialSignupStepLabel").textContent = on ? `Version ${termsVersion}` : `Step ${steps().indexOf(S.step) + 1} of ${steps().length} · ${STEP_NAMES[S.step]}`;
+    $("#trialSignupTitle").textContent = on ? (which === "trial" ? "Free Trial Terms" : "Terms and Conditions") : "Create your account";
+    const body = modal.querySelector(".su-body"); if (body) body.scrollTop = 0;
+  };
+  modal.querySelectorAll("[data-su-terms]").forEach(b => b.onclick = e => { e.preventDefault(); showTerms(b.dataset.suTerms); });
+  modal.querySelectorAll("[data-su-terms-tab]").forEach(b => b.onclick = () => showTerms(b.dataset.suTermsTab));
+
+  // ── choices ──
+  const markPlan = () => modal.querySelectorAll("[data-signup-plan]").forEach(x => { const on = x.dataset.signupPlan === S.plan; x.classList.toggle("selected", on); x.setAttribute("aria-checked", String(on)); });
+  modal.querySelectorAll("[data-signup-plan]").forEach(btn => btn.onclick = () => { S.plan = btn.dataset.signupPlan; markPlan(); showStep("plan"); });
+  modal.querySelectorAll("[data-signup-type]").forEach(btn => btn.onclick = () => {
+    S.accountType = btn.dataset.signupType;
+    modal.querySelectorAll("[data-signup-type]").forEach(x => { const on = x === btn; x.classList.toggle("selected", on); x.setAttribute("aria-checked", String(on)); });
+    showStep("plan");
+  });
+  modal.querySelectorAll("[data-su-pay]").forEach(btn => btn.onclick = () => { S.pay = btn.dataset.suPay; updatePayment(); showStep("payment"); });
+  modal.querySelectorAll('.su-bank-opt input[type="radio"]').forEach(radio => radio.onchange = () => {
+    modal.querySelectorAll(".su-bank-opt").forEach(x => x.classList.toggle("selected", !!x.querySelector("input")?.checked));
+  });
+  $("#trialTeamEnabled").onchange = updateTeamPrice;
+  $("#trialTeamSeats").oninput = updateTeamPrice;
+  markPlan();
+
+  // ── checks per step ──
+  const validEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  const validate = name => {
+    if (name === "account") {
+      if (!$("#trialDisplayName").value.trim()) throw new Error("Please enter your name.");
+      if (!$("#trialUsername").value.trim()) throw new Error("Please choose a username.");
+      if (!validEmail($("#trialEmail").value.trim())) throw new Error("Please enter a valid email address.");
+      if ($("#trialMobile").value.trim().length < 6) throw new Error("Please enter a valid mobile number.");
+      const password = $("#trialPassword").value;
+      assertPasswordPolicy(password);
+      if (password !== $("#trialPasswordConfirm").value) throw new Error("Passwords do not match.");
+    }
+    if (name === "company") {
+      if (!$("#trialCompany").value.trim()) throw new Error("Please enter the company name.");
+      if (!$("#trialAddress").value.trim()) throw new Error("Please enter the company address.");
+      const ce = $("#trialCompanyEmail").value.trim();
+      if (ce && !validEmail(ce)) throw new Error("Please enter a valid company email address.");
+      const vat = Number($("#trialVatRate").value);
+      if ($("#trialVatRate").value !== "" && (!Number.isFinite(vat) || vat < 0 || vat > 100)) throw new Error("Please enter a VAT rate between 0 and 100.");
+    }
+    if (name === "workspace") {
+      if (!selectedModules().length) throw new Error("Choose at least one workspace module.");
+      if (!readCheckboxGrid(modal, "trialCurrencies").length) throw new Error("Select at least one workspace currency.");
+    }
   };
 
   nextBtn.onclick = () => {
-    err.textContent = ""; err.classList.remove("show");
+    clearError();
     try {
-      if (stateSignup.step === 1) return showStep(2);
-      if (stateSignup.step === 2) {
-        if (!selectedModules().length) throw new Error("Choose at least one workspace module.");
-        return showStep(3);
-      }
-      if (stateSignup.step === 3) { validateDetails(); return showStep(stateSignup.plan === "free" ? 3 : 4); }
-    } catch (ex) { err.textContent = ex.message || "Please check your details."; err.classList.add("show"); }
+      validate(S.step);
+      const list = steps();
+      showStep(list[list.indexOf(S.step) + 1]);
+    } catch (ex) { showError(ex.message || "Please check your details."); }
   };
-  backBtn.onclick = () => showStep(stateSignup.step === 4 ? 3 : Math.max(1, stateSignup.step - 1));
+  backBtn.onclick = () => {
+    if (S.terms) return showTerms(null);
+    const list = steps();
+    showStep(list[Math.max(0, list.indexOf(S.step) - 1)]);
+  };
 
   const fileToBase64 = file => new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -311,52 +352,80 @@ async function openTrialSignupModal(preferredPlan = "free"){
     r.readAsDataURL(file);
   });
 
+  // Company details that have no column of their own are kept in the account's preferences.
+  const companyProfile = () => company() ? {
+    trade_license: $("#trialLicense").value.trim(), industry: $("#trialIndustry").value, size: $("#trialCompanySize").value,
+    country: $("#trialCountry").value, city: $("#trialCity").value.trim(), website: $("#trialWebsite").value.trim(),
+    fiscal_year_start_month: Number($("#trialFiscalStart").value || 1)
+  } : null;
+  const saveAfterSignup = async (user, profile, vatRate) => {
+    if (profile) {
+      try {
+        await supabase("app_user_prefs?on_conflict=owner_id,pref_key", {
+          method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify({ owner_id: user.id, pref_key: "company_profile", pref_value: JSON.stringify(profile) })
+        });
+      } catch (e) { console.warn("Company details could not be saved", e); }
+    }
+    if (vatRate !== null && Number(vatRate) !== Number(defaultVat) && typeof saveTaxSettingsPreferenceToDatabase === "function") {
+      try {
+        const next = cloneTaxSettings(state.taxSettings);
+        if (next[regionalCurrency]) { next[regionalCurrency] = { ...next[regionalCurrency], rate: Number(vatRate) }; await saveTaxSettingsPreferenceToDatabase(next); }
+      } catch (e) { console.warn("VAT rate could not be saved", e); }
+    }
+  };
+
   saveBtn.onclick = async () => {
-    err.textContent = ""; err.classList.remove("show");
+    clearError();
     try {
-      validateDetails();
-      let signupPassword = modal.querySelector("#trialPassword").value;
-      const setupRecoveryAfterSignup = !!modal.querySelector("#trialRecoverySetup")?.checked;
-      const paid = stateSignup.plan !== "free";
-      const receiptFile = modal.querySelector("#trialReceiptFile")?.files?.[0] || null;
+      for (const s of steps()) validate(s);
+      let signupPassword = $("#trialPassword").value;
+      const setupRecoveryAfterSignup = !!$("#trialRecoverySetup")?.checked;
+      const isPaid = paid();
+      const method = isPaid ? payMethod() : null;
+      const bank = method === "bank";
+      const receiptFile = $("#trialReceiptFile")?.files?.[0] || null;
       const modules = selectedModules();
       if (!modules.length) throw new Error("Choose at least one workspace module.");
-      if (!modal.querySelector("#trialTermsAccept")?.checked) throw new Error("Please accept the Terms and Conditions and the Free Trial Terms.");
-      if (paid && !modal.querySelector("#trialPurchaseConfirm")?.checked) throw new Error("Please confirm that you are starting a purchase.");
-      if (paid) {
+      if (isPaid && !$("#trialPurchaseConfirm")?.checked) throw new Error("Please confirm that you are starting a purchase.");
+      if (bank) {
         if (!receiptFile) throw new Error("Please attach your bank transfer receipt.");
         if (receiptFile.size > 5 * 1024 * 1024) throw new Error("Payment receipt must be 5MB or smaller.");
         if (!["image/png","image/jpeg","image/webp","application/pdf"].includes(receiptFile.type)) throw new Error("Receipt must be PNG, JPG, WebP, or PDF.");
       }
+      if (!$("#trialTermsAccept")?.checked) throw new Error("Please accept the Terms and Conditions and the Free Trial Terms.");
       saveBtn.disabled = true; saveBtn.innerHTML = `<i class="fa-solid fa-spinner btn-loader"></i> Creating…`;
-      const billingCurrency = modal.querySelector("#trialBillingCurrency").value;
+      const billingCurrency = $("#trialBillingCurrency").value;
       let currencies = readCheckboxGrid(modal, "trialCurrencies");
       currencies = [billingCurrency, ...currencies.filter(currency => currency !== billingCurrency)];
       // BTC follows the Bitcoin module (never in the Microsoft Store edition).
       const wantsBitcoin = !storeNoCrypto && modules.includes("bitcoin");
       currencies = currencies.filter(currency => String(currency).toUpperCase() !== "BTC" || wantsBitcoin);
       if (wantsBitcoin && !currencies.includes("BTC")) currencies.push("BTC");
-      const teamEnabled = stateSignup.accountType === "company" && !!modal.querySelector("#trialTeamEnabled").checked;
+      const teamEnabled = company() && !!$("#trialTeamEnabled").checked;
+      const email = $("#trialEmail").value.trim(), mobile = $("#trialMobile").value.trim();
+      // A card plan is created on the free days and becomes Pro when Paddle confirms the payment.
+      const serverPlan = method === "card" ? "free" : S.plan;
       const signupPayload = {
-        p_plan: stateSignup.plan,
-        p_account_type: stateSignup.accountType,
-        p_username: modal.querySelector("#trialUsername").value.trim(),
+        p_plan: serverPlan,
+        p_account_type: S.accountType,
+        p_username: $("#trialUsername").value.trim(),
         p_password: signupPassword,
-        p_display_name: modal.querySelector("#trialDisplayName").value.trim(),
-        p_company_name: stateSignup.accountType === "company" ? (modal.querySelector("#trialCompany").value.trim() || null) : null,
-        p_company_email: modal.querySelector("#trialEmail").value.trim(),
-        p_company_phone: modal.querySelector("#trialMobile").value.trim(),
-        p_company_address: stateSignup.accountType === "company" ? (modal.querySelector("#trialAddress").value.trim() || null) : null,
-        p_vat_number: stateSignup.accountType === "company" ? (modal.querySelector("#trialTrn").value.trim() || null) : null,
-        p_logo_url: modal.querySelector("#trialLogoUrl")?.value.trim() || null,
+        p_display_name: $("#trialDisplayName").value.trim(),
+        p_company_name: company() ? ($("#trialCompany").value.trim() || null) : null,
+        p_company_email: (company() && $("#trialCompanyEmail").value.trim()) || email,
+        p_company_phone: (company() && $("#trialCompanyPhone").value.trim()) || mobile,
+        p_company_address: company() ? ([$("#trialAddress").value.trim(), $("#trialCity").value.trim()].filter(Boolean).join(", ") || null) : null,
+        p_vat_number: company() ? ($("#trialTrn").value.trim() || null) : null,
+        p_logo_url: $("#trialLogoUrl")?.value.trim() || null,
         p_currencies: currencies,
         p_billing_currency: billingCurrency,
         p_team_enabled: teamEnabled,
         p_team_seats: teamEnabled ? currentTeamSeats() : 0,
-        p_payment_bank: paid ? (modal.querySelector('input[name="trialPaymentBank"]:checked')?.value || "hbl") : null,
-        p_receipt_name: paid ? receiptFile.name : null,
-        p_receipt_mime: paid ? receiptFile.type : null,
-        p_receipt_base64: paid ? await fileToBase64(receiptFile) : null,
+        p_payment_bank: bank ? ($('input[name="trialPaymentBank"]:checked')?.value || "hbl") : null,
+        p_receipt_name: bank ? receiptFile.name : null,
+        p_receipt_mime: bank ? receiptFile.type : null,
+        p_receipt_base64: bank ? await fileToBase64(receiptFile) : null,
         p_user_agent: navigator.userAgent || "",
         p_ip: null,
         p_country_code: typeof getRegionalCountryCode === "function" ? getRegionalCountryCode() : "ZZ"
@@ -389,23 +458,33 @@ async function openTrialSignupModal(preferredPlan = "free"){
       const user = result?.user || null;
       if (!sessionToken || !user?.id) throw new Error("Sign-up could not be completed. Please try again.");
       state.sessionToken = sessionToken;
+      const profile = companyProfile();
+      const vatRate = company() && $("#trialVatRate").value !== "" ? Number($("#trialVatRate").value) : null;
+      const cardPeriod = method === "card" ? S.plan : null;
       close();
       if (els.zipUsernameInput) els.zipUsernameInput.value = user.username || "";
       const ok = await completeAuthenticatedUnlock(user, sessionToken, { remember: readRememberMePreference() });
-      if (ok && setupRecoveryAfterSignup && typeof window.openPostSignupRecoverySetup === "function") {
-        let recoveryPassword = signupPassword;
-        signupPassword = "";
-        setTimeout(() => {
-          try { window.openPostSignupRecoverySetup({ currentPassword: recoveryPassword }); } catch (_) {}
-          finally { recoveryPassword = ""; }
-        }, 240);
+      if (ok) saveAfterSignup(user, profile, vatRate);
+      let recoveryPassword = setupRecoveryAfterSignup ? signupPassword : "";
+      signupPassword = "";
+      const openRecovery = () => {
+        if (!recoveryPassword || typeof window.openPostSignupRecoverySetup !== "function") return;
+        const pw = recoveryPassword; recoveryPassword = "";
+        setTimeout(() => { try { window.openPostSignupRecoverySetup({ currentPassword: pw }); } catch (_) {} }, 240);
+      };
+      if (ok && cardPeriod && card?.payFromSignup) {
+        // Paddle's checkout opens right away; recovery set-up follows once the payment step ends.
+        setTimeout(() => { card.payFromSignup(cardPeriod, { onDone: openRecovery }); }, 240);
+      } else if (ok) {
+        openRecovery();
       } else {
-        signupPassword = "";
+        recoveryPassword = "";
       }
       if (!ok && els.lockError) { els.lockError.textContent = "Account created. Please sign in with your new credentials."; els.lockError.classList.add("show"); }
     } catch (ex) {
-      err.textContent = ex.message || "Could not create your account."; err.classList.add("show");
-      saveBtn.disabled = false; saveBtn.textContent = "Sign up";
+      showError(ex.message || "Could not create your account.");
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = paid() && payMethod() === "card" ? `<i class="fa-solid fa-lock" aria-hidden="true"></i> Create account and pay` : "Create account";
     }
   };
 
@@ -413,7 +492,8 @@ async function openTrialSignupModal(preferredPlan = "free"){
   try { document.body.style.overflow = "hidden"; } catch (_) {}
   try { bindAdminLogoPicker("trial", null); } catch (_) {}
   try { bindAdminFormPasswordToggle(modal); } catch (_) {}
-  showStep(1);
+  S.pay = cardAvailable() ? "card" : "bank";
+  showStep("plan");
 }
 
 function startGuestMode(){

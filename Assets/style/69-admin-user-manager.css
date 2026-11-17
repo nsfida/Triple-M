@@ -4,8 +4,9 @@
    Colours come from the theme tokens, so every light and dark theme works. The panel sits just
    below the app's dialogs, so a confirmation or the records viewer opens on top of it. */
 
-.aum-root{position:fixed;inset:0;z-index:2147482000;pointer-events:none;visibility:hidden}
-.aum-root.is-open{pointer-events:auto;visibility:visible}
+/* 2026-11-17: panels slide in from the side and slide back out when closed (visibility waits for the slide) */
+.aum-root{position:fixed;inset:0;z-index:2147482000;pointer-events:none;visibility:hidden;transition:visibility 0s linear .26s}
+.aum-root.is-open{pointer-events:auto;visibility:visible;transition-delay:0s}
 .aum-backdrop{position:absolute;inset:0;background:rgba(8,15,30,.38);opacity:0;transition:opacity .2s ease}
 .aum-root.is-open .aum-backdrop{opacity:1}
 .aum-panel{
@@ -14,10 +15,10 @@
   border:1px solid var(--line,rgba(15,23,42,.12));border-radius:22px;
   background:linear-gradient(var(--surface-elevated,#fff),var(--surface-elevated,#fff)),var(--bg,#fff);color:var(--text,#0f172a);
   box-shadow:0 30px 70px rgba(8,15,30,.28),0 2px 8px rgba(8,15,30,.08);
-  opacity:0;transform:translateX(28px);transition:opacity .2s ease,transform .24s cubic-bezier(.22,.75,.22,1);
+  opacity:.4;transform:translateX(104%);transition:opacity .22s ease,transform .26s cubic-bezier(.4,0,.2,1);
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:400;font-size:13px;line-height:1.45;
 }
-.aum-root.is-open .aum-panel{opacity:1;transform:none}
+.aum-root.is-open .aum-panel{opacity:1;transform:none;transition:opacity .2s ease,transform .3s cubic-bezier(.22,.75,.22,1)}
 .aum-frame{display:flex;flex-direction:column;min-height:0;flex:1}
 html.aum-open body{overflow:hidden}
 
@@ -180,12 +181,12 @@ html[data-triplem-theme-mode="dark"] .aum-pill.is-bad{color:#f87171}
 
 @keyframes aumSpin{to{transform:rotate(360deg)}}
 @media (max-width:700px){
-  .aum-panel{top:auto;left:0;right:0;bottom:0;width:auto;height:92dvh;border-radius:22px 22px 0 0;transform:translateY(40px)}
+  .aum-panel{top:auto;left:0;right:0;bottom:0;width:auto;height:92dvh;border-radius:22px 22px 0 0;transform:translateY(100%)}
   .aum-grid{grid-template-columns:1fr}
   .aum-field.is-inline{grid-template-columns:1fr}
   .aum-danger{flex-direction:column;align-items:stretch}
 }
-@media (prefers-reduced-motion:reduce){.aum-panel,.aum-backdrop,.aum-toast{transition:none}.aum-skel{animation:none}}
+@media (prefers-reduced-motion:reduce){.aum-root,.aum-panel,.aum-backdrop,.aum-toast{transition:none}.aum-skel{animation:none}}
 /* Dialogs opened from the panel (records, payment review, confirmations) stay on top of it. */
 html.aum-open body .modal:not(.hide){z-index:2147482600 !important}
 .aum-form[data-aum-form="username"]{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}
@@ -209,10 +210,16 @@ html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog{
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:400;
 }
 
-html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-dialog{animation:tmSheetIn .24s cubic-bezier(.22,.75,.22,1)}
+html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-dialog{animation:tmSheetIn .3s cubic-bezier(.22,.75,.22,1)}
 html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-backdrop{animation:tmSheetFade .2s ease}
-@keyframes tmSheetIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes tmSheetIn{from{opacity:.4;transform:translateX(104%)}to{opacity:1;transform:none}}
 @keyframes tmSheetFade{from{opacity:0}to{opacity:1}}
+/* Closing: a copy of the panel slides back out (ui/09-side-sheets.js), so every way of closing animates */
+html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*):is(#sh-b,*){display:block !important;pointer-events:none !important}
+html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*) > .modal-dialog{animation:tmSheetOut .26s cubic-bezier(.4,0,.2,1) forwards}
+html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*) > .modal-backdrop{animation:tmSheetFadeOut .24s ease forwards}
+@keyframes tmSheetOut{from{opacity:1;transform:none}to{opacity:.4;transform:translateX(104%)}}
+@keyframes tmSheetFadeOut{from{opacity:1}to{opacity:0}}
 
 /* A form wrapping head + body + footer behaves like the dialog itself */
 html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog > form{display:flex !important;flex-direction:column !important;flex:1 1 auto !important;min-height:0 !important;margin:0 !important}
@@ -296,10 +303,11 @@ html body .modal.tm-sheet:is(#sh-a,*) :is(.section-details-metric,.section-detai
 @media (max-width:700px){
   html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog,
   html body .modal.tm-sheet.tm-sheet-wide:is(#sh-a,*):is(#sh-b,*) > .modal-dialog{top:auto !important;left:0 !important;right:0 !important;bottom:0 !important;width:auto !important;height:92dvh !important;border-radius:22px 22px 0 0 !important}
-  @keyframes tmSheetIn{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+  @keyframes tmSheetIn{from{opacity:.6;transform:translateY(100%)}to{opacity:1;transform:none}}
+  @keyframes tmSheetOut{from{opacity:1;transform:none}to{opacity:.6;transform:translateY(100%)}}
   html body .modal.tm-sheet:is(#sh-a,*) .section-details-actions:not(.hide),#installmentPlanModal .tm-sheet-actions{margin-left:0}
 }
-@media (prefers-reduced-motion:reduce){html body .modal.tm-sheet.tm-sheet-in > :is(.modal-dialog,.modal-backdrop){animation:none !important}}
+@media (prefers-reduced-motion:reduce){html body .modal.tm-sheet:is(.tm-sheet-in,.tm-sheet-out) > :is(.modal-dialog,.modal-backdrop){animation:none !important}}
 /* Panels: content starts at the top (no stretched rows), close button pinned top-right */
 html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) :is(.modal-body,.settings-sheet-body){align-content:start !important;justify-content:flex-start !important;grid-auto-rows:auto !important}
 html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) :is(.modal-head,.settings-sheet-head){padding-right:60px !important}

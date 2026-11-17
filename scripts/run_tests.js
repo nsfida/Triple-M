@@ -26,6 +26,7 @@ const PUBLIC_TEST_FILES = [
   "tests/account-panels.test.js",
   "tests/card-payments.test.js",
   "tests/log-noise-2026-11-17.test.js",
+  "tests/signup-panel.test.js",
   "tests/seo-quality.test.js",
   "tests/user-backup-restore.test.js",
   "tests/public-repository.test.js"

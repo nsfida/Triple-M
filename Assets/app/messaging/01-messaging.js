@@ -3159,9 +3159,86 @@ function notificationIcon(kind){
 }
 
 
+// Card payments (Paddle, migration 231): their own details — method, amount, card, the local
+// end date and the invoice — in the side panel (2026-11-17).
+async function openCardNotificationDetails(notification, payload, eventType){
+  const kind = eventType.startsWith("subscription_card_paid") ? "paid"
+    : eventType.startsWith("subscription_card_refunded") ? "refunded"
+    : eventType.startsWith("subscription_card_cancelled") ? "cancelled"
+    : eventType.startsWith("subscription_card_past_due") ? "failed" : "other";
+  let payment = null;
+  try {
+    const b = await window.TriplemCardPayments?.billing?.();
+    payment = (b?.payments || []).find(p => String(p.id) === String(payload.payment_id || "")) || null;
+  } catch (_) { payment = null; }
+  const period = payment?.period || payload.plan || "";
+  const planLabel = period === "yearly" ? "Pro Yearly" : period === "monthly" ? "Pro Monthly" : "Pro";
+  const expiry = payload.expires_at || payment?.new_expires_at || null;
+  const promo = Number(payment?.promotion_months ?? payload.promotion_months ?? 0) || 0;
+  const amount = payment ? regionalMoneyHtml(payment.amount, payment.currency || "USD") : "";
+  const cardLine = payment?.card_last4 ? `${String(payment.card_brand || "Card").replace(/^./, c => c.toUpperCase())} •••• ${payment.card_last4}` : "";
+  const status = { paid: ["Payment received", "fa-circle-check", "approved"], refunded: ["Payment refunded", "fa-rotate-left", "neutral"], cancelled: ["Renewal stopped", "fa-circle-pause", "neutral"], failed: ["Renewal payment failed", "fa-triangle-exclamation", "declined"], other: ["Card billing", "fa-credit-card", "neutral"] }[kind];
+  const text = kind === "paid"
+    ? (expiry ? `Thank you. Your ${planLabel} card payment was received. Pro is active until ${formatTrialExpiry(expiry)}.` : `Thank you. Your ${planLabel} card payment was received.`)
+    : kind === "refunded" ? (expiry ? `Your card payment was refunded. Pro access now ends ${formatTrialExpiry(expiry)}.` : "Your card payment was refunded.")
+    : localizeServerDates(notification.body || "");
+  const at = notification.created_at || payment?.paid_at || null;
+  let modal = document.getElementById("subscriptionNotificationModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "subscriptionNotificationModal";
+    modal.className = "modal hide";
+    document.body.appendChild(modal);
+  }
+  const previousOverflow = document.body.style.overflow;
+  modal.innerHTML = `<div class="modal-backdrop" data-sub-notif-close></div>
+    <div class="modal-dialog settings-sheet subscription-notification-sheet" role="dialog" aria-modal="true" aria-labelledby="subscriptionNotificationTitle">
+      <div class="settings-sheet-head">
+        <div><h3 id="subscriptionNotificationTitle">${escapeHtml(status[0])}</h3><p>${escapeHtml(planLabel)} · Card · Paddle</p></div>
+        <button type="button" class="btn ghost tiny" data-sub-notif-close aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body settings-sheet-body subscription-notification-body">
+        <div class="subscription-decision-hero is-${status[2]}">
+          <span><i class="fa-solid ${status[1]}"></i></span>
+          <div><strong>${escapeHtml(status[0])}</strong><p>${escapeHtml(text)}</p></div>
+        </div>
+        <div class="subscription-notification-grid">
+          <div><span>Method</span><strong>Card · Paddle</strong></div>
+          <div><span>Plan</span><strong>${escapeHtml(planLabel)}</strong></div>
+          ${amount ? `<div><span>Amount</span><strong>${amount}</strong></div>` : ""}
+          ${cardLine ? `<div><span>Card</span><strong>${escapeHtml(cardLine)}</strong></div>` : ""}
+          ${kind === "paid" && expiry ? `<div><span>Active until</span><strong>${escapeHtml(formatTrialExpiry(expiry))}</strong></div>` : ""}
+          ${kind === "paid" && promo ? `<div><span>Bonus</span><strong>+${escapeHtml(String(promo))} month${promo === 1 ? "" : "s"}</strong></div>` : ""}
+          ${payment?.invoice_number ? `<div><span>Invoice</span><strong>${escapeHtml(payment.invoice_number)}</strong></div>` : ""}
+          ${at ? `<div><span>${kind === "paid" ? "Paid on" : "Date"}</span><strong>${escapeHtml(typeof formatAdminDate === "function" ? formatAdminDate(at) : formatRelativeTime(at))}</strong></div>` : ""}
+        </div>
+        <div class="subscription-notification-actions">
+          ${payment?.transaction_id && kind === "paid" ? `<button type="button" class="btn soft tiny" data-sub-notif-invoice><i class="fa-solid fa-file-invoice"></i> Invoice</button>` : ""}
+          <button type="button" class="btn soft tiny" data-sub-notif-plan><i class="fa-solid fa-crown"></i> Plan & Subscription</button>
+          <button type="button" class="btn primary tiny" data-sub-notif-close>Done</button>
+        </div>
+      </div>
+    </div>`;
+  const close = () => { modal.classList.add("hide"); modal.setAttribute("aria-hidden","true"); document.body.style.overflow = previousOverflow; };
+  modal.querySelectorAll("[data-sub-notif-close]").forEach(el => el.onclick = close);
+  const planBtn = modal.querySelector("[data-sub-notif-plan]");
+  if (planBtn) planBtn.onclick = async () => { close(); if (typeof openPlanSubscriptionModal === "function") await openPlanSubscriptionModal(); };
+  const invBtn = modal.querySelector("[data-sub-notif-invoice]");
+  if (invBtn) invBtn.onclick = async () => {
+    invBtn.disabled = true;
+    try { await window.TriplemCardPayments?.openInvoice?.(payment.transaction_id); }
+    catch (e) { alert(e?.message || "The invoice could not be opened."); }
+    finally { invBtn.disabled = false; }
+  };
+  modal.classList.remove("hide"); modal.setAttribute("aria-hidden","false");
+  document.body.style.overflow = "hidden";
+}
+
 async function openSubscriptionNotificationDetails(notification){
   if (!notification) return;
   const payload = notificationPayloadObject(notification);
+  const cardEvent = String(payload.type || "").toLowerCase();
+  if (cardEvent.startsWith("subscription_card_")) return openCardNotificationDetails(notification, payload, cardEvent);
   const requestId = String(payload.request_id || "").trim();
   let details = null;
   if (requestId) {
@@ -3199,7 +3276,7 @@ async function openSubscriptionNotificationDetails(notification){
       <div class="modal-body settings-sheet-body subscription-notification-body">
         <div class="subscription-decision-hero is-${approved ? "approved" : declined ? "declined" : "neutral"}">
           <span><i class="fa-solid ${approved ? "fa-check" : declined ? "fa-xmark" : "fa-clock"}"></i></span>
-          <div><strong>${escapeHtml(notification.title || statusLabel)}</strong><p>${escapeHtml(notification.body || (approved ? "Your Pro subscription has been approved." : declined ? "Your payment could not be approved." : "Your subscription status was updated."))}</p></div>
+          <div><strong>${escapeHtml(notification.title || statusLabel)}</strong><p>${escapeHtml(localizeServerDates(notification.body) || (approved ? "Your Pro subscription has been approved." : declined ? "Your payment could not be approved." : "Your subscription status was updated."))}</p></div>
         </div>
         <div class="subscription-notification-grid">
           <div><span>Decision</span><strong>${escapeHtml(statusLabel)}</strong></div>
@@ -3388,11 +3465,22 @@ function notificationVisual(n){
   return { cls: notificationIconClass(n?.kind), icon: notificationIcon(n?.kind) };
 }
 
+// Server messages write times as "2028-02-12 10:07 UTC" (or "YYYY-MM-DD"); shown in the reader's
+// own date and time format instead (2026-11-17).
+function localizeServerDates(text){
+  return String(text || "").replace(/\b(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::\d{2})? ?(UTC|GMT|Z|[+-]\d{2}(?::?\d{2})?)\b/g, (m, d, t, z) => {
+    const iso = `${d}T${t}:00${/^(UTC|GMT|Z)$/.test(z) ? "Z" : (z.length === 3 ? `${z}:00` : z.replace(/^([+-]\d{2})(\d{2})$/, "$1:$2"))}`;
+    const at = new Date(iso);
+    if (!Number.isFinite(at.getTime())) return m;
+    try { return at.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch (_) { return m; }
+  });
+}
+
 function notificationPreviewText(n){
   const payload = notificationPayloadObject(n);
   if (n?.kind === "note_reminder") return String(payload.note_preview || n.body || "").trim();
   if (n?.kind === "installment_due") return [payload.person_name, payload.due_date, payload.amount_label].filter(Boolean).join(" · ") || String(n.body || "");
-  return String(n?.body || "").replace(/\s+/g, " ").trim();
+  return localizeServerDates(String(n?.body || "").replace(/\s+/g, " ").trim());
 }
 
 function notificationShortTime(value){
@@ -3546,7 +3634,7 @@ function openNotificationDetail(n){
   try { absolute = n.created_at ? new Date(n.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (_) {}
   time.textContent = [absolute, formatRelativeTime(n.created_at)].filter(Boolean).join(" · ");
   const fields = notificationDetailFields(n);
-  const body = String(n.body || "").trim();
+  const body = localizeServerDates(String(n.body || "").trim());
   const payload = notificationPayloadObject(n);
   const amount = n.kind === "subscription_payment" && payload.amount ? regionalMoneyHtml(payload.amount, payload.currency || "USD") : "";
   const offer = isLiveChatOfferNotification(n) ? liveChatNotificationResolution(n, liveChatOfferStillOpen(n)) : null;

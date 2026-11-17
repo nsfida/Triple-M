@@ -35,7 +35,9 @@
     // Account menu (2026-11-17): settings, security, team, plan, backup — and the dialogs they open
     accountSettingsModal: "", accountSecurityCenterModal: "", companyTeamModal: "wide", planSubscriptionModal: "",
     userBackupModal: "", taxSettingsModal: "", defaultStartPageModal: "", userHelpSupportModal: "",
-    accountProfileEditModal: "", accountCompanyEditModal: "", accountPasswordChangeModal: "", accountAiIntegrationModal: ""
+    accountProfileEditModal: "", accountCompanyEditModal: "", accountPasswordChangeModal: "", accountAiIntegrationModal: "",
+    // Sign-up and subscription notices (2026-11-17)
+    trialSignupModal: "", subscriptionNotificationModal: ""
   };
   // Account dialogs show their own icon in the header (Font Awesome) instead of a section icon.
   const ICONS = {
@@ -43,7 +45,8 @@
     companyTeamModal: "fa-solid fa-users", planSubscriptionModal: "fa-solid fa-crown", userBackupModal: "fa-solid fa-box-archive",
     taxSettingsModal: "fa-solid fa-percent", defaultStartPageModal: "fa-solid fa-house-chimney", userHelpSupportModal: "fa-solid fa-circle-question",
     accountProfileEditModal: "fa-solid fa-id-card", accountCompanyEditModal: "fa-solid fa-building", accountPasswordChangeModal: "fa-solid fa-key",
-    accountAiIntegrationModal: "fa-solid fa-wand-magic-sparkles"
+    accountAiIntegrationModal: "fa-solid fa-wand-magic-sparkles",
+    trialSignupModal: "fa-solid fa-user-plus", subscriptionNotificationModal: "fa-solid fa-receipt"
   };
   // Every other "account settings" dialog (they share one class) becomes a panel too.
   const ACCOUNT_CHILD = ".account-settings-child-modal";
@@ -132,8 +135,43 @@
     modal.classList.add("tm-sheet-in");
   }
 
+  // Closing (2026-11-17): every panel slides back out to the side. Panels are closed in many
+  // places by adding "hide", which removes them at once; a copy of the panel as it was is shown
+  // for the length of the slide and then removed. The copy cannot be clicked or focused.
+  const reducedMotion = () => { try { return global.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) { return false; } };
+  function slideOut(modal){
+    if (reducedMotion() || modal.dataset.tmGhost) return;
+    const dialog = modal.querySelector(":scope > .modal-dialog");
+    if (!dialog || !document.body) return;
+    const ghost = modal.cloneNode(true);
+    ghost.dataset.tmGhost = "1";
+    ghost.removeAttribute("id");
+    ghost.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.inert = true;
+    ghost.classList.remove("hide", "tm-sheet-in");
+    ghost.classList.add("tm-sheet-out");
+    // Typed values are not copied by cloneNode; copy them so the panel looks the same while leaving.
+    const from = modal.querySelectorAll("input, textarea, select"), to = ghost.querySelectorAll("input, textarea, select");
+    from.forEach((el, i) => { const t = to[i]; if (!t) return; try { if (el.type === "checkbox" || el.type === "radio") t.checked = el.checked; else if (el.type !== "file") t.value = el.value; } catch (_) {} });
+    const scroller = modal.querySelector(".modal-body, .settings-sheet-body"), gScroller = ghost.querySelector(".modal-body, .settings-sheet-body");
+    const overflowBefore = document.body.style.overflow;
+    document.body.appendChild(ghost);
+    if (scroller && gScroller) gScroller.scrollTop = scroller.scrollTop;
+    let gone = false;
+    const done = () => {
+      if (gone) return; gone = true;
+      ghost.remove();
+      syncOpenState();
+      // Code that closed another dialog during the slide may have seen the copy as "still open".
+      if (overflowBefore !== "hidden" && document.body.style.overflow === "hidden" && !document.querySelector(".modal:not(.hide):not([data-tm-ghost])")) document.body.style.overflow = overflowBefore;
+    };
+    ghost.addEventListener("animationend", e => { if (e.target === ghost.querySelector(":scope > .modal-dialog")) done(); });
+    setTimeout(done, 420);
+  }
+
   function syncOpenState(){
-    const any = document.querySelector(".modal.tm-sheet:not(.hide)");
+    const any = document.querySelector(".modal.tm-sheet:not(.hide):not([data-tm-ghost])");
     document.documentElement.classList.toggle("tm-sheet-open", !!any);
   }
 
@@ -145,10 +183,11 @@
       if (r.type === "attributes") {
         const m = r.target;
         if (m.classList?.contains("modal") && !m.classList.contains("hide") && r.oldValue && /\bhide\b/.test(r.oldValue)) decorate(m);
+        else if (m.classList?.contains("tm-sheet") && m.classList.contains("hide") && r.oldValue && !/\bhide\b/.test(r.oldValue)) slideOut(m);
         touched = true;
       } else {
         r.addedNodes.forEach(n => {
-          if (n.nodeType !== 1) return;
+          if (n.nodeType !== 1 || n.dataset?.tmGhost) return;
           const list = n.classList?.contains("modal") ? [n] : [...(n.querySelectorAll?.(".modal") || [])];
           list.forEach(m => { if (!seen.has(m)) { seen.add(m); watch(m); } if (!m.classList.contains("hide")) decorate(m); });
         });
