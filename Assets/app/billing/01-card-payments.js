@@ -12,18 +12,25 @@
  * does not know app_my_card_billing() the panel looks exactly as before. The Microsoft Store
  * edition keeps bank transfer only. Plans with paid team seats keep bank transfer for now.
  *
- * Test mode: while CONFIG.env is "sandbox" the card option is shown only on a device where it
- * was switched on (open the site once with ?cardtest=1; ?cardtest=0 switches it off). The server
+ * Test mode / preview: while CONFIG.env is "sandbox" or CONFIG.previewOnly is true, the card option
+ * is shown only on a device where it was switched on (open the site once with ?cardtest=1;
+ * ?cardtest=0 switches it off). The server
  * gives Pro for test-card payments only to the accounts listed in PADDLE_TEST_USERNAMES.
  * Only public values live here (client-side token and price ids); secret keys stay on the server.
  */
 (function initTriplemCardPayments(global){
   "use strict";
 
+  // Live Paddle (2026-11-17). Sandbox values, for going back to test mode:
+  //   token "test_2dcf5b1a0109ec4478823906792", prices monthly "pri_01m7mthdxc6wg8873h23chyt0w",
+  //   yearly "pri_01m7mtjy48nw8pzvef7dxfq0be" (and PADDLE_ENV=sandbox on the server).
   const CONFIG = Object.freeze({
-    env: "sandbox",                                   // "production" when Paddle is live
-    token: "test_2dcf5b1a0109ec4478823906792",        // Paddle client-side token (public)
-    prices: Object.freeze({ monthly: "pri_01m7mthdxc6wg8873h23chyt0w", yearly: "pri_01m7mtjy48nw8pzvef7dxfq0be" }),
+    env: "production",                                // "sandbox" for Paddle's test system
+    // true: card payments are shown only on a device opened once with ?cardtest=1 (a final live
+    // check before everyone sees them); false: every eligible user sees card payment.
+    previewOnly: true,
+    token: "live_63446b59f501d5f590415fc70df",         // Paddle client-side token (public)
+    prices: Object.freeze({ monthly: "pri_01m7ngw931r5y2vqtgkd0fkhmp", yearly: "pri_01m7ngx2zw1bbrzmy5yn7ntxx2" }),
     usd: Object.freeze({ monthly: 13.99, yearly: 149 }),
     script: "https://cdn.paddle.com/paddle/v2/paddle.js",
     refundUrl: "https://triplem.vip/seo/refund-policy.html"
@@ -41,7 +48,7 @@
   const storeEdition = () => !!global.TriplemStore?.active;
   function enabled(){
     if (storeEdition()) return false;
-    if (!testMode()) return true;
+    if (!testMode() && !CONFIG.previewOnly) return true;
     try { return localStorage.getItem(TEST_KEY) === "1"; } catch (_) { return false; }
   }
   const usd = n => `US$${Number(n).toLocaleString("en-US", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
@@ -304,7 +311,7 @@
     const selectedPeriod = () => body.querySelector(".plan-sub-card.selected[data-plan-period]")?.dataset.planPeriod === "yearly" ? "yearly" : "monthly";
     bankGrid.insertAdjacentHTML("beforebegin", `
       <div class="tm-pay-method" role="radiogroup" aria-label="Payment method">
-        <label class="tm-pay-opt"><input type="radio" name="tmPayMethod" value="card" checked><i class="fa-regular fa-credit-card" aria-hidden="true"></i><span><strong>Credit / debit card</strong><small>Pro starts right away · renews automatically · cancel any time</small></span>${testMode() ? `<em class="tm-pay-test">Test mode</em>` : ""}</label>
+        <label class="tm-pay-opt"><input type="radio" name="tmPayMethod" value="card" checked><i class="fa-regular fa-credit-card" aria-hidden="true"></i><span><strong>Credit / debit card</strong><small>Pro starts right away · renews automatically · cancel any time</small></span>${testMode() ? `<em class="tm-pay-test">Test mode</em>` : CONFIG.previewOnly ? `<em class="tm-pay-test">Preview</em>` : ""}</label>
         <label class="tm-pay-opt"><input type="radio" name="tmPayMethod" value="bank"><i class="fa-solid fa-building-columns" aria-hidden="true"></i><span><strong>Bank transfer</strong><small>Upload the receipt · approved by an administrator</small></span></label>
       </div>
       <div class="tm-pay-card-box">
