@@ -123,6 +123,7 @@
     undock();
     leave();
     P.def = def; P.tab = def.tab || def.tabs[0][0]; P.st = def.state || {}; P.built = null;
+    el.querySelector(".aum-toast")?.classList.remove("is-on"); // a message of the previous panel
     render({ force: true });
     if (!P.def) return;
     el.classList.add("is-open");

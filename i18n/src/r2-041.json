@@ -1,0 +1,582 @@
+[
+[
+"Save and open now",
+"احفظ وافتح الآن",
+"محفوظ کریں اور ابھی کھولیں"
+],
+[
+"Add on top",
+"إضافة فوق المبلغ",
+"اوپر شامل کریں"
+],
+[
+"Included",
+"مشمولة",
+"شامل"
+],
+[
+"Quick rates",
+"نسب سريعة",
+"فوری شرحیں"
+],
+[
+"Undo changes",
+"تراجع عن التغييرات",
+"تبدیلیاں واپس لیں"
+],
+[
+"Unsaved changes",
+"تغييرات غير محفوظة",
+"غیر محفوظ تبدیلیاں"
+],
+[
+"Saved to your account",
+"محفوظ في حسابك",
+"آپ کے اکاؤنٹ میں محفوظ"
+],
+[
+"Save VAT settings",
+"حفظ إعدادات ضريبة القيمة المضافة",
+"VAT ترتیبات محفوظ کریں"
+],
+[
+"VAT settings saved",
+"تم حفظ إعدادات ضريبة القيمة المضافة",
+"VAT ترتیبات محفوظ ہو گئیں"
+],
+[
+"VAT settings could not be saved.",
+"تعذّر حفظ إعدادات ضريبة القيمة المضافة.",
+"VAT ترتیبات محفوظ نہیں ہو سکیں۔"
+],
+[
+"VAT rates",
+"نسب ضريبة القيمة المضافة",
+"VAT شرحیں"
+],
+[
+"Default VAT for new records in each currency",
+"ضريبة القيمة المضافة الافتراضية للسجلات الجديدة بكل عملة",
+"ہر کرنسی میں نئے ریکارڈز کے لیے ڈیفالٹ VAT"
+],
+[
+"Default VAT by currency",
+"الضريبة الافتراضية حسب العملة",
+"کرنسی کے لحاظ سے ڈیفالٹ VAT"
+],
+[
+"Every currency at once",
+"كل العملات دفعة واحدة",
+"تمام کرنسیاں ایک ساتھ"
+],
+[
+"Rate for every currency",
+"النسبة لكل العملات",
+"ہر کرنسی کے لیے شرح"
+],
+[
+"VAT treatment for every currency",
+"طريقة احتساب الضريبة لكل العملات",
+"ہر کرنسی کے لیے VAT کا طریقہ"
+],
+[
+"Apply to all",
+"تطبيق على الكل",
+"سب پر لاگو کریں"
+],
+[
+"No VAT anywhere",
+"بدون ضريبة في كل العملات",
+"کہیں بھی VAT نہیں"
+],
+[
+"Fills every currency above. Nothing is saved until you press Save.",
+"يملأ كل العملات أعلاه. لا يُحفظ شيء حتى تضغط «حفظ».",
+"اوپر کی ہر کرنسی بھر دیتا ہے۔ «محفوظ کریں» دبانے تک کچھ محفوظ نہیں ہوتا۔"
+],
+[
+"Good to know",
+"معلومات مفيدة",
+"جاننا مفید ہے"
+],
+[
+"You can still change the VAT on any single record while adding it.",
+"لا يزال بإمكانك تغيير الضريبة لأي سجل عند إضافته.",
+"آپ کسی بھی ریکارڈ کو شامل کرتے وقت اس کا VAT اب بھی بدل سکتے ہیں۔"
+],
+[
+": the VAT is added to the amount you enter (100 + 5% = 105).",
+": تُضاف الضريبة إلى المبلغ الذي تدخله (100 + 5% = 105).",
+": VAT آپ کی درج کردہ رقم میں شامل کیا جاتا ہے (100 + 5% = 105)۔"
+],
+[
+": the amount you enter already contains the VAT (105 includes 5).",
+": المبلغ الذي تدخله يتضمن الضريبة مسبقًا (105 تتضمن 5).",
+": آپ کی درج کردہ رقم میں VAT پہلے سے شامل ہے (105 میں 5 شامل ہے)۔"
+],
+[
+"Used for",
+"تُستخدم في",
+"استعمال ہوتا ہے"
+],
+[
+"sales, purchases and expenses. Records you already saved keep their own VAT.",
+"المبيعات والمشتريات والمصروفات. السجلات المحفوظة مسبقًا تحتفظ بضريبتها.",
+"فروخت، خریداری اور اخراجات کے لیے۔ پہلے سے محفوظ ریکارڈز اپنا VAT برقرار رکھتے ہیں۔"
+],
+[
+"new",
+"الجديدة",
+"نئی"
+],
+[
+"Enter a rate first.",
+"أدخل النسبة أولًا.",
+"پہلے شرح درج کریں۔"
+],
+[
+"{1}% set for every currency — press Save to keep it",
+"تم ضبط {1}% لكل العملات — اضغط «حفظ» للاحتفاظ بها",
+"{1}% ہر کرنسی کے لیے مقرر — رکھنے کے لیے «محفوظ کریں» دبائیں"
+],
+[
+"{1} with VAT",
+"{1} بضريبة",
+"{1} پر VAT"
+],
+[
+"{1} currencies",
+"{1} عملات",
+"{1} کرنسیاں"
+],
+[
+"No VAT is added to new {1} records",
+"لا تُضاف ضريبة إلى سجلات {1} الجديدة",
+"نئے {1} ریکارڈز پر کوئی VAT شامل نہیں"
+],
+[
+"Every section as a card, ready to open",
+"كل الأقسام كبطاقات جاهزة للفتح",
+"ہر سیکشن ایک کارڈ کی صورت میں، کھولنے کے لیے تیار"
+],
+[
+"Totals, charts and recent activity at a glance",
+"الإجماليات والرسوم والنشاط الأخير بنظرة واحدة",
+"کل رقوم، چارٹس اور حالیہ سرگرمی ایک نظر میں"
+],
+[
+"Wallets, spending and Expenses history",
+"المحافظ والإنفاق وسجل المصروفات",
+"والٹس، اخراجات اور اخراجات کی تاریخ"
+],
+[
+"Products, stock, sales and purchases",
+"المنتجات والمخزون والمبيعات والمشتريات",
+"مصنوعات، اسٹاک، فروخت اور خریداری"
+],
+[
+"Insurance policies and their documents",
+"وثائق التأمين ومستنداتها",
+"انشورنس پالیسیاں اور ان کی دستاویزات"
+],
+[
+"The audit report of your records",
+"تقرير التدقيق لسجلاتك",
+"آپ کے ریکارڈز کی آڈٹ رپورٹ"
+],
+[
+"Ask Triplem AI and add records by chat",
+"اسأل Triplem AI وأضف السجلات بالمحادثة",
+"Triplem AI سے پوچھیں اور چیٹ سے ریکارڈ شامل کریں"
+],
+[
+"Accounting books and financial reports",
+"الدفاتر المحاسبية والتقارير المالية",
+"اکاؤنٹنگ کھاتے اور مالی رپورٹس"
+],
+[
+"Assets and their depreciation",
+"الأصول واستهلاكها",
+"اثاثے اور ان کی فرسودگی"
+],
+[
+"Money given, received, taken and returned",
+"الأموال المعطاة والمستلمة والمأخوذة والمردودة",
+"دی، وصول، لی اور واپس کی گئی رقم"
+],
+[
+"Installment plans and their payments",
+"خطط التقسيط ودفعاتها",
+"قسط کے منصوبے اور ان کی ادائیگیاں"
+],
+[
+"Notes and reminders",
+"الملاحظات والتذكيرات",
+"نوٹس اور یاد دہانیاں"
+],
+[
+"Bitcoin wallets and payments",
+"محافظ بيتكوين والمدفوعات",
+"بٹ کوائن والٹس اور ادائیگیاں"
+],
+[
+"Start page",
+"صفحة البداية",
+"ابتدائی صفحہ"
+],
+[
+"The page that opens when you sign in",
+"الصفحة التي تُفتح عند تسجيل الدخول",
+"سائن ان کرنے پر کھلنے والا صفحہ"
+],
+[
+"Open when you sign in",
+"يُفتح عند تسجيل الدخول",
+"سائن ان پر کھولیں"
+],
+[
+"Now: {1}",
+"الحالية: {1}",
+"ابھی: {1}"
+],
+[
+"{1} selected",
+"تم اختيار {1}",
+"{1} منتخب"
+],
+[
+"Saved. Next sign-in opens {1}.",
+"تم الحفظ. سيُفتح {1} عند تسجيل الدخول التالي.",
+"محفوظ ہو گیا۔ اگلے سائن ان پر {1} کھلے گا۔"
+],
+[
+"Could not save start page.",
+"تعذّر حفظ صفحة البداية.",
+"ابتدائی صفحہ محفوظ نہیں ہو سکا۔"
+],
+[
+"App",
+"التطبيق",
+"ایپ"
+],
+[
+"Open page",
+"الصفحة المفتوحة",
+"کھلا صفحہ"
+],
+[
+"Screen",
+"الشاشة",
+"اسکرین"
+],
+[
+"Connection",
+"الاتصال",
+"کنکشن"
+],
+[
+"Time zone",
+"المنطقة الزمنية",
+"ٹائم زون"
+],
+[
+"Local time",
+"الوقت المحلي",
+"مقامی وقت"
+],
+[
+"Change the language of the app",
+"تغيير لغة التطبيق",
+"ایپ کی زبان تبدیل کریں"
+],
+[
+"Open Account settings and choose English, العربية or اردو under Language. Invoices, receipts and PDFs follow the same language.",
+"افتح إعدادات الحساب واختر English أو العربية أو اردو ضمن اللغة. الفواتير والإيصالات وملفات PDF تتبع اللغة نفسها.",
+"اکاؤنٹ کی ترتیبات کھولیں اور زبان میں English، العربية یا اردو منتخب کریں۔ انوائسز، رسیدیں اور PDF اسی زبان میں ہوں گی۔"
+],
+[
+"Open Account settings",
+"فتح إعدادات الحساب",
+"اکاؤنٹ کی ترتیبات کھولیں"
+],
+[
+"Set the VAT used for new records",
+"ضبط الضريبة للسجلات الجديدة",
+"نئے ریکارڈز کے لیے VAT مقرر کریں"
+],
+[
+"VAT Settings holds the default rate for each currency and whether VAT is added on top or already included.",
+"تحتوي إعدادات الضريبة على النسبة الافتراضية لكل عملة وما إذا كانت الضريبة تُضاف فوق المبلغ أو مشمولة فيه.",
+"VAT ترتیبات میں ہر کرنسی کی ڈیفالٹ شرح ہوتی ہے اور یہ کہ VAT اوپر شامل ہو یا پہلے سے شامل ہو۔"
+],
+[
+"Open VAT Settings",
+"فتح إعدادات الضريبة",
+"VAT ترتیبات کھولیں"
+],
+[
+"Back up or restore your records",
+"نسخ سجلاتك احتياطيًا أو استعادتها",
+"اپنے ریکارڈز کا بیک اپ یا بحالی"
+],
+[
+"Backup & Restore downloads one ZIP file with all your records, and can add back anything that is missing from a backup.",
+"ينزّل النسخ الاحتياطي والاستعادة ملف ZIP واحدًا بكل سجلاتك، ويمكنه إعادة أي شيء مفقود من نسخة احتياطية.",
+"بیک اپ اور بحالی آپ کے تمام ریکارڈز کی ایک ZIP فائل ڈاؤن لوڈ کرتا ہے، اور بیک اپ سے غائب ریکارڈ واپس شامل کر سکتا ہے۔"
+],
+[
+"Open Backup & Restore",
+"فتح النسخ الاحتياطي والاستعادة",
+"بیک اپ اور بحالی کھولیں"
+],
+[
+"Choose the page that opens after sign-in",
+"اختر الصفحة التي تُفتح بعد تسجيل الدخول",
+"سائن ان کے بعد کھلنے والا صفحہ منتخب کریں"
+],
+[
+"Pick Triplem VIP Home or any section as your start page.",
+"اختر صفحة Triplem VIP الرئيسية أو أي قسم كصفحة البداية.",
+"Triplem VIP ہوم یا کوئی بھی سیکشن اپنا ابتدائی صفحہ بنائیں۔"
+],
+[
+"Choose start page",
+"اختيار صفحة البداية",
+"ابتدائی صفحہ منتخب کریں"
+],
+[
+"Restore something you deleted",
+"استعادة شيء حذفته",
+"حذف شدہ چیز بحال کریں"
+],
+[
+"Deleted records go to the Recycle Bin (the bin icon at the top) and can be restored from there.",
+"تذهب السجلات المحذوفة إلى سلة المحذوفات (أيقونة السلة في الأعلى) ويمكن استعادتها من هناك.",
+"حذف شدہ ریکارڈز ری سائیکل بن (اوپر بن کا آئیکن) میں جاتے ہیں اور وہاں سے بحال ہو سکتے ہیں۔"
+],
+[
+"Open Recycle Bin",
+"فتح سلة المحذوفات",
+"ری سائیکل بن کھولیں"
+],
+[
+"Install Triplem VIP on your phone or computer",
+"ثبّت Triplem VIP على هاتفك أو حاسوبك",
+"Triplem VIP اپنے فون یا کمپیوٹر پر انسٹال کریں"
+],
+[
+"Download App shows the Android, iPhone and Windows options with step-by-step instructions.",
+"تعرض «تنزيل التطبيق» خيارات Android وiPhone وWindows مع تعليمات خطوة بخطوة.",
+"ایپ ڈاؤن لوڈ میں Android، iPhone اور Windows کے اختیارات قدم بہ قدم ہدایات کے ساتھ ہیں۔"
+],
+[
+"Open Download App",
+"فتح تنزيل التطبيق",
+"ایپ ڈاؤن لوڈ کھولیں"
+],
+[
+"Renew or upgrade your plan",
+"تجديد خطتك أو ترقيتها",
+"اپنا پلان تجدید یا اپ گریڈ کریں"
+],
+[
+"Plan & Subscription shows your current access and the plans you can extend to.",
+"تعرض الخطة والاشتراك وصولك الحالي والخطط التي يمكنك التمديد إليها.",
+"پلان اور سبسکرپشن آپ کی موجودہ رسائی اور توسیع کے پلان دکھاتا ہے۔"
+],
+[
+"Open Plan & Subscription",
+"فتح الخطة والاشتراك",
+"پلان اور سبسکرپشن کھولیں"
+],
+[
+"Keep your account safe",
+"حافظ على أمان حسابك",
+"اپنا اکاؤنٹ محفوظ رکھیں"
+],
+[
+"Account settings → Account security: password, Smart PIN, two-step sign-in, passkeys and your signed-in devices.",
+"إعدادات الحساب ← أمان الحساب: كلمة المرور والرمز الذكي وتسجيل الدخول بخطوتين ومفاتيح المرور والأجهزة المسجلة.",
+"اکاؤنٹ کی ترتیبات ← اکاؤنٹ سیکیورٹی: پاس ورڈ، اسمارٹ پن، دو مرحلہ سائن ان، پاس کیز اور سائن ان شدہ آلات۔"
+],
+[
+"Open Account security",
+"فتح أمان الحساب",
+"اکاؤنٹ سیکیورٹی کھولیں"
+],
+[
+"Quick help",
+"مساعدة سريعة",
+"فوری مدد"
+],
+[
+"This device",
+"هذا الجهاز",
+"یہ آلہ"
+],
+[
+"Official Triplem VIP assistance",
+"دعم Triplem VIP الرسمي",
+"Triplem VIP کی سرکاری معاونت"
+],
+[
+"Email · WhatsApp",
+"البريد · واتساب",
+"ای میل · واٹس ایپ"
+],
+[
+"Search help",
+"البحث في المساعدة",
+"مدد میں تلاش کریں"
+],
+[
+"Common questions",
+"أسئلة شائعة",
+"عام سوالات"
+],
+[
+"No answer matches your search. Contact us and we will help.",
+"لا توجد إجابة تطابق بحثك. تواصل معنا وسنساعدك.",
+"آپ کی تلاش سے کوئی جواب نہیں ملا۔ ہم سے رابطہ کریں، ہم مدد کریں گے۔"
+],
+[
+"Still need help? Contact us",
+"ما زلت تحتاج مساعدة؟ تواصل معنا",
+"اب بھی مدد چاہیے؟ ہم سے رابطہ کریں"
+],
+[
+"Sending these details with your message helps us find the problem faster. They never include passwords, Smart PINs, codes or your records.",
+"إرسال هذه التفاصيل مع رسالتك يساعدنا على إيجاد المشكلة أسرع. لا تتضمن أبدًا كلمات المرور أو الرموز الذكية أو الأكواد أو سجلاتك.",
+"یہ تفصیلات اپنے پیغام کے ساتھ بھیجنے سے ہمیں مسئلہ جلد ملتا ہے۔ ان میں کبھی پاس ورڈ، اسمارٹ پن، کوڈز یا آپ کے ریکارڈز شامل نہیں ہوتے۔"
+],
+[
+"Support details",
+"تفاصيل الدعم",
+"معاونت کی تفصیلات"
+],
+[
+"Copy details",
+"نسخ التفاصيل",
+"تفصیلات کاپی کریں"
+],
+[
+"For account help, product guidance or general assistance, contact Triplem VIP through either official channel. Your support details are added to the message so we can help faster.",
+"للمساعدة في الحساب أو إرشادات المنتج أو المساعدة العامة، تواصل مع Triplem VIP عبر أي من القناتين الرسميتين. تُضاف تفاصيل الدعم إلى الرسالة لنساعدك أسرع.",
+"اکاؤنٹ میں مدد، پروڈکٹ رہنمائی یا عمومی معاونت کے لیے دونوں میں سے کسی سرکاری ذریعے سے Triplem VIP سے رابطہ کریں۔ آپ کی معاونت کی تفصیلات پیغام میں شامل ہو جاتی ہیں تاکہ ہم جلد مدد کر سکیں۔"
+],
+[
+"Opens your email app with your support details",
+"يفتح تطبيق البريد مع تفاصيل الدعم",
+"معاونت کی تفصیلات کے ساتھ آپ کی ای میل ایپ کھولتا ہے"
+],
+[
+"Opens WhatsApp with your support details",
+"يفتح واتساب مع تفاصيل الدعم",
+"معاونت کی تفصیلات کے ساتھ واٹس ایپ کھولتا ہے"
+],
+[
+"Copy email",
+"نسخ البريد",
+"ای میل کاپی کریں"
+],
+[
+"Copy WhatsApp number",
+"نسخ رقم واتساب",
+"واٹس ایپ نمبر کاپی کریں"
+],
+[
+"See support details",
+"عرض تفاصيل الدعم",
+"معاونت کی تفصیلات دیکھیں"
+],
+[
+"Use only these official channels for account help. Never share passwords, Smart PINs, verification codes or recovery secrets — Triplem VIP will never ask for them.",
+"استخدم هذه القنوات الرسمية فقط للمساعدة في الحساب. لا تشارك أبدًا كلمات المرور أو الرموز الذكية أو رموز التحقق أو أسرار الاسترداد — لن يطلبها Triplem VIP أبدًا.",
+"اکاؤنٹ کی مدد کے لیے صرف یہی سرکاری ذرائع استعمال کریں۔ پاس ورڈ، اسمارٹ پن، تصدیقی کوڈ یا بحالی کے راز کبھی شیئر نہ کریں — Triplem VIP کبھی ان کا مطالبہ نہیں کرے گا۔"
+],
+[
+"Not available for this account.",
+"غير متاح لهذا الحساب.",
+"اس اکاؤنٹ کے لیے دستیاب نہیں۔"
+],
+[
+"Support details copied",
+"تم نسخ تفاصيل الدعم",
+"معاونت کی تفصیلات کاپی ہو گئیں"
+],
+[
+"Email copied",
+"تم نسخ البريد",
+"ای میل کاپی ہو گئی"
+],
+[
+"WhatsApp number copied",
+"تم نسخ رقم واتساب",
+"واٹس ایپ نمبر کاپی ہو گیا"
+],
+[
+"Preferences & tools",
+"التفضيلات والأدوات",
+"ترجیحات اور ٹولز"
+],
+[
+"No VAT set",
+"لا توجد ضريبة",
+"کوئی VAT مقرر نہیں"
+],
+[
+"Default VAT per currency",
+"الضريبة الافتراضية لكل عملة",
+"ہر کرنسی کا ڈیفالٹ VAT"
+],
+[
+"Choose the page that opens first",
+"اختر الصفحة التي تُفتح أولًا",
+"پہلے کھلنے والا صفحہ منتخب کریں"
+],
+[
+"Download a full copy or restore missing records",
+"نزّل نسخة كاملة أو استعد السجلات المفقودة",
+"مکمل کاپی ڈاؤن لوڈ کریں یا غائب ریکارڈ بحال کریں"
+],
+[
+"Your access and renewal",
+"وصولك وتجديده",
+"آپ کی رسائی اور تجدید"
+],
+[
+"Android, iPhone and Windows",
+"Android وiPhone وWindows",
+"Android، iPhone اور Windows"
+],
+[
+"Contact us, quick answers, support details",
+"تواصل معنا، إجابات سريعة، تفاصيل الدعم",
+"ہم سے رابطہ، فوری جوابات، معاونت کی تفصیلات"
+],
+[
+"Deleted",
+"محذوفة",
+"حذف شدہ"
+],
+[
+"Permanently deleted",
+"محذوفة نهائيًا",
+"مستقل طور پر حذف شدہ"
+],
+[
+"{1} transactions · {2} deleted",
+"{1} معاملات · {2} محذوفة",
+"{1} لین دین · {2} حذف شدہ"
+],
+[
+"{1} transaction · {2} deleted",
+"{1} معاملة · {2} محذوفة",
+"{1} لین دین · {2} حذف شدہ"
+],
+[
+"Triplem VIP website ({1})",
+"موقع Triplem VIP ({1})",
+"Triplem VIP ویب سائٹ ({1})"
+]
+]

@@ -121,6 +121,20 @@
     return { byCur, types, count: [...byCur.values()].reduce((s, t) => s + t.count, 0), exact: false };
   }
 
+  /**
+   * Deleted transactions of the whole dates arrive at once, the others page by page. A deleted
+   * transaction is shown only once the transactions around its date are loaded, so it sits in
+   * its own place (its day, between the others) instead of all of them piling up at the bottom.
+   */
+  function placeInactive(list, ctx){
+    if (!ctx.hasMore) return list;
+    let oldest = Infinity;
+    for (const t of list) if (!t.auditStatus) oldest = Math.min(oldest, dayStamp(t.date));
+    if (oldest === Infinity) return list.filter(t => !t.auditStatus);
+    return list.filter(t => !t.auditStatus || dayStamp(t.date) >= oldest);
+  }
+  const cleanNote = n => String(n || "").replace(/\s*\[(?:DELETED|ARCHIVED)\]\s*/gi, " ").replace(/\s{2,}/g, " ").trim();
+
   // ── html ────────────────────────────────────────────────────────────────────────────────
   function skeletonHtml(n = 6){
     const row = i => `<div class="exh-skel-row" style="--d:${i * 70}ms"><span class="exh-skel-ico"></span><span class="exh-skel-lines"><i style="width:${42 + (i * 13) % 30}%"></i><i style="width:${58 + (i * 7) % 26}%"></i></span><span class="exh-skel-amt"><i></i><i></i></span></div>`;
@@ -192,7 +206,7 @@
     const inactive = !!tx.auditStatus;
     const checked = S.sel.has(String(tx.id));
     const time = timeOf(tx);
-    const note = String(tx.notes || "").trim();
+    const note = cleanNote(tx.notes);
     const meta = [
       `<span class="exh-wallet">${walletIcon(tx.wallet, 14)}<span translate="no">${esc(tx.wallet || "Wallet")}</span></span>`,
       time ? `<span>${esc(time)}</span>` : "",
@@ -208,7 +222,7 @@
       ${S.selecting && !inactive ? `<label class="exh-cb" title="Select"><input type="checkbox" data-exh-pick="${id}" ${checked ? "checked" : ""} aria-label="Select ${esc(tx.itemName)}"></label>` : ""}
       <span class="exh-ico" aria-hidden="true"><i class="fa-solid ${iconFor(tx.expenseType, tx.itemName)}"></i></span>
       <span class="exh-main">
-        <span class="exh-title"><b translate="no">${esc(tx.itemName)}</b><span class="exh-cat">${esc(tx.expenseType || "Other")}</span>${ai}${inactive && global.ExpenseAudit ? ExpenseAudit.badgeHtml(tx.auditStatus) : ""}</span>
+        <span class="exh-title"><b translate="no">${esc(tx.itemName)}</b><span class="exh-cat">${esc(tx.expenseType || "Other")}</span>${ai}${inactive ? `<span class="exh-del"><i class="fa-solid ${tx.auditStatus === "archived" ? "fa-ban" : "fa-trash-can"}" aria-hidden="true"></i>${tx.auditStatus === "archived" ? "Permanently deleted" : "Deleted"}</span>` : ""}</span>
         <span class="exh-meta">${meta}</span>
       </span>
       <span class="exh-amt"><b>−${m(tx.amount, tx.currency)}</b>${tx.taxAmount ? `<small>VAT ${m(tx.taxAmount, tx.currency)}</small>` : `<small class="exh-ref">${esc(ref(tx.id))}</small>`}</span>
@@ -224,6 +238,11 @@
       </span>
     </div>`;
   }
+  // "9 transactions · 1 deleted": deleted ones are not counted as transactions of the day.
+  function dayCount(rows){
+    const act = rows.filter(t => !t.auditStatus).length, del = rows.length - act;
+    return `${act} ${act === 1 ? "transaction" : "transactions"}${del ? ` · ${del} deleted` : ""}`;
+  }
   function listHtml(list){
     if (S.sort !== "newest" && S.sort !== "oldest") return `<div class="exh-group">${list.map(rowHtml).join("")}</div>`;
     const days = new Map();
@@ -237,7 +256,7 @@
       rows.filter(t => !t.auditStatus).forEach(t => tot.set(t.currency, num(tot.get(t.currency)) + num(t.amount)));
       const totText = [...tot.entries()].map(([c, v]) => m(v, c)).join(" · ");
       return `<section class="exh-group" aria-label="${esc(dayLabel(d))}">
-        <header class="exh-day"><span>${esc(dayLabel(d))}</span><span class="exh-day-tot">${totText ? `<b>${totText}</b>` : ""}<small>${rows.length} ${rows.length === 1 ? "transaction" : "transactions"}</small></span></header>
+        <header class="exh-day"><span>${esc(dayLabel(d))}</span><span class="exh-day-tot">${totText ? `<b>${totText}</b>` : ""}<small>${dayCount(rows)}</small></span></header>
         ${rows.map(rowHtml).join("")}
       </section>`;
     }).join("");
@@ -248,7 +267,7 @@
    * rangeName, searching, scope }.
    */
   function bodyHtml(ctx){
-    const all = flatten(ctx.items);
+    const all = placeInactive(flatten(ctx.items), ctx);
     // keep selected rows only while they are on screen
     const ids = new Set(all.map(t => String(t.id)));
     for (const id of [...S.sel.keys()]) if (!ids.has(id)) S.sel.delete(id);

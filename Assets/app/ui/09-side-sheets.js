@@ -31,12 +31,28 @@
     adminCreateUserModal: "", adminEditUserModal: "", adminRawDataModal: "wide", subscriptionReviewModal: "",
     adminTeamOverlayModal: "", adminStorageModal: "wide", adminAnalyticsModal: "wide", adminPhotoCompressModal: "wide",
     adminPasswordRecoveryModal: "", adminManagePlanModal: "", adminLiveChatAgentsModal: "wide", adminLiveChatRecordsModal: "wide",
-    adminLiveChatTranscriptModal: "", adminReceiptViewerModal: "wide", adminUserDetailsModal: ""
+    adminLiveChatTranscriptModal: "", adminReceiptViewerModal: "wide", adminUserDetailsModal: "",
+    // Account menu (2026-11-17): settings, security, team, plan, backup — and the dialogs they open
+    accountSettingsModal: "", accountSecurityCenterModal: "", companyTeamModal: "wide", planSubscriptionModal: "",
+    userBackupModal: "", taxSettingsModal: "", defaultStartPageModal: "", userHelpSupportModal: "",
+    accountProfileEditModal: "", accountCompanyEditModal: "", accountPasswordChangeModal: "", accountAiIntegrationModal: ""
   };
+  // Account dialogs show their own icon in the header (Font Awesome) instead of a section icon.
+  const ICONS = {
+    accountSettingsModal: "fa-solid fa-user-gear", accountSecurityCenterModal: "fa-solid fa-shield-halved",
+    companyTeamModal: "fa-solid fa-users", planSubscriptionModal: "fa-solid fa-crown", userBackupModal: "fa-solid fa-box-archive",
+    taxSettingsModal: "fa-solid fa-percent", defaultStartPageModal: "fa-solid fa-house-chimney", userHelpSupportModal: "fa-solid fa-circle-question",
+    accountProfileEditModal: "fa-solid fa-id-card", accountCompanyEditModal: "fa-solid fa-building", accountPasswordChangeModal: "fa-solid fa-key",
+    accountAiIntegrationModal: "fa-solid fa-wand-magic-sparkles"
+  };
+  // Every other "account settings" dialog (they share one class) becomes a panel too.
+  const ACCOUNT_CHILD = ".account-settings-child-modal";
   // Sections whose other overlays (made on the fly, without a fixed id) also become panels.
   const SECTION_KEYS = new Set(["given", "received", "taken", "returned", "loans", "installments", "assets", "notes", "admin"]);
   // Never panels: confirmations, alerts, the test-account notice, Expenses' own overlays.
-  const KEEP_CENTERED = ".app-confirm-modal, #reminderAlertModal, .tm-test-notice, #expenseModal, #transferModal, #expenseAccountDetailsModal, #walletLogoPickerModal, #accountSettingsModal, .account-settings-child-modal, #sectionShortcutsModal, #adminSecurityKeyModal";
+  // (Account settings and its dialogs became panels on 2026-11-17; short security prompts —
+  // "enter your password", recovery approval — stay small dialogs in the middle.)
+  const KEEP_CENTERED = ".app-confirm-modal, #reminderAlertModal, .tm-test-notice, #expenseModal, #transferModal, #expenseAccountDetailsModal, #walletLogoPickerModal, #sectionShortcutsModal, #adminSecurityKeyModal, .account-security-password-prompt, .trusted-recovery-incoming-modal";
   const WIDE_HINT = /raw|analytics|storage|records|report|receipt|photo|detail-dialog|charts?/i;
 
   const SECTION_OF_MODAL = {
@@ -62,6 +78,7 @@
   function wants(modal){
     if (!modal?.classList?.contains("modal") || modal.matches(KEEP_CENTERED)) return null;
     if (Object.prototype.hasOwnProperty.call(SHEETS, modal.id)) return SHEETS[modal.id];
+    if (modal.matches(ACCOUNT_CHILD) && modal.querySelector(":scope > .modal-dialog")) return "";
     if (SECTION_KEYS.has(currentSection()) && modal.querySelector(":scope > .modal-dialog")) {
       // A small yes/no prompt stays a dialog; anything with a form or a body becomes a panel.
       const dialog = modal.querySelector(":scope > .modal-dialog");
@@ -84,9 +101,21 @@
     modal.classList.remove("tm-sheet-wide"); // 2026-11-14 b: every panel has the same size
     document.documentElement.classList.add("tm-sheet-open");
     // Section icon in the header, like the user panel's picture.
-    const head = modal.querySelector(":scope > .modal-dialog .modal-head, :scope > .modal-dialog .settings-sheet-head, :scope > .modal-dialog > form > .modal-head");
+    const head = modal.querySelector(":scope > .modal-dialog .modal-head, :scope > .modal-dialog .settings-sheet-head, :scope > .modal-dialog > form > .modal-head, :scope > .modal-dialog > .tvb-head");
+    const fa = ICONS[modal.id] || (modal.matches(ACCOUNT_CHILD) ? "fa-solid fa-user-gear" : "");
+    if (head && fa) {
+      let ico = head.querySelector(":scope > .tm-sheet-icon");
+      if (!ico) {
+        ico = document.createElement("span");
+        ico.setAttribute("aria-hidden", "true");
+        head.prepend(ico);
+      }
+      ico.className = "tm-sheet-icon is-fa";
+      ico.innerHTML = `<i class="${fa}"></i>`;
+      modal.classList.add("tm-sheet-account");
+    }
     const section = sectionFor(modal);
-    const url = iconUrl(section);
+    const url = fa ? "" : iconUrl(section);
     if (head && url) {
       let ico = head.querySelector(":scope > .tm-sheet-icon");
       if (!ico) {

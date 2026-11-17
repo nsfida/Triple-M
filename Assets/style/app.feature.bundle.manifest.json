@@ -214,10 +214,15 @@
     },
     {
       "path": "Assets/style/74-expenses-history-v3.css",
-      "bytes": 34407,
-      "sha256": "f0100f3e15ed615c11c7c9b8447d188b6203d22523b3591f417a0d30bf3e0e6a"
+      "bytes": 36290,
+      "sha256": "284f55c1fcb4d4bcf62d7b1cdc85491eef5937e40a47bde8dfb246fc90740b13"
+    },
+    {
+      "path": "Assets/style/75-account-panels.css",
+      "bytes": 15528,
+      "sha256": "ebe80a656d90cd2b8b483ab56af9e2e694d9d5de00682800f3325b541bce3677"
     }
   ],
-  "bytes": 994464,
-  "sha256": "b1239c08834fdf8ef079888e7d580dc2eff527c10691f06c1c1362b3d58b5805"
+  "bytes": 1011937,
+  "sha256": "db2d54aeb4f5777130dd776e3ba01f5c9ee606813eec459f31cd47a634d22d13"
 }

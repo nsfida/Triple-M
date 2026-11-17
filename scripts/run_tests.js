@@ -23,6 +23,7 @@ const PUBLIC_TEST_FILES = [
   "tests/frontend-hardening.test.js",
   "tests/offline-sync-behaviour.test.js",
   "tests/windows-installer-glass.test.js", "tests/windows-desktop-app.test.js", "tests/windows-desktop-36.test.js", "tests/windows-desktop-37.test.js", "tests/windows-desktop-38.test.js", "tests/windows-desktop-39.test.js", "tests/attachments-r2.test.js", "tests/insurance-opening-balance-admin.test.js", "tests/system-backup-restore.test.js", "tests/password-eye-single.test.js", "tests/motion-zoom-attachments-reliability.test.js", "tests/inventory-v2-access.test.js", "tests/inventory-v2-catalogue.test.js", "tests/inventory-v2-dashboard.test.js", "tests/inventory-v2-sales.test.js", "tests/inventory-v2-offline.test.js", "tests/inventory-v2-backup.test.js", "tests/inventory-v2-reports.test.js", "tests/store-certification.test.js", "tests/store-edition.test.js", "tests/limited-access.test.js", "tests/home-v2.test.js", "tests/expenses-v2.test.js", "tests/expenses-history-v3.test.js",
+  "tests/account-panels.test.js",
   "tests/seo-quality.test.js",
   "tests/user-backup-restore.test.js",
   "tests/public-repository.test.js"

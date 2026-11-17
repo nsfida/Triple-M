@@ -397,3 +397,22 @@ html body #app#app #expensesList .exh-sort select{font-weight:600;color:inherit 
 
 /* ── 2026-11-17 e: background refresh keeps the list (no skeleton, no jump) ── */
 #expensesList .exh.is-refreshing .exh-list{opacity:.72;transition:opacity .2s ease}
+
+/* ── 2026-11-17 f: deleted transactions sit in their own day, in a calm "deleted" style ── */
+#expensesList .exh .exh-row.is-inactive.expense-record-disabled{filter:none;opacity:1;
+  background:repeating-linear-gradient(135deg,transparent 0 9px,color-mix(in srgb,var(--muted,#64748b) 5%,transparent) 9px 18px)}
+#expensesList .exh .exh-row.is-inactive::before{opacity:.75;background:color-mix(in srgb,#dc2626 70%,transparent)}
+#expensesList .exh .exh-row.is-inactive.is-archived::before{background:color-mix(in srgb,var(--muted,#64748b) 70%,transparent)}
+#expensesList .exh .exh-row.is-inactive:hover{background:color-mix(in srgb,#dc2626 4%,transparent)}
+#expensesList .exh .exh-row.is-inactive .exh-ico{filter:grayscale(1);opacity:.45}
+#expensesList .exh .exh-row.is-inactive .exh-title b{color:var(--muted,#64748b);text-decoration:line-through;text-decoration-color:color-mix(in srgb,#dc2626 55%,transparent);text-decoration-thickness:1.5px}
+#expensesList .exh .exh-row.is-inactive .exh-cat{filter:grayscale(1);opacity:.6}
+#expensesList .exh .exh-row.is-inactive .exh-meta{opacity:.7}
+#expensesList .exh .exh-row.is-inactive .exh-amt b{color:var(--muted,#64748b);text-decoration:line-through;text-decoration-color:color-mix(in srgb,#dc2626 55%,transparent)}
+#expensesList .exh .exh-row.is-inactive .exh-amt small{opacity:.6}
+.exh-del{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:.62rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;
+  color:#b91c1c;background:color-mix(in srgb,#dc2626 10%,transparent)}
+.exh-del i{font-size:.58rem}
+.exh-row.is-archived .exh-del{color:var(--muted,#64748b);background:color-mix(in srgb,var(--muted,#64748b) 12%,transparent)}
+html[data-triplem-theme-mode="dark"] .exh-del{color:#f87171}
+html[data-triplem-theme-mode="dark"] .exh-row.is-archived .exh-del{color:var(--muted,#94a3b8)}

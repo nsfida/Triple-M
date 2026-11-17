@@ -1,0 +1,158 @@
+/* Triplem VIP · Account menu side panels (2026-11-17)
+   VAT Settings, Default start page and Help & Support in the shared side panel
+   (ui/12-account-panels.js), plus the account dialogs shown as side sheets (ui/09-side-sheets.js).
+   Colours come from the theme tokens: every light and dark theme works. */
+
+/* Header icon */
+.tm-ap-ico{width:46px;height:46px;border-radius:14px;font-size:1.05rem}
+
+/* Sticky footer with the save buttons */
+.tm-ap-foot{position:sticky;bottom:-22px;z-index:3;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;
+  margin:14px -16px -22px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line,#e2e8f0);
+  background:linear-gradient(var(--surface-elevated,#fff),var(--surface-elevated,#fff)),var(--bg,#fff)}
+.tm-ap-dirty{margin-inline-end:auto;display:inline-flex;align-items:center;gap:6px;font-size:.72rem;color:#b45309}
+.tm-ap-dirty i{font-size:.5rem}
+.tm-ap-dirty.is-clean{color:var(--muted,#64748b)}
+.tm-ap-dirty.is-clean i{font-size:.7rem;color:#16a34a}
+html[data-triplem-theme-mode="dark"] .tm-ap-dirty{color:#fbbf24}
+.tm-ap-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.tm-ap-list li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;align-items:start;font-size:.78rem;line-height:1.5}
+.tm-ap-list li i{width:22px;height:22px;display:grid;place-items:center;border-radius:7px;font-size:.62rem;color:var(--primary,#2563eb);background:color-mix(in srgb,var(--primary,#2563eb) 10%,transparent)}
+
+/* ── VAT ── */
+.tm-vat-list{display:grid;gap:8px}
+.tm-vat-row{position:relative;display:grid;gap:8px;padding:12px 14px;border:1px solid var(--line,#e2e8f0);border-radius:16px;
+  background:var(--panel,#fff);transition:border-color .15s ease,box-shadow .15s ease}
+.tm-vat-row.has-vat{border-color:color-mix(in srgb,var(--primary,#2563eb) 28%,var(--line,#e2e8f0))}
+.tm-vat-row.is-changed{box-shadow:inset 3px 0 0 #f59e0b}
+[dir="rtl"] .tm-vat-row.is-changed{box-shadow:inset -3px 0 0 #f59e0b}
+.tm-vat-top{display:grid;grid-template-columns:54px 112px minmax(0,1fr) 10px;gap:10px;align-items:center}
+.tm-vat-cur{display:grid;place-items:center;height:32px;border-radius:10px;font-size:.74rem;font-weight:650;letter-spacing:.04em;
+  color:var(--primary,#2563eb);background:color-mix(in srgb,var(--primary,#2563eb) 10%,transparent)}
+.tm-vat-rate{position:relative;display:flex;align-items:center;margin:0}
+.tm-vat-rate input{width:100%;min-height:34px;padding:0 28px 0 10px;border:1px solid var(--line,#e2e8f0);border-radius:10px;
+  background:color-mix(in srgb,var(--bg,#fff) 70%,transparent);color:var(--text,#0f172a);font:inherit;font-size:.86rem;font-variant-numeric:tabular-nums}
+[dir="rtl"] .tm-vat-rate input{padding:0 10px 0 28px}
+.tm-vat-rate input:focus{outline:none;border-color:var(--primary,#2563eb);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary,#2563eb) 16%,transparent)}
+.tm-vat-rate span{position:absolute;inset-inline-end:10px;font-size:.78rem;color:var(--muted,#64748b);pointer-events:none}
+.tm-vat-mode{display:inline-flex;justify-self:start;padding:3px;border-radius:999px;background:color-mix(in srgb,var(--muted,#64748b) 11%,transparent)}
+.tm-vat-mode button{min-height:28px;padding:0 12px;border:0;border-radius:999px;background:none;color:var(--muted,#64748b);font:inherit;font-size:.72rem;cursor:pointer;white-space:nowrap}
+.tm-vat-mode button[aria-checked="true"]{background:var(--surface-elevated,#fff);color:var(--primary,#2563eb);box-shadow:0 1px 3px rgba(15,23,42,.14)}
+html[data-triplem-theme-mode="dark"] .tm-vat-mode button[aria-checked="true"]{background:color-mix(in srgb,var(--primary,#2563eb) 22%,transparent);color:var(--text,#fff)}
+.tm-vat-dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;opacity:0;transition:opacity .15s ease}
+.tm-vat-row.is-changed .tm-vat-dot{opacity:1}
+.tm-vat-bottom{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
+.tm-vat-ex{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.74rem;color:var(--muted,#64748b);font-variant-numeric:tabular-nums}
+.tm-vat-ex i{font-size:.68rem;color:var(--primary,#2563eb)}
+.tm-vat-ex b{color:var(--text,#0f172a);font-weight:600}
+.tm-vat-ex small{font-size:.7rem}
+.tm-vat-quick{display:inline-flex;flex-wrap:wrap;gap:4px}
+.tm-vat-quick button{min-height:24px;padding:0 9px;border:1px solid var(--line,#e2e8f0);border-radius:999px;background:none;color:var(--muted,#64748b);font:inherit;font-size:.68rem;cursor:pointer;font-variant-numeric:tabular-nums}
+.tm-vat-quick button:hover{color:var(--text,#0f172a);border-color:color-mix(in srgb,var(--primary,#2563eb) 40%,var(--line,#e2e8f0))}
+.tm-vat-quick button.is-on{color:var(--primary,#2563eb);border-color:var(--primary,#2563eb);background:color-mix(in srgb,var(--primary,#2563eb) 8%,transparent)}
+.tm-vat-all{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.tm-vat-all .tm-vat-rate{width:112px}
+@media (max-width:560px){
+  .tm-vat-top{grid-template-columns:50px minmax(0,1fr) 10px}
+  .tm-vat-top .tm-vat-mode{grid-column:1/-1;grid-row:2}
+  .tm-vat-bottom{flex-direction:column;align-items:flex-start}
+}
+
+/* ── Default start page ── */
+.tm-sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
+.tm-sp-card{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px 12px;text-align:start;
+  border:1px solid var(--line,#e2e8f0);border-radius:16px;background:var(--panel,#fff);color:var(--text,#0f172a);font:inherit;cursor:pointer;
+  transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease}
+.tm-sp-card:hover{border-color:color-mix(in srgb,var(--primary,#2563eb) 40%,var(--line,#e2e8f0))}
+.tm-sp-card:focus-visible{outline:2px solid var(--primary,#2563eb);outline-offset:2px}
+.tm-sp-card.is-on{border-color:var(--primary,#2563eb);background:color-mix(in srgb,var(--primary,#2563eb) 6%,var(--panel,#fff));box-shadow:0 8px 20px -16px color-mix(in srgb,var(--primary,#2563eb) 70%,transparent)}
+.tm-sp-ico{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;color:var(--primary,#2563eb);background:color-mix(in srgb,var(--primary,#2563eb) 10%,transparent)}
+.tm-sp-txt{min-width:0;display:grid;gap:1px}
+.tm-sp-txt b{font-size:.84rem;font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm-sp-txt small{font-size:.7rem;color:var(--muted,#64748b);line-height:1.35}
+.tm-sp-radio{width:18px;height:18px;border-radius:50%;border:2px solid color-mix(in srgb,var(--muted,#64748b) 45%,transparent)}
+.tm-sp-card.is-on .tm-sp-radio{border:5px solid var(--primary,#2563eb)}
+.tm-sp-tag{padding:3px 8px;border-radius:999px;font-size:.62rem;letter-spacing:.04em;color:#15803d;background:color-mix(in srgb,#16a34a 13%,transparent)}
+html[data-triplem-theme-mode="dark"] .tm-sp-tag{color:#4ade80}
+
+/* ── Help & Support ── */
+.tm-help-intro{margin:12px 0 10px;font-size:.8rem;line-height:1.55;color:var(--muted,#64748b)}
+.tm-help-cards{display:grid;gap:8px;margin-bottom:10px}
+.tm-help-card{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line,#e2e8f0);border-radius:16px;
+  background:var(--panel,#fff);color:var(--text,#0f172a);text-decoration:none;transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease}
+.tm-help-card:hover{border-color:color-mix(in srgb,var(--primary,#2563eb) 45%,var(--line,#e2e8f0));box-shadow:0 10px 24px -18px rgba(15,23,42,.45)}
+.tm-help-card > i{color:var(--muted,#64748b);font-size:.74rem}
+.tm-help-card-ico{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;font-size:1.1rem;color:var(--primary,#2563eb);background:color-mix(in srgb,var(--primary,#2563eb) 10%,transparent)}
+.tm-help-card.is-wa .tm-help-card-ico{color:#16a34a;background:color-mix(in srgb,#16a34a 12%,transparent)}
+.tm-help-card small{display:block;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#64748b)}
+.tm-help-card b{display:block;font-size:.92rem;font-weight:550}
+.tm-help-card em{display:block;font-style:normal;font-size:.7rem;color:var(--muted,#64748b)}
+.tm-help-search{display:flex;align-items:center;gap:8px;margin:12px 0 2px;padding:0 12px;min-height:38px;border:1px solid var(--line,#e2e8f0);border-radius:12px;background:color-mix(in srgb,var(--bg,#fff) 70%,transparent)}
+.tm-help-search:focus-within{border-color:var(--primary,#2563eb);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary,#2563eb) 16%,transparent)}
+.tm-help-search i{color:var(--muted,#64748b);font-size:.78rem}
+.tm-help-search input{flex:1;min-width:0;border:0;background:none;color:var(--text,#0f172a);font:inherit;font-size:.82rem;outline:none}
+.tm-help-list{display:grid;gap:6px}
+.tm-help-item{border:1px solid var(--line,#e2e8f0);border-radius:14px;background:var(--panel,#fff);overflow:hidden}
+.tm-help-item summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;cursor:pointer;list-style:none;font-size:.82rem}
+.tm-help-item summary::-webkit-details-marker{display:none}
+.tm-help-item summary i{font-size:.66rem;color:var(--muted,#64748b);transition:transform .15s ease}
+.tm-help-item[open] summary i{transform:rotate(180deg)}
+.tm-help-item[open] summary{color:var(--primary,#2563eb)}
+.tm-help-item p{margin:0 14px 10px;font-size:.78rem;line-height:1.55;color:var(--muted,#64748b)}
+.tm-help-item .aum-btn{margin:0 14px 12px}
+@media (prefers-reduced-motion:reduce){.tm-vat-row,.tm-sp-card,.tm-help-card,.tm-help-item summary i{transition:none}}
+
+/* ═══ Account dialogs shown as side panels (ui/09-side-sheets.js: "tm-sheet-account") ═══ */
+.tm-sheet-icon.is-fa{display:grid;place-items:center;color:var(--primary,#2563eb);font-size:1.08rem}
+.tm-sheet-icon.is-fa::after{display:none}
+/* The header icon replaces the small icon some titles had */
+html body .modal.tm-sheet-account :is(.settings-sheet-head,.modal-head) h3 > i:first-child{display:none !important}
+html body .modal.tm-sheet-account :is(.account-settings-kicker,.company-team-kicker,.account-security-kicker,.tvb-kicker){
+  margin:0 0 2px !important;font-size:.62rem !important;font-weight:500 !important;letter-spacing:.12em !important;text-transform:uppercase !important;color:var(--muted,#64748b) !important}
+html body .modal.tm-sheet-account :is(.account-settings-kicker,.company-team-kicker,.account-security-kicker) i{display:none}
+
+/* Backup & Restore: its own head / body / foot inside the panel frame */
+html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog > .tvb-head{flex:none;display:flex;align-items:flex-start;gap:12px;padding:16px 16px 12px !important;border-bottom:1px solid var(--line) !important;background:none !important}
+html body .modal.tm-sheet:is(#sh-a,*) .tvb-head .tvb-head-text{flex:1 1 auto;min-width:0}
+html body .modal.tm-sheet:is(#sh-a,*) .tvb-head h3{font-size:1.02rem !important;font-weight:500 !important;margin:0 !important}
+html body .modal.tm-sheet:is(#sh-a,*) .tvb-head .tvb-sub{font-size:.74rem !important;color:var(--muted) !important;margin:2px 0 0 !important}
+html body .modal.tm-sheet:is(#sh-a,*) .tvb-head .tvb-icon-btn{flex:none;width:34px !important;height:34px !important;border:1px solid var(--line) !important;border-radius:50% !important;background:transparent !important;color:var(--text) !important}
+html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog > .tvb-body{flex:1 1 auto !important;min-height:0 !important;overflow:auto !important;padding:14px 16px 18px !important}
+html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog > .tvb-foot{flex:none !important}
+
+/* Company Team: the side navigation and the content scroll inside the panel */
+html body #companyTeamModal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .company-team-dialog{max-height:none !important;border-radius:22px !important}
+html body #companyTeamModal.tm-sheet:is(#sh-a,*) .company-team-head .company-team-icon-btn{order:99;margin-left:auto !important;width:34px !important;height:34px !important;border:1px solid var(--line) !important;border-radius:50% !important;background:transparent !important}
+html body #companyTeamModal.tm-sheet:is(#sh-a,*) .company-team-shell{flex:1 1 auto !important;min-height:0 !important;max-height:none !important}
+html body #companyTeamModal.tm-sheet:is(#sh-a,*) .company-team-body{overflow:auto !important;min-height:0 !important;max-height:none !important}
+
+/* Account settings: one column of cards in the panel */
+html body #accountSettingsModal.tm-sheet:is(#sh-a,*):is(#sh-b,*) .account-settings-overview-body{grid-template-columns:1fr !important;align-content:start}
+
+/* ═══ Download App: side panel instead of a centred dialog ═══ */
+html body .triplem-apps-overlay:not(.hide){display:block !important;padding:0 !important;place-items:unset !important;z-index:2147481900}
+html body .triplem-apps-overlay .triplem-apps-backdrop{background:rgba(8,15,30,.38) !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;animation:tmSheetFade .2s ease}
+html body .triplem-apps-overlay .triplem-apps-modal{align-self:stretch !important;justify-self:stretch !important;
+  position:absolute !important;top:12px !important;right:12px !important;bottom:12px !important;left:auto !important;
+  width:min(600px,calc(100vw - 24px)) !important;max-height:none !important;height:auto !important;
+  border-radius:22px !important;border:1px solid var(--line,rgba(15,23,42,.12)) !important;
+  background:linear-gradient(var(--surface-elevated,#fff),var(--surface-elevated,#fff)),var(--bg,#fff) !important;
+  box-shadow:0 30px 70px rgba(8,15,30,.28),0 2px 8px rgba(8,15,30,.08) !important;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;animation:tmSheetIn .24s cubic-bezier(.22,.75,.22,1)}
+html body .triplem-apps-overlay .triplem-apps-header{justify-content:flex-start !important;padding:16px 16px 12px !important;background:none !important;border-bottom:1px solid var(--line) !important}
+html body .triplem-apps-overlay .triplem-apps-header > div:not(.tm-sheet-icon){flex:1 1 auto;min-width:0}
+html body .triplem-apps-overlay .triplem-apps-header h3{font-size:1.02rem !important;font-weight:500 !important}
+html body .triplem-apps-overlay .triplem-apps-kicker{font-weight:500 !important;letter-spacing:.12em !important}
+html body .triplem-apps-overlay .triplem-apps-close{width:34px !important;height:34px !important;flex:0 0 34px !important;border-radius:50% !important;background:transparent !important}
+html body .triplem-apps-overlay .triplem-apps-body{flex:1 1 auto;min-height:0;padding:14px 16px 18px !important}
+@media (max-width:700px){
+  html body .triplem-apps-overlay .triplem-apps-modal{align-self:stretch !important;justify-self:stretch !important;top:auto !important;left:0 !important;right:0 !important;bottom:0 !important;width:auto !important;height:92dvh !important;border-radius:22px 22px 0 0 !important}
+}
+
+/* Account settings · Preferences & tools card */
+.tm-acct-pref-list{display:grid;gap:6px}
+.tm-acct-pref{width:100%}
+.tm-acct-pref > .fa-chevron-right{margin-inline-start:auto;font-size:.68rem;color:var(--muted,#64748b)}
+[dir="rtl"] .tm-acct-pref > .fa-chevron-right{transform:scaleX(-1)}
+html body .modal.tm-sheet-account .settings-field{display:grid;gap:5px}
+html body .modal.tm-sheet-account .settings-field :is(input,select,textarea){width:100% !important;max-width:none !important}
