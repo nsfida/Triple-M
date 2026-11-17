@@ -290,7 +290,8 @@ async function loadExpenseItemSummariesForCurrentQuery({ force = false, page = n
   const queryKey = expenseLazyActivityQueryKey();
   const queryChanged = state.expenseLazy.itemSummaryQueryKey !== queryKey;
   const requestedPage = Math.max(1, Number(page || (queryChanged ? 1 : state.expenseLazy.itemSummaryPage) || 1));
-  const pageSize = window.ExpensePagination?.PAGE_SIZE || 10;
+  // History v3 uses the item totals for the summary of the selected dates: one page of up to 100.
+  const pageSize = window.TriplemExpenseHistory ? 100 : (window.ExpensePagination?.PAGE_SIZE || 10);
   const cacheKey = `${queryKey}::summary-page:${requestedPage}`;
   if (!force && !queryChanged && state.expenseLazy.itemSummaryPageCache?.has?.(cacheKey)) {
     const cached = state.expenseLazy.itemSummaryPageCache.get(cacheKey);
@@ -479,6 +480,11 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     return [];
   }
   state.expenseLazy.loadingActivity = true;
+  state.expenseLazy.loadingAppend = !!append;
+  // Expenses history v3: skeleton rows while the new records load.
+  if (!append && state.expenseRecordView === "history" && window.TriplemExpenseHistory && expenseHistoryIsOpen()) {
+    try { window.TriplemExpenseHistory.showSkeleton(); } catch (_) {}
+  }
   try {
     const search = String(state.search.expenses || "").trim();
     const groupId = state.expenseWalletFilter && state.expenseWalletFilter !== "all"
@@ -487,9 +493,11 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     const queryChanged = state.expenseLazy.activityQueryKey !== queryKey;
     if (force || queryChanged || !append) state.expenseLazy.activityOffset = 0;
     const historyServerWindow = !search && state.expenseRecordView === "history" && state.expenseLazy.itemHistoryRpcAvailable !== false;
-    const limit = historyServerWindow ? 10 : Number(state.expenseLazy.activityPageSize || 250);
+    // The flat history (v3) shows transactions directly: 40 per page, "Load more" adds the next.
+    const limit = historyServerWindow ? (window.TriplemExpenseHistory ? 40 : 10) : Number(state.expenseLazy.activityPageSize || 250);
     const offset = append ? Number(state.expenseLazy.activityOffset || 0) : 0;
-    const page = search && !append
+    const searchAllDates = search && state.expenseHistorySearchScope !== "range";
+    const page = searchAllDates && !append
       ? await fetchExpenseGlobalSearchActivityRpc({ search, groupId, maxRows: 5000 })
       : await fetchExpenseActivityRpc({
           from: bounds.from || null,
@@ -520,7 +528,7 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
         try { await loadExpenseItemSummariesForCurrentQuery({ force: force || queryChanged }); }
         catch (summaryError) { console.warn("Expense item totals could not be refreshed.", summaryError); }
       }
-      if (window.ExpenseAudit && !(state.expenseRecordView === "history" && state.expenseLazy.itemServerPaging === true)) {
+      if (window.ExpenseAudit && (window.TriplemExpenseHistory || !(state.expenseRecordView === "history" && state.expenseLazy.itemServerPaging === true))) {
         try { await ExpenseAudit.refreshInactiveForCurrentQuery({ force: true }); }
         catch (auditError) { console.warn("Expense audit activity could not be refreshed.", auditError); }
       }
@@ -1255,27 +1263,120 @@ function getExistingItemNamesLowerForCurrency(currency){
   return set;
 }
 
+// ── Existing item check (2026-11-17) ──────────────────────────────────────────────────────
+// While a new spend's item name is typed, check whether that exact item (same currency, any
+// date, case and extra spaces ignored) already exists. Only then a choice appears: add it to the
+// same item list (the name is matched to the existing spelling, so searches and item reports
+// stay together) or keep it as a different item (then a different name is required).
+// A new name shows nothing. Loaded rows are checked first; otherwise one small server lookup
+// runs after typing pauses, and its answer is remembered for this session.
+const expenseItemLookupCache = new Map(); // "AED||fuel" -> { exists, name, count, total, last, currency }
+let expenseItemLookupTimer = 0;
+let expenseItemLookupSeq = 0;
+function normalizeExpenseItemName(value){
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+function localExpenseItemInfo(currency, nameLower){
+  let info = null;
+  for (const account of getExpenseAccounts({ applyUiFilters: false })){
+    if (currency && account.currency !== currency) continue;
+    for (const row of account.spends || []){
+      const meta = row._expenseMeta || expenseMetaFromNotes(row.notes);
+      const n = normalizeExpenseItemName(meta.itemName);
+      if (!n || n.toLowerCase() !== nameLower || isInternalExpenseTransferRow(row)) continue;
+      if (!info) info = { exists: true, name: n, count: 0, total: 0, last: "", currency: account.currency, partial: true };
+      info.count += 1;
+      info.total += Number(row.action_amount || 0);
+      if (String(row.action_date || "") > info.last) { info.last = String(row.action_date || ""); info.name = n; }
+    }
+  }
+  return info;
+}
+function expenseItemIntentInfoFor(currency, name){
+  const key = `${currency || "*"}||${normalizeExpenseItemName(name).toLowerCase()}`;
+  return expenseItemLookupCache.get(key) || null;
+}
+function renderExpenseItemIntentInfo(wrap, info){
+  const hint = wrap.querySelector(".expense-intent-hint");
+  if (!hint) return;
+  const parts = [];
+  if (info.count) parts.push(`<span>${escapeHtml(`${info.count}${info.partial ? "+" : ""} ${info.count === 1 ? "entry" : "entries"}`)}</span>`);
+  if (info.total) parts.push(money(info.total, info.currency));
+  if (info.last) parts.push(`<span>${escapeHtml(`last on ${displayDate(info.last)}`)}</span>`);
+  hint.innerHTML = `<i class="fa-solid fa-circle-info" aria-hidden="true"></i> <span><b>“${escapeHtml(info.name)}”</b> <span>already exists</span>${parts.length ? ` <small class="expense-intent-facts">${parts.join(" · ")}</small>` : ""}<br><span>Add this spend to the same item, or keep it separate?</span></span>`;
+  const addLabel = wrap.querySelector('input[value="additional"] + span');
+  const newLabel = wrap.querySelector('input[value="new_distinct"] + span');
+  if (addLabel) addLabel.textContent = `Add to “${info.name}” (same list)`;
+  if (newLabel) newLabel.textContent = "It is a different item — I will change the name";
+}
 function refreshExpenseItemIntentUi(){
   const wrap = els.expenseItemIntentWrap;
-  if (!wrap || !els.expenseEntryForm || els.expenseEntryForm.classList.contains("hide")) return;
-  const fd = new FormData(els.expenseEntryForm);
-  const item = String(fd.get("item_name") || "").trim().toLowerCase();
-  const cur = String(fd.get("currency") || "").trim();
-  if (!item || !cur){
+  const form = els.expenseEntryForm;
+  if (!wrap || !form || form.classList.contains("hide")) return;
+  const fd = new FormData(form);
+  const typed = normalizeExpenseItemName(fd.get("item_name"));
+  const nameLower = typed.toLowerCase();
+  const groupId = String(fd.get("group_id") || "");
+  const account = groupId ? getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === groupId) : null;
+  const cur = String(account?.currency || fd.get("currency") || "").trim();
+  const hide = () => {
     wrap.classList.add("hide");
+    const r = form.querySelector('input[name="expense_item_intent"][value="additional"]');
+    if (r) r.checked = true;
+  };
+  clearTimeout(expenseItemLookupTimer);
+  if (typed.length < 2) { hide(); return; }
+  // Editing a transaction and keeping its own item name: nothing to ask.
+  const editId = String(form.dataset.editEntryId || "");
+  if (editId) {
+    const current = state.entries.find(row => String(row.id) === editId);
+    const currentName = normalizeExpenseItemName(expenseMetaFromNotes(current?.notes || "").itemName).toLowerCase();
+    if (currentName === nameLower) { hide(); return; }
+  }
+  const show = info => {
+    if (!info?.exists) { hide(); return; }
+    renderExpenseItemIntentInfo(wrap, info);
+    wrap.classList.remove("hide");
+  };
+  const key = `${cur || "*"}||${nameLower}`;
+  const cached = expenseItemLookupCache.get(key);
+  if (cached) { show(cached); return; }
+  const local = localExpenseItemInfo(cur, nameLower);
+  if (local) show(local); else hide();
+  // Older dates are not loaded on this device (lazy mode): ask the server once per name.
+  if (!(typeof isExpenseLazyMode === "function" && isExpenseLazyMode()) || typeof fetchExpenseItemSummariesRpc !== "function") {
+    if (local) expenseItemLookupCache.set(key, { ...local, partial: false });
     return;
   }
-  const exists = getExistingItemNamesLowerForCurrency(cur).has(item);
-  wrap.classList.toggle("hide", !exists);
-  if (!exists){
-    const r = els.expenseEntryForm.querySelector('input[name="expense_item_intent"][value="additional"]');
-    if (r) r.checked = true;
-  }
+  const seq = ++expenseItemLookupSeq;
+  expenseItemLookupTimer = setTimeout(async () => {
+    try {
+      const res = await fetchExpenseItemSummariesRpc({ search: typed, limit: 25 });
+      const hit = (res.items || []).find(it =>
+        normalizeExpenseItemName(it?.item_name).toLowerCase() === nameLower
+        && (!cur || String(it?.currency || "") === cur)
+        && String(it?.expense_type || "").toLowerCase() !== "transfer"
+        && Number(it?.transaction_count || 0) > 0);
+      const info = hit
+        ? { exists: true, name: normalizeExpenseItemName(hit.item_name), count: Number(hit.transaction_count || 0), total: Number(hit.total_amount || 0), last: String(hit.latest_date || ""), currency: hit.currency || cur, partial: false }
+        : (local ? { ...local, partial: false } : { exists: false });
+      expenseItemLookupCache.set(key, info);
+      if (seq !== expenseItemLookupSeq) return;
+      const now = normalizeExpenseItemName(new FormData(form).get("item_name")).toLowerCase();
+      if (now === nameLower && !form.classList.contains("hide")) show(info);
+    } catch (err) {
+      console.warn("Existing item check skipped.", err);
+    }
+  }, 320);
 }
+// A save or delete can create or remove item names: forget earlier answers.
+function forgetExpenseItemLookups(){ expenseItemLookupCache.clear(); }
+window.forgetExpenseItemLookups = forgetExpenseItemLookups;
 
 function isInDateRange(dateStr){
-  // Search is a global discovery mode. Date controls resume immediately when search is cleared.
-  if (String(state.search.expenses || "").trim()) return true;
+  // Search is a global discovery mode (unless the user chose to search only the selected dates).
+  // Date controls resume immediately when search is cleared.
+  if (String(state.search.expenses || "").trim() && state.expenseHistorySearchScope !== "range") return true;
   const bounds = expenseHistoryRangeBounds();
   if (state.expenseHistoryRange === "custom" && !bounds.from && !bounds.to) return false;
   if (!bounds.from && !bounds.to) return true;
@@ -1331,6 +1432,9 @@ function expenseHistoryRangeBounds(range = state.expenseHistoryRange){
 /** Browsing obeys the selected date range; search deliberately spans all expense history. */
 function expenseActivityQueryBounds(){
   const search = String(state.search.expenses || "").trim();
+  if (search && state.expenseHistorySearchScope === "range") {
+    return { ...expenseHistoryRangeBounds(), mode: "search-range" };
+  }
   if (search) {
     return { from: "", to: "", label: "All history", mode: "search" };
   }
@@ -4316,7 +4420,7 @@ async function saveExpenseEntry(form){
   const taxBreakdown = getExpenseTaxBreakdown();
   const amount = taxBreakdown.total;
   const date = String(fd.get("date") || "");
-  const itemName = String(fd.get("item_name") || "").trim();
+  let itemName = normalizeExpenseItemName(fd.get("item_name"));
   const expenseType = String(fd.get("custom_expense_type") || "").trim() || String(fd.get("expense_type") || "").trim() || "Other";
   const notes = String(fd.get("notes") || "").trim() || null;
   const details = expenseDetailsFromFormData(fd, "expense");
@@ -4329,12 +4433,17 @@ async function saveExpenseEntry(form){
   if (selectedCurrency && account.currency !== selectedCurrency){
     throw new Error("Selected currency does not match the account currency.");
   }
-  const nameLower = itemName.toLowerCase();
+  const nameLower = normalizeExpenseItemName(itemName).toLowerCase();
   const existingNames = getExistingItemNamesLowerForCurrency(account.currency);
-  const currentItemName = currentEntry ? String(expenseMetaFromNotes(currentEntry.notes || "").itemName || "").trim().toLowerCase() : "";
-  if (existingNames.has(nameLower) && itemIntent === "new_distinct" && nameLower !== currentItemName){
-    throw new Error("This item name already exists. Either choose \"More spending on the same item\" or enter a different item name.");
+  const currentItemName = currentEntry ? normalizeExpenseItemName(expenseMetaFromNotes(currentEntry.notes || "").itemName).toLowerCase() : "";
+  const knownItem = expenseItemIntentInfoFor(account.currency, itemName) || localExpenseItemInfo(account.currency, nameLower);
+  const itemExists = existingNames.has(nameLower) || !!knownItem?.exists;
+  if (itemExists && itemIntent === "new_distinct" && nameLower !== currentItemName){
+    throw new Error("This item name already exists. Choose \"Add to the same list\", or enter a different item name.");
   }
+  // Same item: use its existing spelling so all its spends stay together.
+  if (itemExists && itemIntent !== "new_distinct" && knownItem?.name && nameLower !== currentItemName) itemName = knownItem.name;
+  forgetExpenseItemLookups();
   const availableForEdit = account.balance + Number(currentEntry?.action_amount || 0);
   if (amount > (currentEntry ? availableForEdit : account.balance)) {
     const available = currentEntry ? availableForEdit : account.balance;
@@ -4773,7 +4882,7 @@ function renderExpensesList(){
     els.expenseRecordsViewFilter.value = expenseRecordView;
   }
   syncExpenseDateFilterControls();
-  if (state.expenseLazy.loadingActivity && isExpenseLazyMode()) {
+  if (state.expenseLazy.loadingActivity && isExpenseLazyMode() && !(expenseRecordView === "history" && window.TriplemExpenseHistory)) {
     html += `<div class="expense-toolbar-hint" style="margin:0.35rem 0 0.75rem;">Loading ${escapeHtml(expenseHistoryRangeText())}…</div>`;
   }
 
@@ -4993,7 +5102,37 @@ function renderExpensesList(){
   }
   }
 
-  if (expenseRecordView === "history") {
+  if (expenseRecordView === "history" && window.TriplemExpenseHistory) {
+    // Expenses history v3 (2026-11-17): every transaction directly on the page.
+    const searching = String(state.search.expenses || "").trim() !== "";
+    const scope = state.expenseHistorySearchScope === "range" ? "range" : "all";
+    const spendAttached = collectExpenseSpendRows(accounts);
+    const rows = searching && scope === "all" ? spendAttached : filterExpenseHistoryRows(spendAttached);
+    let items = groupExpenseItems(rows);
+    if (window.ExpenseAudit) items = ExpenseAudit.mergeInactiveItems(items);
+    if (searching && !isExpenseLazyMode()) items = filterExpensesBySearch(items, state.search.expenses);
+    const lazy = isExpenseLazyMode();
+    const bounds = expenseHistoryRangeBounds();
+    html += `<details class="expense-collapsible-section" id="transactionsHistorySection" data-expense-details-id="transactionsHistorySection" open>
+      <summary class="expense-collapsible-header expense-history-header">
+        <h4 class="expense-section-title"><i class="fa-solid fa-list-ul"></i> Expenses</h4>
+        ${renderExpenseHistoryRangeControls()}
+        <span class="expand-icon">▶</span>
+      </summary>
+      <div class="expense-collapsible-content">
+        ${window.TriplemExpenseHistory.render({
+          items,
+          loading: lazy && ((state.expenseLazy.loadingActivity && !state.expenseLazy.loadingAppend) || state.expenseLazy.activityDeferred === true),
+          loadingMore: lazy && state.expenseLazy.loadingActivity && state.expenseLazy.loadingAppend === true,
+          hasMore: lazy && state.expenseLazy.activityHasMore === true,
+          rangeText: expenseHistoryRangeText(),
+          rangeName: bounds.label || "Selected dates",
+          searching,
+          scope
+        })}
+      </div>
+    </details>`;
+  } else if (expenseRecordView === "history") {
   // Expense items (non-transfer spending), grouped by item
   const spendAttached = collectExpenseSpendRows(accounts);
   // Lazy mode already fetched the correct window from the DB.

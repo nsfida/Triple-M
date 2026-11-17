@@ -143,7 +143,7 @@ test("Expenses: wallet details and the Spend / Receive / Transfer forms open ins
     assert.ok(js.includes(tab), tab);
   }
   // pages of transactions come from the existing paged lookup, with skeleton rows while loading
-  assert.match(js, /fetchExpenseActivityRpc\(\{ groupId: gid, limit: WALLET_PAGE/);
+  assert.match(js, /fetchExpenseActivityRpc\(\{ groupId: gid, to: st\.at \|\| null, limit: WALLET_PAGE/);
   assert.match(js, /aum-skel/);
   assert.doesNotMatch(js, /supabase\(|supabaseRpc\(/);
   const css = read("Assets/style/69-admin-user-manager.css");

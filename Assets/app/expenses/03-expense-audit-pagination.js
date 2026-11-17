@@ -371,7 +371,7 @@
   const ExpenseAudit = {
     refreshInactiveForCurrentQuery, getInactiveEntries, inactiveStatus, isInactive, badgeHtml, publicStatus,
     mergeInactiveItems, inactiveTopupsForAccounts, appendInactiveToAccounts, inactiveExpenseTransactionById,
-    loadHistory, decorateDetailModal, resetModalAuditSnapshot, isAuditableEntry, isAuditableRecycleItem, relatedRecycleIds, softDeleteIds, archiveIds, restoreIds, refreshAfterLifecycle
+    loadHistory, historyHtml, logicalEditCount, decorateDetailModal, resetModalAuditSnapshot, isAuditableEntry, isAuditableRecycleItem, relatedRecycleIds, softDeleteIds, archiveIds, restoreIds, refreshAfterLifecycle
   };
   window.ExpenseAudit = ExpenseAudit;
 

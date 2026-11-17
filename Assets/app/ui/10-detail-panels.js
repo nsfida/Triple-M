@@ -106,6 +106,10 @@
       <aside class="aum-panel" role="dialog" aria-modal="true" aria-labelledby="tmDpTitle"><div class="aum-frame"></div><div class="aum-toast" role="status" aria-live="polite"></div></aside>`;
     document.body.appendChild(el);
     el.addEventListener("click", onClick);
+    // Rows that act as buttons (transactions in lists) open with Enter / Space too.
+    el.addEventListener("keydown", e => {
+      if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('li[role="button"][data-dp-act]')) { e.preventDefault(); e.target.click(); }
+    });
     el.addEventListener("input", e => { if (!e.target.closest(".tm-dp-formhost")) P.def?.onInput?.(e, P.st); });
     el.addEventListener("change", e => { if (!e.target.closest(".tm-dp-formhost")) P.def?.onChange?.(e, P.st); });
     el.addEventListener("submit", e => { const f = e.target.closest("form[data-dp-form]"); if (f) { e.preventDefault(); P.def?.onSubmit?.(f, P.st); } });
@@ -127,6 +131,7 @@
   }
   function close(){
     if (!P.el) return;
+    txReturnAfterEdit = "";
     undock();
     leave();
     P.el.classList.remove("is-open");
@@ -195,6 +200,7 @@
     const t = e.target;
     if (t.closest("[data-dp-close]")) return close();
     if (t.closest(".tm-dp-formhost")) return; // the docked form handles its own clicks
+    if (t.closest(".tm-att-icon")) return;     // the paperclip opens the attachments viewer itself
     const tab = t.closest("[data-dp-tab]");
     if (tab) { if (tab.dataset.dpTab !== P.tab || P.dock) switchTab(tab.dataset.dpTab); return; }
     const a = t.closest("[data-dp-act]");
@@ -743,14 +749,17 @@
     try { local = !!row.id && state.entries.some(e => String(e.id) === String(row.id)); } catch (_) {}
     return { ...meta, type, local };
   }
-  function walletRowsHtml(rows, cur){
+  function walletRowsHtml(rows, cur, at = ""){
     return `<ul class="tm-dp-rows">${rows.map(row => {
       const i = walletRowInfo(row);
+      if (row.id && !row._opening && !txRowCache.has(String(row.id))) txRowCache.set(String(row.id), row);
       const tone = i.transfer ? "info" : i.inbound ? "in" : "out";
       const icon = i.transfer ? "fa-right-left" : i.inbound ? "fa-arrow-down" : "fa-arrow-up";
       const id = esc(row.id || "");
       const att = global.TriplemAttachments && row.id && !row._opening ? (TriplemAttachments.iconHtml?.(i.inbound ? "topup" : "expense", row.id) || "") : "";
-      return `<li><span class="tm-dp-row-ico is-${tone}" aria-hidden="true"><i class="fa-solid ${icon}"></i></span>
+      const target = at && String(row.activity_date || "").slice(0, 10) === at ? " is-target" : "";
+      const open = row.id && !row._opening ? ` data-dp-act="w-tx" data-id="${id}" data-type="${i.type}" role="button" tabindex="0" title="Open transaction"` : "";
+      return `<li class="tm-dp-row-click${target}"${open}><span class="tm-dp-row-ico is-${tone}" aria-hidden="true"><i class="fa-solid ${icon}"></i></span>
         <span class="tm-dp-row-main"><b>${esc(i.label)}</b><small>${esc(dd(row.activity_date))}${i.typeLabel ? ` · ${esc(i.typeLabel)}` : ""}${i.note ? ` · ${esc(String(i.note).slice(0, 70))}` : ""}</small></span>
         <span class="tm-dp-row-amt"><b class="${i.inbound ? "is-in" : "is-out"}">${i.inbound ? "+" : "−"}${m(Math.abs(num(row.amount)), row.currency || cur)}</b>${i.reference ? `<small>${esc(i.reference)}</small>` : ""}</span>
         <span class="tm-dp-row-act">${att}${i.local && i.type !== "opening" ? `${canEdit() ? iconBtn("tx-edit", "Edit", "fa-solid fa-pen", `data-id="${id}" data-type="${i.type}"`) : ""}${iconBtn("tx-pdf", "PDF", "fa-solid fa-file-pdf", `data-id="${id}" data-type="${i.type}"`)}${canDelete() ? iconBtn("tx-delete", "Delete", "fa-solid fa-trash", `data-id="${id}" data-type="${i.type}"`, true) : ""}` : ""}</span></li>`;
@@ -764,7 +773,7 @@
     const btc = walletAccount(gid)?.currency === "BTC";
     const ACC = () => memo("wallet", () => walletAccount(gid));
     const DATA = st => memo("walletData", () => { try { return buildWalletDetailsPayload(gid, st.chart || null); } catch (_) { return null; } });
-    const st0 = { chart: null, chartState: lazyExpenses() ? "loading" : "local", act: null, actState: "idle", page: 1, seq: 0, reveal: {} };
+    const st0 = { chart: null, chartState: lazyExpenses() ? "loading" : "local", act: null, actState: "idle", page: 1, seq: 0, reveal: {}, at: "" };
 
     function loadChart(st){
       if (!lazyExpenses() || typeof fetchExpenseWalletChartRpc !== "function") { st.chartState = "local"; return; }
@@ -781,17 +790,18 @@
       let res = null;
       try {
         if (lazyExpenses() && typeof fetchExpenseActivityRpc === "function") {
-          const r = await fetchExpenseActivityRpc({ groupId: gid, limit: WALLET_PAGE, offset: (page - 1) * WALLET_PAGE });
+          // "Go to date": the page starts at that date (everything on or before it, newest first).
+          const r = await fetchExpenseActivityRpc({ groupId: gid, to: st.at || null, limit: WALLET_PAGE, offset: (page - 1) * WALLET_PAGE });
           res = { items: r.items || [], total: num(r.total), totalPages: Math.max(1, num(r.totalPages) || 1), hasMore: r.hasMore === true };
         }
       } catch (_) { res = null; }
       if (!res) {
-        const all = walletLocalRows(walletAccount(gid));
+        const all = walletLocalRows(walletAccount(gid)).filter(r => !st.at || String(r.activity_date || "").slice(0, 10) <= st.at);
         res = { items: all.slice((page - 1) * WALLET_PAGE, page * WALLET_PAGE), total: all.length, totalPages: Math.max(1, Math.ceil(all.length / WALLET_PAGE)), hasMore: page * WALLET_PAGE < all.length };
       }
       if (seq !== st.seq || P.def?.walletId !== gid) return;
       st.act = { ...res, page }; st.actState = "ready";
-      if (page === 1) st.recent = res.items.slice(0, 5);
+      if (page === 1 && !st.at) st.recent = res.items.slice(0, 5);
       render({ keepScroll: true });
     }
     const formInvoke = tab => {
@@ -805,6 +815,12 @@
 
     open({
       walletId: gid, icon: "expenses", tabs, tab: tabs.some(t => t[0] === tab) ? tab : "overview", state: st0,
+      onChange(e, st){
+        const f = e.target.closest?.("[data-dp-goto]");
+        if (!f) return;
+        st.at = /^\d{4}-\d{2}-\d{2}$/.test(f.value) ? f.value : "";
+        loadPage(st, 1);
+      },
       head(){
         const a = ACC(); if (!a) return null;
         const bal = num(a.balance), status = a.status || (bal > 0 ? "Open" : "Closed");
@@ -822,12 +838,19 @@
         const mt = d?.metrics || {};
         const waitingChart = st.chartState === "loading";
         if (tab === "activity") {
-          if (st.actState !== "ready" || !st.act) return section("Transactions", skel(6));
+          const today = (() => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); })();
+          const dateBar = `<div class="tm-dp-datebar">
+              <label class="tm-dp-datefield"><i class="fa-regular fa-calendar" aria-hidden="true"></i><span>Go to date</span><input type="date" data-dp-goto value="${esc(st.at || "")}" max="${today}" aria-label="Go to date"></label>
+              ${st.at ? `<span class="tm-dp-datechip">On or before <b>${esc(dd(st.at))}</b>${iconBtn("goto-clear", "Show latest", "fa-solid fa-xmark")}</span>` : `<span class="tm-dp-datehint">Jump to any day to find a transaction quickly.</span>`}
+            </div>`;
+          if (st.actState !== "ready" || !st.act) return dateBar + section("Transactions", skel(6));
           const A = st.act;
-          if (!A.items.length) return section("Transactions", empty("No transactions yet."));
+          if (!A.items.length) return dateBar + section("Transactions", empty(st.at ? `No transactions on or before ${dd(st.at)}.` : "No transactions yet."));
           const from = (A.page - 1) * WALLET_PAGE + 1, to = from + A.items.length - 1;
           const last = Math.max(A.totalPages, A.hasMore ? A.page + 1 : A.page);
-          return section(`Transactions · ${from}–${to}${A.total ? ` of ${A.total}` : ""}`, walletRowsHtml(A.items, cur)
+          const onDay = st.at ? A.items.filter(r => String(r.activity_date || "").slice(0, 10) === st.at).length : 0;
+          return dateBar + (st.at && A.page === 1 && !onDay ? note(`Nothing on ${esc(dd(st.at))}. Showing the closest earlier transactions.`, "info", "fa-regular fa-calendar") : "")
+            + section(`Transactions · ${from}–${to}${A.total ? ` of ${A.total}` : ""}`, walletRowsHtml(A.items, cur, st.at || "")
             + `<div class="tm-dp-pager">${btn("page", "Previous", "fa-solid fa-chevron-left", { data: `data-p="${A.page - 1}"`, disabled: A.page <= 1 })}<span>Page ${A.page} of ${last}</span>${btn("page", "Next", "fa-solid fa-chevron-right", { data: `data-p="${A.page + 1}"`, disabled: A.page >= last })}</div>`);
         }
         if (tab === "insights") {
@@ -884,6 +907,7 @@
       },
       // The docked form was saved or cancelled: back to the overview with fresh numbers.
       afterForm(){
+        if (txReturnAfterEdit) { const back = txReturnAfterEdit; txReturnAfterEdit = ""; if (openExpenseTx(back)) return; }
         const st = P.st;
         st.recent = null; st.act = null; st.actState = "idle";
         // Show the wallet's own (already updated) totals now; refresh the monthly totals from the
@@ -900,6 +924,13 @@
         "go-transfer": () => switchTab("transfer"),
         "go-activity": () => switchTab("activity"),
         page: (b, st) => loadPage(st, num(b.dataset.p)),
+        "goto-clear": (_, st) => { st.at = ""; loadPage(st, 1); },
+        "w-tx": (b, st) => {
+          const id = b.dataset.id, type = b.dataset.type;
+          const ok = type === "expense" ? openExpenseTx(id, { fromWallet: gid, fromTab: P.tab })
+            : openExpenseRecord(type === "transfer" ? "transfer" : "topup", id);
+          if (!ok) toast("Open Expenses history to see this record.", false);
+        },
         pdf: () => downloadExpenseAccountPDF(gid),
         edit: () => { const a = walletAccount(gid); if (a?.principal?.id) openEditModal(a.principal.id); },
         delete: async () => { const a = walletAccount(gid); if (a?.principal?.id) await deleteEntry(a.principal.id); refresh(); },
@@ -910,6 +941,288 @@
       }
     });
     if (lazyExpenses()) loadChart(P.st);
+    return true;
+  }
+
+  // ═══════════════════════════════ EXPENSE TRANSACTION ════════════════════════════════
+  // A transaction opened from Expenses history (or from a wallet's activity) shows here, in the
+  // same side panel as wallets, with: overview, VAT breakdown, optional details, the item's
+  // history across all dates and the change log. Edit / Duplicate / PDF / Delete use the app's
+  // own functions.
+  const txRowCache = new Map();   // rows that are not in state.entries (wallet pages, item history)
+  let txBackTo = null;            // { walletId, tab } when opened from a wallet
+  let txReturnAfterEdit = "";     // reopen this transaction after its Edit form is saved
+
+  function txRecord(id){
+    let tx = null;
+    try { tx = typeof expenseTransactionRecordById === "function" ? expenseTransactionRecordById(id) : null; } catch (_) {}
+    if (!tx) { try { tx = global.TriplemExpenseHistory?.txById?.(id) || null; } catch (_) {} }
+    if (!tx && txRowCache.has(String(id))) {
+      const row = txRowCache.get(String(id));
+      try { tx = row.__tx || expenseItemHistoryRowToTransaction(row, {}); row.__tx = tx; } catch (_) { tx = null; }
+    }
+    return tx;
+  }
+  const txRef = id => { try { return expensePublicTransactionReference(id); } catch (_) { return ""; } };
+  const recordedAt = v => { try { return expenseRecordedText(v); } catch (_) { return v ? String(v) : "—"; } };
+  const longDate = d => { try { return new Date(`${String(d).slice(0, 10)}T12:00:00`).toLocaleDateString((global.TriplemI18n && global.TriplemI18n.lang !== "en" ? global.TriplemI18n.locale : undefined), { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return dd(d); } };
+
+  function txNavHtml(id){
+    let order = [];
+    try { order = global.TriplemExpenseHistory?.order?.() || []; } catch (_) {}
+    const i = order.indexOf(String(id));
+    const back = txBackTo ? `<button type="button" class="tm-dp-back" data-dp-act="tx-back"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Back to wallet</button>` : "";
+    if (i < 0 && !back) return "";
+    const nav = i < 0 ? "" : `<span class="tm-dp-txnav">
+        ${iconBtn("tx-go", "Previous transaction", "fa-solid fa-chevron-up", `data-id="${esc(order[i - 1] || "")}"${i > 0 ? "" : " disabled"}`)}
+        <small>${i + 1} of ${order.length}</small>
+        ${iconBtn("tx-go", "Next transaction", "fa-solid fa-chevron-down", `data-id="${esc(order[i + 1] || "")}"${i < order.length - 1 ? "" : " disabled"}`)}
+      </span>`;
+    return `<div class="tm-dp-txbar">${back || `<span class="tm-dp-txbar-label">Expenses history</span>`}${nav}</div>`;
+  }
+
+  function txItemData(tx, st){
+    // Item across all dates: totals (server item summary) + the last 100 transactions.
+    if (st.item) return st.item;
+    if (st.itemState === "loading") return null;
+    st.itemState = "loading";
+    const name = String(tx.itemName || "").trim(), cur = tx.currency || "";
+    const exact = s => String(s?.item_name || "").trim().toLowerCase() === name.toLowerCase() && String(s?.currency || "") === cur;
+    (async () => {
+      let summary = null, rows = [];
+      try {
+        if (lazyExpenses() && typeof fetchExpenseItemSummariesRpc === "function") {
+          const r = await fetchExpenseItemSummariesRpc({ search: name, limit: 25 });
+          summary = (r.items || []).find(exact) || null;
+          const h = await fetchExpenseItemHistoryPageRpc({ itemName: name, currency: cur, limit: 100 });
+          rows = (h.items || []).filter(x => !x.audit_status);
+          rows.forEach(x => { if (x?.id && !txRowCache.has(String(x.id))) txRowCache.set(String(x.id), x); });
+          rows = rows.map(x => { try { return expenseItemHistoryRowToTransaction(x, { item_name: name, currency: cur }); } catch (_) { return null; } }).filter(Boolean);
+        } else {
+          for (const a of getExpenseAccounts({ applyUiFilters: false })) {
+            if (a.currency !== cur) continue;
+            for (const row of a.spends || []) {
+              const meta = row._expenseMeta || expenseMetaFromNotes(row.notes);
+              if (String(meta.itemName || "").trim().toLowerCase() !== name.toLowerCase()) continue;
+              rows.push({ id: row.id, date: row.action_date, amount: num(row.action_amount), wallet: a.person_name, currency: cur, itemName: meta.itemName, expenseType: meta.expenseType, createdAt: row.created_at });
+            }
+          }
+        }
+      } catch (_) {}
+      rows.sort((a, b) => (stamp(b.date) - stamp(a.date)) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+      const total = summary ? num(summary.total_amount) : rows.reduce((s, r) => s + num(r.amount), 0);
+      const count = summary ? num(summary.transaction_count) : rows.length;
+      st.item = { rows, total, count, avg: count ? total / count : 0, first: rows.length ? rows[rows.length - 1].date : "", last: summary?.latest_date || rows[0]?.date || "", complete: !summary || count <= rows.length };
+      st.itemState = "ready";
+      if (P.def?.txId === String(tx.id)) render({ keepScroll: true });
+    })();
+    return null;
+  }
+
+  function txActionsHtml(tx, inactive){
+    if (inactive) return note(`This transaction was ${tx.auditStatus === "archived" ? "permanently deleted" : "deleted"}. It is kept read-only for your records${tx.auditStatus === "archived" ? "" : " and can be restored from the Recycle Bin"}.`, "warn", "fa-solid fa-lock")
+      + `<div class="aum-actions is-left is-wrap">${btn("tx-pdf", "Download PDF", "fa-solid fa-file-pdf")}${btn("tx-copy", "Copy details", "fa-regular fa-copy")}</div>`;
+    return `<div class="tm-dp-txacts">
+      ${canEdit() ? btn("tx-edit", "Edit", "fa-solid fa-pen", { primary: true }) : ""}
+      ${canEdit() ? btn("tx-dup", "Duplicate", "fa-regular fa-clone") : ""}
+      ${btn("tx-pdf", "PDF", "fa-solid fa-file-pdf")}
+      ${btn("tx-copy", "Copy", "fa-regular fa-copy")}
+      ${canDelete() ? btn("tx-delete", "Delete", "fa-solid fa-trash", { danger: true }) : ""}
+    </div>`;
+  }
+
+  function openExpenseTx(id, opts = {}){
+    const txId = String(id || "").trim();
+    if (!txId || !txRecord(txId)) return false;
+    if (opts.fromWallet) txBackTo = { walletId: opts.fromWallet, tab: opts.fromTab || "activity" };
+    else if (!opts.keepBack) txBackTo = null;
+    const TX = () => memo("tx", () => txRecord(txId));
+    open({
+      txId, icon: "expenses", state: { item: null, itemState: "idle", log: null, logState: "idle" }, tab: opts.tab || "overview",
+      tabs: [["overview", "Overview", "fa-solid fa-receipt"], ["details", "Details", "fa-solid fa-circle-info"], ["item", "This item", "fa-solid fa-chart-column"], ["history", "Change log", "fa-solid fa-clock-rotate-left"]],
+      head(){
+        const tx = TX(); if (!tx) return null;
+        const type = tx.expenseType || "Other";
+        let tone = "#2563eb", icon = "fa-receipt";
+        try { tone = global.TriplemExpenseHistory.toneFor(type); icon = global.TriplemExpenseHistory.iconFor(type, tx.itemName); } catch (_) {}
+        const pills = [pill(`−${plain(tx.amount, tx.currency)}`, "bad", "fa-solid fa-arrow-up")];
+        if (tx.auditStatus) pills.push(pill(tx.auditStatus === "archived" ? "Permanently deleted" : "Deleted", "warn", "fa-solid fa-trash-can"));
+        else pills.push(pill(dd(tx.date), "info", "fa-regular fa-calendar"));
+        try { if (typeof isTriplemAiOrigin === "function" && isTriplemAiOrigin("expenses", tx.id)) pills.push(pill("Added by Triplem AI", "info", "fa-solid fa-wand-magic-sparkles")); } catch (_) {}
+        return { title: tx.itemName || "Expense", userTitle: true,
+          avatar: `<span class="tm-dp-txico" style="--t:${esc(tone)}"><i class="fa-solid ${esc(icon)}"></i></span>`,
+          sub: `${esc(type)} · <span translate="no">${esc(tx.wallet || "Wallet")}</span>`, pills };
+      },
+      render(tab, st){
+        const tx = TX(); if (!tx) return "";
+        const cur = tx.currency || "";
+        const inactive = !!tx.auditStatus;
+        const nav = txNavHtml(txId);
+        if (tab === "details") {
+          let rows = [];
+          try { rows = expenseDetailsForDisplay(tx.details, "expense"); } catch (_) {}
+          const vat = num(tx.taxAmount) > 0
+            ? kv([["VAT rate", esc(`${num(tx.taxRate)}%`)], ["VAT mode", esc(String(tx.taxMode || "").toUpperCase() === "ADD" ? "Added on top" : "Included in the amount")], ["Net amount", m(tx.netAmount ?? (num(tx.amount) - num(tx.taxAmount)), cur)], ["VAT", m(tx.taxAmount, cur)], ["Total paid", `<b>${m(tx.amount, cur)}</b>`]])
+            : empty("No VAT was recorded on this transaction.");
+          return nav + section("Payment details", rows.length ? kv(rows.map(r => [r.label, esc(r.value)])) : note("No optional payment details were added (merchant, method, invoice number, …). Use <b>Edit</b> to add them.", "info"))
+            + section("VAT", vat)
+            + section("Record", kv([["Reference", `<span class="tm-dp-mono">${esc(txRef(tx.id))}</span>`], ["Transaction id", `<span class="tm-dp-mono tm-dp-small">${esc(tx.id)}</span>`], ["Recorded", esc(recordedAt(tx.createdAt))], ["Currency", esc(cur || "—")]]));
+        }
+        if (tab === "item") {
+          const d = txItemData(tx, st);
+          if (!d) return nav + section(`${tx.itemName} · all dates`, skel(3)) + section("Recent", skel(5));
+          const months = lastMonths(12).map(k => ({ label: monthLabel(k), short: monthLabel(k).split(" ")[0], value: d.rows.filter(r => monthKey(r.date) === k).reduce((s, r) => s + num(r.amount), 0) }));
+          const list = d.rows.slice(0, 8);
+          return nav + section(`${tx.itemName} · all dates`, stats([[esc(String(d.count)), "Transactions"], [m(d.total, cur), "Total spent"], [m(d.avg, cur), "Average"], [esc(dd(d.last)), "Last spent"]]))
+            + section("Spent per month", barChart(months, cur, "Spent per month") + (d.complete ? "" : `<p class="aum-muted">Chart uses the latest ${d.rows.length} transactions.</p>`))
+            + section("Recent transactions", list.length ? `<ul class="tm-dp-rows">${list.map(r => `<li class="${String(r.id) === txId ? "is-current" : ""}" ${String(r.id) === txId ? "" : `data-dp-act="tx-go" data-id="${esc(r.id)}" role="button" tabindex="0"`}>
+                <span class="tm-dp-row-ico is-out" aria-hidden="true"><i class="fa-solid fa-arrow-up"></i></span>
+                <span class="tm-dp-row-main"><b>${esc(dd(r.date))}</b><small>${esc(r.wallet || "")}${String(r.id) === txId ? " · this transaction" : ""}</small></span>
+                <span class="tm-dp-row-amt"><b class="is-out">−${m(r.amount, r.currency || cur)}</b></span></li>`).join("")}</ul>` : empty("No other transactions."))
+            + `<div class="aum-actions is-left is-wrap">${btn("tx-item-all", "Show all in Expenses history", "fa-solid fa-magnifying-glass")}</div>`;
+        }
+        if (tab === "history") {
+          if (st.logState !== "ready") {
+            if (st.logState === "idle" && global.ExpenseAudit?.loadHistory) {
+              st.logState = "loading";
+              ExpenseAudit.loadHistory([txId], { force: true }).then(ev => { st.log = ev || []; st.logState = "ready"; if (P.def?.txId === txId) render({ keepScroll: true }); }).catch(() => { st.log = []; st.logState = "ready"; if (P.def?.txId === txId) render({ keepScroll: true }); });
+            }
+            if (!global.ExpenseAudit?.loadHistory) { st.log = []; st.logState = "ready"; }
+            else return nav + section("Change log", skel(3));
+          }
+          const html = global.ExpenseAudit?.historyHtml ? ExpenseAudit.historyHtml(st.log || []) : empty("No changes recorded.");
+          return nav + section("Change log", `<p class="aum-muted">Every edit, deletion and restore of this transaction, with who made it and when.</p>${html}`);
+        }
+        // overview
+        const net = tx.netAmount ?? (num(tx.amount) - num(tx.taxAmount));
+        const time = (() => { try { return global.TriplemExpenseHistory.timeOf(tx); } catch (_) { return ""; } })();
+        let logo = "";
+        try { logo = getWalletIconHtml(tx.wallet || "Wallet", 20, getWalletCustomLogoMap().get(String(tx.wallet || "").trim().toLowerCase()) || ""); } catch (_) {}
+        let att = { stored: 0, pending: 0 };
+        try { att = TriplemAttachments._test.counts("expense", String(tx.id).toLowerCase()); } catch (_) {}
+        const nAtt = num(att.stored) + num(att.pending);
+        const notes = String(tx.notes || "").trim();
+        return nav + `<div class="tm-dp-txhero${inactive ? " is-inactive" : ""}">
+            <small>Amount paid</small>
+            <strong>−${m(tx.amount, cur)}</strong>
+            <span>${esc(longDate(tx.date))}${time ? ` · ${esc(time)}` : ""}</span>
+            ${num(tx.taxAmount) > 0 ? `<div class="tm-dp-txsplit"><span><small>Net</small><b>${m(net, cur)}</b></span><span><small>VAT ${esc(num(tx.taxRate) + "%")}</small><b>${m(tx.taxAmount, cur)}</b></span><span><small>Total</small><b>${m(tx.amount, cur)}</b></span></div>` : ""}
+          </div>`
+          + section("Transaction", kv([
+              ["Item", `<span translate="no">${esc(tx.itemName || "—")}</span>`],
+              ["Category", esc(tx.expenseType || "Other")],
+              ["Paid from", tx.group_id ? `<button type="button" class="tm-dp-link" data-dp-act="tx-wallet">${logo} <span translate="no">${esc(tx.wallet || "Wallet")}</span> <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button>` : esc(tx.wallet || "—")],
+              ["Date", esc(dd(tx.date))],
+              ["Reference", `<span class="tm-dp-mono">${esc(txRef(tx.id))}</span> ${iconBtn("tx-copy-ref", "Copy reference", "fa-regular fa-copy")}`],
+              ["Recorded", esc(recordedAt(tx.createdAt))]
+            ]))
+          + section("Notes", notes && notes !== "—" ? `<p class="tm-dp-note" translate="no">${esc(notes)}</p>` : empty("No notes."))
+          + section("Attachments", nAtt
+              ? `<div class="aum-actions is-left">${btn("tx-att", `View ${nAtt} attachment${nAtt === 1 ? "" : "s"}`, "fa-solid fa-paperclip")}</div>`
+              : empty(inactive ? "No attachments." : "No attachments. Use Edit to add a receipt or invoice."))
+          + section("Actions", txActionsHtml(tx, inactive));
+      },
+      onChange(){},
+      actions: {
+        "tx-go": b => { const nid = b.dataset.id; if (nid) openExpenseTx(nid, { keepBack: true, tab: P.tab === "item" ? "overview" : P.tab }); },
+        "tx-back": () => { const b = txBackTo; txBackTo = null; if (b) openWallet(b.walletId, b.tab); },
+        "tx-wallet": () => { const tx = TX(); if (tx?.group_id) openWallet(tx.group_id, "overview"); },
+        "tx-copy-ref": async () => { await navigator.clipboard.writeText(txRef(txId)); toast("Reference copied"); },
+        "tx-copy": async () => {
+          const tx = TX(); if (!tx) return;
+          const lines = [`${tx.itemName} (${tx.expenseType || "Other"})`, `Amount: ${plain(tx.amount, tx.currency)}${num(tx.taxAmount) ? ` (VAT ${plain(tx.taxAmount, tx.currency)})` : ""}`, `Date: ${dd(tx.date)}`, `Wallet: ${tx.wallet || "—"}`, `Reference: ${txRef(tx.id)}`];
+          if (tx.notes && tx.notes !== "—") lines.push(`Notes: ${tx.notes}`);
+          const co = company(); if (co) lines.unshift(co);
+          await navigator.clipboard.writeText(lines.join("\n")); toast("Details copied");
+        },
+        "tx-pdf": async () => { if (typeof downloadExpenseTransactionPDF === "function") await downloadExpenseTransactionPDF(txId); },
+        "tx-att": () => { try { TriplemAttachments.openViewer("expense", String(txId).toLowerCase()); } catch (_) {} },
+        "tx-edit": () => {
+          txReturnAfterEdit = txId;
+          if (!(typeof openExpenseTransactionEditModal === "function" && openExpenseTransactionEditModal(txId))) openEditModal(txId);
+        },
+        "tx-dup": () => {
+          const tx = TX(); if (!tx?.group_id) return;
+          txReturnAfterEdit = "";
+          global.openExpenseModal("expense", tx.group_id);
+          const form = global.els?.expenseEntryForm || document.getElementById("expenseEntryForm");
+          if (!form) return;
+          const set = (name, v) => { const f = form.querySelector(`[name="${name}"]`); if (f && v != null) { f.value = v; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); } };
+          set("item_name", tx.itemName);
+          const typeSel = form.querySelector('[name="expense_type"]');
+          if (typeSel && [...typeSel.options].some(o => o.value === tx.expenseType)) set("expense_type", tx.expenseType); else set("custom_expense_type", tx.expenseType);
+          set("amount", num(tx.netAmount && num(tx.taxAmount) && String(tx.taxMode || "").toUpperCase() === "ADD" ? tx.netAmount : tx.amount).toFixed(2));
+          set("notes", tx.notes && tx.notes !== "—" ? tx.notes : "");
+        },
+        "tx-delete": async () => { await deleteEntry(txId); refresh(); },
+        "tx-item-all": () => {
+          const tx = TX(); if (!tx) return;
+          close();
+          try {
+            state.expenseHistorySearchScope = "all";
+            const input = document.getElementById("searchExpenses");
+            if (input) { input.value = tx.itemName; input.dispatchEvent(new Event("input", { bubbles: true })); }
+            global.TriplemExpensesV2?.openHistory?.();
+          } catch (_) {}
+        }
+      }
+    });
+    return true;
+  }
+
+  // Money added / opening balance / internal transfer records: the same panel, simpler content.
+  function openExpenseRecord(type, id){
+    const kind = String(type || "expense").toLowerCase();
+    if (kind === "expense") return openExpenseTx(id);
+    const rid = String(id || "");
+    const REC = () => memo("rec", () => { try { return kind === "transfer" ? expenseTransferEventById(rid) : expenseTopupRecordById(rid); } catch (_) { return null; } });
+    if (!REC()) return false;
+    txBackTo = null;
+    open({
+      txId: rid, icon: "expenses", state: { log: null, logState: "idle" },
+      tabs: [["overview", "Overview", "fa-solid fa-receipt"], ["history", "Change log", "fa-solid fa-clock-rotate-left"]],
+      head(){
+        const r = REC(); if (!r) return null;
+        if (kind === "transfer") return { title: "Wallet transfer", avatar: `<span class="tm-dp-txico" style="--t:#2563eb"><i class="fa-solid fa-right-left"></i></span>`,
+          sub: `${esc(r.fromWallet || "—")} → ${esc(r.toWallet || "—")}`, pills: [pill(plain(r.amtOut, r.curOut), "info", "fa-solid fa-right-left"), pill(dd(r.date), "", "fa-regular fa-calendar")] };
+        return { title: r.isOpeningBalance ? "Opening balance" : (r.isTransfer ? "Transfer received" : "Money added"), avatar: `<span class="tm-dp-txico" style="--t:#16a34a"><i class="fa-solid fa-arrow-down"></i></span>`,
+          sub: `${esc(r.wallet || "Wallet")} · ${esc(r.accountType || "")}`, pills: [pill(`+${plain(r.amount, r.currency)}`, "ok", "fa-solid fa-arrow-down"), pill(dd(r.date), "", "fa-regular fa-calendar")] };
+      },
+      render(tab, st){
+        const r = REC(); if (!r) return "";
+        if (tab === "history") {
+          if (st.logState === "idle" && global.ExpenseAudit?.loadHistory) {
+            st.logState = "loading";
+            const ids = kind === "transfer" ? [r.expenseId, r.topupId].filter(Boolean) : [rid];
+            ExpenseAudit.loadHistory(ids, { force: true }).then(ev => { st.log = ev || []; st.logState = "ready"; render({ keepScroll: true }); }).catch(() => { st.log = []; st.logState = "ready"; render({ keepScroll: true }); });
+          }
+          if (st.logState !== "ready" && global.ExpenseAudit?.loadHistory) return section("Change log", skel(3));
+          return section("Change log", global.ExpenseAudit?.historyHtml ? ExpenseAudit.historyHtml(st.log || []) : empty("No changes recorded."));
+        }
+        let details = [];
+        try { details = expenseDetailsForDisplay(r.details, kind === "transfer" ? "transfer" : "topup"); } catch (_) {}
+        const status = r.auditStatus;
+        const acts = status ? note("This record was deleted and is read-only.", "warn", "fa-solid fa-lock") + `<div class="aum-actions is-left">${btn("rec-pdf", "Download PDF", "fa-solid fa-file-pdf")}</div>`
+          : `<div class="tm-dp-txacts">${canEdit() ? btn("rec-edit", r.isOpeningBalance ? "Edit wallet" : "Edit", "fa-solid fa-pen", { primary: true }) : ""}${btn("rec-pdf", "PDF", "fa-solid fa-file-pdf")}${canDelete() && !r.isOpeningBalance ? btn("rec-delete", "Delete", "fa-solid fa-trash", { danger: true }) : ""}</div>`;
+        if (kind === "transfer") {
+          return `<div class="tm-dp-txhero is-transfer"><small>Transferred</small><strong>${m(r.amtOut, r.curOut)}</strong><span>${esc(longDate(r.date))}</span>
+              <div class="tm-dp-txsplit"><span><small>From</small><b>${esc(r.fromWallet || "—")}</b></span><span><small>${r.sameCurrency ? "Same currency" : `Rate ${esc(String(r.rate || 1))}`}</small><b><i class="fa-solid fa-arrow-right"></i></b></span><span><small>To</small><b>${esc(r.toWallet || "—")} · ${m(r.amtIn, r.curIn)}</b></span></div></div>`
+            + section("Notes", (r.notesExpense || r.notesTopup) ? `<p class="tm-dp-note">${esc(cleanExpenseNote(r.notesExpense || r.notesTopup || ""))}</p>` : empty("No notes."))
+            + (details.length ? section("Details", kv(details.map(x => [x.label, esc(x.value)]))) : "")
+            + section("Actions", acts);
+        }
+        return `<div class="tm-dp-txhero is-in"><small>${r.isOpeningBalance ? "Opening balance" : "Amount received"}</small><strong>+${m(r.amount, r.currency)}</strong><span>${esc(longDate(r.date))}</span></div>`
+          + section("Record", kv([["Wallet", esc(r.wallet || "—")], ["Account type", esc(r.accountType || "—")], ["Date", esc(dd(r.date))], ["Recorded", esc(recordedAt(r.createdAt))]]))
+          + section("Notes", r.notes && r.notes !== "—" ? `<p class="tm-dp-note">${esc(r.notes)}</p>` : empty("No notes."))
+          + (details.length ? section("Details", kv(details.map(x => [x.label, esc(x.value)]))) : "")
+          + section("Actions", acts);
+      },
+      actions: {
+        "rec-edit": async () => { await runExpenseRecordEdit(kind === "transfer" ? "transfer" : (REC()?.isOpeningBalance ? "opening" : "topup"), rid); },
+        "rec-pdf": async () => { await runExpenseRecordPdf(kind === "transfer" ? "transfer" : (REC()?.isOpeningBalance ? "opening" : "topup"), rid); },
+        "rec-delete": async () => { await runExpenseRecordDelete(kind === "transfer" ? "transfer" : "topup", rid); refresh(); }
+      }
+    });
     return true;
   }
 
@@ -951,6 +1264,17 @@
     if (typeof global.openInstallmentPlanOverlay === "function") global.openInstallmentPlanOverlay = id => openInstallment(id, "schedule");
     if (typeof global.openAssetDetail === "function") global.openAssetDetail = id => openAsset(id);
     if (typeof global.openNoteDetailModal === "function") global.openNoteDetailModal = (id, mode = "view") => openNote(id, mode);
+    // Expenses: a transaction opens in this panel (the old floating dialog stays as a fallback).
+    if (typeof global.openExpenseTransactionDetail === "function" && !global.openExpenseTransactionDetail.__tmDp) {
+      const fb = global.openExpenseTransactionDetail;
+      const f = function(id){ return openExpenseTx(id) ? undefined : fb.apply(this, arguments); };
+      f.__tmDp = true; global.openExpenseTransactionDetail = f;
+    }
+    if (typeof global.openExpenseRecordDetail === "function" && !global.openExpenseRecordDetail.__tmDp) {
+      const fb = global.openExpenseRecordDetail;
+      const f = function(type, id){ return openExpenseRecord(type, id) ? undefined : fb.apply(this, arguments); };
+      f.__tmDp = true; global.openExpenseRecordDetail = f;
+    }
     installExpenses();
     // Redraw the open panel whenever the app redraws its data.
     ["renderAll", "renderNotes", "renderAssetDetail", "renderAssetsList"].forEach(name => {
@@ -1015,5 +1339,5 @@
     currentTab: () => P.tab,
     body: () => P.el?.querySelector(".aum-body") || null
   });
-  global.TriplemDetailPanels = Object.freeze({ openLoan, openInstallment, openAsset, openDep, openNote, openWallet, openFormPanel, refresh, close, isOpen: () => !!P.def, toast, kit, custom });
+  global.TriplemDetailPanels = Object.freeze({ openLoan, openInstallment, openAsset, openDep, openNote, openWallet, openFormPanel, openExpenseTx, openExpenseRecord, refresh, close, isOpen: () => !!P.def, toast, kit, custom });
 })(typeof window !== "undefined" ? window : globalThis);

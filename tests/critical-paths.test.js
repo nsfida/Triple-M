@@ -558,7 +558,7 @@ describe("migrations + schema build smoke", () => {
     );
     assert.match(expensesClient, /label:\s*"All history",\s*mode:\s*"search"/);
     assert.match(expensesClient, /fetchExpenseGlobalSearchActivityRpc/);
-    assert.match(expensesClient, /if \(String\(state\.search\.expenses \|\| ""\)\.trim\(\)\) return true/);
+    assert.match(expensesClient, /if \(String\(state\.search\.expenses \|\| ""\)\.trim\(\) && state\.expenseHistorySearchScope !== "range"\) return true/);
   });
 
   it("096 signup + Pro payment workflow keeps receipts private and admin-gated", () => {

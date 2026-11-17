@@ -462,6 +462,16 @@ function startExpensePdfExportProgress(title){
     return null;
   }
   expensePdfExportInProgress = true;
+  // 2026-11-17: the compact bar at the bottom of the screen (never blocks the page).
+  if (window.TriplemPdfProgress) {
+    const job = window.TriplemPdfProgress.begin("Preparing PDF");
+    let closed = false, last = 0;
+    return {
+      update(percent){ if (!closed) { last = Math.max(last, Number(percent) || 0); job.update(percent); } },
+      // "PDF ready" only when the file was saved (the export reports 99% after saving).
+      finish(){ if (closed) return; closed = true; job.finish(last >= 99); expensePdfExportInProgress = false; }
+    };
+  }
   const root = document.createElement("div");
   root.id = "expensePdfExportProgressOverlay";
   root.className = "expense-pdf-progress-root";
@@ -671,22 +681,28 @@ async function loadExpenseHistoryItemsForPdf(selection, progress, { targetItemKe
   return result;
 }
 
-async function downloadExpenseTransactionsHistoryPDF(mode = "detailed"){
+async function downloadExpenseTransactionsHistoryPDF(mode = "detailed", options = {}){
   if (!window.jspdf){
     alert("PDF library loading. Please try again in a moment.");
     return;
   }
 
   const reportMode = String(mode || "detailed").toLowerCase() === "summary" ? "summary" : "detailed";
-  const selection = expensePdfHistorySelectionSnapshot();
+  // options.items: transactions chosen on screen (Expenses history → Select), already grouped by item.
+  const chosen = Array.isArray(options?.items) ? options.items : null;
+  const selection = chosen
+    ? { ...expensePdfHistorySelectionSnapshot(), rangeLabel: String(options.rangeLabel || "Selected transactions"), rangeSlug: "Selected" }
+    : expensePdfHistorySelectionSnapshot();
   const walletContext = expensePdfSelectedWalletContext();
-  const title = reportMode === "summary" ? "Expenses Summary" : "Expenses";
+  const title = chosen
+    ? (reportMode === "summary" ? "Selected Expenses Summary" : "Selected Expenses")
+    : (reportMode === "summary" ? "Expenses Summary" : "Expenses");
   const progress = startExpensePdfExportProgress(title);
   if (!progress) return;
 
   try {
     progress.update(2, `Preparing ${selection.rangeLabel}…`, "Preparing export");
-    const items = await loadExpenseHistoryItemsForPdf(selection, progress);
+    const items = chosen ? chosen : await loadExpenseHistoryItemsForPdf(selection, progress);
     const rows = flattenExpenseHistoryItems(items);
     if (!rows.length){
       alert("No transactions found for the selected date range.");
