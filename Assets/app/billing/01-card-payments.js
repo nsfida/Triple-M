@@ -12,10 +12,10 @@
  * does not know app_my_card_billing() the panel looks exactly as before. The Microsoft Store
  * edition keeps bank transfer only. Plans with paid team seats keep bank transfer for now.
  *
- * Test mode / preview: while CONFIG.env is "sandbox" or CONFIG.previewOnly is true, the card option
- * is shown only on a device where it was switched on (open the site once with ?cardtest=1;
- * ?cardtest=0 switches it off). The server
- * gives Pro for test-card payments only to the accounts listed in PADDLE_TEST_USERNAMES.
+ * On / off (migration 235): the Main Admin switches card payments on in Admin › Card Payments.
+ * While off, the card option is shown with a "Coming soon" tag and cannot be chosen; bank transfer
+ * is used. Accounts on the switch's test list can already pay by card. The server refuses card
+ * checkouts while off, whatever this page shows.
  * Only public values live here (client-side token and price ids); secret keys stay on the server.
  */
 (function initTriplemCardPayments(global){
@@ -26,31 +26,39 @@
   //   yearly "pri_01m7mtjy48nw8pzvef7dxfq0be" (and PADDLE_ENV=sandbox on the server).
   const CONFIG = Object.freeze({
     env: "production",                                // "sandbox" for Paddle's test system
-    // true: card payments are shown only on a device opened once with ?cardtest=1 (a final live
-    // check before everyone sees them); false: every eligible user sees card payment.
-    previewOnly: true,
     token: "live_63446b59f501d5f590415fc70df",         // Paddle client-side token (public)
     prices: Object.freeze({ monthly: "pri_01m7ngw931r5y2vqtgkd0fkhmp", yearly: "pri_01m7ngx2zw1bbrzmy5yn7ntxx2" }),
     usd: Object.freeze({ monthly: 13.99, yearly: 149 }),
     script: "https://cdn.paddle.com/paddle/v2/paddle.js",
     refundUrl: "https://triplem.vip/seo/refund-policy.html"
   });
-  const TEST_KEY = "triplem.cardTest";
-  try {
-    const q = new URLSearchParams(location.search).get("cardtest");
-    if (q === "1") localStorage.setItem(TEST_KEY, "1");
-    if (q === "0") localStorage.removeItem(TEST_KEY);
-  } catch (_) {}
 
   const esc = v => (typeof escapeHtml === "function" ? escapeHtml(v) : String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])));
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const testMode = () => CONFIG.env !== "production";
   const storeEdition = () => !!global.TriplemStore?.active;
-  function enabled(){
-    if (storeEdition()) return false;
-    if (!testMode() && !CONFIG.previewOnly) return true;
-    try { return localStorage.getItem(TEST_KEY) === "1"; } catch (_) { return false; }
+  // The Main Admin's switch, as the server reports it for this visitor.
+  let status = { loaded: false, enabled: false, available: false, tester: false };
+  let statusAt = 0, statusPromise = null;
+  async function refreshStatus(force = false){
+    if (!force && status.loaded && Date.now() - statusAt < 30000) return status;
+    if (statusPromise) return statusPromise;
+    statusPromise = (async () => {
+      try {
+        const r = await supabaseRpc("app_card_billing_status", {});
+        status = { loaded: true, enabled: !!r?.enabled, available: !!r?.available, tester: !!r?.tester };
+      } catch (_) {
+        status = { loaded: true, enabled: false, available: false, tester: false };
+      }
+      statusAt = Date.now();
+      return status;
+    })().finally(() => { statusPromise = null; });
+    return statusPromise;
   }
+  // Card payment can be chosen (switched on, or this account is on the test list).
+  function enabled(){ return !storeEdition() && status.available; }
+  // The card option is shown (with "Coming soon" when it cannot be chosen yet).
+  function offered(){ return !storeEdition(); }
   const usd = n => `US$${Number(n).toLocaleString("en-US", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
   const LOC = () => ({ ar: "ar-AE-u-nu-latn-ca-gregory", ur: "ur-PK-u-nu-latn-ca-gregory" })[String(document.documentElement.lang || "").slice(0, 2)] || undefined;
   const money = (amount, currency) => {
@@ -299,7 +307,9 @@
     // Payment method choice in the offer.
     const bankGrid = body.querySelector(".plan-bank-grid");
     const submit = body.querySelector("#planSubscriptionSubmit");
-    if (!bankGrid || !submit || !enabled()) return;
+    if (!bankGrid || !submit || !offered()) return;
+    await refreshStatus(true);
+    const can = enabled();
     const sub = b.subscription;
     const renewing = sub && ["active", "trialing", "past_due"].includes(sub.status) && sub.scheduled_action !== "cancel";
     const seats = !body.querySelector(".plan-sub-team-summary")?.classList.contains("hide");
@@ -311,8 +321,8 @@
     const selectedPeriod = () => body.querySelector(".plan-sub-card.selected[data-plan-period]")?.dataset.planPeriod === "yearly" ? "yearly" : "monthly";
     bankGrid.insertAdjacentHTML("beforebegin", `
       <div class="tm-pay-method" role="radiogroup" aria-label="Payment method">
-        <label class="tm-pay-opt"><input type="radio" name="tmPayMethod" value="card" checked><i class="fa-regular fa-credit-card" aria-hidden="true"></i><span><strong>Credit / debit card</strong><small>Pro starts right away · renews automatically · cancel any time</small></span>${testMode() ? `<em class="tm-pay-test">Test mode</em>` : CONFIG.previewOnly ? `<em class="tm-pay-test">Preview</em>` : ""}</label>
-        <label class="tm-pay-opt"><input type="radio" name="tmPayMethod" value="bank"><i class="fa-solid fa-building-columns" aria-hidden="true"></i><span><strong>Bank transfer</strong><small>Upload the receipt · approved by an administrator</small></span></label>
+        <label class="tm-pay-opt${can ? "" : " is-soon"}"><input type="radio" name="tmPayMethod" value="card"${can ? " checked" : " disabled"}><i class="fa-regular fa-credit-card" aria-hidden="true"></i><span><strong>Credit / debit card</strong><small>Pro starts right away · renews automatically · cancel any time</small></span>${!can ? `<em class="tm-pay-test tm-pay-soon">Coming soon</em>` : testMode() ? `<em class="tm-pay-test">Test mode</em>` : status.tester && !status.enabled ? `<em class="tm-pay-test">Test</em>` : ""}</label>
+        <label class="tm-pay-opt"><input type="radio" name="tmPayMethod" value="bank"${can ? "" : " checked"}><i class="fa-solid fa-building-columns" aria-hidden="true"></i><span><strong>Bank transfer</strong><small>Upload the receipt · approved by an administrator</small></span></label>
       </div>
       <div class="tm-pay-card-box">
         <div class="plan-sub-total tm-pay-total"></div>
@@ -373,7 +383,7 @@
       catch (e) { onPaddleEvent = null; ui.reset(); ui.error(e?.message || "The card checkout could not be started."); finish(opts); }
     };
     go.onclick = () => pay();
-    if (pendingSignup) {
+    if (pendingSignup && can) {
       const p = pendingSignup; pendingSignup = null;
       body.querySelector(`[data-plan-period="${p.period}"]`)?.click();
       const agree = box.querySelector(".tm-pay-agree"); if (agree) agree.checked = true;
@@ -397,5 +407,6 @@
   if (!install()) document.addEventListener("DOMContentLoaded", install, { once: true });
 
   const openInvoice = transactionId => openLink(async () => (await fn({ action: "invoice", transaction_id: transactionId })).url);
-  global.TriplemCardPayments = Object.freeze({ config: CONFIG, enabled, billing, enhance, payFromSignup, openInvoice });
+  global.TriplemCardPayments = Object.freeze({ config: CONFIG, enabled, offered, refreshStatus, status: () => ({ ...status }), billing, enhance, payFromSignup, openInvoice });
+  refreshStatus().catch(() => {});
 })(window);

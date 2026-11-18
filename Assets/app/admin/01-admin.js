@@ -2685,6 +2685,7 @@ function updateAdminBackupVisibility(){
   const allowed = isProtectedAdminSession();
   if (wrap) wrap.classList.toggle("hide", !allowed);
   document.getElementById("adminPasswordRecoveryBtn")?.classList.toggle("hide", !allowed);
+  document.getElementById("adminCardPaymentsBtn")?.classList.toggle("hide", !allowed);
   if (!wrap) {
     if (typeof updateAdminSecurityKeyButtonVisibility === "function") updateAdminSecurityKeyButtonVisibility();
     return;

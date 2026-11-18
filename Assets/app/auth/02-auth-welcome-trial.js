@@ -6,6 +6,8 @@
 async function openTrialSignupModal(preferredPlan = "free"){
   try { if (typeof closeSignInOverlay === "function") closeSignInOverlay(); } catch (_) {}
   try { if (window.TRIPLEM_REGIONAL_CURRENCY_READY) await window.TRIPLEM_REGIONAL_CURRENCY_READY; } catch (_) {}
+  // Whether the Main Admin has switched card payments on (migration 235).
+  try { await window.TriplemCardPayments?.refreshStatus?.(true); } catch (_) {}
   let modal = document.getElementById("trialSignupModal");
   if (!modal) {
     modal = document.createElement("div");
@@ -195,7 +197,8 @@ async function openTrialSignupModal(preferredPlan = "free"){
     if (!company() || !$("#trialTeamEnabled")?.checked) return 0;
     return Math.max(1, Math.min(50, Number($("#trialTeamSeats")?.value || 1)));
   };
-  const cardAvailable = () => !!card && !storeEdition && card.enabled?.() !== false && !currentTeamSeats();
+  const cardSwitchedOn = () => !!card && !storeEdition && card.enabled?.() === true;
+  const cardAvailable = () => cardSwitchedOn() && !currentTeamSeats();
   const payMethod = () => (cardAvailable() && S.pay === "card" ? "card" : "bank");
   const steps = () => ["plan", "account", ...(company() ? ["company"] : []), "workspace", ...(paid() ? ["payment"] : [])];
   const STEP_NAMES = { plan: "Plan", account: "Account", company: "Company", workspace: "Workspace", payment: "Payment" };
@@ -212,10 +215,18 @@ async function openTrialSignupModal(preferredPlan = "free"){
   const updatePayment = () => {
     const method = payMethod();
     const seg = modal.querySelector(".su-pay-seg");
-    seg?.classList.toggle("hide", !cardAvailable());
+    // The card choice is always shown (not in the Microsoft Store edition); until the Main Admin
+    // switches card payments on it is marked "Coming soon" and cannot be chosen.
+    seg?.classList.toggle("hide", !card || storeEdition);
+    const cardBtn = modal.querySelector('[data-su-pay="card"]');
+    if (cardBtn) {
+      cardBtn.disabled = !cardAvailable();
+      cardBtn.querySelector(".su-soon")?.remove();
+      if (!cardSwitchedOn()) cardBtn.insertAdjacentHTML("beforeend", `<em class="su-soon">Coming soon</em>`);
+    }
     modal.querySelectorAll("[data-su-pay]").forEach(b => { const on = b.dataset.suPay === method; b.classList.toggle("selected", on); b.setAttribute("aria-checked", String(on)); });
     const note = $("#trialPayNote");
-    const teamNote = !!currentTeamSeats() && !!card && !storeEdition;
+    const teamNote = !!currentTeamSeats() && cardSwitchedOn();
     note?.classList.toggle("hide", !teamNote);
     if (note && teamNote) note.textContent = "Plans with team members are paid by bank transfer.";
     modal.querySelector("[data-su-bank]")?.classList.toggle("hide", method !== "bank");
@@ -297,7 +308,7 @@ async function openTrialSignupModal(preferredPlan = "free"){
     modal.querySelectorAll("[data-signup-type]").forEach(x => { const on = x === btn; x.classList.toggle("selected", on); x.setAttribute("aria-checked", String(on)); });
     showStep("plan");
   });
-  modal.querySelectorAll("[data-su-pay]").forEach(btn => btn.onclick = () => { S.pay = btn.dataset.suPay; updatePayment(); showStep("payment"); });
+  modal.querySelectorAll("[data-su-pay]").forEach(btn => btn.onclick = () => { if (btn.disabled) return; S.pay = btn.dataset.suPay; updatePayment(); showStep("payment"); });
   modal.querySelectorAll('.su-bank-opt input[type="radio"]').forEach(radio => radio.onchange = () => {
     modal.querySelectorAll(".su-bank-opt").forEach(x => x.classList.toggle("selected", !!x.querySelector("input")?.checked));
   });

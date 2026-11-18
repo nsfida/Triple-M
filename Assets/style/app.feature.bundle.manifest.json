@@ -219,10 +219,10 @@
     },
     {
       "path": "Assets/style/75-account-panels.css",
-      "bytes": 29853,
-      "sha256": "54eb9a8cb646ea1ccb1497315ce4688a39ee9fcaf3853a1cd8579617ad8459f0"
+      "bytes": 31751,
+      "sha256": "21bbfc3958b61e7de6f41902ffb5514b189d25a905da25db1df3707ce6be72c4"
     }
   ],
-  "bytes": 1027246,
-  "sha256": "bd4c763139264afd2ed1e1b30f2b2873b7ea32e0cf7f38b271a11e8581fb5998"
+  "bytes": 1029144,
+  "sha256": "46614d4b840e9f33da8bd32b0d4470ff453cc14c1a1182612f4f1503acd93861"
 }

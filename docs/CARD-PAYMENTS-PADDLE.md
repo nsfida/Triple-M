@@ -8,7 +8,8 @@ Bank transfer keeps working exactly as before. The Microsoft Store edition stays
 
 | Part | File |
 |---|---|
-| Database (new tables + functions) | `migrations/231_paddle_card_payments.sql`, `233_card_payment_quantity.sql` (quantity), `234_card_signup.sql` (card at sign-up) |
+| Database (new tables + functions) | `migrations/231_paddle_card_payments.sql`, `233_card_payment_quantity.sql` (quantity), `234_card_signup.sql` (card at sign-up), `235_card_billing_switch.sql` (on/off switch) |
+| Admin switch (Main Admin) | Admin › **Card Payments** (`Assets/app/billing/02-card-billing-admin.js`) |
 | Sign-up panel (card first for Pro) | `Assets/app/auth/02-auth-welcome-trial.js` |
 | Server function (webhook, billing portal, invoices) | `supabase/functions/paddle-billing/index.ts` |
 | Card option in Plan & Subscription | `Assets/app/billing/01-card-payments.js` (+ styles in `Assets/style/75-account-panels.css`) |
@@ -57,3 +58,14 @@ Bank transfer keeps working exactly as before. The Microsoft Store edition stays
 - Each notification is processed once; a payment is recorded once; unknown prices and unmatched
   payments are recorded and reported to administrators (Notifications), not credited.
 - Plans with paid team seats keep bank transfer for now.
+
+## Switching card payments on (2026-11-18)
+
+Card payments start **off**: users see the card option with a "Coming soon" tag and pay by bank
+transfer. After Paddle approves the account:
+
+1. Sign in as the Main Admin, unlock the Admin Security Key, open **Admin › Card Payments**.
+2. Optional first check: put your own test username in **Test accounts**, enter your password,
+   **Save**; pay once with that account, check Pro, refund it in Paddle.
+3. Choose **On**, enter your password, **Save**. Every eligible user now pays by card by default;
+   bank transfer stays available. **Off** returns everyone to bank transfer at once.

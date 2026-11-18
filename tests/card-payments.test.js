@@ -38,7 +38,7 @@ test("card option: public values only, hidden in the Store edition, loaded after
   const js = read("Assets/app/billing/01-card-payments.js");
   assert.doesNotMatch(js, /apikey_|ntfset_|PADDLE_API_KEY|WEBHOOK_SECRET/);
   assert.match(js, /token: "(test|live)_[a-z0-9]+"/);
-  assert.match(js, /if \(storeEdition\(\)\) return false;/);
+  assert.match(js, /function enabled\(\)\{ return !storeEdition\(\) && status\.available; \}/); // 2026-11-18: Main Admin switch
   assert.match(js, /app_card_checkout_start/);
   const html = read("index.html");
   assert.ok(html.indexOf("billing/01-card-payments.js") > html.indexOf("admin/01-admin.js"));

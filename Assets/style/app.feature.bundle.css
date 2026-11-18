@@ -14372,3 +14372,24 @@ html body #planSubscriptionModal.modal:is(#sh-a,*):is(#sh-b,*) .hide{display:non
 @media (max-width:560px){#trialSignupModal .su-grid{grid-template-columns:1fr}}
 /* the side-sheet rules force buttons and blocks visible; keep hidden parts hidden in the sign-up panel */
 html body #trialSignupModal.modal:is(#sh-a,*):is(#sh-b,*) .hide{display:none !important}
+#planSubscriptionModal .tm-pay-opt.is-soon{cursor:not-allowed;opacity:.62}
+#planSubscriptionModal .tm-pay-opt.is-soon > i{background:var(--surface-2,rgba(100,116,139,.12));color:var(--muted,#64748b)}
+#planSubscriptionModal .tm-pay-soon,#trialSignupModal .su-soon{background:#475569 !important;color:#fff !important}
+#trialSignupModal .su-seg-btn{position:relative}
+#trialSignupModal .su-seg-btn:disabled{cursor:not-allowed;opacity:.6}
+#trialSignupModal .su-soon{position:absolute;top:-7px;inset-inline-end:8px;padding:1px 7px;border-radius:999px;font-size:.6rem;font-style:normal;font-weight:700;letter-spacing:.02em;line-height:1.5}
+
+/* ═══ Admin › Card Payments (2026-11-18) ═══ */
+.tm-cb-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--muted,#64748b) 9%,transparent);margin-bottom:12px}
+.tm-cb-opt{display:flex;align-items:center;justify-content:center;gap:8px;min-height:40px;border:0;border-radius:11px;background:transparent;color:var(--muted);font:inherit;font-weight:600;cursor:pointer}
+.tm-cb-opt.is-on{background:var(--surface-elevated,#fff);color:var(--text);box-shadow:0 1px 3px rgba(8,15,30,.12)}
+.tm-cb-opt.is-on[data-v="on"] i{color:var(--success,#16a34a)}
+.tm-cb-field{display:grid;gap:5px;margin:0 0 10px}
+.tm-cb-field > span{font-size:.74rem;font-weight:500}
+.tm-cb-field em{font-style:normal;font-weight:400;color:var(--muted);margin-inline-start:4px}
+.tm-cb-field .input{min-height:40px;border-radius:12px}
+.tm-cb-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.tm-cb-list li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line)}
+.tm-cb-list li:last-child{border-bottom:0}
+.tm-cb-list li > div{display:grid;gap:2px;min-width:0}
+.tm-cb-list small{color:var(--muted);font-size:.72rem;overflow-wrap:anywhere}
