@@ -11,11 +11,8 @@
 .tm-lang-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--primary,#2457d6) 55%,transparent);outline-offset:2px}
 .tm-lang-btn .fa-language{color:var(--primary,#2457d6);font-size:.95rem}
 .tm-lang-caret{font-size:.6rem;opacity:.65}
-.tm-lang-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:2147483000;min-width:168px;padding:6px;border-radius:14px;border:1px solid var(--line,rgba(148,163,184,.35));background:var(--surface-elevated,#fff);box-shadow:0 18px 40px rgba(15,23,42,.18)}
+.tm-lang-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:2147483000;min-width:168px} /* look: 76-menu-system.css */
 .tm-lang-menu[hidden]{display:none}
-.tm-lang-menu button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:38px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--text,#0f172a);font-size:.88rem;font-weight:600;cursor:pointer;text-align:start}
-.tm-lang-menu button:hover,.tm-lang-menu button:focus-visible{background:color-mix(in srgb,var(--primary,#2457d6) 9%,transparent)}
-.tm-lang-menu button[aria-checked="true"]{color:var(--primary,#2457d6)}
 .tm-lang-menu button[lang="ar"]{font-family:"Noto Naskh Arabic",system-ui,sans-serif}
 .tm-lang-menu button[lang="ur"]{font-family:"Noto Nastaliq Urdu","Noto Naskh Arabic",system-ui,sans-serif;line-height:2}
 .landing-lang-picker{margin-inline-end:4px}

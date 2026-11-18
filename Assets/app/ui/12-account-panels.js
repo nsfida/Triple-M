@@ -325,7 +325,7 @@
   const HELP_TOPICS = [
     { q: "Change the language of the app", a: "Open Account settings and choose English, العربية or اردو under Language. Invoices, receipts and PDFs follow the same language.", btn: ["accountSettingsBtn", "Open Account settings", "fa-solid fa-user-gear"] },
     { q: "Set the VAT used for new records", a: "VAT Settings holds the default rate for each currency and whether VAT is added on top or already included.", act: ["help-vat", "Open VAT Settings", "fa-solid fa-percent"] },
-    { q: "Back up or restore your records", a: "Backup & Restore downloads one ZIP file with all your records, and can add back anything that is missing from a backup.", btn: ["userBackupRestoreBtn", "Open Backup & Restore", "fa-solid fa-box-archive"] },
+    { q: "Back up or restore your records", a: "Backup & Restore downloads one ZIP file with all your records, and can add back anything that is missing from a backup.", btn: ["userBackupBtn", "Open Backup & Restore", "fa-solid fa-box-archive"] },
     { q: "Choose the page that opens after sign-in", a: "Pick Triplem VIP Home or any section as your start page.", act: ["help-start", "Choose start page", "fa-solid fa-house-chimney"] },
     { q: "Restore something you deleted", a: "Deleted records go to the Recycle Bin (the bin icon at the top) and can be restored from there.", btn: ["recycleBinBtn", "Open Recycle Bin", "fa-solid fa-trash-can-arrow-up"] },
     { q: "Install Triplem VIP on your phone or computer", a: "Download App shows the Android, iPhone and Windows options with step-by-step instructions.", btn: ["downloadAppBtn", "Open Download App", "fa-solid fa-download"] },
@@ -413,14 +413,14 @@
       <div class="tm-acct-pref-list">
         ${row("vat", "fa-solid fa-percent", "VAT Settings", vat, "taxSettingsBtn")}
         ${row("start", "fa-solid fa-house-chimney", "Default start page", start, "defaultStartPageBtn")}
-        ${row("backup", "fa-solid fa-box-archive", "Backup & Restore", "Download a full copy or restore missing records", "userBackupRestoreBtn")}
+        ${row("backup", "fa-solid fa-box-archive", "Backup & Restore", "Download a full copy or restore missing records", "userBackupBtn")}
         ${row("plan", "fa-solid fa-crown", "Plan & Subscription", "Your access and renewal", "planSubscriptionBtn")}
         ${row("app", "fa-solid fa-download", "Download App", "Android, iPhone and Windows", "downloadAppBtn")}
         ${row("help", "fa-solid fa-circle-question", "Help & Support", "Contact us, quick answers, support details", "userHelpBtn")}
       </div>
     </section>`;
   }
-  const PREF_TARGET = { vat: "taxSettingsBtn", start: "defaultStartPageBtn", backup: "userBackupRestoreBtn", plan: "planSubscriptionBtn", app: "downloadAppBtn", help: "userHelpBtn" };
+  const PREF_TARGET = { vat: "taxSettingsBtn", start: "defaultStartPageBtn", backup: "userBackupBtn", plan: "planSubscriptionBtn", app: "downloadAppBtn", help: "userHelpBtn" };
   function installAccountPrefs(){
     const base = global.renderAccountSettingsSummary;
     if (typeof base !== "function" || base.__tmAp) return;

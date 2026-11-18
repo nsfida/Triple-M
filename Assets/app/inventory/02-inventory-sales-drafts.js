@@ -195,15 +195,15 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
               <div class="card-action-grid loan-inline-actions${hasUnsynced ? " card-action-grid--triple" : ""}" role="group" aria-label="Loan actions">
                 <button class="icon-btn ghost loanHistoryToggle" type="button" data-history-toggle title="Show timeline" aria-label="Show timeline" aria-expanded="false"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
                 <div class="menu-wrap">
-                  <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" title="More actions" data-person-menu="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">☰</button>
+                  <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" title="More actions" data-person-menu="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}" aria-expanded="false"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></button>
                   <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">
                     ${showQuickEntry ? `<button class="menu-item personActionBtn" type="button" data-action="quick-principal" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-plus"></i> ${escapeHtml(quickPrincipalLabel)}</button>` : ""}
                     ${showQuickEntry && openOnly ? `<button class="menu-item personActionBtn" type="button" data-action="quick-payment" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-rotate-left"></i> ${escapeHtml(quickPaymentLabel)}</button>` : ""}
                     <button class="menu-item personActionBtn" type="button" data-action="pdf" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-file-pdf"></i> Download PDF</button>
-                    ${hasUnsynced ? `<button class="menu-item personActionBtn" type="button" data-action="save-db" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Save to Database</button>` : ""}
-                    ${teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="edit-name" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Edit Name</button>` : ""}
-                    ${showInstallmentMove && teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="move-installment" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Move to Installments</button>` : ""}
-                    ${teamCanShowDelete("entries") ? `<button class="menu-item danger personActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Delete Record</button>` : ""}
+                    ${hasUnsynced ? `<button class="menu-item personActionBtn" type="button" data-action="save-db" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-database"></i> Save to Database</button>` : ""}
+                    ${teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="edit-name" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-pen"></i> Edit Name</button>` : ""}
+                    ${showInstallmentMove && teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="move-installment" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-arrow-right-arrow-left"></i> Move to Installments</button>` : ""}
+                    ${teamCanShowDelete("entries") ? `<button class="menu-item danger personActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-trash"></i> Delete Record</button>` : ""}
                   </div>
                 </div>
                 ${hasUnsynced ? `<button class="icon-btn savePersonBtn" type="button" title="Save missing records to database" aria-label="Save to database" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">💾</button>` : ""}
@@ -1243,11 +1243,11 @@ function renderGoodsList(){
             </div>
             <div class="lt-action">
               <div class="menu-wrap">
-                <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" data-goods-menu="${escapeHtml(group.group_id)}" aria-label="Item menu">☰</button>
+                <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" data-goods-menu="${escapeHtml(group.group_id)}" aria-label="Item menu" aria-expanded="false"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></button>
                 <div class="menu-dropdown" data-goods-menu-panel="${escapeHtml(group.group_id)}">
                   <button class="menu-item goodsActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-file-pdf"></i> Download PDF</button>
-                  ${teamCanShowEdit("invoices") ? `<button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Purchase</button>` : ""}
-                  ${teamCanShowDelete("invoices") ? `<button class="menu-item danger goodsActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete Item</button>` : ""}
+                  ${teamCanShowEdit("invoices") ? `<button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}"><i class="fa-solid fa-pen"></i> Edit Purchase</button>` : ""}
+                  ${teamCanShowDelete("invoices") ? `<button class="menu-item danger goodsActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}"><i class="fa-solid fa-trash"></i> Delete Item</button>` : ""}
                 </div>
               </div>
             </div>

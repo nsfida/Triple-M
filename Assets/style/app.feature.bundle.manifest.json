@@ -9,8 +9,8 @@
     },
     {
       "path": "Assets/style/35-build011-refinements.css",
-      "bytes": 12756,
-      "sha256": "ffe680d01533741d9d3edd199f9d5937ca3a94775ae95578db7336faf5508c1c"
+      "bytes": 11789,
+      "sha256": "374fa34ed0858491a4f06d047d785f59901cb2173a4fa8e2b81293f3ee071692"
     },
     {
       "path": "Assets/style/31-aziz-live-support.css",
@@ -29,8 +29,8 @@
     },
     {
       "path": "Assets/style/34-build010-upgrades.css",
-      "bytes": 12624,
-      "sha256": "e6033c1ef2316505bb47e071926190b26cd343755325dd7739b404f9cd66a767"
+      "bytes": 11646,
+      "sha256": "d083761493f532d600011c67862acfbfeb3caaf089fe6af81a784ebf020e9f00"
     },
     {
       "path": "Assets/style/22-landing-hero-polish.css",
@@ -79,8 +79,8 @@
     },
     {
       "path": "Assets/style/44-financial-audit-report.css",
-      "bytes": 16492,
-      "sha256": "93837ef60937d1bb4dd98dd86c4d0ac03f3a7606f7ca3a2d5eaf2427d9baa796"
+      "bytes": 15627,
+      "sha256": "e1aecf2aef17170adfc41ded388e0a8f5f3c341a7872495a39e66613e1803b3c"
     },
     {
       "path": "Assets/style/45-triplem-ai.css",
@@ -114,8 +114,8 @@
     },
     {
       "path": "Assets/style/54-insurance.css",
-      "bytes": 111891,
-      "sha256": "051d2fa3aa570d5f99f16a00b4dad249ef99a2e83cbb568eb8c3fa29e67fbea1"
+      "bytes": 111896,
+      "sha256": "f0547fc1414534c20bf882c08e7c854881ba767aeac165208bc0a2f43485b9b8"
     },
     {
       "path": "Assets/style/55-app-downloads.css",
@@ -164,8 +164,8 @@
     },
     {
       "path": "Assets/style/64-inventory-v2.css",
-      "bytes": 77313,
-      "sha256": "ffde5b16c57ea98717eab5863d50494d7211e8c61c7f2d010161d1c640679431"
+      "bytes": 76909,
+      "sha256": "620934bb84ef0f0d9a36dc998bdf572157c1bd318439fe27fdbcca0eaed34577"
     },
     {
       "path": "Assets/style/65-signup-trial-terms.css",
@@ -174,18 +174,18 @@
     },
     {
       "path": "Assets/style/66-workspace-home-v2.css",
-      "bytes": 46471,
-      "sha256": "ba6c78b30f52faed8071b58689d9364772756140b42dd2efe6babe15a4e1bf28"
+      "bytes": 42820,
+      "sha256": "88e872fe89648308b6b4c12f1b9e56f9ff6861b71d936f6c8987f9e9136c148a"
     },
     {
       "path": "Assets/style/67-expenses-v2.css",
-      "bytes": 54151,
-      "sha256": "71674ee484d5c5e34d4f14c4e9e8a496e4b622ec9f4ce36e3b1c31d64361c286"
+      "bytes": 53718,
+      "sha256": "17c014468129b9a31bc2fc7f68ca3521e8319db4f39dced65d90bc6c0370b61d"
     },
     {
       "path": "Assets/style/68-sections-v2.css",
-      "bytes": 64677,
-      "sha256": "39bbaf00f1ff749b5a2bdf62bfde8751ad4b463258dbe21db2d28eabb6c1fa39"
+      "bytes": 61494,
+      "sha256": "868ecdaf7f77466e18dea8b9320a89a33bd206b5e6c43fba41cd6a14ac97e474"
     },
     {
       "path": "Assets/style/69-admin-user-manager.css",
@@ -199,13 +199,13 @@
     },
     {
       "path": "Assets/style/71-i18n.css",
-      "bytes": 8053,
-      "sha256": "a06b3d3619dcf83beea36775ec6631e64be1f1b65a03b34a852055491d0a1a1e"
+      "bytes": 7440,
+      "sha256": "f9384d35420b77b0e4177bfee33a0a4cccad803636eb3117b23d09144060cc5b"
     },
     {
       "path": "Assets/style/72-bitcoin-v2.css",
-      "bytes": 20597,
-      "sha256": "840df7d8229cac1f002030b214240967407e1aa08a88f501da00bb4230f2eb45"
+      "bytes": 19699,
+      "sha256": "51791124b431ae04958efce3372cda18a3c2355779c1e4279d7e4dc913738e2f"
     },
     {
       "path": "Assets/style/73-pdf-progress.css",
@@ -214,15 +214,20 @@
     },
     {
       "path": "Assets/style/74-expenses-history-v3.css",
-      "bytes": 36290,
-      "sha256": "284f55c1fcb4d4bcf62d7b1cdc85491eef5937e40a47bde8dfb246fc90740b13"
+      "bytes": 35736,
+      "sha256": "da8223d200fb9b550b204a919a8b3b6d61ccda859ded1ef70ba7162d2b4d3b93"
     },
     {
       "path": "Assets/style/75-account-panels.css",
-      "bytes": 38621,
-      "sha256": "7d9f717da6995938c640315848f45eab3675cb04acd13631a6a548a974871b3c"
+      "bytes": 43728,
+      "sha256": "c36d3c31e7b1cb71bec68eeaca31c8ea4cdf1c6d77563bc8050135d9f06fc6ee"
+    },
+    {
+      "path": "Assets/style/76-menu-system.css",
+      "bytes": 16882,
+      "sha256": "a79b08e90ebbb605acff47fa9766b1853446558d6c8982dfb47264a7e3fa7aee"
     }
   ],
-  "bytes": 1035903,
-  "sha256": "36e9f31bed699a9014ca642cdd6c19b98942a8c883ab8737f08e14115395be5d"
+  "bytes": 1045410,
+  "sha256": "751325a105d2927c4eadc221a314c9f25764a0bf73f2daec267e07ed762bd929"
 }

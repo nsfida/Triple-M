@@ -50,7 +50,8 @@ const sources = [
   "Assets/style/72-bitcoin-v2.css",
   "Assets/style/73-pdf-progress.css",
   "Assets/style/74-expenses-history-v3.css",
-  "Assets/style/75-account-panels.css"
+  "Assets/style/75-account-panels.css",
+  "Assets/style/76-menu-system.css"
 ];
 
 const output = path.join(root, "Assets/style/app.feature.bundle.css");

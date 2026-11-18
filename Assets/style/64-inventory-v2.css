@@ -299,9 +299,7 @@ button.inv2-tr:hover,div.inv2-tr:not(.inv2-th):hover{background:var(--inv2-bg)}
 
 /* menus, suggestions */
 .inv2-more{position:relative}
-.inv2-menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:200px;padding:6px;border-radius:12px;background:var(--inv2-surface);border:1px solid var(--inv2-line);box-shadow:0 12px 30px rgba(15,23,42,.16)}
-.inv2-menu-pop button{appearance:none;width:100%;display:flex;gap:10px;align-items:center;padding:9px 10px;border:0;border-radius:8px;background:transparent;color:var(--inv2-text);font:inherit;font-size:.85rem;cursor:pointer;text-align:left}
-.inv2-menu-pop button:hover{background:var(--inv2-bg)}
+.inv2-menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:200px} /* look: 76-menu-system.css */
 .inv2-scan-line{margin:14px 0 6px}
 .inv2-suggest{border:1px solid var(--inv2-line);border-radius:12px;background:var(--inv2-surface);box-shadow:0 10px 24px rgba(15,23,42,.1);padding:6px;margin-bottom:10px}
 .inv2-suggest button{appearance:none;width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:var(--inv2-text);font:inherit;text-align:left;cursor:pointer}

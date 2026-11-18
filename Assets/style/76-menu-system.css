@@ -1,0 +1,173 @@
+/* Triplem VIP · one menu style for every dropdown (2026-11-18)
+ *
+ * The section menu ("Expenses ▾") is the reference: one solid panel, plain rows (no per-row
+ * "banners"), blue icons, hover tint, compact text. This file is the only place that styles the
+ * look of action menus and their ⋮ buttons; the section files keep only position/visibility rules.
+ *
+ * Covered menus: every .menu-dropdown (section Add ▾ / Expenses ▾ / ☰ row menus / account menu /
+ * currency / wallet logo / asset card / inventory …), the home card menu, transaction menus
+ * (expenses, expenses history, loans), PDF menus (expenses history, loans, assets, audit),
+ * Bitcoin, Inventory 2.0, language and Insurance menus.
+ * Content panels with their own layout (theme picker, notifications / messages preview, recycle
+ * bin, public landing projects) keep their own design.
+ *
+ * html:is(#m-a,*) adds id weight only (on <html>, so menus moved to <body> match too): theme layers style buttons inside sections with ids and
+ * !important, which otherwise gives every row its own card.
+ */
+
+/* ── Panel ─────────────────────────────────────────────────────────────────────────── */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+){
+  background:linear-gradient(var(--surface-elevated,rgba(255,255,255,.96)),var(--surface-elevated,rgba(255,255,255,.96))),var(--bg,#fff) !important;
+  border:1px solid color-mix(in srgb,var(--line,#e2e8f0) 90%,transparent) !important;
+  border-radius:12px !important;
+  box-shadow:0 18px 40px -12px rgba(15,23,42,.28),0 2px 6px rgba(15,23,42,.06) !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+  padding:5px !important;gap:1px !important;
+  color:var(--text) !important;
+  max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;
+}
+
+/* ── Rows ──────────────────────────────────────────────────────────────────────────── */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a){
+  display:flex !important;align-items:center !important;justify-content:flex-start;gap:10px !important;
+  width:100% !important;min-width:0;min-height:0 !important;height:auto !important;margin:0 !important;
+  padding:7px 10px !important;border:0 !important;border-radius:8px !important;
+  background:transparent !important;background-image:none !important;box-shadow:none !important;
+  color:var(--text) !important;font:inherit;font-size:.82rem !important;font-weight:500 !important;line-height:1.3 !important;
+  letter-spacing:0 !important;text-align:start !important;text-decoration:none !important;text-transform:none !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;transform:none !important;cursor:pointer;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(:hover,:focus-visible),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(:hover,:focus-visible){
+  background:color-mix(in srgb,var(--primary) 9%,transparent) !important;color:var(--text) !important;outline:none;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(.is-current,.active,[aria-checked="true"],[aria-pressed="true"]),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(.is-current,.active,[aria-checked="true"],[aria-pressed="true"]){
+  color:var(--primary) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(.danger,.is-danger,.text-danger,[data-danger]),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(.danger,.is-danger,.text-danger,[data-danger]){color:var(--danger,#dc2626) !important}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(.danger,.is-danger,.text-danger,[data-danger]):is(:hover,:focus-visible),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(.danger,.is-danger,.text-danger,[data-danger]):is(:hover,:focus-visible){background:color-mix(in srgb,var(--danger,#dc2626) 9%,transparent) !important}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(:disabled,[aria-disabled="true"]),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(:disabled,[aria-disabled="true"]){opacity:.5;cursor:not-allowed}
+
+/* Hidden rows stay hidden (.hide / [hidden] / hidden by permissions). */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.menu-dropdown,.home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item,button,a,label):is(.hide,[hidden]){display:none !important}
+
+/* Two-line rows (PDF choices, Bitcoin "Add", audit export) keep a small muted second line. */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu) :is(button,a,.menu-item) > span:has(> small){display:grid;gap:1px;min-width:0}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu) :is(button,a,.menu-item) :is(b,strong){font-size:.82rem;font-weight:500}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu) :is(button,a,.menu-item) small{font-size:.68rem;font-weight:400;color:var(--muted);line-height:1.3}
+
+/* ── Icons: blue, one width, no tiles ─────────────────────────────────────────────── */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item) > :is(i,svg):first-child,
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a) > :is(i,svg):first-child{
+  flex:0 0 18px;width:18px !important;height:auto !important;min-width:18px;margin:0 !important;padding:0 !important;
+  display:inline-block !important;text-align:center;font-size:.86rem !important;line-height:1;
+  color:var(--primary) !important;background:none !important;border:0;border-radius:0;box-shadow:none;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(.danger,.is-danger,.text-danger,[data-danger]) > i:first-child,
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(.danger,.is-danger,.text-danger,[data-danger]) > i:first-child{color:var(--danger,#dc2626) !important}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body .ws-switch-menu .ws-item-ico{flex:0 0 18px;width:18px;height:18px}
+
+/* ── ⋮ buttons: the Home card button everywhere ───────────────────────────────────── */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.person-menu-btn,.expense-tx-menu-btn,.expense-record-menu-btn,.loan-tx-menu-btn,.asset-card-menu-btn,.inventory-catalog-menu-btn,.insurance-row-menu-btn:not(.insurance-document-menu-btn),.inv2-icon-btn.inv2-menu,.home-card-menu-btn){
+  width:30px !important;height:30px !important;min-width:30px !important;min-height:30px !important;padding:0 !important;
+  display:inline-grid !important;place-items:center;flex:0 0 30px;
+  border:1px solid transparent !important;border-radius:50% !important;
+  background:transparent !important;background-image:none !important;box-shadow:none !important;
+  color:var(--muted) !important;font-size:.86rem !important;line-height:1;cursor:pointer;
+  transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.person-menu-btn,.expense-tx-menu-btn,.expense-record-menu-btn,.loan-tx-menu-btn,.asset-card-menu-btn,.inventory-catalog-menu-btn,.insurance-row-menu-btn:not(.insurance-document-menu-btn),.inv2-icon-btn.inv2-menu,.home-card-menu-btn):is(:hover,:focus-visible,[aria-expanded="true"]){
+  color:var(--text) !important;background:var(--surface-elevated,var(--panel,#fff)) !important;
+  border-color:var(--line) !important;box-shadow:0 4px 12px rgba(15,23,42,.12) !important;outline:none;
+}
+@media (prefers-reduced-motion:reduce){
+  html body :is(.person-menu-btn,.expense-tx-menu-btn,.expense-record-menu-btn,.loan-tx-menu-btn,.asset-card-menu-btn,.inventory-catalog-menu-btn,.insurance-row-menu-btn:not(.insurance-document-menu-btn),.inv2-icon-btn.inv2-menu,.home-card-menu-btn){transition:none}
+}
+
+/* Account menu: controls opened from the Backup / Account Settings side panels stay in the page, never shown */
+.account-menu-dropdown .account-menu-moved[hidden]{display:none !important}
+
+/* PDF choice rows with a title and a description line */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*):is(#m-d,*) body .expense-history-pdf-menu .expense-history-pdf-option{flex-direction:column !important;align-items:flex-start !important;gap:1px !important}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*):is(#m-d,*) body .expense-history-pdf-menu .expense-history-pdf-option strong{font-size:.82rem;font-weight:500}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*):is(#m-d,*) body .expense-history-pdf-menu .expense-history-pdf-option span{font-size:.68rem;font-weight:400;color:var(--muted)}

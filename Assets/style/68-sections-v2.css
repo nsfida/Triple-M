@@ -65,26 +65,7 @@ html body #app#app #accountingPanel .accounting-card-head .btn.primary i{color:v
 .menu-trigger[aria-expanded="true"] .v2-caret{transform:rotate(180deg)}
 html.tm-kbd body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .section-head button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 45%,transparent) !important;outline-offset:1px}
 
-/* ── 4. Same menu style as Add ▾ for every menu in these sections ─────────────────── */
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown,
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"]{
-  background:linear-gradient(var(--surface-elevated,rgba(255,255,255,.94)),var(--surface-elevated,rgba(255,255,255,.94))),var(--bg,#fff) !important;
-  border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:12px !important;
-  box-shadow:0 18px 40px -12px rgba(15,23,42,.28),0 2px 6px rgba(15,23,42,.06) !important;
-  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;padding:5px !important;gap:1px !important;
-}
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item,
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item{
-  background:transparent !important;background-image:none !important;border:0 !important;box-shadow:none !important;
-  border-radius:8px !important;padding:7px 10px !important;min-height:0 !important;margin:0 !important;
-  color:var(--text) !important;font-size:.82rem !important;line-height:1.3 !important;display:flex !important;align-items:center;gap:9px;text-align:left;
-  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;transform:none !important;
-}
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item:is(:hover,:focus-visible),
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item:is(:hover,:focus-visible){background:color-mix(in srgb,var(--primary) 9%,transparent) !important;outline:none}
-:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item i{width:18px;text-align:center;color:var(--primary)}
-:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger){color:var(--danger) !important}
-:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger) i{color:var(--danger)}
+/* ── 4. Menus: one style for every menu, see 76-menu-system.css ──────────────────── */
 
 /* ── 5. Underline tabs instead of boxed switches ─────────────────────────────────── */
 html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch,
@@ -183,11 +164,11 @@ html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#in
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .loan-sub{color:var(--muted);font-size:.76rem}
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .cell small{color:var(--muted);font-size:.7rem}
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .cell strong{font-size:1rem;color:var(--text);font-variant-numeric:tabular-nums}
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger){
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger):not(.person-menu-btn):not(.asset-card-menu-btn){
   width:32px !important;height:32px !important;min-width:32px !important;min-height:32px !important;padding:0 !important;display:inline-grid !important;place-items:center;
   border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:999px !important;background:transparent !important;box-shadow:none !important;color:var(--text) !important;font-size:.8rem;
 }
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger):hover{border-color:color-mix(in srgb,var(--primary) 50%,var(--line)) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger):not(.person-menu-btn):not(.asset-card-menu-btn):hover{border-color:color-mix(in srgb,var(--primary) 50%,var(--line)) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important}
 .loanHistoryToggle i{font-size:.7rem;transition:transform .15s ease}
 .loanHistoryToggle[aria-expanded="true"] i{transform:rotate(180deg)}
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) details.loan > .detail{border-top:1px dashed color-mix(in srgb,var(--line) 85%,transparent);padding:12px 14px !important;background:none !important}

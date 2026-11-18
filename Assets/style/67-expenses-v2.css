@@ -513,7 +513,6 @@ html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-
 #walletsOverviewSection .ev2-btn--add .ev2-caret{font-size:.62rem !important;opacity:.8;transition:transform .15s ease}
 #walletsOverviewSection .ev2-btn--add[aria-expanded="true"] .ev2-caret{transform:rotate(180deg)}
 .ev2-add-wrap{display:inline-flex}
-.menu-dropdown[data-entry-menu-panel="expenses"] .menu-item i{width:16px;text-align:center;color:var(--primary);margin-right:4px}
 @media (max-width:768px){
   .ev2-actions{grid-template-columns:minmax(0,1fr) auto auto auto !important;gap:2px !important}
   html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn{min-height:42px;padding:0 8px}
@@ -568,8 +567,6 @@ html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-
 #walletsOverviewSection .ev2-btn--view[aria-expanded="true"] .ev2-caret{transform:rotate(180deg)}
 #expensesPanel .ev2-seg:not(.ev2-seg--dates){display:none !important}
 #expensesPanel .expenses-head-tools:not(:has(> :not(.ev2-replaced):not(.ev2-seg:not(.ev2-seg--dates)))){display:none !important}
-.menu-dropdown[data-entry-menu-panel="expenses-view"] .menu-item i{width:16px;text-align:center;color:var(--primary);margin-right:4px}
-.menu-dropdown[data-entry-menu-panel="expenses-view"] .menu-item[aria-checked="true"]{color:var(--primary);background:color-mix(in srgb,var(--primary) 9%,transparent)}
 @media (max-width:768px){
   body.ev2-history-open .ev2-actions{grid-template-columns:minmax(0,1fr) auto auto auto auto !important}
 }

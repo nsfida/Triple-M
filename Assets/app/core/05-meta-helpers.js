@@ -404,9 +404,9 @@ function walletLogoPhotoMenuHtml(groupId, walletName = "Wallet", options = {}){
         <i class="fa-solid fa-camera" aria-hidden="true"></i>
       </button>
       <div class="menu-dropdown wallet-logo-menu-dropdown" data-wallet-logo-panel="${gid}" role="menu" aria-label="Wallet photo options">
-        <button type="button" class="menu-item walletLogoMenuAction" data-action="view" data-group-id="${gid}" role="menuitem">View</button>
-        <button type="button" class="menu-item walletLogoMenuAction" data-action="change" data-group-id="${gid}" role="menuitem">Change</button>
-        <button type="button" class="menu-item walletLogoMenuAction wallet-logo-default-action${hasCustom ? "" : " hide"}" data-action="default" data-group-id="${gid}" role="menuitem">Default</button>
+        <button type="button" class="menu-item walletLogoMenuAction" data-action="view" data-group-id="${gid}" role="menuitem"><i class="fa-solid fa-eye"></i> View</button>
+        <button type="button" class="menu-item walletLogoMenuAction" data-action="change" data-group-id="${gid}" role="menuitem"><i class="fa-solid fa-camera"></i> Change</button>
+        <button type="button" class="menu-item walletLogoMenuAction wallet-logo-default-action${hasCustom ? "" : " hide"}" data-action="default" data-group-id="${gid}" role="menuitem"><i class="fa-solid fa-rotate-left"></i> Default</button>
       </div>
     </div>
   `;

@@ -2,29 +2,7 @@
 
 /* Elevated action menus must never be clipped by tables/details/cards. */
 .expense-tx-menu.is-portal,
-.loan-tx-menu.is-portal{
-  display:grid!important;
-  position:fixed!important;
-  min-width:182px;
-  padding:7px;
-  border:1px solid var(--line-strong)!important;
-  border-radius:14px!important;
-  background:var(--surface-elevated)!important;
-  box-shadow:var(--shadow-strong)!important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  overflow:hidden!important;
-  isolation:isolate;
-}
-.expense-tx-menu.is-portal button,
-.loan-tx-menu.is-portal button{
-  display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:0;border-radius:10px;
-  background:transparent;color:var(--text);text-align:left;cursor:pointer;font:inherit;
-}
-.expense-tx-menu.is-portal button:hover,
-.loan-tx-menu.is-portal button:hover{background:var(--surface-hover)}
-.expense-tx-menu.is-portal button.is-danger,
-.loan-tx-menu.is-portal button.is-danger{color:var(--danger)}
+.loan-tx-menu.is-portal{display:grid!important;position:fixed!important;min-width:182px;isolation:isolate} /* look: 76-menu-system.css */
 
 /* Cleaner shared filter surfaces outside Expenses. */
 #app .panel:not(#expensesPanel) .compact-filter-row,
@@ -167,7 +145,7 @@
 .loan-transaction-row{cursor:pointer;transition:background .15s ease,box-shadow .15s ease}
 .loan-transaction-row:hover,.loan-transaction-row:focus-visible{background:var(--surface-hover)!important;outline:none;box-shadow:inset 3px 0 0 var(--primary)}
 .loan-tx-action-wrap{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:5px}
-.loan-tx-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:260;min-width:182px;padding:7px;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface-elevated);box-shadow:var(--shadow-strong)}
+.loan-tx-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:260;min-width:182px}
 .loan-tx-menu.is-open{display:grid}
 .loan-tx-detail-dialog{width:min(720px,calc(100vw - 24px))!important}
 .loan-tx-hero{display:flex;align-items:center;gap:15px;padding:17px;border:1px solid var(--line-strong);border-radius:19px;background:var(--banner-bg);box-shadow:var(--shadow-soft)}

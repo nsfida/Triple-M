@@ -35,7 +35,7 @@ test("history v3: transactions are listed directly (no per-item banners) with sk
   assert.match(js, /window\.TriplemExpenseHistory\.render\(\{/);
   assert.match(js, /window\.TriplemExpenseHistory\.showSkeleton\(\)/);
   // 40 per page with "Load more"; exact totals from one page of up to 100 item summaries
-  assert.match(js, /window\.TriplemExpenseHistory \? 40 : 10/);
+  assert.match(js, /window\.TriplemExpenseHistory \? 60 : 10/);
   assert.match(js, /window\.TriplemExpenseHistory \? 100 :/);
   const H = loadHistory();
   const items = [
@@ -221,7 +221,7 @@ test("history: category counts are per transaction and do not change with the se
   assert.match(js, /if \(!ctx\.hasMore\) \{ T\.types = local\.types; T\.typesExact = true; \}/);
   assert.match(js, /global\.expenseHistoryTypeBreakdown\?\.\(\)/);
   assert.match(js, /const typeOrder = \(a, b\) => \(b\[1\]\.count - a\[1\]\.count\) \|\| String\(a\[0\]\)\.localeCompare\(String\(b\[0\]\)\);/);
-  assert.match(js, /S\.autoMore = S\.type !== "all" && T\.typesExact === true && ctx\.hasMore/);
+  assert.match(js, /fill\(S, key, ctx, S\.full\.length\);/);
   const w = read("Assets/app/expenses/01-expenses-wallets.js");
   const i = w.indexOf("function expenseHistoryTypeBreakdown"), j = w.indexOf("async function ensureExpenseWalletDetailLoaded");
   const body = w.slice(i, j);

@@ -11,16 +11,9 @@ html body #app#app #bitcoinPanel.btc-v2-on > .card.section{display:none !importa
 .btc2-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .btc2-caret{font-size:.6rem;opacity:.85}
 .btc2-menu-wrap{position:relative}
-.btc2-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:40;min-width:300px;max-width:calc(100vw - 24px);padding:6px;border-radius:14px;
-  background:var(--surface-elevated,var(--panel,#fff));border:1px solid color-mix(in srgb,var(--line) 85%,transparent);
-  box-shadow:0 18px 40px -18px rgba(15,23,42,.45),0 2px 6px rgba(15,23,42,.06);display:grid;gap:2px}
+/* Look: 76-menu-system.css */
+.btc2-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:40;min-width:280px;max-width:calc(100vw - 24px);display:grid}
 .btc2-menu.is-small{min-width:210px}
-.btc2-menu-item{display:flex;gap:11px;align-items:center;width:100%;padding:9px 10px;border:0;border-radius:10px;background:none;color:var(--text);font:inherit;text-align:start;cursor:pointer}
-.btc2-menu-item:hover,.btc2-menu-item:focus-visible{background:color-mix(in srgb,var(--primary) 8%,transparent);outline:none}
-.btc2-menu-item > i{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:9px;color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent);font-size:.8rem}
-.btc2-menu-item span{display:grid;gap:1px;min-width:0}
-.btc2-menu-item b{font-weight:500;font-size:.82rem}
-.btc2-menu-item small{font-size:.7rem;color:var(--muted)}
 
 .btc2-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .btc2-tile{display:flex;gap:12px;align-items:center;padding:14px;border-radius:16px;min-width:0;

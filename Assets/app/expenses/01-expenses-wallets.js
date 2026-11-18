@@ -591,8 +591,9 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     const queryChanged = state.expenseLazy.activityQueryKey !== queryKey;
     if (force || queryChanged || !append) state.expenseLazy.activityOffset = 0;
     const historyServerWindow = !search && state.expenseRecordView === "history" && state.expenseLazy.itemHistoryRpcAvailable !== false;
-    // The flat history (v3) shows transactions directly: 40 per page, "Load more" adds the next.
-    const pageLimit = historyServerWindow ? (window.TriplemExpenseHistory ? 40 : 10) : Number(state.expenseLazy.activityPageSize || 250);
+    // The flat history (v3) shows 50 transactions at a time; each page also carries top-ups and
+    // transfers, so 60 records are read per "Load more".
+    const pageLimit = historyServerWindow ? (window.TriplemExpenseHistory ? 60 : 10) : Number(state.expenseLazy.activityPageSize || 250);
     const limit = refreshSameQuery ? Math.min(500, Math.max(pageLimit, Number(state.expenseLazy.lastLoadedCount || 0))) : pageLimit;
     const offset = append ? Number(state.expenseLazy.activityOffset || 0) : 0;
     const searchAllDates = search && state.expenseHistorySearchScope !== "range";
@@ -5114,7 +5115,39 @@ function renderExpensesList(){
     buildTransferEvents(accountsForSections).filter(ev => ev.topupId).map(ev => [String(ev.topupId), ev])
   );
 
-  if (topupTransactions.length > 0){
+  if (window.TriplemExpenseHistory?.renderRecords) {
+    // Same look as Expenses history (2026-11-18): day groups, rows, ⋮ menu, 50 per "Load more".
+    const records = topupTransactions.map(tx => {
+      const receivingKind = receivingKindForTopupRow(tx);
+      const transferEvent = receivingKind === "internal-transfer" ? receivingTransferByTopupId.get(String(tx.id)) : null;
+      const recordType = transferEvent ? "transfer" : "topup";
+      const recordId = transferEvent?.expenseId || tx.id;
+      return {
+        id: recordId, type: recordType, date: tx.action_date || tx.loan_date, createdAt: tx.created_at || "",
+        currency: tx.currency || "AED", amount: Number(tx.action_amount || 0),
+        wallet: tx.person_name || "Wallet", walletLabel: tx.person_name || "Wallet",
+        counterparty: transferEvent ? transferEvent.fromWallet : "",
+        label: receivingKind === "internal-transfer" ? "Internal Transfer" : "Add Money",
+        notes: cleanExpenseNote(tx.notes), auditStatus: tx.auditStatus || "",
+        sync: !tx.auditStatus && typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(tx.id) : "",
+        menu: expenseRecordMenuHtml(recordType, recordId, { allowEdit: true, allowDelete: true, status: tx.auditStatus || "" })
+      };
+    });
+    html += `<details class="expense-collapsible-section" id="topupRecordsSection" data-expense-details-id="topupRecordsSection" open>
+      <summary class="expense-collapsible-header expense-history-header">
+        <h4 class="expense-section-title"><i class="fa-solid fa-arrow-down"></i> Receiving</h4>
+        <span class="expand-icon">▶</span>
+      </summary>
+      <div class="expense-collapsible-content">${window.TriplemExpenseHistory.renderRecords({
+        kind: "receiving", records,
+        hasMore: isExpenseLazyMode() && state.expenseLazy.activityHasMore === true,
+        loadingMore: isExpenseLazyMode() && state.expenseLazy.loadingActivity && state.expenseLazy.loadingAppend === true,
+        loading: isExpenseLazyMode() && state.expenseLazy.loadingActivity && !state.expenseLazy.loadingAppend,
+        rangeText: expenseHistoryRangeText(), pdfType: records.length ? "all-topups" : "",
+        hint: "Add Money and the received side of internal transfers."
+      })}</div>
+    </details>`;
+  } else if (topupTransactions.length > 0){
     html += `<details class="expense-collapsible-section" id="topupRecordsSection" data-expense-details-id="topupRecordsSection" open>
       <summary class="expense-collapsible-header">
         <h4 class="expense-section-title"><i class="fa-solid fa-money-bill-wave"></i> Receiving</h4>
@@ -5214,7 +5247,35 @@ function renderExpensesList(){
   }
   const transferCurrencies = sortCurrenciesList([...transferCurrencySet]);
 
-  if (transferEvents.length > 0 && transferCurrencies.length > 0){
+  if (window.TriplemExpenseHistory?.renderRecords) {
+    const showOtherLeg = isPageCurrencyAll();
+    const records = [];
+    for (const cur of transferCurrencies) for (const r of getTransferRowsForCurrency(cur, transferEvents)) {
+      const ev = transferEvents.find(x => String(x.expenseId) === String(r.eventId));
+      records.push({
+        id: r.eventId || r.editId, type: "transfer", date: r.date, createdAt: "",
+        currency: cur, amount: Number(r.amount || 0), wallet: r.walletName || "Wallet", walletLabel: r.walletName || "Wallet",
+        counterparty: r.counterparty || "", label: "Internal Transfer", notes: r.notes, auditStatus: r.auditStatus || "",
+        rate: r.rateDisplay, otherLeg: ev && !ev.sameCurrency && showOtherLeg ? r.otherLegDisplay : "",
+        sync: !r.auditStatus && typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(r.editId) : "",
+        menu: expenseRecordMenuHtml("transfer", r.eventId || r.editId, { status: r.auditStatus || "" })
+      });
+    }
+    html += `<details class="expense-collapsible-section" id="transferRecordsSection" data-expense-details-id="transferRecordsSection" open>
+      <summary class="expense-collapsible-header expense-history-header">
+        <h4 class="expense-section-title"><i class="fa-solid fa-arrow-right-arrow-left"></i> Internal Transfers</h4>
+        <span class="expand-icon">▶</span>
+      </summary>
+      <div class="expense-collapsible-content">${window.TriplemExpenseHistory.renderRecords({
+        kind: "transfers", records,
+        hasMore: isExpenseLazyMode() && state.expenseLazy.activityHasMore === true,
+        loadingMore: isExpenseLazyMode() && state.expenseLazy.loadingActivity && state.expenseLazy.loadingAppend === true,
+        loading: isExpenseLazyMode() && state.expenseLazy.loadingActivity && !state.expenseLazy.loadingAppend,
+        rangeText: expenseHistoryRangeText(), pdfType: records.length ? "all-transfers" : "",
+        hint: "Each transfer is shown once, from the sending wallet. The received side appears under Receiving."
+      })}</div>
+    </details>`;
+  } else if (transferEvents.length > 0 && transferCurrencies.length > 0){
     html += `<details class="expense-collapsible-section" id="transferRecordsSection" data-expense-details-id="transferRecordsSection" open>
       <summary class="expense-collapsible-header">
         <h4 class="expense-section-title"><i class="fa-solid fa-arrow-right-arrow-left"></i> Internal Transfers</h4>

@@ -99,7 +99,7 @@ function renderInstallmentPlans(){
               <div class="card-action-grid card-action-grid--single" role="group" aria-label="Plan actions">
                 ${pendingPlanId && typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(pendingPlanId) : ""}
                 <div class="menu-wrap">
-                  <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" title="More actions" data-person-menu="${escapeHtml(plan.group_id)}" aria-expanded="false">☰</button>
+                  <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" title="More actions" data-person-menu="${escapeHtml(plan.group_id)}" aria-expanded="false"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></button>
                   <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(plan.group_id)}">
                     <button class="menu-item installmentActionBtn" type="button" data-action="details" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-chart-pie"></i> View charts</button>
                     <button class="menu-item installmentActionBtn" type="button" data-action="schedule" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-list-ol"></i> View schedule</button>
@@ -107,7 +107,7 @@ function renderInstallmentPlans(){
                     <button class="menu-item installmentActionBtn" type="button" data-action="pay" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-money-bill"></i> Pay installment</button>
                     <button class="menu-item installmentActionBtn" type="button" data-action="reminder" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-bell"></i> Reminder</button>
                     <button class="menu-item installmentActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-file-pdf"></i> Download statement</button>
-                    ${teamCanShowDelete("entries") ? `<button class="menu-item danger installmentActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(plan.person_name || "")}" data-direction="taken">Delete Record</button>` : ""}
+                    ${teamCanShowDelete("entries") ? `<button class="menu-item danger installmentActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(plan.person_name || "")}" data-direction="taken"><i class="fa-solid fa-trash"></i> Delete Record</button>` : ""}
                   </div>
                 </div>
               </div>

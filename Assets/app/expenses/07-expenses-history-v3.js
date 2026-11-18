@@ -32,8 +32,14 @@
     type: "all",             // category filter (client side, loaded rows)
     list: [],                // last rendered (filtered + sorted) transactions
     byId: new Map(),
-    bound: false
+    bound: false,
+    limit: 50,               // rows on screen; "Load more" adds 50 (no automatic loading)
+    limitKey: "",
+    full: []                 // all filtered + sorted rows that are loaded
   };
+  const STEP = 50;
+  // Receiving / Internal transfers (records view): own sort and paging.
+  const R = { sort: "newest", limit: STEP, limitKey: "", list: [] };
 
   // Category colours: the same category always gets the same tone.
   const TONES = ["#2563eb", "#16a34a", "#d97706", "#db2777", "#7c3aed", "#0891b2", "#dc2626", "#4f46e5", "#0d9488", "#c2410c"];
@@ -290,25 +296,19 @@
     const types = new Set([...T.types.keys(), ...all.map(t => String(t.expenseType || "Other"))]);
     if (S.type !== "all" && !types.has(S.type)) S.type = "all";
     const filtered = S.type === "all" ? all : all.filter(t => String(t.expenseType || "Other") === S.type);
-    S.list = sorted(filtered);
+    // New dates / search / wallet / category / sort: start again with the first 50.
+    const key = [ctx.rangeText, ctx.searching ? "s" : "", ctx.scope, S.type, S.sort, global.state?.expenseWalletFilter || "", global.state?.search?.expenses || ""].join("|");
+    if (key !== S.limitKey) { S.limitKey = key; S.limit = STEP; }
+    S.full = sorted(filtered);
+    S.list = S.full.slice(0, S.limit);
+    fill(S, key, ctx, S.full.length);
     S.byId = new Map(all.map(t => [String(t.id), t]));
-    // A category is selected but only part of the dates is loaded: load the rest of it.
-    const want = S.type === "all" ? 0 : num(T.types.get(S.type)?.count);
-    const have = filtered.filter(t => !t.auditStatus).length;
-    S.autoMore = S.type !== "all" && T.typesExact === true && ctx.hasMore && !ctx.loadingMore && !ctx.loading && have < want;
-    const shown = all.filter(t => !t.auditStatus).length;
+    const shown = S.list.filter(t => !t.auditStatus).length;
     if (ctx.loading && !all.length) return `<div class="exh">${skeletonHtml(7)}</div>`;
     const empty = !S.list.length
       ? `<div class="exh-empty"><span class="exh-empty-ico" aria-hidden="true"><i class="fa-regular fa-calendar-xmark"></i></span><b>No transactions ${ctx.searching ? "match your search" : "on these dates"}</b><small>${esc(ctx.rangeText)}${ctx.searching && ctx.scope === "range" ? " · try searching all dates" : ""}</small></div>`
       : "";
-    const more = ctx.hasMore
-      ? `<div class="exh-more"><button type="button" class="exh-btn expense-load-more" ${ctx.loadingMore ? "disabled" : ""}>${ctx.loadingMore ? `<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Loading…` : `<i class="fa-solid fa-angles-down" aria-hidden="true"></i> Load more transactions`}</button></div>`
-      : (S.list.length > 6 ? `<div class="exh-end"><i class="fa-solid fa-check" aria-hidden="true"></i> All ${S.list.length} transactions shown</div>` : "");
-    if (S.autoMore) setTimeout(() => {
-      if (!S.autoMore) return;
-      const b = document.querySelector("#expensesList .exh .expense-load-more:not(:disabled)");
-      if (b) b.click();
-    }, 0);
+    const more = moreHtml(S.full.length, S.list.length, ctx, "transactions");
     return `<div class="exh${S.selecting ? " is-selecting" : ""}${ctx.loading ? " is-loading" : ""}${ctx.refreshing ? " is-refreshing" : ""}">
       ${all.length || T.count ? summaryHtml(T, shown) : ""}
       ${chipsHtml(T)}
@@ -316,6 +316,124 @@
       <div class="exh-list" role="list">${ctx.loading ? skeletonHtml(6) : (empty || listHtml(S.list))}</div>
       ${more}
     </div>`;
+  }
+
+
+  /**
+   * "Load more": 50 more rows per click, never on its own. Rows already loaded are shown first;
+   * when they run out and the server has more, the same click loads the next page.
+   */
+  function moreHtml(total, shownRows, ctx, noun){
+    const server = ctx.hasMore === true;
+    if (shownRows < total || server) {
+      const left = total - shownRows;
+      const label = ctx.loadingMore ? `<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Loading…`
+        : `<i class="fa-solid fa-angles-down" aria-hidden="true"></i> ${left >= STEP || server ? `Load ${STEP} more` : `Load ${left} more`}`;
+      return `<div class="exh-more"><span class="exh-more-count">${esc(`Showing ${shownRows} of ${server ? `${total}+` : total} ${noun}`)}</span>
+        <button type="button" class="exh-btn" data-exh-more ${ctx.loadingMore ? "disabled" : ""}>${label}</button></div>`;
+    }
+    return shownRows > 6 ? `<div class="exh-end"><i class="fa-solid fa-check" aria-hidden="true"></i> All ${shownRows} ${noun} shown</div>` : "";
+  }
+
+  /**
+   * Each batch is 50 rows. The server pages also hold the other record kinds, so one batch can
+   * need more than one page: they are read one after another until the batch is full (or the
+   * dates have nothing more). Only the batch that was asked for (first view, or a click on
+   * "Load more") is read; scrolling never loads anything.
+   */
+  let filling = false;
+  function fill(st, key, ctx, have){
+    const k = `${key}#${st.limit}`;
+    if (st.fillKey !== k) { st.fillKey = k; st.fills = 0; }
+    if (filling || !ctx.hasMore || ctx.loading || ctx.loadingMore || have >= st.limit || st.fills >= 8) return;
+    if (typeof loadExpenseActivityForCurrentQuery !== "function") return;
+    st.fills++; filling = true;
+    setTimeout(async () => {
+      try { await loadExpenseActivityForCurrentQuery({ append: true }); } catch (err) { console.warn("More expense records could not be loaded.", err); }
+      filling = false;
+      rerender();
+    }, 0);
+  }
+
+  // ── Receiving / Internal transfers in the same style ───────────────────────────────────
+  /**
+   * ctx: { kind: "receiving" | "transfers", records: [{ id, type, date, createdAt, currency, amount,
+   *   wallet, walletLabel, counterparty, label, notes, auditStatus, rate, otherLeg, menu, sync }],
+   *   hasMore, loadingMore, loading, rangeText, pdfType, hint }
+   */
+  function renderRecords(ctx){
+    bind();
+    const incoming = ctx.kind === "receiving";
+    // wallet names can carry the app's hidden tags ("Cash [ATYPE:Cash Account]"): show the name only
+    const plainName = v => String(v || "").replace(/\s*\[[A-Z_]+(?::[^\]]*)?\]?.*$/, "").trim();
+    const recs = (ctx.records || []).map(r => ({ ...r, currency: r.currency || "AED", counterparty: plainName(r.counterparty), wallet: plainName(r.wallet) || r.wallet, walletLabel: plainName(r.walletLabel) || r.walletLabel }));
+    const key = [ctx.kind, ctx.rangeText, R.sort, global.state?.expenseWalletFilter || "", global.state?.search?.expenses || ""].join("|");
+    if (key !== R.limitKey) { R.limitKey = key; R.limit = STEP; }
+    const by = {
+      newest: (a, b) => (dayStamp(b.date) - dayStamp(a.date)) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")),
+      oldest: (a, b) => (dayStamp(a.date) - dayStamp(b.date)) || String(a.createdAt || "").localeCompare(String(b.createdAt || "")),
+      high: (a, b) => num(b.amount) - num(a.amount),
+      low: (a, b) => num(a.amount) - num(b.amount)
+    }[R.sort] || (() => 0);
+    const full = recs.slice().sort(by);
+    const list = full.slice(0, R.limit);
+    fill(R, key, ctx, full.length);
+    R.list = list;
+    const active = recs.filter(r => !r.auditStatus);
+    const byCur = new Map(), wallets = new Map();
+    let largest = null;
+    for (const r of active) {
+      byCur.set(r.currency, num(byCur.get(r.currency)) + num(r.amount));
+      const w = String(r.wallet || "Wallet"); wallets.set(w, num(wallets.get(w)) + 1);
+      if (!largest || num(r.amount) > num(largest.amount)) largest = r;
+    }
+    const curs = (typeof sortCurrenciesList === "function" ? sortCurrenciesList([...byCur.keys()]) : [...byCur.keys()]);
+    const topWallet = [...wallets.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+    const icon = incoming ? "fa-arrow-down" : "fa-arrow-right-arrow-left";
+    const tone = incoming ? "#16a34a" : "#d97706";
+    if (ctx.loading && !recs.length) return `<div class="exh is-records">${skeletonHtml(6)}</div>`;
+    const summary = recs.length ? `<div class="exh-sum">
+        <div class="exh-sum-card is-main"><span class="exh-sum-label"><i class="fa-solid ${incoming ? "fa-arrow-trend-down" : "fa-arrow-right-arrow-left"}" aria-hidden="true"></i> ${esc(incoming ? "Total received" : "Total transferred")}</span><span class="exh-sum-total">${curs.length ? curs.map(c => `<b>${m(byCur.get(c), c)}</b>`).join("") : `<b>${m(0, "")}</b>`}</span>${full.length > list.length ? `<small class="exh-sum-more">Showing ${list.length} of ${full.length} · load more below</small>` : ""}</div>
+        <div class="exh-sum-card"><span class="exh-sum-label"><i class="fa-solid fa-receipt" aria-hidden="true"></i> ${esc(incoming ? "Receipts" : "Transfers")}</span><b>${esc(String(active.length))}</b><small>${esc(`${curs.length} ${curs.length === 1 ? "currency" : "currencies"}`)}</small></div>
+        <div class="exh-sum-card"><span class="exh-sum-label"><i class="fa-solid fa-wallet" aria-hidden="true"></i> ${esc("Most used wallet")}</span><b class="exh-ellipsis" translate="no">${topWallet ? esc(topWallet[0]) : "—"}</b><small>${topWallet ? esc(`${topWallet[1]} ${topWallet[1] === 1 ? "record" : "records"}`) : esc("No records")}</small></div>
+        <div class="exh-sum-card"><span class="exh-sum-label"><i class="fa-solid fa-arrow-up-wide-short" aria-hidden="true"></i> ${esc("Largest")}</span><b>${largest ? m(largest.amount, largest.currency) : "—"}</b><small class="exh-ellipsis" translate="no">${largest ? esc(largest.wallet || "") : esc("No records")}</small></div>
+      </div>` : "";
+    const sortSel = `<label class="exh-sort"><span class="sr-only">Sort</span><i class="fa-solid fa-arrow-down-wide-short" aria-hidden="true"></i>
+      <select data-exh-rsort aria-label="Sort">${[["newest", "Newest first"], ["oldest", "Oldest first"], ["high", "Amount: high to low"], ["low", "Amount: low to high"]].map(([v, l]) => `<option value="${v}"${R.sort === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>`;
+    const bar = `<div class="exh-bar"><div class="exh-bar-left"><span class="exh-range"><i class="fa-regular fa-calendar" aria-hidden="true"></i> ${esc(ctx.rangeText || "")}</span></div>
+      <div class="exh-bar-right">${sortSel}${ctx.pdfType ? `<button type="button" class="exh-btn expenseActionBtn" data-action="pdf" data-type="${esc(ctx.pdfType)}"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i><span>PDF</span></button>` : ""}</div></div>`;
+    const row = r => {
+      const inactive = !!r.auditStatus, time = timeOf(r), note = cleanNote(r.notes);
+      const meta = [
+        `<span class="exh-wallet">${walletIcon(r.wallet, 14)}<span translate="no">${esc(r.walletLabel || r.wallet || "Wallet")}</span></span>`,
+        r.counterparty && r.counterparty !== "—" ? `<span translate="no"><i class="fa-solid ${incoming ? "fa-arrow-left" : "fa-arrow-right"} exh-dir" aria-hidden="true"></i> ${esc(r.counterparty)}</span>` : "",
+        time ? `<span>${esc(time)}</span>` : "",
+        R.sort !== "newest" && R.sort !== "oldest" ? `<span>${esc(typeof displayDate === "function" ? displayDate(r.date) : r.date)}</span>` : "",
+        note && note !== "—" ? `<span class="exh-note" translate="no" title="${esc(note)}">${esc(note)}</span>` : ""
+      ].filter(Boolean).join(`<i class="exh-sep" aria-hidden="true"></i>`);
+      const sub = r.otherLeg && r.otherLeg !== "—" ? `<small>→ ${esc(r.otherLeg)}${r.rate && r.rate !== "1" ? ` · ${esc(`rate ${r.rate}`)}` : ""}</small>` : `<small class="exh-ref">${esc(ref(r.id))}</small>`;
+      return `<div class="exh-row expense-record-row${incoming ? " is-in" : " is-transfer"}${inactive ? ` is-inactive expense-record-disabled ${r.auditStatus === "archived" ? "is-archived" : "is-deleted"}` : ""}" data-expense-record-type="${esc(r.type)}" data-expense-record-id="${esc(r.id)}" tabindex="0" role="button" aria-label="${esc(r.label)}, ${esc(plainMoney(r.amount, r.currency))}" style="--t:${tone}">
+        <span class="exh-ico" aria-hidden="true"><i class="fa-solid ${icon}"></i></span>
+        <span class="exh-main"><span class="exh-title"><b>${esc(r.label)}</b><span class="exh-cat">${esc(incoming ? "Money in" : "Transfer")}</span>${inactive ? `<span class="exh-del"><i class="fa-solid ${r.auditStatus === "archived" ? "fa-ban" : "fa-trash-can"}" aria-hidden="true"></i>${r.auditStatus === "archived" ? "Permanently deleted" : "Deleted"}</span>` : ""}</span><span class="exh-meta">${meta}</span></span>
+        <span class="exh-amt"><b class="${incoming ? "is-plus" : ""}">${incoming ? "+" : "−"}${m(r.amount, r.currency)}</b>${sub}</span>
+        <span class="exh-act">${r.sync || ""}${r.menu || ""}</span>
+      </div>`;
+    };
+    let body;
+    if (!list.length) body = `<div class="exh-empty"><span class="exh-empty-ico" aria-hidden="true"><i class="fa-regular fa-calendar-xmark"></i></span><b>${esc(incoming ? "No money received on these dates" : "No internal transfers on these dates")}</b><small>${esc(ctx.rangeText || "")}</small></div>`;
+    else if (R.sort !== "newest" && R.sort !== "oldest") body = `<div class="exh-group">${list.map(row).join("")}</div>`;
+    else {
+      const days = new Map();
+      for (const r of list) { const d = String(r.date || "").slice(0, 10); if (!days.has(d)) days.set(d, []); days.get(d).push(r); }
+      body = [...days.entries()].map(([d, rows]) => {
+        const tot = new Map();
+        rows.filter(r => !r.auditStatus).forEach(r => tot.set(r.currency, num(tot.get(r.currency)) + num(r.amount)));
+        const act = rows.filter(r => !r.auditStatus).length, del = rows.length - act;
+        return `<section class="exh-group" aria-label="${esc(dayLabel(d))}"><header class="exh-day"><span>${esc(dayLabel(d))}</span><span class="exh-day-tot"><b>${[...tot.entries()].map(([c, v]) => m(v, c)).join(" · ")}</b><small>${esc(`${act} ${act === 1 ? "record" : "records"}${del ? ` · ${del} deleted` : ""}`)}</small></span></header>${rows.map(row).join("")}</section>`;
+      }).join("");
+    }
+    return `<div class="exh is-records${ctx.loading ? " is-loading" : ""}">${summary}${ctx.hint ? `<p class="exh-hint"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${esc(ctx.hint)}</p>` : ""}${bar}
+      <div class="exh-list" role="list">${body}</div>${moreHtml(full.length, list.length, ctx, "records")}</div>`;
   }
 
   // ── selection, PDF, CSV ─────────────────────────────────────────────────────────────────
@@ -363,6 +481,14 @@
     host.addEventListener("click", async e => {
       const t = e.target;
       if (!t.closest(".exh")) return;
+      const moreBtn = t.closest("[data-exh-more]");
+      if (moreBtn) {
+        // records view or expenses view: 50 more rows (fill() reads the next page if needed).
+        e.stopPropagation();
+        if (moreBtn.closest(".is-records")) R.limit += STEP; else S.limit += STEP;
+        rerender();
+        return;
+      }
       const typeBtn = t.closest("[data-exh-type]");
       if (typeBtn) { S.type = typeBtn.dataset.exhType || "all"; rerender(); return; }
       const scopeBtn = t.closest("[data-exh-scope]");
@@ -401,6 +527,8 @@
     host.addEventListener("change", e => {
       const s = e.target.closest?.("[data-exh-sort]");
       if (s) { S.sort = s.value; rerender(); }
+      const rs = e.target.closest?.("[data-exh-rsort]");
+      if (rs) { R.sort = rs.value; rerender(); }
     });
     host.addEventListener("keydown", e => {
       if (!S.selecting || (e.key !== " " && e.key !== "Enter")) return;
@@ -453,6 +581,7 @@
   global.TriplemExpenseHistory = Object.freeze({
     enabled: () => true,
     render,
+    renderRecords,
     showSkeleton,
     skeletonHtml,
     /** Ordered ids of the transactions on screen (for Previous / Next in the side panel). */

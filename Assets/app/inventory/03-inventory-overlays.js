@@ -1248,19 +1248,19 @@ function renderInventoryVariantRowsHtml(items){
             <button type="button" class="btn soft tiny inventorySkuSellBtn" data-group-id="${escapeHtml(group.group_id)}" ${inStock ? "" : "disabled"} title="Add to cart">
               <i class="fa-solid fa-cart-plus" aria-hidden="true"></i><span>Cart${inDraft ? ` · ${escapeHtml(trimInventoryNumber(inDraft, 3))}` : ""}</span>
             </button>
-            <button type="button" class="tiny ghost inventorySkuRestockBtn" data-group-id="${escapeHtml(group.group_id)}">Restock</button>
-            <button type="button" class="tiny ghost inventorySkuHistoryBtn" data-group-id="${escapeHtml(group.group_id)}" aria-expanded="false">Invoices</button>
+            <button type="button" class="tiny ghost inventorySkuRestockBtn" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-boxes-stacked"></i> Restock</button>
+            <button type="button" class="tiny ghost inventorySkuHistoryBtn" data-group-id="${escapeHtml(group.group_id)}" aria-expanded="false"><i class="fa-solid fa-file-invoice"></i> Invoices</button>
             <div class="menu-wrap">
               <button class="icon-btn ghost menu-trigger" type="button" data-section-sku-menu="${escapeHtml(group.group_id)}" aria-label="More">☰</button>
               <div class="menu-dropdown" data-section-sku-menu-panel="${escapeHtml(group.group_id)}">
-                <button class="menu-item sectionSkuActionBtn" type="button" data-action="details" data-group-id="${escapeHtml(group.group_id)}">Details</button>
-                <button class="menu-item inventorySkuRestockBtn inventory-menu-restock" type="button" data-group-id="${escapeHtml(group.group_id)}">Restock</button>
-                <button class="menu-item inventorySkuHistoryBtn inventory-menu-history" type="button" data-group-id="${escapeHtml(group.group_id)}" aria-expanded="false">Invoices</button>
-                <button class="menu-item sectionSkuActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}">Item PDF</button>
-                <button class="menu-item sectionSkuActionBtn" type="button" data-action="add-related" data-group-id="${escapeHtml(group.group_id)}">Add related</button>
-                ${group.variantId && teamCanShowEdit("invoices") ? `<button class="menu-item sectionSkuActionBtn" type="button" data-action="rename-variant" data-variant-id="${escapeHtml(group.variantId || "")}" data-variant-label="${escapeHtml(group.variantLabel || "")}" data-group-id="${escapeHtml(group.group_id)}">Rename size</button>` : ""}
-                ${teamCanShowEdit("invoices") ? `<button class="menu-item sectionSkuActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit item</button>` : ""}
-                ${teamCanShowDelete("invoices") ? `<button class="menu-item danger sectionSkuActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete item</button>` : ""}
+                <button class="menu-item sectionSkuActionBtn" type="button" data-action="details" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-circle-info"></i> Details</button>
+                <button class="menu-item inventorySkuRestockBtn inventory-menu-restock" type="button" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-boxes-stacked"></i> Restock</button>
+                <button class="menu-item inventorySkuHistoryBtn inventory-menu-history" type="button" data-group-id="${escapeHtml(group.group_id)}" aria-expanded="false"><i class="fa-solid fa-file-invoice"></i> Invoices</button>
+                <button class="menu-item sectionSkuActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-file-pdf"></i> Item PDF</button>
+                <button class="menu-item sectionSkuActionBtn" type="button" data-action="add-related" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-plus"></i> Add related</button>
+                ${group.variantId && teamCanShowEdit("invoices") ? `<button class="menu-item sectionSkuActionBtn" type="button" data-action="rename-variant" data-variant-id="${escapeHtml(group.variantId || "")}" data-variant-label="${escapeHtml(group.variantLabel || "")}" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-i-cursor"></i> Rename size</button>` : ""}
+                ${teamCanShowEdit("invoices") ? `<button class="menu-item sectionSkuActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}"><i class="fa-solid fa-pen"></i> Edit item</button>` : ""}
+                ${teamCanShowDelete("invoices") ? `<button class="menu-item danger sectionSkuActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}"><i class="fa-solid fa-trash"></i> Delete item</button>` : ""}
               </div>
             </div>
           </div>
@@ -1877,8 +1877,8 @@ function inventoryCatalogRowMenuHtml(menuKey, {
     <div class="menu-wrap inventory-catalog-menu-wrap">
       <button class="icon-btn ghost menu-trigger inventory-catalog-menu-btn" type="button" data-catalog-menu="${escapeHtml(menuKey)}" aria-label="More" aria-expanded="false"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></button>
       <div class="menu-dropdown" data-catalog-menu-panel="${escapeHtml(menuKey)}">
-        ${showEdit ? `<button class="menu-item inventoryCatalogActionBtn" type="button" data-action="edit">${escapeHtml(editLabel)}</button>` : ""}
-        ${showDelete ? `<button class="menu-item danger inventoryCatalogActionBtn" type="button" data-action="delete">${escapeHtml(deleteLabel)}</button>` : ""}
+        ${showEdit ? `<button class="menu-item inventoryCatalogActionBtn" type="button" data-action="edit"><i class="fa-solid fa-pen" aria-hidden="true"></i> ${escapeHtml(editLabel)}</button>` : ""}
+        ${showDelete ? `<button class="menu-item danger inventoryCatalogActionBtn" type="button" data-action="delete"><i class="fa-solid fa-trash" aria-hidden="true"></i> ${escapeHtml(deleteLabel)}</button>` : ""}
         ${showChart ? `<button class="menu-item inventoryCatalogActionBtn" type="button" data-action="chart"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> ${escapeHtml(chartLabel)}</button>` : ""}
       </div>
     </div>

@@ -1648,29 +1648,7 @@ body[data-theme="dark"] .workspace-home-card .workspace-card-art,
 
 /* Elevated action menus must never be clipped by tables/details/cards. */
 .expense-tx-menu.is-portal,
-.loan-tx-menu.is-portal{
-  display:grid!important;
-  position:fixed!important;
-  min-width:182px;
-  padding:7px;
-  border:1px solid var(--line-strong)!important;
-  border-radius:14px!important;
-  background:var(--surface-elevated)!important;
-  box-shadow:var(--shadow-strong)!important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  overflow:hidden!important;
-  isolation:isolate;
-}
-.expense-tx-menu.is-portal button,
-.loan-tx-menu.is-portal button{
-  display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:0;border-radius:10px;
-  background:transparent;color:var(--text);text-align:left;cursor:pointer;font:inherit;
-}
-.expense-tx-menu.is-portal button:hover,
-.loan-tx-menu.is-portal button:hover{background:var(--surface-hover)}
-.expense-tx-menu.is-portal button.is-danger,
-.loan-tx-menu.is-portal button.is-danger{color:var(--danger)}
+.loan-tx-menu.is-portal{display:grid!important;position:fixed!important;min-width:182px;isolation:isolate} /* look: 76-menu-system.css */
 
 /* Cleaner shared filter surfaces outside Expenses. */
 #app .panel:not(#expensesPanel) .compact-filter-row,
@@ -1813,7 +1791,7 @@ body[data-theme="dark"] .workspace-home-card .workspace-card-art,
 .loan-transaction-row{cursor:pointer;transition:background .15s ease,box-shadow .15s ease}
 .loan-transaction-row:hover,.loan-transaction-row:focus-visible{background:var(--surface-hover)!important;outline:none;box-shadow:inset 3px 0 0 var(--primary)}
 .loan-tx-action-wrap{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:5px}
-.loan-tx-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:260;min-width:182px;padding:7px;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface-elevated);box-shadow:var(--shadow-strong)}
+.loan-tx-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:260;min-width:182px}
 .loan-tx-menu.is-open{display:grid}
 .loan-tx-detail-dialog{width:min(720px,calc(100vw - 24px))!important}
 .loan-tx-hero{display:flex;align-items:center;gap:15px;padding:17px;border:1px solid var(--line-strong);border-radius:19px;background:var(--banner-bg);box-shadow:var(--shadow-soft)}
@@ -2442,11 +2420,11 @@ body[data-theme="dark"] .workspace-home-card .workspace-card-art,
 
 /* Expenses — clickable transactions, compact action menu, premium detail receipt */
 .expense-tx-row{cursor:pointer;transition:background .16s ease,transform .16s ease}.expense-tx-row:hover,.expense-tx-row:focus-visible{background:var(--surface-hover)!important;outline:none}.expense-tx-row:focus-visible{box-shadow:inset 3px 0 0 var(--primary)}
-.expense-tx-action-wrap{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:5px}.expense-tx-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:250;min-width:175px;padding:7px;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface-elevated);box-shadow:var(--shadow-strong);backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate))}.expense-tx-menu.is-open{display:grid}.expense-tx-menu button{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:0;border-radius:10px;background:transparent;color:var(--text);text-align:left;cursor:pointer}.expense-tx-menu button:hover{background:var(--surface-hover)}.expense-tx-menu button.is-danger{color:var(--danger)}
+.expense-tx-action-wrap{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:5px}.expense-tx-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:250;min-width:175px}.expense-tx-menu.is-open{display:grid}
 .expense-tx-detail-dialog{width:min(720px,calc(100vw - 24px))!important}.expense-tx-kicker,.loan-detail-kicker,.dep-method-kicker{margin:0 0 4px;color:var(--primary);font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.expense-tx-hero{display:flex;align-items:center;gap:16px;padding:18px;border:1px solid var(--line-strong);border-radius:20px;background:var(--banner-bg);box-shadow:var(--shadow-soft)}.expense-tx-icon{width:52px;height:52px;display:grid;place-items:center;border-radius:17px;background:var(--primary-gradient);color:var(--on-primary);font-size:1.25rem;box-shadow:var(--theme-glow-shadow)}.expense-tx-hero small,.expense-tx-hero span{display:block;color:var(--muted)}.expense-tx-hero strong{display:block;color:var(--text-strong);font-size:1.45rem}.expense-tx-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.expense-tx-detail-grid>div,.expense-tx-note{padding:13px;border:1px solid var(--line);border-radius:15px;background:var(--surface-soft)}.expense-tx-detail-grid small,.expense-tx-note small{display:block;color:var(--muted);font-size:.72rem;margin-bottom:5px}.expense-tx-detail-grid strong{color:var(--text-strong);font-size:.88rem}.expense-tx-note{margin-top:10px}.expense-tx-note p{margin:0;color:var(--text);white-space:pre-wrap}.expense-tx-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:14px}
 
 /* Loan details + PDF selection */
-.loan-detail-pdf-menu-wrap{position:relative}.loan-detail-pdf-menu{display:none;position:absolute;right:0;top:calc(100% + 7px);min-width:205px;padding:7px;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface-elevated);box-shadow:var(--shadow-strong);z-index:260}.loan-detail-pdf-menu.is-open{display:grid}.loan-detail-pdf-menu button{display:flex;align-items:center;gap:10px;padding:10px;border:0;border-radius:10px;background:transparent;color:var(--text);cursor:pointer;text-align:left}.loan-detail-pdf-menu button:hover{background:var(--surface-hover)}
+.loan-detail-pdf-menu-wrap{position:relative}.loan-detail-pdf-menu{display:none;position:absolute;right:0;top:calc(100% + 7px);min-width:205px;z-index:260}.loan-detail-pdf-menu.is-open{display:grid}
 .loan-pdf-selection-dialog{width:min(760px,calc(100vw - 24px))!important}.loan-pdf-select-all{display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:14px;background:var(--primary-soft);color:var(--text-strong);font-weight:750}.loan-pdf-selection-list{display:grid;gap:7px;margin-top:10px;max-height:min(52vh,500px);overflow:auto}.loan-pdf-selection-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface-soft);cursor:pointer}.loan-pdf-selection-row:hover{border-color:var(--line-strong);background:var(--surface-hover)}.loan-pdf-selection-row span{display:grid}.loan-pdf-selection-row small{color:var(--muted)}.loan-pdf-selection-row b{color:var(--text-strong)}
 #sectionDetailsModal[data-details-kind="loan"] .section-details-note{padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--primary-soft);color:var(--text)}
 
@@ -6341,7 +6319,7 @@ button.expense-audit-badge{font:inherit;cursor:pointer}
 .financial-audit-section-selector{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.financial-audit-scope-chip{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:4px 9px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--muted);font-size:10px;font-weight:850;cursor:pointer;user-select:none;transition:background .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease,transform .1s ease}.financial-audit-scope-chip:hover:not(:disabled){border-color:color-mix(in srgb,var(--primary) 42%,var(--border));color:var(--text);box-shadow:0 4px 12px rgba(15,23,42,.06)}.financial-audit-scope-chip:active:not(:disabled){transform:scale(.97)}.financial-audit-scope-chip.is-selected{color:var(--primary);border-color:color-mix(in srgb,var(--primary) 48%,var(--border));background:color-mix(in srgb,var(--primary) 9%,var(--card))}.financial-audit-scope-chip:disabled{opacity:.42;cursor:not-allowed}.financial-audit-scope-check{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;font-size:7px;background:color-mix(in srgb,var(--card) 78%,var(--border))}.financial-audit-scope-chip.is-selected .financial-audit-scope-check{background:var(--primary);color:#fff}
 .financial-audit-runbar{margin-top:8px;padding:9px 10px;border-radius:14px}.financial-audit-date-field .input{min-height:34px!important;height:34px;font-size:11px;padding-top:5px;padding-bottom:5px}.financial-audit-run-btn.needs-run{box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%,transparent)}
 .financial-audit-export-menu{position:relative}.financial-audit-export-toggle{display:inline-flex!important;align-items:center;gap:7px}.financial-audit-export-angle{font-size:10px;transition:transform .16s ease}.financial-audit-export-menu.is-open .financial-audit-export-angle{transform:rotate(180deg)}
-.financial-audit-export-dropdown{position:absolute;z-index:2200;right:0;top:calc(100% + 6px);width:270px;padding:6px;border:1px solid var(--border);border-radius:13px;background:var(--card);box-shadow:0 18px 42px rgba(15,23,42,.16);opacity:0;visibility:hidden;transform:translateY(-4px);pointer-events:none;transition:opacity .14s ease,transform .14s ease,visibility .14s ease}.financial-audit-export-menu.is-open .financial-audit-export-dropdown{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto}.financial-audit-export-dropdown>button{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:8px;width:100%;padding:9px;border:0;border-radius:9px;background:transparent;color:var(--text);text-align:left;cursor:pointer}.financial-audit-export-dropdown>button:hover{background:color-mix(in srgb,var(--primary) 7%,var(--card))}.financial-audit-export-dropdown>button>i{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:color-mix(in srgb,var(--primary) 8%,var(--card));color:var(--primary)}.financial-audit-export-dropdown span{display:grid;gap:2px}.financial-audit-export-dropdown strong{font-size:11px}.financial-audit-export-dropdown small{font-size:9px;line-height:1.35;color:var(--muted)}
+.financial-audit-export-dropdown{position:absolute;z-index:2200;right:0;top:calc(100% + 6px);width:270px;opacity:0;visibility:hidden;transform:translateY(-4px);pointer-events:none;transition:opacity .14s ease,transform .14s ease,visibility .14s ease}.financial-audit-export-menu.is-open .financial-audit-export-dropdown{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto}
 .financial-audit-period-sections{display:grid;gap:3px;max-width:48%;text-align:right}.financial-audit-period-sections small{font-size:9px;text-transform:uppercase;letter-spacing:.045em;color:var(--muted);font-weight:800}.financial-audit-period-sections strong{font-size:10px;line-height:1.45;color:var(--text);font-weight:750}
 .financial-audit-executive-card{border:1px solid var(--border);border-radius:16px;background:var(--card);overflow:hidden}.financial-audit-executive-body{display:grid;gap:12px;padding:12px}.financial-audit-section-summary-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:11px 14px 4px;border-top:1px solid var(--border)}.financial-audit-section-summary-head strong{font-size:12px}.financial-audit-section-summary-head span{max-width:56%;font-size:9px;line-height:1.4;color:var(--muted);text-align:right}
 .financial-audit-metric.is-tax-payable strong{color:#b45309}.financial-audit-metric.is-tax-credit strong{color:#16834a}.financial-audit-tax-position b{color:#b45309}.financial-audit-module-grid.is-executive{padding-top:8px}.financial-audit-module-grid.is-executive .financial-audit-module-values{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -8095,7 +8073,7 @@ body.messages-compose-open{overflow:hidden!important}
 /* Insurance 173 — floating row menus, compact document actions and customer duplicate guard. */
 #insurancePanel .insurance-clickable-row{cursor:pointer}
 #insurancePanel .insurance-clickable-row:focus-visible{outline:2px solid color-mix(in srgb,var(--insurance-primary,var(--accent)) 55%,transparent);outline-offset:1px}
-#insurancePanel .insurance-row-menu-btn{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;border-radius:6px!important;font-size:.62rem!important}
+#insurancePanel .insurance-document-menu-btn{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;border-radius:6px!important;font-size:.62rem!important}
 
 .insurance-floating-menu{
   position:fixed;z-index:2147483647!important;display:grid;gap:2px;
@@ -10228,9 +10206,7 @@ button.inv2-tr:hover,div.inv2-tr:not(.inv2-th):hover{background:var(--inv2-bg)}
 
 /* menus, suggestions */
 .inv2-more{position:relative}
-.inv2-menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:200px;padding:6px;border-radius:12px;background:var(--inv2-surface);border:1px solid var(--inv2-line);box-shadow:0 12px 30px rgba(15,23,42,.16)}
-.inv2-menu-pop button{appearance:none;width:100%;display:flex;gap:10px;align-items:center;padding:9px 10px;border:0;border-radius:8px;background:transparent;color:var(--inv2-text);font:inherit;font-size:.85rem;cursor:pointer;text-align:left}
-.inv2-menu-pop button:hover{background:var(--inv2-bg)}
+.inv2-menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:200px} /* look: 76-menu-system.css */
 .inv2-scan-line{margin:14px 0 6px}
 .inv2-suggest{border:1px solid var(--inv2-line);border-radius:12px;background:var(--inv2-surface);box-shadow:0 10px 24px rgba(15,23,42,.1);padding:6px;margin-bottom:10px}
 .inv2-suggest button{appearance:none;width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:var(--inv2-text);font:inherit;text-align:left;cursor:pointer}
@@ -11201,39 +11177,7 @@ html body #app #workspaceHomeGrid > .wh2-card.card-order-target{outline:2px dash
 .card-order-ghost.wh2-card .wh2-menu{display:none}
 
 /* ── Card menu + rename dialog ───────────────────────────────────────── */
-.home-card-menu{
-  position:fixed;
-  z-index:2147483000;
-  min-width:196px;
-  padding:6px;
-  border:1px solid var(--line,rgba(15,23,42,.12));
-  border-radius:14px;
-  background:var(--surface-elevated,#fff);
-  color:var(--text,#0f172a);
-  box-shadow:0 18px 40px rgba(15,23,42,.22),0 2px 6px rgba(15,23,42,.08);
-  -webkit-backdrop-filter:blur(18px) saturate(1.2);
-  backdrop-filter:blur(18px) saturate(1.2);
-  animation:whMenuIn .14s ease-out both;
-}
-.home-card-menu button{
-  width:100%;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:9px 11px;
-  border:0;
-  border-radius:9px;
-  background:transparent;
-  color:inherit;
-  font:inherit;
-  font-size:.84rem;
-  font-weight:650;
-  text-align:left;
-  cursor:pointer;
-}
-.home-card-menu button i{width:16px;text-align:center;color:var(--primary);font-size:.82rem}
-.home-card-menu button:hover,
-.home-card-menu button:focus-visible{background:color-mix(in srgb,var(--primary) 9%,transparent);outline:none}
+.home-card-menu{position:fixed;z-index:2147483000;min-width:196px;animation:whMenuIn .14s ease-out both} /* look: 76-menu-system.css */
 @keyframes whMenuIn{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
 
 .home-rename-backdrop{
@@ -11649,44 +11593,18 @@ html.tm-kbd body #app #workspaceSectionNav#workspaceSectionNav .ws-switch-btn:fo
 #workspaceSectionNav .ws-switch-name{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(260px,52vw);padding-top:1px}
 #workspaceSectionNav .ws-caret{font-size:.62rem;color:var(--muted);transition:transform .15s ease}
 #workspaceSectionNav .ws-switch-btn[aria-expanded="true"] .ws-caret{transform:rotate(180deg)}
-.menu-dropdown.ws-switch-menu{min-width:230px;max-height:min(70vh,540px);overflow-y:auto;overscroll-behavior:contain}
-.ws-switch-menu .ws-item{display:flex;align-items:center;gap:10px;font-size:.84rem;white-space:nowrap}
+.menu-dropdown.ws-switch-menu{min-width:220px}
+.ws-switch-menu .ws-item{white-space:nowrap}
 .ws-switch-menu .ws-item-ico{width:18px;height:18px;flex:0 0 18px;display:block;background-color:var(--primary);
   -webkit-mask:var(--sec-icon) center / contain no-repeat;mask:var(--sec-icon) center / contain no-repeat}
 .ws-switch-menu .ws-item-ico--home{background:none;-webkit-mask:none;mask:none;color:var(--primary);font-size:.9rem;text-align:center;line-height:18px}
-.ws-switch-menu .ws-item.is-current{color:var(--primary);background:color-mix(in srgb,var(--primary) 9%,transparent)}
 .ws-switch-menu .ws-item-label{overflow:hidden;text-overflow:ellipsis}
 @media (max-width:820px){
   html body #app #workspaceSectionNav#workspaceSectionNav .ws-switch-btn{font-size:.95rem;gap:8px}
   #workspaceSectionNav .ws-switch-btn .workspace-section-icon{width:22px;height:22px;flex-basis:22px}
 }
 
-/* 2026-11-14 c: the section menu, "Expenses ▾" and "Add ▾" share one menu style:
-   one solid panel, items without their own background (no "banners"), hover tint only,
-   compact rows so the whole section list fits without a scroll bar.
-   :is(#m-a,*) etc. add id weight: the theme layer styles buttons inside the section bar and
-   the wallets area with ids, which otherwise gives every item its own card. */
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown:is(.ws-switch-menu,[data-entry-menu-panel="expenses"],[data-entry-menu-panel="expenses-view"]){
-  /* opaque: the theme's surface colour laid over the page colour, so nothing shows through */
-  background:linear-gradient(var(--surface-elevated,rgba(255,255,255,.94)),var(--surface-elevated,rgba(255,255,255,.94))),var(--bg,#fff) !important;
-  border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:12px !important;
-  box-shadow:0 18px 40px -12px rgba(15,23,42,.28),0 2px 6px rgba(15,23,42,.06) !important;
-  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;padding:5px !important;gap:1px !important;
-}
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown:is(.ws-switch-menu,[data-entry-menu-panel="expenses"],[data-entry-menu-panel="expenses-view"]) .menu-item{
-  background:transparent !important;background-image:none !important;border:0 !important;box-shadow:none !important;
-  border-radius:8px !important;padding:7px 10px !important;min-height:0 !important;margin:0 !important;
-  color:var(--text) !important;font-size:.82rem !important;line-height:1.3 !important;display:flex !important;align-items:center;gap:9px;text-align:left;
-  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;transform:none !important;
-}
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown:is(.ws-switch-menu,[data-entry-menu-panel="expenses"],[data-entry-menu-panel="expenses-view"]) .menu-item:is(:hover,:focus-visible){
-  background:color-mix(in srgb,var(--primary) 9%,transparent) !important;outline:none;
-}
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown:is(.ws-switch-menu,[data-entry-menu-panel="expenses-view"]) .menu-item:is(.is-current,[aria-checked="true"]){
-  color:var(--primary) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important;
-}
-html body .menu-dropdown:is([data-entry-menu-panel="expenses"],[data-entry-menu-panel="expenses-view"]) .menu-item i{width:18px;margin:0 !important;text-align:center;color:var(--primary)}
-html body .menu-dropdown.ws-switch-menu{max-height:calc(100dvh - 24px) !important;overflow-y:auto;scrollbar-width:thin;min-width:220px}
+/* The look of this menu (and every other menu) lives in 76-menu-system.css. */
 
 /* ===== SOURCE: Assets/style/67-expenses-v2.css ===== */
 /* Triplem VIP Expenses v2 — 2026-11-12
@@ -12204,7 +12122,6 @@ html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-
 #walletsOverviewSection .ev2-btn--add .ev2-caret{font-size:.62rem !important;opacity:.8;transition:transform .15s ease}
 #walletsOverviewSection .ev2-btn--add[aria-expanded="true"] .ev2-caret{transform:rotate(180deg)}
 .ev2-add-wrap{display:inline-flex}
-.menu-dropdown[data-entry-menu-panel="expenses"] .menu-item i{width:16px;text-align:center;color:var(--primary);margin-right:4px}
 @media (max-width:768px){
   .ev2-actions{grid-template-columns:minmax(0,1fr) auto auto auto !important;gap:2px !important}
   html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-btn{min-height:42px;padding:0 8px}
@@ -12259,8 +12176,6 @@ html body #app #walletsOverviewSection#walletsOverviewSection .ev2-actions .ev2-
 #walletsOverviewSection .ev2-btn--view[aria-expanded="true"] .ev2-caret{transform:rotate(180deg)}
 #expensesPanel .ev2-seg:not(.ev2-seg--dates){display:none !important}
 #expensesPanel .expenses-head-tools:not(:has(> :not(.ev2-replaced):not(.ev2-seg:not(.ev2-seg--dates)))){display:none !important}
-.menu-dropdown[data-entry-menu-panel="expenses-view"] .menu-item i{width:16px;text-align:center;color:var(--primary);margin-right:4px}
-.menu-dropdown[data-entry-menu-panel="expenses-view"] .menu-item[aria-checked="true"]{color:var(--primary);background:color-mix(in srgb,var(--primary) 9%,transparent)}
 @media (max-width:768px){
   body.ev2-history-open .ev2-actions{grid-template-columns:minmax(0,1fr) auto auto auto auto !important}
 }
@@ -12333,26 +12248,7 @@ html body #app#app #accountingPanel .accounting-card-head .btn.primary i{color:v
 .menu-trigger[aria-expanded="true"] .v2-caret{transform:rotate(180deg)}
 html.tm-kbd body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .section-head button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 45%,transparent) !important;outline-offset:1px}
 
-/* ── 4. Same menu style as Add ▾ for every menu in these sections ─────────────────── */
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown,
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"]{
-  background:linear-gradient(var(--surface-elevated,rgba(255,255,255,.94)),var(--surface-elevated,rgba(255,255,255,.94))),var(--bg,#fff) !important;
-  border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:12px !important;
-  box-shadow:0 18px 40px -12px rgba(15,23,42,.28),0 2px 6px rgba(15,23,42,.06) !important;
-  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;padding:5px !important;gap:1px !important;
-}
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item,
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item{
-  background:transparent !important;background-image:none !important;border:0 !important;box-shadow:none !important;
-  border-radius:8px !important;padding:7px 10px !important;min-height:0 !important;margin:0 !important;
-  color:var(--text) !important;font-size:.82rem !important;line-height:1.3 !important;display:flex !important;align-items:center;gap:9px;text-align:left;
-  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;transform:none !important;
-}
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item:is(:hover,:focus-visible),
-html body :is(#m-a,*):is(#m-b,*):is(#m-c,*) .menu-dropdown[data-fixed-menu-portaled="true"] .menu-item:is(:hover,:focus-visible){background:color-mix(in srgb,var(--primary) 9%,transparent) !important;outline:none}
-:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel,#mainOverview) .menu-dropdown .menu-item i{width:18px;text-align:center;color:var(--primary)}
-:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger){color:var(--danger) !important}
-:is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel,#notesPanel,#dashboardPanel,#auditPanel,#goodsPanel,#insurancePanel,#messagesPanel,#aboutPanel,#accountingPanel,#bitcoinPanel,#adminPanel) .menu-dropdown .menu-item:is(.danger,[data-danger],.text-danger) i{color:var(--danger)}
+/* ── 4. Menus: one style for every menu, see 76-menu-system.css ──────────────────── */
 
 /* ── 5. Underline tabs instead of boxed switches ─────────────────────────────────── */
 html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel) .loan-mode-switch,
@@ -12451,11 +12347,11 @@ html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#in
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .loan-sub{color:var(--muted);font-size:.76rem}
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .cell small{color:var(--muted);font-size:.7rem}
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) .loan-top .cell strong{font-size:1rem;color:var(--text);font-variant-numeric:tabular-nums}
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger){
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger):not(.person-menu-btn):not(.asset-card-menu-btn){
   width:32px !important;height:32px !important;min-width:32px !important;min-height:32px !important;padding:0 !important;display:inline-grid !important;place-items:center;
   border:1px solid color-mix(in srgb,var(--line) 90%,transparent) !important;border-radius:999px !important;background:transparent !important;box-shadow:none !important;color:var(--text) !important;font-size:.8rem;
 }
-html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger):hover{border-color:color-mix(in srgb,var(--primary) 50%,var(--line)) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important}
+html body #app#app :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel,#assetsPanel) :is(.loan-inline-actions,.asset-card-menu) :is(.icon-btn,.tiny,button.menu-trigger):not(.person-menu-btn):not(.asset-card-menu-btn):hover{border-color:color-mix(in srgb,var(--primary) 50%,var(--line)) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important}
 .loanHistoryToggle i{font-size:.7rem;transition:transform .15s ease}
 .loanHistoryToggle[aria-expanded="true"] i{transform:rotate(180deg)}
 :is(#givenPanel,#receivedPanel,#takenPanel,#returnedPanel,#installmentsPanel) details.loan > .detail{border-top:1px dashed color-mix(in srgb,var(--line) 85%,transparent);padding:12px 14px !important;background:none !important}
@@ -13345,11 +13241,8 @@ html.triplem-store-app [data-ms-store-promo],
 .tm-lang-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--primary,#2457d6) 55%,transparent);outline-offset:2px}
 .tm-lang-btn .fa-language{color:var(--primary,#2457d6);font-size:.95rem}
 .tm-lang-caret{font-size:.6rem;opacity:.65}
-.tm-lang-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:2147483000;min-width:168px;padding:6px;border-radius:14px;border:1px solid var(--line,rgba(148,163,184,.35));background:var(--surface-elevated,#fff);box-shadow:0 18px 40px rgba(15,23,42,.18)}
+.tm-lang-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:2147483000;min-width:168px} /* look: 76-menu-system.css */
 .tm-lang-menu[hidden]{display:none}
-.tm-lang-menu button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:38px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--text,#0f172a);font-size:.88rem;font-weight:600;cursor:pointer;text-align:start}
-.tm-lang-menu button:hover,.tm-lang-menu button:focus-visible{background:color-mix(in srgb,var(--primary,#2457d6) 9%,transparent)}
-.tm-lang-menu button[aria-checked="true"]{color:var(--primary,#2457d6)}
 .tm-lang-menu button[lang="ar"]{font-family:"Noto Naskh Arabic",system-ui,sans-serif}
 .tm-lang-menu button[lang="ur"]{font-family:"Noto Nastaliq Urdu","Noto Naskh Arabic",system-ui,sans-serif;line-height:2}
 .landing-lang-picker{margin-inline-end:4px}
@@ -13422,16 +13315,9 @@ html body #app#app #bitcoinPanel.btc-v2-on > .card.section{display:none !importa
 .btc2-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .btc2-caret{font-size:.6rem;opacity:.85}
 .btc2-menu-wrap{position:relative}
-.btc2-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:40;min-width:300px;max-width:calc(100vw - 24px);padding:6px;border-radius:14px;
-  background:var(--surface-elevated,var(--panel,#fff));border:1px solid color-mix(in srgb,var(--line) 85%,transparent);
-  box-shadow:0 18px 40px -18px rgba(15,23,42,.45),0 2px 6px rgba(15,23,42,.06);display:grid;gap:2px}
+/* Look: 76-menu-system.css */
+.btc2-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:40;min-width:280px;max-width:calc(100vw - 24px);display:grid}
 .btc2-menu.is-small{min-width:210px}
-.btc2-menu-item{display:flex;gap:11px;align-items:center;width:100%;padding:9px 10px;border:0;border-radius:10px;background:none;color:var(--text);font:inherit;text-align:start;cursor:pointer}
-.btc2-menu-item:hover,.btc2-menu-item:focus-visible{background:color-mix(in srgb,var(--primary) 8%,transparent);outline:none}
-.btc2-menu-item > i{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:9px;color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent);font-size:.8rem}
-.btc2-menu-item span{display:grid;gap:1px;min-width:0}
-.btc2-menu-item b{font-weight:500;font-size:.82rem}
-.btc2-menu-item small{font-size:.7rem;color:var(--muted)}
 
 .btc2-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .btc2-tile{display:flex;gap:12px;align-items:center;padding:14px;border-radius:16px;min-width:0;
@@ -13730,14 +13616,10 @@ html[dir="rtl"] .tm-pdfp-track>span::after{animation-direction:reverse}
 .exh-sel-count{font-size:.76rem;color:var(--muted,#64748b);font-variant-numeric:tabular-nums}
 .exh-sel-count b{color:var(--text,#0f172a)}
 .exh-pdf-wrap{position:relative;display:inline-flex}
-.exh-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:40;min-width:236px;display:grid;gap:2px;padding:6px;border-radius:14px;
-  border:1px solid var(--line,#e2e8f0);background:var(--surface-elevated,var(--panel,#fff));box-shadow:0 22px 48px -20px rgba(15,23,42,.45)}
+/* Look: 76-menu-system.css */
+.exh-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:40;min-width:236px;display:grid}
 .exh-menu[hidden]{display:none}
-.exh-menu button{display:flex;align-items:flex-start;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:10px;background:transparent;color:var(--text,#0f172a);font:inherit;text-align:left;cursor:pointer}
-.exh-menu button:hover{background:color-mix(in srgb,var(--primary,#2457d6) 8%,transparent)}
-.exh-menu button > i{margin-top:2px;color:var(--primary,#2457d6);width:16px;text-align:center}
-.exh-menu b{display:block;font-size:.78rem;font-weight:700}
-.exh-menu small{display:block;font-size:.68rem;color:var(--muted,#64748b)}
+.exh-menu b,.exh-menu small{display:block}
 
 /* list */
 .exh-list{display:grid;gap:14px}
@@ -13777,8 +13659,6 @@ html[dir="rtl"] .tm-pdfp-track>span::after{animation-direction:reverse}
 .exh-amt small{font-size:.66rem;color:var(--muted,#64748b);white-space:nowrap;font-variant-numeric:tabular-nums}
 .exh-ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;opacity:.8}
 .exh-act{display:flex;align-items:center;gap:2px}
-.exh-kebab{width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;color:var(--muted,#64748b);cursor:pointer}
-.exh-kebab:hover,.exh-kebab[aria-expanded="true"]{background:color-mix(in srgb,var(--primary,#2457d6) 10%,transparent);color:var(--primary,#2457d6)}
 .exh-row .expense-tx-menu{display:none}
 .exh-row.is-inactive{cursor:pointer}
 .exh-row.is-inactive .exh-title b,.exh-row.is-inactive .exh-amt b{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted,#64748b) 70%,transparent);color:var(--muted,#64748b)}
@@ -13791,7 +13671,8 @@ html[dir="rtl"] .tm-pdfp-track>span::after{animation-direction:reverse}
 .exh-empty-ico{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:1.2rem;color:var(--primary,#2457d6);background:color-mix(in srgb,var(--primary,#2457d6) 10%,transparent);margin-bottom:4px}
 .exh-empty b{font-size:.9rem;font-weight:700}
 .exh-empty small{font-size:.74rem;color:var(--muted,#64748b)}
-.exh-more{display:flex;justify-content:center;padding:4px 0}
+.exh-more{display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 0}
+.exh-more-count{font-size:.7rem;color:var(--muted,#64748b)}
 .exh-more .exh-btn{min-height:36px;padding:0 18px}
 .exh-end{display:flex;align-items:center;justify-content:center;gap:7px;padding:4px 0 2px;font-size:.72rem;color:var(--muted,#64748b)}
 .exh-end i{color:#16a34a}
@@ -13850,13 +13731,11 @@ html[dir="rtl"] .tm-pdfp-track>span::after{animation-direction:reverse}
   .exh-meta{font-size:.68rem}
   .exh-meta .exh-note{display:none}
   .exh-amt b{font-size:.84rem}
-  .exh-kebab{width:28px}
   .exh-day{padding:9px 12px}
   .exh-menu{right:auto;left:0}
 }
 html[dir="rtl"] .exh-row::before{left:auto;right:0;border-radius:3px 0 0 3px}
 html[dir="rtl"] .exh-menu{right:auto;left:0}
-html[dir="rtl"] .exh-menu button{text-align:right}
 html[dir="rtl"] .exh-amt{justify-items:start;text-align:left}
 
 /* ── side panel: transaction ───────────────────────────────────────────────────────────── */
@@ -14081,6 +13960,13 @@ html body #app#app #expensesList .exh-sort select{font-weight:600;color:inherit 
 .exh-row.is-archived .exh-del{color:var(--muted,#64748b);background:color-mix(in srgb,var(--muted,#64748b) 12%,transparent)}
 html[data-triplem-theme-mode="dark"] .exh-del{color:#f87171}
 html[data-triplem-theme-mode="dark"] .exh-row.is-archived .exh-del{color:var(--muted,#94a3b8)}
+
+/* Receiving / Internal transfers in the history style (2026-11-18) */
+.exh-amt b.is-plus{color:#15803d}
+html[data-triplem-theme-mode="dark"] .exh-amt b.is-plus{color:#4ade80}
+.exh-dir{font-size:.62rem;color:var(--muted,#64748b)}
+.exh-hint{display:flex;align-items:center;gap:7px;margin:2px 0 8px;font-size:.72rem;color:var(--muted,#64748b)}
+.exh-hint i{color:var(--primary,#2457d6)}
 
 /* ===== SOURCE: Assets/style/75-account-panels.css ===== */
 /* Triplem VIP · Account menu side panels (2026-11-17)
@@ -14461,3 +14347,232 @@ iframe.paddle-frame{z-index:2147483600 !important}
 .tm-nf-row .tm-dp-row-ico{color:var(--t,var(--primary));background:color-mix(in srgb,var(--t,var(--primary)) 12%,transparent)}
 .tm-nf-row.is-unread .tm-dp-row-main b{font-weight:600}
 .tm-nf-row.is-unread .tm-dp-row-amt small{color:var(--primary)}
+
+/* Account settings side panel (ui/14-account-hub.js) */
+.tm-ah-hero{display:grid;grid-template-columns:56px minmax(0,1fr) auto;align-items:center;gap:14px;margin:6px 0 4px;padding:16px;border-radius:18px;border:1px solid color-mix(in srgb,var(--primary) 20%,var(--line));background:radial-gradient(130% 120% at 100% 0%,color-mix(in srgb,var(--primary) 11%,transparent),transparent 60%),color-mix(in srgb,var(--primary) 3%,transparent)}
+.tm-ah-hero img{width:56px;height:56px;border-radius:16px;object-fit:contain;background:#fff;border:1px solid var(--line)}
+.tm-ah-hero div{display:grid;gap:2px;min-width:0}
+.tm-ah-hero b{font-size:1.02rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm-ah-hero span{font-size:.76rem;color:var(--muted)}
+.tm-ah-hero small{font-size:.72rem;color:var(--text);opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm-ah-rows,.tm-bk-list{display:grid;gap:8px}
+.tm-ah-row{display:grid;grid-template-columns:36px minmax(0,1fr) auto auto;align-items:center;gap:12px;width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-elevated,#fff);color:var(--text);font:inherit;text-align:start;cursor:pointer;transition:border-color .16s ease,background-color .16s ease}
+.tm-ah-row:hover,.tm-ah-row:focus-visible{border-color:color-mix(in srgb,var(--primary) 45%,var(--line));background:color-mix(in srgb,var(--primary) 4%,var(--surface-elevated,#fff));outline:none}
+.tm-ah-row-ico,.tm-bk-ico{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;color:var(--t,var(--primary));background:color-mix(in srgb,var(--t,var(--primary)) 11%,transparent)}
+.tm-ah-row-text{display:grid;gap:2px;min-width:0}
+.tm-ah-row-text b{font-weight:600;font-size:.84rem}
+.tm-ah-row-text small{font-size:.7rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm-ah-go{font-size:.68rem;color:var(--muted)}
+.tm-ah-row:not(:has(.aum-pill)){grid-template-columns:36px minmax(0,1fr) auto}
+.tm-ah-langs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.tm-ah-lang{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-elevated,#fff);color:var(--text);font:inherit;font-size:.86rem;cursor:pointer}
+.tm-ah-lang.is-on{border-color:var(--primary);color:var(--primary);background:color-mix(in srgb,var(--primary) 6%,var(--surface-elevated,#fff))}
+.tm-ah-lang[lang="ur"]{font-family:"Noto Nastaliq Urdu","Noto Naskh Arabic",system-ui,sans-serif}
+.tm-ah-lang[lang="ar"]{font-family:"Noto Naskh Arabic",system-ui,sans-serif}
+.tm-ah-initial{color:var(--primary);background:color-mix(in srgb,var(--primary) 11%,transparent)}
+.tm-ah-member[role="button"]{cursor:pointer}
+.tm-ah-company{display:flex;align-items:center;gap:7px;margin:8px 0 0}
+.tm-ah-company i{color:var(--primary)}
+.tm-ah-legacy .settings-card{margin-top:14px}
+
+/* Backup side panel (backup/03-backup-panel.js) */
+.tm-bk-card{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface-elevated,#fff)}
+.tm-bk-card.is-off{opacity:.72}
+.tm-bk-ico{width:40px;height:40px;border-radius:12px;font-size:1rem}
+.tm-bk-text{display:grid;gap:3px;min-width:0}
+.tm-bk-text b{display:flex;align-items:center;gap:8px;font-weight:600;font-size:.86rem}
+.tm-bk-text small{font-size:.7rem;color:var(--muted);line-height:1.4}
+.tm-bk-text .tm-bk-why{color:#b45309}
+.tm-bk-tips{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.tm-bk-tips li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;font-size:.74rem;color:var(--muted);line-height:1.45}
+.tm-bk-tips i{color:var(--primary);margin-top:2px}
+.tm-bk-drop{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:12px;padding:18px;border:1.5px dashed color-mix(in srgb,var(--primary) 35%,var(--line));border-radius:16px;cursor:pointer;background:color-mix(in srgb,var(--primary) 3%,transparent);transition:border-color .16s ease,background-color .16s ease}
+.tm-bk-drop input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.tm-bk-drop > i{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent);font-size:1rem}
+.tm-bk-drop span{display:grid;gap:3px}
+.tm-bk-drop b{font-weight:600;font-size:.84rem}
+.tm-bk-drop small{font-size:.7rem;color:var(--muted)}
+.tm-bk-drop.is-drag,.tm-bk-drop:hover{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 7%,transparent)}
+.tm-bk-drop:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%,transparent)}
+@media (max-width:700px){
+  .tm-bk-card{grid-template-columns:40px minmax(0,1fr)}
+  .tm-bk-card > .aum-btn{grid-column:1/-1}
+  .tm-ah-hero{grid-template-columns:48px minmax(0,1fr)}
+  .tm-ah-hero > .aum-btn{grid-column:1/-1}
+  .tm-ah-hero img{width:48px;height:48px}
+}
+
+/* ===== SOURCE: Assets/style/76-menu-system.css ===== */
+/* Triplem VIP · one menu style for every dropdown (2026-11-18)
+ *
+ * The section menu ("Expenses ▾") is the reference: one solid panel, plain rows (no per-row
+ * "banners"), blue icons, hover tint, compact text. This file is the only place that styles the
+ * look of action menus and their ⋮ buttons; the section files keep only position/visibility rules.
+ *
+ * Covered menus: every .menu-dropdown (section Add ▾ / Expenses ▾ / ☰ row menus / account menu /
+ * currency / wallet logo / asset card / inventory …), the home card menu, transaction menus
+ * (expenses, expenses history, loans), PDF menus (expenses history, loans, assets, audit),
+ * Bitcoin, Inventory 2.0, language and Insurance menus.
+ * Content panels with their own layout (theme picker, notifications / messages preview, recycle
+ * bin, public landing projects) keep their own design.
+ *
+ * html:is(#m-a,*) adds id weight only (on <html>, so menus moved to <body> match too): theme layers style buttons inside sections with ids and
+ * !important, which otherwise gives every row its own card.
+ */
+
+/* ── Panel ─────────────────────────────────────────────────────────────────────────── */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+){
+  background:linear-gradient(var(--surface-elevated,rgba(255,255,255,.96)),var(--surface-elevated,rgba(255,255,255,.96))),var(--bg,#fff) !important;
+  border:1px solid color-mix(in srgb,var(--line,#e2e8f0) 90%,transparent) !important;
+  border-radius:12px !important;
+  box-shadow:0 18px 40px -12px rgba(15,23,42,.28),0 2px 6px rgba(15,23,42,.06) !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+  padding:5px !important;gap:1px !important;
+  color:var(--text) !important;
+  max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;
+}
+
+/* ── Rows ──────────────────────────────────────────────────────────────────────────── */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a){
+  display:flex !important;align-items:center !important;justify-content:flex-start;gap:10px !important;
+  width:100% !important;min-width:0;min-height:0 !important;height:auto !important;margin:0 !important;
+  padding:7px 10px !important;border:0 !important;border-radius:8px !important;
+  background:transparent !important;background-image:none !important;box-shadow:none !important;
+  color:var(--text) !important;font:inherit;font-size:.82rem !important;font-weight:500 !important;line-height:1.3 !important;
+  letter-spacing:0 !important;text-align:start !important;text-decoration:none !important;text-transform:none !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;transform:none !important;cursor:pointer;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(:hover,:focus-visible),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(:hover,:focus-visible){
+  background:color-mix(in srgb,var(--primary) 9%,transparent) !important;color:var(--text) !important;outline:none;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(.is-current,.active,[aria-checked="true"],[aria-pressed="true"]),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(.is-current,.active,[aria-checked="true"],[aria-pressed="true"]){
+  color:var(--primary) !important;background:color-mix(in srgb,var(--primary) 8%,transparent) !important;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(.danger,.is-danger,.text-danger,[data-danger]),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(.danger,.is-danger,.text-danger,[data-danger]){color:var(--danger,#dc2626) !important}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(.danger,.is-danger,.text-danger,[data-danger]):is(:hover,:focus-visible),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(.danger,.is-danger,.text-danger,[data-danger]):is(:hover,:focus-visible){background:color-mix(in srgb,var(--danger,#dc2626) 9%,transparent) !important}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(:disabled,[aria-disabled="true"]),
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(:disabled,[aria-disabled="true"]){opacity:.5;cursor:not-allowed}
+
+/* Hidden rows stay hidden (.hide / [hidden] / hidden by permissions). */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.menu-dropdown,.home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item,button,a,label):is(.hide,[hidden]){display:none !important}
+
+/* Two-line rows (PDF choices, Bitcoin "Add", audit export) keep a small muted second line. */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu) :is(button,a,.menu-item) > span:has(> small){display:grid;gap:1px;min-width:0}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu) :is(button,a,.menu-item) :is(b,strong){font-size:.82rem;font-weight:500}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu) :is(button,a,.menu-item) small{font-size:.68rem;font-weight:400;color:var(--muted);line-height:1.3}
+
+/* ── Icons: blue, one width, no tiles ─────────────────────────────────────────────── */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item) > :is(i,svg):first-child,
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a) > :is(i,svg):first-child{
+  flex:0 0 18px;width:18px !important;height:auto !important;min-width:18px;margin:0 !important;padding:0 !important;
+  display:inline-block !important;text-align:center;font-size:.86rem !important;line-height:1;
+  color:var(--primary) !important;background:none !important;border:0;border-radius:0;box-shadow:none;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) :is(.menu-item,[role="menuitem"],[role="menuitemradio"],.btc2-menu-item):is(.danger,.is-danger,.text-danger,[data-danger]) > i:first-child,
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(
+  .menu-dropdown:not(.theme-menu-dropdown):not(.admin-comms-dropdown):not(.recycle-bin-dropdown):not(.landing-projects-dropdown),
+  .home-card-menu,.expense-tx-menu,.loan-tx-menu,.exh-menu,.btc2-menu,.inv2-menu-pop,.assets-pdf-menu,
+  .financial-audit-export-dropdown,.expense-history-pdf-menu,.loan-detail-pdf-menu,.tm-lang-menu,#insuranceFloatingMenu
+) > :is(button,a):is(.danger,.is-danger,.text-danger,[data-danger]) > i:first-child{color:var(--danger,#dc2626) !important}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body .ws-switch-menu .ws-item-ico{flex:0 0 18px;width:18px;height:18px}
+
+/* ── ⋮ buttons: the Home card button everywhere ───────────────────────────────────── */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.person-menu-btn,.expense-tx-menu-btn,.expense-record-menu-btn,.loan-tx-menu-btn,.asset-card-menu-btn,.inventory-catalog-menu-btn,.insurance-row-menu-btn:not(.insurance-document-menu-btn),.inv2-icon-btn.inv2-menu,.home-card-menu-btn){
+  width:30px !important;height:30px !important;min-width:30px !important;min-height:30px !important;padding:0 !important;
+  display:inline-grid !important;place-items:center;flex:0 0 30px;
+  border:1px solid transparent !important;border-radius:50% !important;
+  background:transparent !important;background-image:none !important;box-shadow:none !important;
+  color:var(--muted) !important;font-size:.86rem !important;line-height:1;cursor:pointer;
+  transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*) body :is(.person-menu-btn,.expense-tx-menu-btn,.expense-record-menu-btn,.loan-tx-menu-btn,.asset-card-menu-btn,.inventory-catalog-menu-btn,.insurance-row-menu-btn:not(.insurance-document-menu-btn),.inv2-icon-btn.inv2-menu,.home-card-menu-btn):is(:hover,:focus-visible,[aria-expanded="true"]){
+  color:var(--text) !important;background:var(--surface-elevated,var(--panel,#fff)) !important;
+  border-color:var(--line) !important;box-shadow:0 4px 12px rgba(15,23,42,.12) !important;outline:none;
+}
+@media (prefers-reduced-motion:reduce){
+  html body :is(.person-menu-btn,.expense-tx-menu-btn,.expense-record-menu-btn,.loan-tx-menu-btn,.asset-card-menu-btn,.inventory-catalog-menu-btn,.insurance-row-menu-btn:not(.insurance-document-menu-btn),.inv2-icon-btn.inv2-menu,.home-card-menu-btn){transition:none}
+}
+
+/* Account menu: controls opened from the Backup / Account Settings side panels stay in the page, never shown */
+.account-menu-dropdown .account-menu-moved[hidden]{display:none !important}
+
+/* PDF choice rows with a title and a description line */
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*):is(#m-d,*) body .expense-history-pdf-menu .expense-history-pdf-option{flex-direction:column !important;align-items:flex-start !important;gap:1px !important}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*):is(#m-d,*) body .expense-history-pdf-menu .expense-history-pdf-option strong{font-size:.82rem;font-weight:500}
+html:is(#m-a,*):is(#m-b,*):is(#m-c,*):is(#m-d,*) body .expense-history-pdf-menu .expense-history-pdf-option span{font-size:.68rem;font-weight:400;color:var(--muted)}

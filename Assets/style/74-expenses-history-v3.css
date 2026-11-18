@@ -65,14 +65,10 @@
 .exh-sel-count{font-size:.76rem;color:var(--muted,#64748b);font-variant-numeric:tabular-nums}
 .exh-sel-count b{color:var(--text,#0f172a)}
 .exh-pdf-wrap{position:relative;display:inline-flex}
-.exh-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:40;min-width:236px;display:grid;gap:2px;padding:6px;border-radius:14px;
-  border:1px solid var(--line,#e2e8f0);background:var(--surface-elevated,var(--panel,#fff));box-shadow:0 22px 48px -20px rgba(15,23,42,.45)}
+/* Look: 76-menu-system.css */
+.exh-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:40;min-width:236px;display:grid}
 .exh-menu[hidden]{display:none}
-.exh-menu button{display:flex;align-items:flex-start;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:10px;background:transparent;color:var(--text,#0f172a);font:inherit;text-align:left;cursor:pointer}
-.exh-menu button:hover{background:color-mix(in srgb,var(--primary,#2457d6) 8%,transparent)}
-.exh-menu button > i{margin-top:2px;color:var(--primary,#2457d6);width:16px;text-align:center}
-.exh-menu b{display:block;font-size:.78rem;font-weight:700}
-.exh-menu small{display:block;font-size:.68rem;color:var(--muted,#64748b)}
+.exh-menu b,.exh-menu small{display:block}
 
 /* list */
 .exh-list{display:grid;gap:14px}
@@ -112,8 +108,6 @@
 .exh-amt small{font-size:.66rem;color:var(--muted,#64748b);white-space:nowrap;font-variant-numeric:tabular-nums}
 .exh-ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;opacity:.8}
 .exh-act{display:flex;align-items:center;gap:2px}
-.exh-kebab{width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;color:var(--muted,#64748b);cursor:pointer}
-.exh-kebab:hover,.exh-kebab[aria-expanded="true"]{background:color-mix(in srgb,var(--primary,#2457d6) 10%,transparent);color:var(--primary,#2457d6)}
 .exh-row .expense-tx-menu{display:none}
 .exh-row.is-inactive{cursor:pointer}
 .exh-row.is-inactive .exh-title b,.exh-row.is-inactive .exh-amt b{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted,#64748b) 70%,transparent);color:var(--muted,#64748b)}
@@ -126,7 +120,8 @@
 .exh-empty-ico{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:1.2rem;color:var(--primary,#2457d6);background:color-mix(in srgb,var(--primary,#2457d6) 10%,transparent);margin-bottom:4px}
 .exh-empty b{font-size:.9rem;font-weight:700}
 .exh-empty small{font-size:.74rem;color:var(--muted,#64748b)}
-.exh-more{display:flex;justify-content:center;padding:4px 0}
+.exh-more{display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 0}
+.exh-more-count{font-size:.7rem;color:var(--muted,#64748b)}
 .exh-more .exh-btn{min-height:36px;padding:0 18px}
 .exh-end{display:flex;align-items:center;justify-content:center;gap:7px;padding:4px 0 2px;font-size:.72rem;color:var(--muted,#64748b)}
 .exh-end i{color:#16a34a}
@@ -185,13 +180,11 @@
   .exh-meta{font-size:.68rem}
   .exh-meta .exh-note{display:none}
   .exh-amt b{font-size:.84rem}
-  .exh-kebab{width:28px}
   .exh-day{padding:9px 12px}
   .exh-menu{right:auto;left:0}
 }
 html[dir="rtl"] .exh-row::before{left:auto;right:0;border-radius:3px 0 0 3px}
 html[dir="rtl"] .exh-menu{right:auto;left:0}
-html[dir="rtl"] .exh-menu button{text-align:right}
 html[dir="rtl"] .exh-amt{justify-items:start;text-align:left}
 
 /* ── side panel: transaction ───────────────────────────────────────────────────────────── */
@@ -416,3 +409,10 @@ html body #app#app #expensesList .exh-sort select{font-weight:600;color:inherit 
 .exh-row.is-archived .exh-del{color:var(--muted,#64748b);background:color-mix(in srgb,var(--muted,#64748b) 12%,transparent)}
 html[data-triplem-theme-mode="dark"] .exh-del{color:#f87171}
 html[data-triplem-theme-mode="dark"] .exh-row.is-archived .exh-del{color:var(--muted,#94a3b8)}
+
+/* Receiving / Internal transfers in the history style (2026-11-18) */
+.exh-amt b.is-plus{color:#15803d}
+html[data-triplem-theme-mode="dark"] .exh-amt b.is-plus{color:#4ade80}
+.exh-dir{font-size:.62rem;color:var(--muted,#64748b)}
+.exh-hint{display:flex;align-items:center;gap:7px;margin:2px 0 8px;font-size:.72rem;color:var(--muted,#64748b)}
+.exh-hint i{color:var(--primary,#2457d6)}

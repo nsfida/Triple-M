@@ -495,7 +495,7 @@
 /* Insurance 173 — floating row menus, compact document actions and customer duplicate guard. */
 #insurancePanel .insurance-clickable-row{cursor:pointer}
 #insurancePanel .insurance-clickable-row:focus-visible{outline:2px solid color-mix(in srgb,var(--insurance-primary,var(--accent)) 55%,transparent);outline-offset:1px}
-#insurancePanel .insurance-row-menu-btn{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;border-radius:6px!important;font-size:.62rem!important}
+#insurancePanel .insurance-document-menu-btn{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;border-radius:6px!important;font-size:.62rem!important}
 
 .insurance-floating-menu{
   position:fixed;z-index:2147483647!important;display:grid;gap:2px;

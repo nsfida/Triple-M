@@ -163,6 +163,7 @@ function updateGuestModeUi(){
     accountSettingsBtn.classList.toggle("hide", guest);
   }
   if (downloadAppBtn) downloadAppBtn.classList.toggle("hide", guest);
+  document.getElementById("userBackupBtn")?.classList.toggle("hide", guest);
   const realLoginOnlyControls = [
     els.downloadAllSectionsPdfBtn,
     els.downloadAllDataJsonBtn,
