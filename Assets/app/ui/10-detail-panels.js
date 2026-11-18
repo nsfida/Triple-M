@@ -283,12 +283,69 @@
   }
   function undock(){
     const d = P.dock; if (!d) return;
+    undecorate();
     P.dock = null;
     d.dialog.classList.remove("tm-dp-docked");
     d.modal.appendChild(d.dialog);
     d.modal.classList.add("hide"); d.modal.setAttribute("aria-hidden", "true");
     P.el?.classList.remove("has-form");
   }
+  // While a form is in a wallet's panel: that wallet is fixed ("Paying from" card instead of the
+  // wallet and currency pickers; the pickers stay in the form, hidden, so saving is unchanged) and
+  // the VAT fields sit together in one row. Everything is put back when the form leaves the panel
+  // (the same form also serves Add → Spend without a wallet, and editing).
+  let decor = [];
+  function undecorate(){ const u = decor; decor = []; u.reverse().forEach(f => { try { f(); } catch (_) {} }); }
+  function lockWallet(select, hideFields, label){
+    const acc = walletAccount(P.def?.walletId);
+    const field = select?.closest(".field");
+    if (!acc || !field) return;
+    if (select.value !== String(acc.group_id)) { select.value = String(acc.group_id); select.dispatchEvent(new Event("change", { bubbles: true })); }
+    if (select.value !== String(acc.group_id)) return; // the wallet is not offered by this form: keep the picker
+    let logo = ""; try { logo = getWalletIconHtml(acc.person_name || "Wallet", 30, acc.customLogoUrl || ""); } catch (_) {}
+    const card = document.createElement("div");
+    card.className = "field w12 tm-dp-lockfield";
+    card.innerHTML = `<span class="tm-dp-lock-logo" aria-hidden="true">${logo || '<i class="fa-solid fa-wallet"></i>'}</span>
+      <span class="tm-dp-lock-text"><small>${esc(label)}</small><b translate="no">${esc(acc.person_name || "Wallet")}</b><span>${esc(acc.accountType || "Wallet")} · ${esc(acc.currency || "")}</span></span>
+      <span class="tm-dp-lock-bal"><small>${esc("Available")}</small><b>${m(num(acc.balance), acc.currency)}</b></span>
+      <i class="fa-solid fa-lock tm-dp-lock-ico" aria-label="${esc("Fixed to this wallet")}" title="${esc("Fixed to this wallet")}"></i>`;
+    const first = hideFields.map(f => f?.closest?.(".field") || f).filter(Boolean);
+    const grid = field.parentNode; // the wallet card leads the form
+    grid.insertBefore(card, grid.firstElementChild);
+    const hidden = [...new Set([...first, field])];
+    hidden.forEach(f => f.classList.add("tm-dp-locked-field"));
+    decor.push(() => { card.remove(); hidden.forEach(f => f.classList.remove("tm-dp-locked-field")); });
+  }
+  function groupVat(form){
+    const box = form?.querySelector("#expenseTaxApplied")?.closest(".field");
+    const rate = form?.querySelector("#expenseTaxRate")?.closest(".field");
+    const mode = form?.querySelector("#expenseTaxMode")?.closest(".field");
+    if (!box || !rate || !mode) return;
+    const wrap = document.createElement("div");
+    wrap.className = "field w12 tm-dp-vat";
+    box.parentNode.insertBefore(wrap, box);
+    wrap.append(box, rate, mode);
+    decor.push(() => { wrap.parentNode.insertBefore(mode, wrap); wrap.parentNode.insertBefore(rate, mode); wrap.parentNode.insertBefore(box, rate); wrap.remove(); });
+  }
+  function decorate(kind){
+    undecorate();
+    const dlg = P.dock?.dialog; if (!dlg) return;
+    const inWallet = !!P.def?.walletId;
+    if (kind === "expense") {
+      const entry = dlg.querySelector("#expenseEntryForm"), topup = dlg.querySelector("#expenseTopupForm");
+      if (entry && !entry.classList.contains("hide")) {
+        groupVat(entry);
+        if (inWallet && !entry.dataset.editEntryId) lockWallet(entry.querySelector("#expenseSpendAccountSelect"), [entry.querySelector("#expenseCurrencySelect")], "Paying from");
+      } else if (topup && !topup.classList.contains("hide") && inWallet && !topup.dataset.editEntryId) {
+        lockWallet(topup.querySelector("#expenseTopupAccountSelect"), [], "Adding to");
+      }
+    } else if (kind === "transfer" && inWallet) {
+      const f = dlg.querySelector("#transferForm");
+      let editing = false; try { editing = !!expenseTransferEditState; } catch (_) {}
+      if (f && !editing) lockWallet(f.querySelector("#transferFromWallet"), [], "Sending from");
+    }
+  }
+
   // Runs the app's own "open form" function, then moves its form into the panel.
   function fillForm(kind, host, invoke){
     const run = P.pendingInvoke || invoke;
@@ -302,6 +359,7 @@
       return;
     }
     dockForm(kind, host);
+    decorate(kind);
     requestAnimationFrame(() => {
       const f = host.querySelector("form:not(.hide) input:not([type=hidden]):not([type=date]):not([disabled]), form:not(.hide) select:not([disabled])");
       if (f && !("ontouchstart" in global)) f.focus({ preventScroll: true });
@@ -1247,6 +1305,7 @@
         let att = { stored: 0, pending: 0 };
         try { att = TriplemAttachments._test.counts("expense", String(tx.id).toLowerCase()); } catch (_) {}
         const nAtt = num(att.stored) + num(att.pending);
+        if (nAtt && !st.attWarm) { st.attWarm = true; try { TriplemAttachments.prefetch?.("expense", String(tx.id).toLowerCase()); } catch (_) {} }
         const notes = String(tx.notes || "").trim();
         return nav + `<div class="tm-dp-txhero${inactive ? " is-inactive" : ""}">
             <small>Amount paid</small>
@@ -1337,7 +1396,14 @@
   const recRef = (id, inbound) => { const c = String(id || "").replace(/-/g, "").slice(0, 10).toUpperCase(); return c ? `${inbound ? "TX" : "EXP"}-${c}` : ""; };
   const timeText = v => { const t = v ? new Date(v) : null; if (!t || Number.isNaN(t.getTime())) return ""; try { return t.toLocaleTimeString((global.TriplemI18n && global.TriplemI18n.lang !== "en" ? global.TriplemI18n.locale : undefined), { hour: "2-digit", minute: "2-digit" }); } catch (_) { return ""; } };
   const walletLogo = (name, size = 20) => { try { return getWalletIconHtml(name || "Wallet", size, getWalletCustomLogoMap().get(String(name || "").trim().toLowerCase()) || ""); } catch (_) { return ""; } };
-  const attCount = (kind, id) => { if (!id) return 0; try { const a = TriplemAttachments._test.counts(kind, String(id).toLowerCase()); return num(a.stored) + num(a.pending); } catch (_) { return 0; } };
+  const attCount = (kind, id) => {
+    if (!id) return 0;
+    try {
+      const a = TriplemAttachments._test.counts(kind, String(id).toLowerCase()), n = num(a.stored) + num(a.pending);
+      if (n) TriplemAttachments.prefetch?.(kind, String(id).toLowerCase()); // ready before the paperclip is tapped (cached)
+      return n;
+    } catch (_) { return 0; }
+  };
   const detailField = key => `detail_${String(key).replace(/[A-Z]/g, c => "_" + c.toLowerCase())}`;
   function setField(form, name, value){
     const f = form?.querySelector(`[name="${name}"]`);

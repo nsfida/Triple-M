@@ -396,65 +396,151 @@
   }
 
   // ---- viewer ------------------------------------------------------------------------------
-  async function listFor(module, id) {
+  // Links and lists are kept for a short time (the server's links are valid for 5 minutes), so a
+  // file opens at once the second time, and the transaction panel can get the first file ready
+  // before it is tapped (prefetch). A change to any attachment clears the lists.
+  const LIST_TTL = 60000, LINK_TTL = 240000;
+  const listCache = new Map(), linkCache = new Map(), localUrls = new Map();
+  window.addEventListener("triplem:attachments-changed", () => { listCache.clear(); if (!document.getElementById("tmAttViewer")) { localUrls.forEach(u => URL.revokeObjectURL(u)); localUrls.clear(); } });
+  async function fetchList(module, id) {
     const owner = ownerId();
-    const local = (await qAll(owner)).filter(i => i.kind === "upload" && i.module === module && i.recordId === id)
+    const queue = await qAll(owner);
+    const local = queue.filter(i => i.kind === "upload" && i.module === module && i.recordId === id)
       .map(i => ({ id: i.id, name: i.name, mime: i.mime, size: i.blob?.size || 0, local: i, pending: true, failed: i.status === "failed", error: i.lastError }));
-    const deleting = new Set((await qAll(owner)).filter(i => i.kind === "delete").map(i => i.attachmentId));
+    const deleting = new Set(queue.filter(i => i.kind === "delete").map(i => i.attachmentId));
     let remote = [];
     if (navigator.onLine !== false && typeof supabaseRpc === "function") {
       try { remote = (await supabaseRpc("app_attachment_list", { p_module: module, p_record_id: id }, { offlineCache: false }))?.items || []; } catch (_) { remote = []; }
     }
     return (Array.isArray(remote) ? remote : []).filter(r => !deleting.has(r.id)).concat(local);
   }
-  async function linkFor(att, disposition = "inline") {
-    if (att.local) return URL.createObjectURL(att.local.blob);
-    const r = await callFn({ action: "download", id: att.id, disposition });
-    return r.url;
+  function listFor(module, id) {
+    const k = `${module}:${String(id || "").toLowerCase()}`;
+    const hit = listCache.get(k);
+    if (hit && Date.now() - hit.at < LIST_TTL) return hit.p;
+    const p = fetchList(module, id).catch(err => { listCache.delete(k); throw err; });
+    listCache.set(k, { p, at: Date.now() });
+    return p;
   }
-  function closeViewer() { document.getElementById("tmAttViewer")?.remove(); }
+  async function linkFor(att, disposition = "inline") {
+    if (att.local) {
+      if (!localUrls.has(att.id)) localUrls.set(att.id, URL.createObjectURL(att.local.blob));
+      return localUrls.get(att.id);
+    }
+    const k = `${att.id}:${disposition}`;
+    const hit = linkCache.get(k);
+    if (hit && Date.now() - hit.at < LINK_TTL) return hit.p;
+    const p = callFn({ action: "download", id: att.id, disposition }).then(r => r.url).catch(err => { linkCache.delete(k); throw err; });
+    linkCache.set(k, { p, at: Date.now() });
+    return p;
+  }
+  // Gets the first file of a record ready (list, link and the image itself) in the background.
+  async function prefetch(module, id) {
+    if (!module || !isUuid(id) || !signedIn() || navigator.onLine === false) return;
+    const c = counts(module, String(id).toLowerCase());
+    if (!c.stored && !c.pending) return;
+    try {
+      const items = await listFor(module, String(id).toLowerCase());
+      const first = items[0]; if (!first) return;
+      const url = await linkFor(first);
+      if (first.mime !== "application/pdf") { const im = new Image(); im.decoding = "async"; im.src = url; }
+    } catch (_) {}
+  }
+
+  // ---- viewer: one file at a time in a compact window (Save · ×, ‹ › when there are more) -----
+  function closeViewer() {
+    const v = document.getElementById("tmAttViewer"); if (!v) return;
+    v.classList.add("is-closing");
+    setTimeout(() => v.remove(), 160);
+    try { v._restore?.focus?.({ preventScroll: true }); } catch (_) {}
+  }
+  async function save(att, btn) {
+    btn?.classList.add("is-busy");
+    try {
+      const url = att.local ? await linkFor(att) : await linkFor(att, "attachment");
+      const a = document.createElement("a");
+      a.href = url; a.download = att.name || "attachment"; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch (err) {
+      notice(err?.offline ? "Connect to the internet to save this file." : (err?.message || "The file could not be saved."), "error");
+    } finally { btn?.classList.remove("is-busy"); }
+  }
   async function openViewer(module, id, focusId) {
-    closeViewer();
+    document.getElementById("tmAttViewer")?.remove();
+    const restore = document.activeElement;
     const root = document.createElement("div");
     root.id = "tmAttViewer";
     root.className = "tm-att-viewer";
     root.setAttribute("role", "dialog");
     root.setAttribute("aria-modal", "true");
-    root.setAttribute("aria-label", "Attachments");
-    root.innerHTML = `<div class="tm-att-viewer-card"><div class="tm-att-viewer-head"><strong><i class="fa-solid fa-paperclip" aria-hidden="true"></i> Attachments</strong><button type="button" class="icon-btn ghost" data-tm-att-close aria-label="Close">×</button></div>
-      <div class="tm-att-viewer-body"><div class="tm-att-viewer-list" role="list"><div class="tm-att-muted">Loading…</div></div><div class="tm-att-viewer-stage"></div></div></div>`;
+    root.setAttribute("aria-label", "Attachment");
+    root._restore = restore;
+    root.innerHTML = `<div class="tm-att-viewer-card is-loading">
+        <div class="tm-att-viewer-stage"><span class="tm-att-viewer-skel" aria-hidden="true"></span></div>
+        <div class="tm-att-viewer-bar">
+          <button type="button" class="tm-att-viewer-btn" data-tm-att-prev aria-label="Previous" hidden><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+          <span class="tm-att-viewer-count" hidden></span>
+          <button type="button" class="tm-att-viewer-btn" data-tm-att-next aria-label="Next" hidden><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+          <button type="button" class="tm-att-viewer-btn is-save" data-tm-att-save disabled><i class="fa-solid fa-download" aria-hidden="true"></i><span>Save</span></button>
+          <button type="button" class="tm-att-viewer-btn is-close" data-tm-att-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+      </div>`;
     document.body.appendChild(root);
-    root.addEventListener("click", e => { if (e.target === root || e.target.closest("[data-tm-att-close]")) closeViewer(); });
-    root.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); closeViewer(); } });
-    root.tabIndex = -1; root.focus();
-    const items = await listFor(module, id);
-    const list = root.querySelector(".tm-att-viewer-list");
-    if (!items.length) { list.innerHTML = `<div class="tm-att-muted">No attachments.</div>`; return; }
-    list.innerHTML = items.map((a, i) => `<button type="button" class="tm-att-viewer-item" role="listitem" data-i="${i}"><i class="fa-solid ${a.mime === "application/pdf" ? "fa-file-pdf" : "fa-image"}" aria-hidden="true"></i><span><strong>${esc(a.name || "Attachment")}</strong><small>${esc(fmtSize(a.size || 0))}${a.pending ? (a.failed ? " · upload failed" : " · waiting to upload") : ""}</small></span></button>`).join("");
-    const stage = root.querySelector(".tm-att-viewer-stage");
-    let urls = [];
+    const card = root.querySelector(".tm-att-viewer-card"), stage = root.querySelector(".tm-att-viewer-stage");
+    const prev = root.querySelector("[data-tm-att-prev]"), next = root.querySelector("[data-tm-att-next]"), count = root.querySelector(".tm-att-viewer-count"), saveBtn = root.querySelector("[data-tm-att-save]");
+    let items = [], at = 0, seq = 0;
     const show = async i => {
-      const a = items[i];
-      list.querySelectorAll(".tm-att-viewer-item").forEach(b => b.classList.toggle("is-active", Number(b.dataset.i) === i));
-      stage.innerHTML = `<div class="tm-att-muted">Opening…</div>`;
+      const my = ++seq; at = (i + items.length) % items.length;
+      const a = items[at];
+      const many = items.length > 1;
+      prev.hidden = next.hidden = count.hidden = !many;
+      count.textContent = `${at + 1} / ${items.length}`;
+      saveBtn.disabled = false;
+      card.classList.add("is-loading");
+      root.setAttribute("aria-label", a.name || "Attachment");
       try {
         const url = await linkFor(a);
-        if (a.local) urls.push(url);
-        const dl = a.local ? url : await linkFor(a, "attachment").catch(() => url);
-        if (a.local && dl !== url) urls.push(dl);
-        stage.innerHTML = (a.mime === "application/pdf"
-          ? `<div class="tm-att-pdf"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i><strong>${esc(a.name)}</strong><a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">Open PDF</a></div>`
-          : `<img class="tm-att-img" alt="${esc(a.name)}" src="${esc(url)}">`)
-          + `<div class="tm-att-viewer-actions"><a class="btn ghost tiny" href="${esc(dl)}" download="${esc(a.name)}" rel="noopener"><i class="fa-solid fa-download" aria-hidden="true"></i> Download</a>${a.pending ? `<span class="tm-att-muted">${a.failed ? esc(a.error || "Upload failed") : "Stored on this device until it is uploaded."}</span>` : ""}</div>`;
+        if (my !== seq) return;
+        if (a.mime === "application/pdf") {
+          // PDFs open in the browser's own viewer (the page's security policy does not allow
+          // embedding files from the storage domain).
+          card.classList.add("is-pdf");
+          stage.innerHTML = `<div class="tm-att-pdf"><span class="tm-att-pdf-ico" aria-hidden="true"><i class="fa-solid fa-file-pdf"></i></span><small>${esc(fmtSize(a.size || 0))}</small><a class="tm-att-viewer-btn is-open" href="${esc(url)}" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i><span>Open PDF</span></a></div>`;
+          card.classList.remove("is-loading");
+        } else {
+          card.classList.remove("is-pdf");
+          const img = new Image();
+          img.className = "tm-att-img"; img.alt = a.name || "Attachment"; img.decoding = "async"; img.draggable = false;
+          img.onload = () => { if (my === seq) { stage.replaceChildren(img); card.classList.remove("is-loading"); } };
+          img.onerror = () => { if (my === seq) { stage.innerHTML = `<div class="tm-att-muted">This file could not be shown. Use Save to download it.</div>`; card.classList.remove("is-loading"); } };
+          img.src = url;
+        }
+        if (a.pending) card.dataset.note = a.failed ? (a.error || "Upload failed") : "Stored on this device until it is uploaded.";
+        else delete card.dataset.note;
+        // the next file is fetched while this one is looked at
+        if (many) { const n = items[(at + 1) % items.length]; linkFor(n).then(u => { if (n.mime !== "application/pdf") { const im = new Image(); im.src = u; } }).catch(() => {}); }
       } catch (err) {
+        if (my !== seq) return;
         stage.innerHTML = `<div class="tm-att-muted">${esc(err.offline ? "Connect to the internet to open this file." : err.message)}</div>`;
+        card.classList.remove("is-loading");
       }
     };
-    list.addEventListener("click", e => { const b = e.target.closest(".tm-att-viewer-item"); if (b) show(Number(b.dataset.i)); });
-    const start = Math.max(0, items.findIndex(a => a.id === focusId));
-    show(start);
-    const obs = new MutationObserver(() => { if (!root.isConnected) { urls.forEach(u => URL.revokeObjectURL(u)); obs.disconnect(); } });
-    obs.observe(document.body, { childList: true });
+    root.addEventListener("click", e => {
+      if (e.target === root || e.target.closest("[data-tm-att-close]")) return closeViewer();
+      if (e.target.closest("[data-tm-att-prev]")) return show(at - 1);
+      if (e.target.closest("[data-tm-att-next]")) return show(at + 1);
+      const sb = e.target.closest("[data-tm-att-save]"); if (sb && items[at]) save(items[at], sb);
+    });
+    root.addEventListener("keydown", e => {
+      if (e.key === "Escape") { e.stopPropagation(); closeViewer(); }
+      else if (items.length > 1 && (e.key === "ArrowRight" || e.key === "ArrowLeft")) show(at + ((e.key === "ArrowRight") !== (document.dir === "rtl") ? 1 : -1));
+    });
+    root.tabIndex = -1; root.focus({ preventScroll: true });
+    try { items = await listFor(module, String(id || "").toLowerCase()); }
+    catch (err) { items = []; }
+    if (!root.isConnected) return;
+    if (!items.length) { stage.innerHTML = `<div class="tm-att-muted">No attachments.</div>`; card.classList.remove("is-loading"); saveBtn.disabled = true; return; }
+    show(Math.max(0, items.findIndex(a => a.id === focusId)));
   }
   // List icons: open the viewer without triggering the row's own actions.
   document.addEventListener("click", e => {
@@ -707,7 +793,7 @@
   window.TriplemAttachments = Object.freeze({
     directUpload, directLink, directDelete,
     mount, prepare, reset, showExisting, busy, take, restore, commit, capture, reportSaved, saveWithAttachments,
-    refForEntry, iconHtml, iconForEntry, iconForId, autoPrepare, openViewer, loadIndex, process, clientConfig,
+    refForEntry, iconHtml, iconForEntry, iconForId, autoPrepare, openViewer, prefetch, loadIndex, process, clientConfig,
     _test: Object.freeze({ pickRef, qAll, counts, MODULE_BY_TABLE })
   });
 })();

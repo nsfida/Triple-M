@@ -9466,26 +9466,42 @@ html.card-order-drag-lock body{
 .tm-att-icon.is-pending{color:var(--warning,#d97706)}
 .wallet-transaction-title .tm-att-icon{height:22px;margin:0 2px 0 0}
 
-/* Viewer */
-.tm-att-viewer{position:fixed;inset:0;z-index:2147481500;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.55);backdrop-filter:blur(3px)}
-.tm-att-viewer-card{width:min(1100px,100%);height:min(86vh,900px);display:flex;flex-direction:column;background:var(--surface-elevated,var(--panel,#fff));color:var(--text,#17212b);border:1px solid var(--line,rgba(71,85,105,.2));border-radius:16px;box-shadow:0 24px 60px rgba(15,23,42,.3);overflow:hidden}
-.tm-att-viewer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line,rgba(71,85,105,.18))}
-.tm-att-viewer-head strong{display:flex;align-items:center;gap:8px}
-.tm-att-viewer-body{flex:1;min-height:0;display:grid;grid-template-columns:260px minmax(0,1fr)}
-.tm-att-viewer-list{overflow:auto;border-left:1px solid var(--line,rgba(71,85,105,.18));padding:8px;display:grid;gap:4px;align-content:start}
-.tm-att-viewer-item{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;align-items:center;text-align:right;padding:8px;border-radius:10px;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
-.tm-att-viewer-item:hover,.tm-att-viewer-item.is-active{background:color-mix(in srgb,var(--primary,#2457d6) 10%,transparent)}
-.tm-att-viewer-item .fa-file-pdf{color:#dc2626}
-.tm-att-viewer-item span{display:grid;min-width:0}
-.tm-att-viewer-item strong{font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tm-att-viewer-item small{font-size:.7rem;color:var(--muted,#667085)}
-.tm-att-viewer-stage{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px;background:color-mix(in srgb,var(--text,#17212b) 6%,var(--bg,#f1f5f9));overflow:auto}
-.tm-att-img{max-width:100%;max-height:calc(100% - 50px);object-fit:contain;border-radius:6px;background:#fff;box-shadow:0 4px 16px rgba(15,23,42,.15)}
-.tm-att-pdf{display:grid;justify-items:center;gap:10px;text-align:center}
-.tm-att-pdf i{font-size:3rem;color:#dc2626}
-.tm-att-viewer-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
-.tm-att-muted{color:var(--muted,#667085);font-size:.8rem;padding:8px}
-@media (max-width:720px){.tm-att-viewer{padding:0}.tm-att-viewer-card{height:100%;border-radius:0}.tm-att-viewer-body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}.tm-att-viewer-list{border-left:0;border-bottom:1px solid var(--line,rgba(71,85,105,.18));max-height:30vh}}
+/* Viewer: one file in a compact window, Save and × on a small bar (2026-11-18) */
+.tm-att-viewer{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:rgba(8,15,30,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:tmAttFade .18s ease both}
+.tm-att-viewer.is-closing{animation:tmAttFadeOut .16s ease both}
+.tm-att-viewer:focus{outline:none}
+.tm-att-viewer-card{position:relative;display:grid;grid-template-rows:minmax(0,1fr) auto;width:auto;max-width:min(760px,100%);min-width:min(320px,100%);max-height:min(86vh,860px);border-radius:18px;overflow:hidden;background:var(--surface-elevated,var(--panel,#fff));border:1px solid var(--line,rgba(71,85,105,.2));box-shadow:0 30px 70px -20px rgba(2,6,23,.55);animation:tmAttIn .22s cubic-bezier(.22,.75,.22,1) both}
+.tm-att-viewer-stage{position:relative;display:grid;place-items:center;min-height:240px;min-width:0;overflow:hidden;background:color-mix(in srgb,var(--text,#17212b) 5%,var(--bg,#f1f5f9))}
+.tm-att-img{display:block;max-width:min(760px,calc(100vw - 40px));max-height:calc(min(86vh,860px) - 58px);width:auto;height:auto;object-fit:contain;animation:tmAttFade .2s ease both;user-select:none}
+.tm-att-viewer-skel{width:min(420px,70vw);height:300px;border-radius:12px;background:linear-gradient(90deg,color-mix(in srgb,var(--text,#17212b) 6%,transparent) 25%,color-mix(in srgb,var(--text,#17212b) 12%,transparent) 37%,color-mix(in srgb,var(--text,#17212b) 6%,transparent) 63%);background-size:400% 100%;animation:tmAttShimmer 1.2s ease-in-out infinite}
+.tm-att-viewer-card:not(.is-loading) .tm-att-viewer-skel{display:none}
+.tm-att-viewer-bar{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:9px 10px;border-top:1px solid var(--line,rgba(71,85,105,.16));background:var(--surface-elevated,var(--panel,#fff))}
+.tm-att-viewer-count{min-width:42px;text-align:center;padding:0 4px;font-size:.74rem;font-variant-numeric:tabular-nums;color:var(--muted,#667085)}
+.tm-att-viewer-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;min-width:36px;padding:0 10px;border:1px solid var(--line,rgba(71,85,105,.22));border-radius:999px;background:transparent;color:var(--text,#17212b);font:inherit;font-size:.8rem;font-weight:500;text-decoration:none;cursor:pointer;transition:background-color .15s ease,border-color .15s ease}
+.tm-att-viewer-btn:hover,.tm-att-viewer-btn:focus-visible{background:color-mix(in srgb,var(--primary,#2457d6) 8%,transparent);border-color:color-mix(in srgb,var(--primary,#2457d6) 40%,var(--line));outline:none}
+.tm-att-viewer-btn[hidden]{display:none}
+.tm-att-viewer-btn:disabled{opacity:.5;cursor:not-allowed}
+.tm-att-viewer-btn.is-save,.tm-att-viewer-btn.is-open{padding:0 16px;border-color:transparent;background:var(--primary,#2457d6);color:#fff}
+.tm-att-viewer-btn.is-save:hover,.tm-att-viewer-btn.is-open:hover{background:color-mix(in srgb,var(--primary,#2457d6) 88%,#000)}
+.tm-att-viewer-btn.is-save.is-busy i::before{content:"\f110"}
+.tm-att-viewer-btn.is-save.is-busy i{animation:fa-spin 1s linear infinite}
+.tm-att-viewer-bar [data-tm-att-next]{margin-inline-end:auto}
+.tm-att-viewer-card:not(:has(.tm-att-viewer-count:not([hidden]))) .is-save{margin-inline-start:auto}
+.tm-att-viewer-card[data-note]::after{content:attr(data-note);position:absolute;inset-inline:12px;bottom:62px;padding:6px 10px;border-radius:10px;font-size:.72rem;color:#92400e;background:#fef3c7;text-align:center}
+.tm-att-pdf{display:grid;justify-items:center;gap:10px;padding:34px 40px;text-align:center}
+.tm-att-pdf-ico{width:76px;height:76px;border-radius:22px;display:grid;place-items:center;font-size:2.1rem;color:#dc2626;background:color-mix(in srgb,#dc2626 10%,transparent)}
+.tm-att-pdf small{font-size:.74rem;color:var(--muted,#667085)}
+.tm-att-muted{color:var(--muted,#667085);font-size:.8rem;padding:24px;text-align:center}
+@keyframes tmAttFade{from{opacity:0}to{opacity:1}}
+@keyframes tmAttFadeOut{from{opacity:1}to{opacity:0}}
+@keyframes tmAttIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes tmAttShimmer{0%{background-position:0% 50%}100%{background-position:0 50%}}
+@media (max-width:720px){
+  .tm-att-viewer{padding:12px}
+  .tm-att-viewer-card{max-height:calc(100dvh - 24px)}
+  .tm-att-img{max-width:calc(100vw - 24px);max-height:calc(100dvh - 82px)}
+}
+@media (prefers-reduced-motion:reduce){.tm-att-viewer,.tm-att-viewer-card,.tm-att-img{animation:none}.tm-att-viewer-skel{animation:none}}
 
 /* Main Admin: File Storage Settings */
 /* Main Admin — File Storage Settings: compact, grouped layout (2026-11-10) */
@@ -13059,24 +13075,94 @@ html[data-triplem-theme-mode="dark"] .tm-dp-row-amt b.is-in{color:#4ade80}
 .tm-dp-pager span{font-size:.72rem;color:var(--muted)}
 .tm-dp-pager .aum-btn{min-height:32px;padding:0 12px;font-size:.74rem}
 .tm-dp-pager .aum-btn[data-p] i.fa-chevron-right{order:2}
-/* Docked app forms (Spend / Receive / Transfer / New wallet) inside the panel body */
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-formhost{display:block;padding-top:10px}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-formhost > .modal-dialog.tm-dp-docked{position:static !important;inset:auto !important;transform:none !important;translate:none !important;width:auto !important;min-width:0 !important;max-width:none !important;height:auto !important;max-height:none !important;margin:0 !important;padding:0 !important;border:0 !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;animation:none !important;overflow:visible !important;display:block !important;opacity:1 !important;color:var(--text)}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head{position:static !important;display:flex !important;align-items:center;gap:10px;margin:2px 0 12px !important;padding:0 !important;border:0 !important;background:none !important;box-shadow:none !important;min-height:0 !important}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head > [data-close-modal]{display:none !important}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head :is(h3,h2){margin:0;font-size:.74rem !important;font-weight:600 !important;letter-spacing:.06em;text-transform:uppercase;color:var(--muted) !important}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head p{margin:2px 0 0;font-size:.74rem;color:var(--muted)}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head .goods-modal-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-body{padding:0 !important;margin:0 !important;overflow:visible !important;max-height:none !important;height:auto !important}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea,.input,.select){background-color:var(--control-bg,var(--surface-elevated,#fff)) !important;background-image:none !important;border-color:var(--line) !important;color:var(--text) !important;-webkit-text-fill-color:var(--text) !important;caret-color:var(--primary)}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea,.input,.select):focus{border-color:color-mix(in srgb,var(--primary) 58%,var(--line)) !important;box-shadow:0 0 0 3px var(--focus-ring,color-mix(in srgb,var(--primary) 22%,transparent)) !important;outline:none !important}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(input,textarea)::placeholder{color:var(--muted) !important;-webkit-text-fill-color:var(--muted) !important}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(select,.select) option{background:var(--surface-elevated,#fff);color:var(--text)}
-html[data-triplem-theme-mode="dark"] body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(select,.select,input[type="date"]){color-scheme:dark}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked label{color:var(--text)}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-footer{position:sticky;bottom:-22px;z-index:2;display:flex !important;justify-content:flex-end;gap:8px;margin:14px -16px -22px !important;padding:12px 16px 16px !important;background:var(--surface-elevated,var(--modal-bg,#fff));border-top:1px solid var(--line)}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-footer .btn{min-height:38px;border-radius:12px}
-html body #tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .expense-optional-details{border-radius:14px}
+/* Docked app forms (Spend / Receive / Transfer / New wallet) inside the panel body (2026-11-18).
+   The forms are the app's own (same fields, handlers and saving); this is only their look in the panel.
+   Four ids: the old dialog styles and the theme layers style these forms with ids and !important. */
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-formhost{display:block;padding-top:6px}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-formhost > .modal-dialog.tm-dp-docked{position:static !important;inset:auto !important;transform:none !important;translate:none !important;width:auto !important;min-width:0 !important;max-width:none !important;height:auto !important;max-height:none !important;margin:0 !important;padding:0 !important;border:0 !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;animation:none !important;overflow:visible !important;display:block !important;opacity:1 !important;color:var(--text)}
+/* head: only the date (the tab already names the form) */
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head{position:static !important;display:flex !important;align-items:center;gap:10px;margin:0 0 14px !important;padding:0 !important;border:0 !important;background:none !important;box-shadow:none !important;min-height:0 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head > [data-close-modal],html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head :is(h3,h2,p){display:none !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head:not(:has(input:not(.hide))){display:none !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head .goods-modal-title-row{display:flex;align-items:center;gap:10px}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-head .goods-sale-date-inline:not(.hide){width:auto !important;min-width:168px;height:38px !important;padding:0 12px !important;border-radius:999px !important;font-size:.8rem !important;font-weight:500}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked > .modal-body{padding:0 !important;margin:0 !important;overflow:visible !important;max-height:none !important;height:auto !important}
+/* grid, labels, controls */
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-grid{display:grid !important;grid-template-columns:repeat(12,minmax(0,1fr)) !important;gap:14px 12px !important;padding:0 !important;margin:0 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-grid > .field{margin:0 !important;min-width:0}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-grid > .w4{grid-column:span 4 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-grid > .w6{grid-column:span 6 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-grid > .w8{grid-column:span 8 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-grid > :is(.w12,details,.tm-dp-vat,.tm-dp-lockfield){grid-column:1/-1 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-grid > .tm-dp-locked-field{display:none !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .field > label:not(.checkbox-line):not(.admin-check-item){display:block;margin:0 0 6px !important;font-size:.74rem !important;font-weight:500 !important;color:var(--muted) !important;letter-spacing:0 !important;text-transform:none !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .optional-label{font-weight:400;color:var(--muted);opacity:.8}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea,.input,.select){height:42px;min-height:42px !important;padding:0 12px !important;border:1px solid var(--line) !important;border-radius:12px !important;background-color:var(--control-bg,var(--surface-elevated,#fff)) !important;background-image:none !important;color:var(--text) !important;-webkit-text-fill-color:var(--text) !important;font-size:.86rem !important;box-shadow:none !important;caret-color:var(--primary);transition:border-color .15s ease,box-shadow .15s ease}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked select:is(select,.select){padding-inline-end:34px !important;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%) !important;background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50% !important;background-size:5px 5px,5px 5px !important;background-repeat:no-repeat !important;-webkit-appearance:none;appearance:none}
+html[dir="rtl"] body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked select:is(select,.select){padding-inline-end:12px !important;padding-inline-start:34px !important;background-position:17px 50%,12px 50% !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea,.input,.select):focus{border-color:color-mix(in srgb,var(--primary) 58%,var(--line)) !important;box-shadow:0 0 0 3px var(--focus-ring,color-mix(in srgb,var(--primary) 18%,transparent)) !important;outline:none !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(input,textarea)::placeholder{color:var(--muted) !important;-webkit-text-fill-color:var(--muted) !important;opacity:.8}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(select,.select) option{background:var(--surface-elevated,#fff);color:var(--text)}
+html[data-triplem-theme-mode="dark"] body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked :is(select,.select,input[type="date"]){color-scheme:dark}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked input[name="amount"]{font-size:1rem !important;font-weight:600 !important;font-variant-numeric:tabular-nums}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked label{color:var(--text)}
+/* "Paying from" — the wallet of this panel, fixed */
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lockfield{display:grid !important;grid-template-columns:40px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:12px 14px !important;border:1px solid color-mix(in srgb,var(--primary) 22%,var(--line));border-radius:16px;background:radial-gradient(120% 140% at 100% 0%,color-mix(in srgb,var(--primary) 9%,transparent),transparent 62%),color-mix(in srgb,var(--primary) 3%,var(--surface-elevated,#fff))}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;overflow:hidden;background:#fff;border:1px solid var(--line);color:var(--primary)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-logo :is(img,svg){max-width:30px;max-height:30px}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-text{display:grid;gap:1px;min-width:0}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-text small,html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-bal small{font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-text b{font-size:.9rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-text span{font-size:.72rem;color:var(--muted)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-bal{display:grid;gap:1px;justify-items:end;text-align:end}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-bal b{font-size:.9rem;font-weight:600;font-variant-numeric:tabular-nums}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-ico{font-size:.74rem;color:var(--muted)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked #transferForm:has(.tm-dp-lockfield) .field:has(#transferToWallet){grid-column:1/-1 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked #expenseTopupForm:has(.tm-dp-lockfield) .modal-grid > .field:has(input[name="amount"]){grid-column:1/-1 !important}
+/* VAT: one row — switch, rate, mode */
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat{display:grid !important;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);align-items:end;gap:12px;padding:12px 14px !important;border:1px solid var(--line);border-radius:16px;background:var(--surface-elevated,#fff)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat > .field{margin:0 !important;grid-column:auto !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat > .field:first-child{align-self:center;display:grid;gap:4px}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat .checkbox-line{display:inline-flex !important;align-items:center;gap:10px;margin:0 !important;font-size:.84rem !important;font-weight:600 !important;color:var(--text) !important;cursor:pointer}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat .checkbox-line input{-webkit-appearance:none;appearance:none;position:relative;flex:0 0 36px;width:36px !important;height:20px !important;min-height:0 !important;margin:0 !important;padding:0 !important;border-radius:999px !important;border:0 !important;background:color-mix(in srgb,var(--muted) 35%,transparent) !important;cursor:pointer;transition:background-color .18s ease}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat .checkbox-line input::after{content:"";position:absolute;top:2px;inset-inline-start:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.3);transition:inset-inline-start .18s ease}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat .checkbox-line input:checked{background:var(--primary) !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat .checkbox-line input:checked::after{inset-inline-start:18px}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat .checkbox-line input:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 22%,transparent) !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat .tax-preview{display:block;margin:0 !important;font-size:.72rem !important;color:var(--muted) !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat:not(:has(#expenseTaxApplied:checked)) > .field:not(:first-child){opacity:.55}
+/* optional details: closed until wanted */
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details{margin:0 !important;padding:0 !important;border:1px solid var(--line) !important;border-radius:14px !important;background:var(--surface-elevated,#fff) !important;box-shadow:none !important;overflow:hidden}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details > summary{display:grid !important;grid-template-columns:30px minmax(0,1fr) auto 16px;align-items:center;gap:10px;min-height:48px;padding:8px 14px !important;margin:0 !important;border:0 !important;background:none !important;list-style:none;cursor:pointer;color:var(--text) !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details > summary::-webkit-details-marker{display:none}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details > summary > span:first-child{display:contents}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details > summary > span:first-child > i{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:.8rem;color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details > summary > span:first-child > span,html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details > summary{font-size:.84rem !important;font-weight:500 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details > summary > small{margin:0 !important;padding:3px 9px;border-radius:999px;font-size:.66rem !important;font-weight:500 !important;color:var(--muted) !important;background:color-mix(in srgb,var(--muted) 11%,transparent);white-space:nowrap}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details .expense-optional-chevron{display:grid;place-items:center;color:var(--muted);font-size:.74rem;transition:transform .18s ease}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details .expense-optional-chevron .expense-chevron-down{display:none !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details .expense-optional-chevron .expense-chevron-right{display:inline-block !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details[open] .expense-optional-chevron{transform:rotate(90deg);color:var(--primary)}
+html[dir="rtl"] body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details:not([open]) .expense-optional-chevron{transform:scaleX(-1)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details[open]{border-color:color-mix(in srgb,var(--primary) 30%,var(--line)) !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details[open] > summary{border-bottom:1px solid var(--line) !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details .expense-optional-grid{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:12px !important;padding:14px !important;margin:0 !important;background:none !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details .expense-optional-grid > .field{margin:0 !important;min-width:0;width:auto !important;grid-column:auto !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details .expense-optional-grid > .expense-optional-wide{grid-column:1/-1 !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details .optional-label{display:none}
+/* footer: stays at the bottom of the panel */
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-footer{position:sticky !important;bottom:-22px;z-index:2;display:flex !important;align-items:center;justify-content:flex-end !important;gap:8px !important;grid-column:1/-1 !important;margin:6px -16px -22px !important;padding:12px 16px 16px !important;background:linear-gradient(var(--surface-elevated,#fff),var(--surface-elevated,#fff)),var(--bg,#fff) !important;border-top:1px solid var(--line) !important;box-shadow:0 -10px 24px -18px rgba(15,23,42,.35)}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-footer .btn{min-height:40px !important;height:40px !important;padding:0 18px !important;border-radius:12px !important;font-size:.84rem !important;font-weight:600 !important;flex:0 0 auto !important;width:auto !important}
+html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-footer .btn.primary{min-width:150px}
+@media (max-width:700px){
+  html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-grid > :is(.w4,.w6,.w8){grid-column:1/-1 !important}
+  html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat{grid-template-columns:repeat(2,minmax(0,1fr))}
+  html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-vat > .field:first-child{grid-column:1/-1 !important}
+  html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked details.expense-optional-details .expense-optional-grid{grid-template-columns:1fr !important}
+  html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lockfield{grid-template-columns:40px minmax(0,1fr) auto}
+  html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-ico{display:none}
+  html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-footer .btn{flex:1 1 0 !important}
+}
 
 /* ===== SOURCE: Assets/style/70-ms-store.css ===== */
 /* Triplem VIP · Microsoft Store availability on the homepage (2026-11-16)

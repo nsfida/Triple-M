@@ -149,8 +149,8 @@
     },
     {
       "path": "Assets/style/61-attachments.css",
-      "bytes": 12713,
-      "sha256": "76d859a5ab7015887356e070863c0438b403e4c9f8fc952c6e1f5d03d5a5b8fb"
+      "bytes": 14710,
+      "sha256": "5c7cd1275ab72a25302d46bd9317938d87bc6728ee7b0e998138d209e510d1c0"
     },
     {
       "path": "Assets/style/62-system-backup.css",
@@ -189,8 +189,8 @@
     },
     {
       "path": "Assets/style/69-admin-user-manager.css",
-      "bytes": 42501,
-      "sha256": "3ed5b729bcbe2f3f656d7c9f9490088c06f32b9ab25e3d020c245a12409354b8"
+      "bytes": 56801,
+      "sha256": "4d7c36a51f228b217d5f33f67c2f4dbe181348d5248fd43aa0c1d8a80ac1a62d"
     },
     {
       "path": "Assets/style/70-ms-store.css",
@@ -228,6 +228,6 @@
       "sha256": "a79b08e90ebbb605acff47fa9766b1853446558d6c8982dfb47264a7e3fa7aee"
     }
   ],
-  "bytes": 1045410,
-  "sha256": "751325a105d2927c4eadc221a314c9f25764a0bf73f2daec267e07ed762bd929"
+  "bytes": 1061707,
+  "sha256": "80bc20454b656d4beabf9131efc99901fa84148f269b7f036515b16b6362e230"
 }
