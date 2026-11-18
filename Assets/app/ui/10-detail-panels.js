@@ -483,14 +483,24 @@
         const cur = p.currency, s = p.schedule, next = s?.nextOpen;
         if (tab === "schedule") {
           if (!s) return note("This plan has no monthly schedule yet.", "warn") + `<div class="aum-actions is-left">${canEdit() ? btn("edit", "Set a schedule", "fa-solid fa-calendar-plus", { primary: true }) : ""}</div>`;
-          return `<ul class="tm-dp-rows">${s.slots.map(sl => {
+          // Long plans stay light: the next open installments first, the rest and the paid ones on request.
+          const row = sl => {
             const open = num(sl.balance) > 0.00000001, st2 = String(sl.status || "");
             const tone = !open ? "ok" : /overdue/i.test(st2) ? "bad" : "info";
             return `<li><span class="tm-dp-row-ico is-${tone}" aria-hidden="true"><b>${esc(String(sl.index))}</b></span>
               <span class="tm-dp-row-main"><b>${esc(dd(sl.dueDate))}</b><small>${pill(st2 || (open ? "Open" : "Paid"), tone)}</small></span>
               <span class="tm-dp-row-amt"><b>${m(sl.scheduled, cur)}</b><small>Paid ${m(sl.paid, cur)}</small></span>
-              <span class="tm-dp-row-act">${open && canEdit() ? btn("pay-slot", `Pay ${plain(sl.balance, "")}`, "", { data: `data-amount="${num(sl.balance)}"` }) : `<i class="fa-solid fa-circle-check tm-dp-ok" aria-label="Paid"></i>`}</span></li>`;
-          }).join("")}</ul>`;
+              <span class="tm-dp-row-act">${open && canEdit() ? btn("pay-slot", "Pay", "", { data: `data-amount="${num(sl.balance)}"` }) : `<i class="fa-solid fa-circle-check tm-dp-ok" aria-label="Paid"></i>`}</span></li>`;
+          };
+          const openSlots = s.slots.filter(x => num(x.balance) > 0.00000001), paidSlots = s.slots.filter(x => num(x.balance) <= 0.00000001);
+          const LIMIT = 12, shown = st.allOpen ? openSlots : openSlots.slice(0, LIMIT);
+          const overdue = openSlots.filter(x => /overdue/i.test(x.status || "")).length;
+          return stats([[esc(`${paidSlots.length}/${s.count}`), "Paid"], [esc(String(openSlots.length)), "To pay"], [esc(String(overdue)), "Overdue"], [esc(dd(s.slots[s.slots.length - 1]?.dueDate)), "Last due"]])
+            + section(`Upcoming · ${openSlots.length}`, openSlots.length ? `<ul class="tm-dp-rows">${shown.map(row).join("")}</ul>`
+                + (openSlots.length > LIMIT ? `<div class="aum-actions is-left">${btn("toggle-open", st.allOpen ? "Show fewer" : `Show all ${openSlots.length}`, st.allOpen ? "fa-solid fa-chevron-up" : "fa-solid fa-chevron-down")}</div>` : "")
+                : empty("Every installment is paid."))
+            + (paidSlots.length ? section(`Paid · ${paidSlots.length}`, (st.showPaid ? `<ul class="tm-dp-rows">${paidSlots.map(row).join("")}</ul>` : "")
+                + `<div class="aum-actions is-left">${btn("toggle-paid", st.showPaid ? "Hide paid installments" : "Show paid installments", st.showPaid ? "fa-solid fa-eye-slash" : "fa-solid fa-eye")}</div>`) : "");
         }
         if (tab === "payments") {
           const rows = (p.payments || []).slice().sort((a, b) => stamp(b.action_date) - stamp(a.action_date));
@@ -531,6 +541,8 @@
       actions: {
         "pay-next": () => { const p = G(); openInstallmentPaymentModal(groupId, num(p?.schedule?.nextOpen?.balance) || null); },
         "pay-slot": b => openInstallmentPaymentModal(groupId, num(b.dataset.amount)),
+        "toggle-open": (b, st) => { st.allOpen = !st.allOpen; render({ keepScroll: true }); },
+        "toggle-paid": (b, st) => { st.showPaid = !st.showPaid; render({ keepScroll: true }); },
         pay: () => openInstallmentPaymentModal(groupId),
         edit: () => openInstallmentEditModal(groupId),
         pdf: () => downloadInstallmentPlanPDF(groupId),
@@ -807,7 +819,7 @@
       return `<li class="tm-dp-row-click${target}"${open}><span class="tm-dp-row-ico is-${tone}" aria-hidden="true"><i class="fa-solid ${icon}"></i></span>
         <span class="tm-dp-row-main"><b>${esc(i.label)}</b><small>${esc(dd(row.activity_date))}${i.typeLabel ? ` · ${esc(i.typeLabel)}` : ""}${i.note ? ` · ${esc(String(i.note).slice(0, 70))}` : ""}</small></span>
         <span class="tm-dp-row-amt"><b class="${i.inbound ? "is-in" : "is-out"}">${i.inbound ? "+" : "−"}${m(Math.abs(num(row.amount)), row.currency || cur)}</b>${i.reference ? `<small>${esc(i.reference)}</small>` : ""}</span>
-        <span class="tm-dp-row-act">${att}${row.id && i.type !== "opening" ? `${canEdit() ? iconBtn("tx-edit", "Edit", "fa-solid fa-pen", `data-id="${id}" data-type="${i.type}"`) : ""}${iconBtn("tx-pdf", "Download PDF", "fa-solid fa-file-pdf", `data-id="${id}" data-type="${i.type}"`)}${canDelete() ? iconBtn("tx-delete", "Delete", "fa-solid fa-trash", `data-id="${id}" data-type="${i.type}"`, true) : ""}` : ""}<i class="fa-solid fa-chevron-right tm-dp-row-go" aria-hidden="true"></i></span></li>`;
+        <span class="tm-dp-row-act">${att}<i class="fa-solid fa-chevron-right tm-dp-row-go" aria-hidden="true"></i></span></li>`;
     }).join("")}</ul>`;
   }
 
@@ -1018,18 +1030,7 @@
         pdf: () => downloadExpenseAccountPDF(gid),
         edit: () => { const a = walletAccount(gid); if (a?.principal?.id) openEditModal(a.principal.id); },
         delete: async () => { const a = walletAccount(gid); if (a?.principal?.id) await deleteEntry(a.principal.id); refresh(); },
-        reveal: (b, st) => { st.reveal[b.dataset.key] = !st.reveal[b.dataset.key]; render({ keepScroll: true }); },
-        // Row icons work for every row on the page: the record is loaded first when needed.
-        "tx-edit": async b => {
-          if (!(await rowReady(b))) return;
-          editRecord(b.dataset.type, b.dataset.id, false);
-        },
-        "tx-pdf": async b => { if (!(await rowReady(b))) return; await runExpenseRecordPdf(b.dataset.type, b.dataset.id); },
-        "tx-delete": async (b, st) => {
-          if (!(await rowReady(b))) return;
-          await runExpenseRecordDelete(b.dataset.type, b.dataset.id);
-          st.recent = null; st.act = null; st.actState = "idle"; loadPage(st, st.page || 1);
-        }
+        reveal: (b, st) => { st.reveal[b.dataset.key] = !st.reveal[b.dataset.key]; render({ keepScroll: true }); }
       }
     });
     if (lazyExpenses()) loadChart(P.st);
@@ -1100,15 +1101,6 @@
   async function openWalletRecord(type, id, opts = {}){
     if (!(await readyRecord(type, id))) return false;
     return type === "expense" ? openExpenseTx(id, opts) : openExpenseRecord(type, id, opts);
-  }
-  async function rowReady(b){
-    const li = b.closest("li");
-    li?.classList.add("is-busy");
-    try {
-      const ok = await readyRecord(b.dataset.type, b.dataset.id);
-      if (!ok) toast("This record could not be loaded. Check your connection and try again.", false);
-      return ok;
-    } finally { li?.classList.remove("is-busy"); }
   }
   // Rows of the wallet page that is on screen, in order (for Previous / Next).
   function walletPageList(st, tab){

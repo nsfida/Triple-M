@@ -222,6 +222,7 @@
     try { const v = await rpc("app_validate_session", {}); if (v?.user) applyUserProfileToConfig(v.user); } catch (_) {}
     try { updateAccessBanner(); } catch (_) {}
     notify(`Thank you! ${periodName(period)} is active${ok.new_expires_at ? ` until ${day(ok.new_expires_at)}` : ""}.`);
+    if (global.TriplemPlanPanel?.isOpen?.()) { try { global.TriplemPlanPanel.reload(); } catch (_) {} return; }
     const m = document.getElementById("planSubscriptionModal");
     if (m && !m.classList.contains("hide")) { try { await global.openPlanSubscriptionModal(); } catch (_) {} }
   }
@@ -407,6 +408,10 @@
   if (!install()) document.addEventListener("DOMContentLoaded", install, { once: true });
 
   const openInvoice = transactionId => openLink(async () => (await fn({ action: "invoice", transaction_id: transactionId })).url);
-  global.TriplemCardPayments = Object.freeze({ config: CONFIG, enabled, offered, refreshStatus, status: () => ({ ...status }), billing, enhance, payFromSignup, openInvoice });
+  // Used by the Plan & Subscription side panel (billing/03-plan-panel.js).
+  const openPortal = which => openLink(async () => { const r = await fn({ action: "portal" }); return r[which] || r.url; });
+  const takeSignup = () => { const p = pendingSignup; pendingSignup = null; return p; };
+  global.TriplemCardPayments = Object.freeze({ config: CONFIG, enabled, offered, refreshStatus, status: () => ({ ...status }), billing, enhance, payFromSignup, openInvoice,
+    checkout: payByCard, openPortal, takeSignup, finish, statusOf, periodName, money, day, usd });
   refreshStatus().catch(() => {});
 })(window);

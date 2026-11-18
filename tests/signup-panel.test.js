@@ -36,7 +36,7 @@ test("every side panel slides back out when it closes", () => {
   assert.match(sheets, /else if \(m\.classList\?\.contains\("tm-sheet"\) && m\.classList\.contains\("hide"\) && r\.oldValue && !\/\\bhide\\b\/\.test\(r\.oldValue\)\) slideOut\(m\);/);
   assert.match(sheets, /ghost\.inert = true;/);
   const css = read("Assets/style/69-admin-user-manager.css");
-  assert.match(css, /\.aum-root\{[^}]*transition:visibility 0s linear \.26s\}/);
+  assert.match(css, /\.aum-root\{[^}]*transition:visibility 0s linear \.34s\}/);
   assert.match(css, /@keyframes tmSheetOut\{from\{opacity:1;transform:none\}to\{opacity:\.4;transform:translateX\(104%\)\}\}/);
   assert.doesNotMatch(css, /translateX\(calc\(/, "calc() is not flipped correctly in the right-to-left stylesheet");
 });

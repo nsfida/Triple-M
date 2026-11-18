@@ -167,7 +167,7 @@
       if (overflowBefore !== "hidden" && document.body.style.overflow === "hidden" && !document.querySelector(".modal:not(.hide):not([data-tm-ghost])")) document.body.style.overflow = overflowBefore;
     };
     ghost.addEventListener("animationend", e => { if (e.target === ghost.querySelector(":scope > .modal-dialog")) done(); });
-    setTimeout(done, 420);
+    setTimeout(done, 520);
   }
 
   function syncOpenState(){

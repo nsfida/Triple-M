@@ -5,9 +5,9 @@
    below the app's dialogs, so a confirmation or the records viewer opens on top of it. */
 
 /* 2026-11-17: panels slide in from the side and slide back out when closed (visibility waits for the slide) */
-.aum-root{position:fixed;inset:0;z-index:2147482000;pointer-events:none;visibility:hidden;transition:visibility 0s linear .26s}
+.aum-root{position:fixed;inset:0;z-index:2147482000;pointer-events:none;visibility:hidden;transition:visibility 0s linear .34s}
 .aum-root.is-open{pointer-events:auto;visibility:visible;transition-delay:0s}
-.aum-backdrop{position:absolute;inset:0;background:rgba(8,15,30,.38);opacity:0;transition:opacity .2s ease}
+.aum-backdrop{position:absolute;inset:0;background:rgba(8,15,30,.38);opacity:0;transition:opacity .26s ease}
 .aum-root.is-open .aum-backdrop{opacity:1}
 .aum-panel{
   position:absolute;top:12px;right:12px;bottom:12px;width:min(600px,calc(100vw - 24px));
@@ -15,10 +15,10 @@
   border:1px solid var(--line,rgba(15,23,42,.12));border-radius:22px;
   background:linear-gradient(var(--surface-elevated,#fff),var(--surface-elevated,#fff)),var(--bg,#fff);color:var(--text,#0f172a);
   box-shadow:0 30px 70px rgba(8,15,30,.28),0 2px 8px rgba(8,15,30,.08);
-  opacity:.4;transform:translateX(104%);transition:opacity .22s ease,transform .26s cubic-bezier(.4,0,.2,1);
+  opacity:.4;transform:translateX(104%);transition:opacity .28s ease,transform .32s cubic-bezier(.4,0,.2,1);
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:400;font-size:13px;line-height:1.45;
 }
-.aum-root.is-open .aum-panel{opacity:1;transform:none;transition:opacity .2s ease,transform .3s cubic-bezier(.22,.75,.22,1)}
+.aum-root.is-open .aum-panel{opacity:1;transform:none;transition:opacity .26s ease,transform .38s cubic-bezier(.22,.75,.22,1)}
 .aum-frame{display:flex;flex-direction:column;min-height:0;flex:1}
 html.aum-open body{overflow:hidden}
 
@@ -210,14 +210,14 @@ html body .modal.tm-sheet:is(#sh-a,*):is(#sh-b,*) > .modal-dialog{
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:400;
 }
 
-html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-dialog{animation:tmSheetIn .3s cubic-bezier(.22,.75,.22,1)}
-html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-backdrop{animation:tmSheetFade .2s ease}
+html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-dialog{animation:tmSheetIn .38s cubic-bezier(.22,.75,.22,1)}
+html body .modal.tm-sheet.tm-sheet-in:is(#sh-a,*) > .modal-backdrop{animation:tmSheetFade .26s ease}
 @keyframes tmSheetIn{from{opacity:.4;transform:translateX(104%)}to{opacity:1;transform:none}}
 @keyframes tmSheetFade{from{opacity:0}to{opacity:1}}
 /* Closing: a copy of the panel slides back out (ui/09-side-sheets.js), so every way of closing animates */
 html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*):is(#sh-b,*){display:block !important;pointer-events:none !important}
-html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*) > .modal-dialog{animation:tmSheetOut .26s cubic-bezier(.4,0,.2,1) forwards}
-html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*) > .modal-backdrop{animation:tmSheetFadeOut .24s ease forwards}
+html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*) > .modal-dialog{animation:tmSheetOut .32s cubic-bezier(.4,0,.2,1) forwards}
+html body .modal.tm-sheet.tm-sheet-out:is(#sh-a,*) > .modal-backdrop{animation:tmSheetFadeOut .3s ease forwards}
 @keyframes tmSheetOut{from{opacity:1;transform:none}to{opacity:.4;transform:translateX(104%)}}
 @keyframes tmSheetFadeOut{from{opacity:1}to{opacity:0}}
 
@@ -390,8 +390,7 @@ html[data-triplem-theme-mode="dark"] .tm-dp-row-ico.is-bad{color:#f87171}
 .tm-dp-chart .tm-dp-pt circle{fill:var(--primary);stroke:var(--surface-elevated,#fff);stroke-width:2;opacity:0}
 .tm-dp-chart .tm-dp-pt:hover circle,.tm-dp-chart .tm-dp-pt:last-of-type circle{opacity:1}
 @media (max-width:700px){.tm-dp-rows li{grid-template-columns:34px minmax(0,1fr) auto}.tm-dp-row-act{grid-column:2/-1;justify-content:flex-start}}
-/* Detail panels · performance: long lists only paint the rows on screen */
-.tm-dp-rows li{content-visibility:auto;contain-intrinsic-size:auto 54px}
+/* Detail panels · performance */
 .tm-dp-root .aum-body{contain:content}
 /* Wallet panel */
 .tm-dp-avatar.is-custom{display:grid;place-items:center;overflow:hidden}
