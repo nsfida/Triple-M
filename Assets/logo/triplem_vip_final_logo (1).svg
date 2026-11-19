@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Triplem VIP — standalone brand symbol</title>
+  <desc id="desc">A minimal geometric M emblem in deep teal, crowned by a small chevron and centered gold diamond. Transparent background.</desc>
+
+  <!-- Custom geometric M: one continuous, balanced silhouette. -->
+  <path fill="#087875" d="
+    M 78 390
+    L 78 148
+    Q 78 134 90 145
+    L 256 294
+    L 422 145
+    Q 434 134 434 148
+    L 434 390
+    L 378 390
+    L 378 264
+    L 256 374
+    L 134 264
+    L 134 390
+    Z" />
+
+  <!-- Simplified crown / triple-peak cue from the original identity. -->
+  <path fill="#087875" d="M 205 119 L 256 68 L 307 119 L 280 119 L 256 95 L 232 119 Z" />
+
+  <!-- A single gold diamond: the focused center of the system. -->
+  <path fill="#D8AE55" d="M 256 139 L 291 174 L 256 209 L 221 174 Z" />
+</svg>

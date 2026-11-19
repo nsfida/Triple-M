@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 895 750" role="img" aria-labelledby="title desc">
+  <title id="title">Triplem VIP symbol</title>
+  <desc id="desc">A simplified flat vector version of the original Triplem VIP emblem: symmetrical architectural teal M-shaped structure, gold central diamond, gold inner chevron, and two lower gold insets. No lettering or background.</desc>
+
+  <g fill="#0B7377">
+    <!-- Upper crown -->
+    <path d="M448 30 635 210 566 278 448 164 330 278 261 210Z"/>
+
+    <!-- Main angular V/M band -->
+    <path d="M35 70 448 428 860 70 860 208 448 556 35 208Z"/>
+
+    <!-- Left and right descending outer supports -->
+    <path d="M35 246 276 454 276 599 226 563 226 478 115 383 115 660 35 718Z"/>
+    <path d="M860 246 620 454 620 599 670 563 670 478 780 383 780 660 860 718Z"/>
+
+    <!-- Lower central chevron, completing the architectural M silhouette -->
+    <path d="M282 483 448 620 613 483 613 512 448 655 282 512Z"/>
+  </g>
+
+  <g fill="#E6B95A">
+    <!-- Central diamond -->
+    <path d="M448 181 550 283 448 385 346 283Z"/>
+
+    <!-- Gold inset chevron -->
+    <path d="M103 303 448 566 792 303 760 303 448 522 136 303Z"/>
+
+    <!-- Lower side insets -->
+    <path d="M151 508 242 582 242 700 151 644Z"/>
+    <path d="M744 508 653 582 653 700 744 644Z"/>
+  </g>
+</svg>
