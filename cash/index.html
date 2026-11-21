@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f3f6fa">
   <meta name="description" content="Private expense register powered by Supabase.">
   <title>Expense Vault</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=secure-browser-session-1">
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -23,7 +23,7 @@
         <button id="loginButton" class="button button-primary button-wide" type="submit">Sign in <span aria-hidden="true">→</span></button>
       </form>
       <p id="loginMessage" class="form-message" role="status" aria-live="polite"></p>
-      <p class="micro-copy">For security, you will be asked to sign in again after closing the browser tab.</p>
+      <p class="micro-copy">Your session stays available when you refresh or reopen a tab in the same browser session. You will normally need your key again after the browser session ends.</p>
     </section>
   </main>
 
@@ -290,6 +290,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=secure-browser-session-1"></script>
 </body>
 </html>

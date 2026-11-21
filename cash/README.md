@@ -13,7 +13,7 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner access key:** the first key is seeded in the database migration as a salted bcrypt hash. The Auth account is provisioned on the first successful sign-in.
 - **Alternate keys:** the owner can create view-only or editable alternate keys, change their permission, and revoke them.
 - **RLS:** all financial tables have row-level security policies. The public browser key cannot read the access-key table or bypass ledger permissions. People balances are written only through a permission-checked SECURITY DEFINER RPC. It updates the one signed balance on the selected person; it never writes to `cash_vault_counts`. The cash balance RPC is SECURITY INVOKER, so the caller's SELECT grants and RLS policies still apply.
-- **No persistent browser login:** the Supabase client is configured with `persistSession: false`. A new page session requires the access key again.
+- **Encrypted browser-session login:** the session survives page refreshes and closing/reopening an individual tab while the same browser session remains active. The Supabase Auth session JSON is AES-256-GCM encrypted before being written to localStorage; the AES key is a non-extractable CryptoKey held in IndexedDB. A session-only cookie gates restoration and normally expires when the browser session ends. The access PIN itself is never stored in browser storage.
 - **Full-window light desktop UI:** the workspace uses the available browser window height and width; the spreadsheet scrolls inside its own frame.
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet copy/paste:** drag across cells to select a rectangular range. `Ctrl+C` copies the selection as tab-separated values for Excel; `Ctrl+V` pastes a tab-separated block into the selected starting cell. Computed total columns are read-only and are recalculated after paste. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`.
@@ -26,7 +26,8 @@ expense_vault_project/
 ├── css/
 │   └── styles.css
 ├── js/
-│   └── app.js
+│   ├── app.js
+│   └── secure-session-storage.js
 ├── sql/
 │   └── migrations/
 │       ├── 001_init_expenses.sql
@@ -63,7 +64,7 @@ The HTML already contains the supplied project URL and **publishable** key. A pu
 10. Run `sql/migrations/008_separate_person_movements_from_physical_cash_count.sql`. This separates the former person movement ledger from physical cash counts. Existing transaction and cash-count rows are preserved.
 11. Run `sql/migrations/009_signed_person_balances.sql`. This adds one signed balance to each person, backfills it from the previous movement totals once, replaces the Available Cash formula, and disables the old movement RPCs for browser users. The legacy history table is retained; no existing expense, received or denomination-count records are deleted or modified.
 
-**For your already-running project:** migrations 001–008 have already been applied. For this update, run **only migration 009**. Do not rerun 001–008. Open `sql/migrations/009_signed_person_balances.sql`, copy all its SQL, paste it into Supabase SQL Editor, and click **Run**. Then replace your local project files with this complete package and refresh the app with `Ctrl+F5`. No Edge Function redeployment is required.
+**For the already-running project described in this package:** migrations 001–009 have already been applied. This encrypted browser-session update is a front-end-only security change: do not run any SQL migration and do not redeploy the Edge Function. Replace the complete static project files with this package and refresh with `Ctrl+F5`. You will need to enter your access key once after installing this update; subsequent refreshes and tab reopens in the same browser session will restore the encrypted session.
 
 The initial owner PIN `356425023663338` appears in the migration only as an input to `pgcrypto`'s bcrypt hash function. The database stores the hash, not the plaintext PIN. Keep the migration file private until you have applied it; remove the literal from any public copy or repository history if you publish the source.
 
@@ -105,9 +106,17 @@ Then visit `http://localhost:8080` in your browser. For regular use, host the fo
 - New owner and alternate keys must be **8–32 digits**.
 - The owner can change the owner key after signing in.
 - Alternate keys can be created as view-only or with ledger editing/deletion permission. The owner can toggle that permission or revoke an alternate key. Revocation disables the key while retaining its Auth identity for audit-history integrity.
-- The app does not store a plaintext access key in browser storage. The Edge Function hashes keys in PostgreSQL using bcrypt.
+- The app never stores the plaintext access PIN in browser storage. The Edge Function verifies the PIN against a bcrypt hash in PostgreSQL. Supabase's access/refresh session tokens are encrypted with AES-256-GCM before being stored in localStorage; only the ciphertext envelope is visible there. A non-extractable CryptoKey is stored in IndexedDB, and a session-only cookie gates decryption/restoration.
 - A view-only key can read Expenses, Received and Cash Vault but cannot add, update, or delete records. This rule is enforced by RLS, not only by disabled UI controls.
 - The owner role always has full read/write/delete access, even if an old `can_write` flag on that owner row is false. Editable alternate keys have the same ledger CRUD permissions, but cannot manage access keys or change the owner key.
+
+### Browser session storage and security
+
+- Refreshing the page or closing and reopening a tab in the same active browser session should restore the workspace without asking for the access PIN again. The authentication session is stored as an AES-256-GCM encrypted envelope in localStorage; the plaintext PIN and plaintext Supabase access/refresh tokens are not stored there.
+- A non-extractable AES-256-GCM CryptoKey is kept in IndexedDB. A random, session-only cookie gates decryption. The cookie is shared between tabs and has no `Expires` or `Max-Age`, so browsers normally remove it when the browser session ends. If the cookie is absent, the app deletes any leftover encrypted session blob and shows the access-key screen.
+- Browser restore settings can restore session cookies after a restart. Browsers do not expose a fully reliable web-page event that distinguishes closing the last window from a crash or a configured session restore. Therefore, the normal browser-session expiry behavior is best-effort and depends on browser settings. Use the app's **Sign out** button when you need an immediate, guaranteed lock; it removes the session cookie and encrypted token.
+- The stored CryptoKey is non-extractable, but no browser-side encryption can protect against malicious scripts running on the same origin (for example, an XSS vulnerability) or a compromised browser/extension. Keep the app hosted over HTTPS, maintain strong Content Security Policy and XSS protections, and do not install untrusted scripts on the site.
+- On first launch of this update, the app removes this project's legacy default Supabase Auth key (`sb-hmtbalmgpyrnxbifnvzg-auth-token`) from localStorage/sessionStorage so an older plaintext session blob is not left behind. It does not remove other application data. If cookies, IndexedDB, or Web Crypto are blocked, the app keeps the session in memory only and displays a warning instead of falling back to plaintext storage.
 
 ## Expense columns
 
@@ -138,7 +147,7 @@ Then visit `http://localhost:8080` in your browser. For regular use, host the fo
 - The Edge Function is required. PIN login and alternate-key management will not work by hosting the HTML alone. The current access function also matches the `verify_access_key` SQL return shape: that function filters out inactive keys, so the Edge Function does not expect an `is_active` column in its return value.
 - Keep the Supabase secret key and `RATE_LIMIT_SALT` exclusively in Supabase Edge Function secrets. Never share them or commit them to source control.
 - The provided Supabase project URL and publishable key are public client configuration. Their exposure does not grant database access on their own; the RLS policies and signed-in access record are required.
-- For the current previously installed project that already has migrations 001–008, apply only migration 009. No Edge Function redeployment is required because this update does not change the access function.
+- This browser-session security update does not change the database schema or Edge Function. No SQL migration or Edge Function redeployment is required; replace the full static project files and refresh with `Ctrl+F5`.
 - After a person-balance RPC reports success, the app treats the database update as committed even if the subsequent screen refresh fails. Refresh the page to load the saved people and Available Cash balances. Cash Count is intentionally unchanged.
 - Migration 009 retains all historical person movement rows and backfills each person's new signed balance once using `given - received`. It does not alter any physical-count rows. After the first successful application, rerunning migration 009 will not overwrite balances subsequently edited by the user.
 - Test on a non-production Supabase project before using real financial data. This package has been statically checked, but the migration has not been run against your live Supabase project from this environment.

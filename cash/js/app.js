@@ -1,13 +1,25 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  beginBrowserSession,
+  clearBrowserSessionCookie,
+  clearLegacyPlaintextSession,
+  createEncryptedBrowserSessionStorage,
+  getEncryptedSessionPersistenceStatus
+} from './secure-session-storage.js';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
 
-// persistSession:false intentionally keeps the authenticated session in memory only.
-// A fresh page/browser session therefore requires the access key again.
+// Keep the session through reloads and tab closes in the same browser session.
+// Supabase's session JSON is AES-256-GCM encrypted before it touches localStorage;
+// a browser-session cookie gates restoration and normally expires on browser exit.
+clearLegacyPlaintextSession();
+const encryptedAuthStorage = createEncryptedBrowserSessionStorage();
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    persistSession: false,
+    persistSession: true,
+    storage: encryptedAuthStorage,
+    storageKey: 'expense-vault-auth-session-v1',
     autoRefreshToken: true,
     detectSessionInUrl: false,
     flowType: 'pkce'
@@ -1488,6 +1500,7 @@ function attachSpreadsheetClipboard(table, config) {
 }
 
 function signOutToLogin() {
+  clearBrowserSessionCookie();
   supabase.auth.signOut({ scope: 'local' }).catch(() => {});
   currentUser = null;
   canWrite = false;
@@ -1560,13 +1573,21 @@ loginForm.addEventListener('submit', async event => {
     validateNumericKey(key, 'Access key');
     const result = await callAccess('login', { key });
     if (!result.session?.access_token || !result.session?.refresh_token) throw new Error('The sign-in service did not return a valid session.');
+    const browserSessionMarker = beginBrowserSession();
     const { error: sessionError } = await supabase.auth.setSession({
       access_token: result.session.access_token,
       refresh_token: result.session.refresh_token
     });
-    if (sessionError) throw sessionError;
+    if (sessionError) {
+      clearBrowserSessionCookie();
+      throw sessionError;
+    }
     el('loginKey').value = '';
     await loadWorkspace();
+    const persistenceStatus = getEncryptedSessionPersistenceStatus();
+    if (!browserSessionMarker || !persistenceStatus.persisted) {
+      showToast(`Secure session persistence is unavailable: ${persistenceStatus.error || 'browser storage is blocked'}. You may need to enter your key again after refresh or reopening the tab.`, true);
+    }
   } catch (error) {
     loginMessage.textContent = error.message || 'Sign-in failed. Please try again.';
   } finally {
@@ -1784,3 +1805,24 @@ buildTableHeader();
 buildReceivingTableHeader();
 buildCashTableHeader();
 el('loginKey').focus();
+
+async function restoreBrowserSession() {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!data.session?.access_token) return;
+    await loadWorkspace();
+  } catch (error) {
+    const message = error?.message || 'Could not restore the saved browser session.';
+    const isInvalidSession = /sign in again|session has expired|no longer active|invalid jwt|invalid token/i.test(message);
+    if (isInvalidSession) {
+      clearBrowserSessionCookie();
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      loginMessage.textContent = 'Your browser session has ended. Please enter your access key again.';
+    } else {
+      loginMessage.textContent = `Could not restore the session: ${message}`;
+    }
+  }
+}
+
+restoreBrowserSession();
