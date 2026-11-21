@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f6fa">
+  <meta name="description" content="Private expense register powered by Supabase.">
+  <title>Expense Vault</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="background-glow" aria-hidden="true"></div>
+
+  <main id="authScreen" class="auth-screen">
+    <section class="auth-card">
+      <div class="brand-mark" aria-hidden="true">EV</div>
+      <p class="eyebrow">PRIVATE FINANCE WORKSPACE</p>
+      <h1>Expense Vault</h1>
+      <p class="muted auth-copy">Enter your access key to unlock the workspace.</p>
+      <form id="loginForm" class="stack-form">
+        <label for="loginKey">Access key</label>
+        <input id="loginKey" name="key" type="password" inputmode="numeric" autocomplete="off" maxlength="32" placeholder="Enter access key" required>
+        <button id="loginButton" class="button button-primary button-wide" type="submit">Sign in <span aria-hidden="true">→</span></button>
+      </form>
+      <p id="loginMessage" class="form-message" role="status" aria-live="polite"></p>
+      <p class="micro-copy">For security, you will be asked to sign in again after closing the browser tab.</p>
+    </section>
+  </main>
+
+  <main id="appScreen" class="app-screen hidden">
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="brand-mark brand-mark-small" aria-hidden="true">EV</div>
+        <div>
+          <div class="brand-title">Expense Vault</div>
+          <div class="brand-subtitle">Private finance workspace</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="accessBadge" class="access-badge">Owner access</span>
+        <button id="accessKeysButton" class="button button-quiet" type="button">Access keys</button>
+        <button id="signOutButton" class="button button-outline" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <nav class="tabbar" aria-label="Main sections">
+        <button class="tab-button active" data-tab="cash-vault" type="button"><span class="tab-icon">▣</span> Cash Vault</button>
+        <button class="tab-button" data-tab="expenses" type="button"><span class="tab-icon">↗</span> Expenses</button>
+        <button class="tab-button" data-tab="received" type="button"><span class="tab-icon">↙</span> Received</button>
+      </nav>
+
+      <section id="cashVaultPane" class="pane cash-vault-pane">
+        <div class="pane-heading">
+          <div>
+            <p class="eyebrow">CASH POSITION</p>
+            <h2>Cash Vault</h2>
+            <p class="muted heading-description">Track your ledger cash balance and count the notes and coins held each day.</p>
+          </div>
+          <div class="summary-chip"><span class="summary-dot"></span><span id="cashVaultDateCount">0 daily counts</span></div>
+        </div>
+
+        <div class="cash-overview">
+          <article class="cash-balance-card">
+            <div class="cash-balance-top">
+              <div class="cash-balance-main">
+                <p class="cash-balance-kicker">AVAILABLE CASH</p>
+                <div id="cashBalanceValue" class="cash-balance-value">—</div>
+                <p id="cashBalanceCaption" class="cash-balance-caption">Calculating your cash position…</p>
+              </div>
+              <div class="cash-date-controls">
+                <label for="cashQuickDate">Recent dates</label>
+                <select id="cashQuickDate" aria-label="Choose one of the recent dates"></select>
+                <label for="cashAsOfDate">Or choose any date</label>
+                <input id="cashAsOfDate" type="date" aria-label="Cash balance as of date">
+              </div>
+            </div>
+            <div class="cash-balance-foot">Cash received − cash expenses − current signed people balances. Positive amounts reduce Available Cash; negative amounts increase it.</div>
+          </article>
+
+          <div class="cash-stat-grid">
+            <article class="cash-stat-card">
+              <span class="cash-stat-label">CASH RECEIVED</span>
+              <strong id="cashReceivedValue">—</strong>
+              <span class="cash-stat-note">Cash-type entries to date</span>
+            </article>
+            <article class="cash-stat-card">
+              <span class="cash-stat-label">CASH EXPENSES</span>
+              <strong id="cashExpensesValue">—</strong>
+              <span class="cash-stat-note">Cash-type entries to date</span>
+            </article>
+            <article class="cash-stat-card">
+              <span class="cash-stat-label">PEOPLE BALANCE</span>
+              <strong id="cashPeopleAdjustmentValue">—</strong>
+              <span class="cash-stat-note">Current total · + reduces cash · − increases cash</span>
+            </article>
+            <article class="cash-stat-card cash-counted-card">
+              <span class="cash-stat-label">CASH COUNTED</span>
+              <strong id="cashCountedValue">—</strong>
+              <span id="cashCountedNote" class="cash-stat-note">Physical notes and coins for selected date</span>
+            </article>
+          </div>
+        </div>
+
+        <div id="cashReconciliationBanner" class="cash-reconciliation needs-count" role="status" aria-live="polite">
+          <span id="cashReconciliationTitle" class="cash-reconciliation-title">Cash reconciliation pending</span>
+          <strong id="cashVarianceValue">—</strong>
+          <span id="cashVarianceNote" class="cash-reconciliation-note">Save a physical count for the selected date to compare it with available cash.</span>
+        </div>
+
+        <div class="cash-count-heading">
+          <div>
+            <h3>Daily denomination count</h3>
+            <p class="muted">Enter the number of notes or coins in each column. Each row total is calculated automatically.</p>
+          </div>
+          <span id="cashCountDateLabel" class="cash-selected-date"></span>
+        </div>
+
+        <div class="sheet-toolbar">
+          <div class="toolbar-left">
+            <button id="addCashCountButton" class="button button-primary" type="button">＋ Add day</button>
+            <button id="saveCashCountsButton" class="button button-save" type="button" disabled>Save changes</button>
+            <button id="deleteCashCountButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
+            <button id="cashPeopleButton" class="button button-outline" type="button">People balances</button>
+          </div>
+          <div class="toolbar-right">
+            <span id="cashVaultStatus" class="sheet-status" role="status" aria-live="polite">Loading cash counts…</span>
+          </div>
+        </div>
+
+        <div class="sheet-help"><span class="help-key">HOW IT WORKS</span> For example, enter 1 under 1000 for one 1,000 note, or 2 under 500 for two 500 notes. One count record is allowed per date. Drag across cells to select; use Ctrl+C to copy or Ctrl+V to paste.</div>
+        <div class="table-frame" aria-label="Daily cash denomination counts">
+          <table id="cashCountTable" class="expense-table cash-count-table">
+            <thead><tr id="cashCountHeaderRow"></tr></thead>
+            <tbody id="cashCountTableBody"></tbody>
+          </table>
+        </div>
+        <datalist id="cashRecentDates"></datalist>
+        <div class="sheet-footer">
+          <span>11 denominations · Cash Count is calculated only from the quantities entered here; people movements never change it</span>
+          <span id="cashVaultPermissionNote">Write access enabled</span>
+        </div>
+      </section>
+
+      <section id="expensesPane" class="pane hidden">
+        <div class="pane-heading expenses-heading">
+          <div>
+            <p class="eyebrow">LEDGER</p>
+            <h2>Expenses</h2>
+            <p class="muted heading-description">An Excel-style register. Edit cells directly, then save your changes.</p>
+          </div>
+          <div class="summary-chip"><span class="summary-dot"></span><span id="recordCount">0 records</span></div>
+        </div>
+
+        <div class="sheet-toolbar">
+          <div class="toolbar-left">
+            <button id="addRowButton" class="button button-primary" type="button">＋ Add row</button>
+            <button id="saveRowsButton" class="button button-save" type="button" disabled>Save changes</button>
+            <button id="deleteRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
+          </div>
+          <div class="toolbar-right">
+            <span id="sheetStatus" class="sheet-status" role="status" aria-live="polite">All changes saved</span>
+          </div>
+        </div>
+
+        <div class="sheet-help"><span class="help-key">TIP</span> Click a cell to select its row, or drag across cells to select a range. Use Ctrl+C to copy to Excel and Ctrl+V to paste a block. Dates and comma-separated amounts are normalized; totals are calculated automatically.</div>
+        <div class="table-frame" aria-label="Expenses spreadsheet">
+          <table id="expensesTable" class="expense-table">
+            <thead><tr id="expenseHeaderRow"></tr></thead>
+            <tbody id="expenseTableBody"></tbody>
+          </table>
+        </div>
+        <datalist id="recentDates"></datalist>
+        <div class="sheet-footer">
+          <span>32 columns · Changes are saved to your Supabase database</span>
+          <span id="permissionNote">Write access enabled</span>
+        </div>
+      </section>
+
+      <section id="receivedPane" class="pane hidden">
+        <div class="pane-heading expenses-heading">
+          <div>
+            <p class="eyebrow">INCOMING LEDGER</p>
+            <h2>Received</h2>
+            <p class="muted heading-description">An Excel-style register for incoming amounts. Edit cells directly, then save your changes.</p>
+          </div>
+          <div class="summary-chip"><span class="summary-dot"></span><span id="receivedRecordCount">0 records</span></div>
+        </div>
+
+        <div class="sheet-toolbar">
+          <div class="toolbar-left">
+            <button id="addReceivedRowButton" class="button button-primary" type="button">＋ Add row</button>
+            <button id="saveReceivedRowsButton" class="button button-save" type="button" disabled>Save changes</button>
+            <button id="deleteReceivedRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
+          </div>
+          <div class="toolbar-right">
+            <span id="receivedSheetStatus" class="sheet-status" role="status" aria-live="polite">All changes saved</span>
+          </div>
+        </div>
+
+        <div class="sheet-help"><span class="help-key">TIP</span> Click a cell to select its row, or drag across cells to select a range. Use Ctrl+C to copy to Excel and Ctrl+V to paste a block. Dates and comma-separated amounts are normalized; totals are calculated automatically.</div>
+        <div class="table-frame" aria-label="Received spreadsheet">
+          <table id="receivedTable" class="expense-table">
+            <thead><tr id="receivedHeaderRow"></tr></thead>
+            <tbody id="receivedTableBody"></tbody>
+          </table>
+        </div>
+        <datalist id="recentReceivedDates"></datalist>
+        <div class="sheet-footer">
+          <span>23 columns · Changes are saved to your Supabase database</span>
+          <span id="receivedPermissionNote">Write access enabled</span>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="cashPeopleDialog" class="cash-side-panel" aria-labelledby="cashPeopleTitle">
+    <div class="cash-side-panel-shell">
+      <header class="cash-side-panel-header">
+        <div>
+          <p class="eyebrow">CASH VAULT</p>
+          <h2 id="cashPeopleTitle">People balances</h2>
+          <p class="muted">Add each person's name and one signed amount.</p>
+        </div>
+        <button id="closeCashPeoplePanel" class="icon-button" type="button" aria-label="Close">×</button>
+      </header>
+      <div class="cash-side-panel-content">
+        <form id="cashPersonBalanceForm" class="cash-person-balance-form">
+          <label for="cashPersonName">Person name</label>
+          <input id="cashPersonName" type="text" maxlength="100" placeholder="Enter person's name" autocomplete="off" required>
+          <label for="cashPersonAdjustment">Amount (AED)</label>
+          <input id="cashPersonAdjustment" type="text" inputmode="decimal" placeholder="+1000 or -1000" autocomplete="off" required>
+          <p class="cash-person-balance-help">Positive (+) reduces Available Cash and is shown in red. Negative (−) increases Available Cash and is shown in green.</p>
+          <p id="cashPersonBalanceMessage" class="cash-person-form-message" role="status" aria-live="polite"></p>
+          <div class="cash-person-balance-form-actions">
+            <button id="saveCashPersonBalance" class="button button-primary" type="submit">Add person</button>
+            <button id="cancelCashPersonEdit" class="button button-quiet hidden" type="button">Cancel edit</button>
+          </div>
+        </form>
+
+        <section class="cash-panel-list-section cash-person-list-section">
+          <div class="cash-panel-section-heading">
+            <div><h3>People</h3></div>
+            <span id="cashPeopleCount" class="summary-chip">0 people</span>
+          </div>
+          <div id="cashPeopleBalanceList" class="cash-people-balance-list">
+            <p class="muted">No people added yet.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="accessKeysDialog" class="modal">
+    <div class="modal-header">
+      <div>
+        <p class="eyebrow">SECURITY</p>
+        <h2>Access keys</h2>
+        <p class="muted modal-description">Manage the owner key and alternate access keys.</p>
+      </div>
+      <button id="closeAccessKeys" class="icon-button" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="modal-content">
+      <section class="key-section">
+        <h3>Change owner key</h3>
+        <form id="changeKeyForm" class="key-form">
+          <label>Current key<input id="currentKey" type="password" inputmode="numeric" autocomplete="off" required></label>
+          <label>New key<input id="newOwnerKey" type="password" inputmode="numeric" autocomplete="new-password" minlength="8" maxlength="32" required></label>
+          <label>Confirm new key<input id="confirmOwnerKey" type="password" inputmode="numeric" autocomplete="new-password" minlength="8" maxlength="32" required></label>
+          <button class="button button-primary" type="submit">Update owner key</button>
+        </form>
+      </section>
+      <section class="key-section">
+        <h3>Create alternate key</h3>
+        <form id="createAlternateForm" class="key-form">
+          <label>Label<input id="alternateLabel" type="text" maxlength="50" placeholder="e.g. Accounts viewer" required></label>
+          <label>Alternate key<input id="alternateKey" type="password" inputmode="numeric" autocomplete="new-password" minlength="8" maxlength="32" required></label>
+          <label>Confirm alternate key<input id="confirmAlternateKey" type="password" inputmode="numeric" autocomplete="new-password" minlength="8" maxlength="32" required></label>
+          <label class="check-line"><input id="alternateCanWrite" type="checkbox"> Allow this key to add, edit and delete records</label>
+          <button class="button button-primary" type="submit">Create alternate key</button>
+        </form>
+      </section>
+      <section class="key-section key-list-section">
+        <div class="section-title-row"><h3>Alternate keys</h3><button id="refreshKeysButton" class="text-button" type="button">Refresh</button></div>
+        <div id="alternateKeyList" class="alternate-key-list"><p class="muted">Loading keys…</p></div>
+      </section>
+      <p id="keyMessage" class="form-message" role="status" aria-live="polite"></p>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
