@@ -1,15 +1,17 @@
 /*
- * Expense Vault encrypted browser-session storage.
+ * Expense Vault encrypted login storage.
  *
  * Supabase Auth session JSON (access/refresh tokens) is encrypted with AES-256-GCM
  * before it is written to localStorage. The non-extractable CryptoKey is held in
- * IndexedDB. A session-only cookie gates decryption: it is shared across tabs and
- * survives reloads/tab closes, but normally expires when the browser session ends.
+ * IndexedDB. A random "login marker" (stored in a cookie, mirrored in localStorage)
+ * is bound into the encryption, so the saved login survives page refreshes, closed
+ * tabs and browser restarts until the person presses Sign out.
  *
- * The access PIN is never stored by this module. The session cookie is a random
- * browser-session marker, not an authentication credential. This protects stored
- * data from casual plaintext inspection; it is not an XSS boundary because any
- * script executing on this origin can ask Web Crypto to decrypt the session.
+ * Sign out removes the marker and the encrypted session, which is the only normal
+ * way the login ends. The access PIN is never stored by this module. The marker is
+ * a random value, not an authentication credential. This protects stored data from
+ * casual plaintext inspection; it is not an XSS boundary because any script
+ * executing on this origin can ask Web Crypto to decrypt the session.
  */
 
 const DATABASE_NAME = 'expense-vault-secure-session';
@@ -17,7 +19,11 @@ const DATABASE_VERSION = 1;
 const KEY_STORE_NAME = 'crypto-keys';
 const CRYPTO_KEY_ID = 'supabase-session-aes-gcm-v1';
 const ENCRYPTED_STORAGE_PREFIX = 'expense-vault:encrypted-auth:v1:';
+export const EXPENSE_VAULT_AUTH_STORAGE_KEY = 'expense-vault-auth-session-v1';
 const SESSION_COOKIE_NAME = 'ev_browser_session';
+const SESSION_MARKER_STORAGE_KEY = 'expense-vault:login-marker:v1';
+// Keep the login marker for a long time; Sign out removes it immediately.
+const SESSION_MARKER_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
 const LEGACY_SUPABASE_SESSION_KEY = 'sb-hmtbalmgpyrnxbifnvzg-auth-token';
 
 const encoder = new TextEncoder();
@@ -93,31 +99,55 @@ async function getOrCreateCryptoKey() {
 function readSessionCookie() {
   const prefix = `${SESSION_COOKIE_NAME}=`;
   const match = document.cookie.split(';').map(part => part.trim()).find(part => part.startsWith(prefix));
-  return match ? decodeURIComponent(match.slice(prefix.length)) : null;
+  if (!match) return null;
+  try { return decodeURIComponent(match.slice(prefix.length)) || null; } catch (_) { return null; }
 }
 
 function setSessionCookie(value) {
-  // No Expires or Max-Age: this is deliberately a browser-session cookie.
-  let cookie = `${SESSION_COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; SameSite=Strict`;
+  // A long-lived cookie (not a browser-session one) so a refresh, reopened tab
+  // or restarted browser stays signed in until Sign out removes it.
+  let cookie = `${SESSION_COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; SameSite=Strict; Max-Age=${SESSION_MARKER_MAX_AGE_SECONDS}`;
   if (location.protocol === 'https:') cookie += '; Secure';
   document.cookie = cookie;
 }
 
+// The marker lives in the cookie and is mirrored in localStorage, so a browser
+// that drops or blocks the cookie does not silently log the person out.
+function readSessionMarker() {
+  const fromCookie = readSessionCookie();
+  if (fromCookie) {
+    if (safeStorageGet(SESSION_MARKER_STORAGE_KEY) !== fromCookie) safeStorageSet(SESSION_MARKER_STORAGE_KEY, fromCookie);
+    return fromCookie;
+  }
+  const fromStorage = safeStorageGet(SESSION_MARKER_STORAGE_KEY);
+  if (fromStorage) {
+    setSessionCookie(fromStorage); // re-create the cookie if it went missing
+    return fromStorage;
+  }
+  return null;
+}
+
 export function beginBrowserSession() {
-  // Reuse the browser-session marker when another Expense Vault tab is already
-  // active so a second tab cannot invalidate the first tab's encrypted blob.
-  const existingMarker = readSessionCookie();
+  // Reuse the existing login marker so another tab (or an earlier visit) keeps
+  // working against the same encrypted session.
+  const existingMarker = readSessionMarker();
   if (existingMarker) return existingMarker;
 
   const marker = Array.from(crypto.getRandomValues(new Uint8Array(24)), byte => byte.toString(16).padStart(2, '0')).join('');
   setSessionCookie(marker);
-  return readSessionCookie() === marker ? marker : null;
+  safeStorageSet(SESSION_MARKER_STORAGE_KEY, marker);
+  return readSessionMarker() === marker ? marker : null;
+}
+
+export function hasBrowserSessionCookie() {
+  return Boolean(readSessionMarker());
 }
 
 export function clearBrowserSessionCookie() {
   let cookie = `${SESSION_COOKIE_NAME}=; Path=/; SameSite=Strict; Max-Age=0`;
   if (location.protocol === 'https:') cookie += '; Secure';
   document.cookie = cookie;
+  safeStorageRemove(SESSION_MARKER_STORAGE_KEY);
 }
 
 export function clearLegacyPlaintextSession() {
@@ -175,17 +205,29 @@ export function getEncryptedSessionPersistenceStatus() {
   return { ...sessionPersistenceStatus };
 }
 
+export function getEncryptedSessionDiagnostics(storageKey = EXPENSE_VAULT_AUTH_STORAGE_KEY) {
+  let indexedDbAvailable = Boolean(globalThis.indexedDB);
+  let webCryptoAvailable = Boolean(globalThis.crypto?.subtle);
+  let encryptedBlobPresent = Boolean(safeStorageGet(encryptedStorageKey(storageKey)));
+  return {
+    browserSessionCookiePresent: hasBrowserSessionCookie(),
+    encryptedBlobPresent,
+    indexedDbAvailable,
+    webCryptoAvailable
+  };
+}
+
 export function createEncryptedBrowserSessionStorage() {
   return {
     async getItem(storageKey) {
-      const browserSessionMarker = readSessionCookie();
+      const browserSessionMarker = readSessionMarker();
       const storageKeyName = encryptedStorageKey(storageKey);
 
-      // No session cookie means the browser session ended. Discard any leftover
-      // ciphertext and force the access-key screen; never restore from disk alone.
+      // No login marker means the saved session cannot be unlocked (signed out,
+      // or browser data was cleared). Keep any encrypted blob untouched; the
+      // next successful sign-in overwrites it with a fresh one.
       if (!browserSessionMarker) {
         memoryFallback.delete(storageKey);
-        safeStorageRemove(storageKeyName);
         return null;
       }
       if (memoryFallback.has(storageKey)) return memoryFallback.get(storageKey);
@@ -210,17 +252,19 @@ export function createEncryptedBrowserSessionStorage() {
         return decoder.decode(plaintext);
       } catch (_) {
         // A malformed, tampered, or stale blob must never be treated as a session.
+        // Remove only the invalid ciphertext. The marker is not a credential and
+        // is cleared only by explicit sign-out or a confirmed invalid auth session.
         safeStorageRemove(storageKeyName);
-        clearBrowserSessionCookie();
+        memoryFallback.delete(storageKey);
         return null;
       }
     },
 
     async setItem(storageKey, value) {
       memoryFallback.set(storageKey, value);
-      const isAuthSession = storageKey === 'expense-vault-auth-session-v1';
+      const isAuthSession = storageKey === EXPENSE_VAULT_AUTH_STORAGE_KEY;
       if (isAuthSession) sessionPersistenceStatus = { persisted: false, error: null };
-      const browserSessionMarker = readSessionCookie();
+      const browserSessionMarker = readSessionMarker();
       if (!browserSessionMarker) {
         if (isAuthSession) sessionPersistenceStatus.error = 'The browser session cookie could not be created.';
         return;
@@ -263,9 +307,11 @@ export function createEncryptedBrowserSessionStorage() {
     },
 
     async removeItem(storageKey) {
+      // Supabase may remove its storage item during internal auth cleanup or
+      // token refresh recovery. Do not remove the login marker here; explicit
+      // application sign-out clears the marker separately.
       memoryFallback.delete(storageKey);
       safeStorageRemove(encryptedStorageKey(storageKey));
-      clearBrowserSessionCookie();
     }
   };
 }

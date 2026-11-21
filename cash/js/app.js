@@ -4,8 +4,11 @@ import {
   clearBrowserSessionCookie,
   clearLegacyPlaintextSession,
   createEncryptedBrowserSessionStorage,
+  EXPENSE_VAULT_AUTH_STORAGE_KEY,
+  getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js';
+import { clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -19,7 +22,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
     storage: encryptedAuthStorage,
-    storageKey: 'expense-vault-auth-session-v1',
+    storageKey: EXPENSE_VAULT_AUTH_STORAGE_KEY,
     autoRefreshToken: true,
     detectSessionInUrl: false,
     flowType: 'pkce'
@@ -140,7 +143,7 @@ let cashPeople = [];
 let cashPeopleLoading = false;
 let cashPeopleLoadPromise = null;
 let editingCashPersonId = null;
-const spreadsheetSelections = new WeakMap();
+const spreadsheetGrids = new Map();
 let toastTimer;
 
 function localDateString(date = new Date()) {
@@ -311,6 +314,7 @@ function makeEmptyReceivedRow() {
 }
 
 function setActiveTab(tabName) {
+  clearAllSpreadsheetSelections();
   document.querySelectorAll('.tab-button').forEach(button => {
     button.classList.toggle('active', button.dataset.tab === tabName);
   });
@@ -457,6 +461,7 @@ function updateCashReconciliation(row, countedAmount) {
 }
 
 function renderCashCounts() {
+  resetSheetSelection(el('cashCountTable'));
   cashTableBody.innerHTML = '';
   const selectedDate = el('cashAsOfDate').value || localDateString();
   if (cashCounts.length === 0) {
@@ -868,6 +873,7 @@ function onCashAsOfDateChange() {
 }
 
 function renderTable() {
+  resetSheetSelection(table);
   tableBody.innerHTML = '';
   if (rows.length === 0) {
     const tr = document.createElement('tr');
@@ -1031,6 +1037,7 @@ async function loadExpenses() {
 }
 
 function renderReceivedTable() {
+  resetSheetSelection(el('receivedTable'));
   receivedTableBody.innerHTML = '';
   if (receivedRows.length === 0) {
     const tr = document.createElement('tr');
@@ -1280,63 +1287,6 @@ async function deleteSelectedRow() {
   showToast('Selected row deleted.');
 }
 
-function sheetCellFromEvent(event, table) {
-  const cell = event.target.closest('td[data-row-index][data-col-index]');
-  return cell && cell.closest('table') === table ? cell : null;
-}
-
-function drawSheetRangeSelection(table) {
-  const state = spreadsheetSelections.get(table);
-  table.querySelectorAll('.cell-range-selected, .cell-range-anchor').forEach(cell => {
-    cell.classList.remove('cell-range-selected', 'cell-range-anchor');
-  });
-  if (!state?.start || !state?.end) return;
-  const minRow = Math.min(state.start.row, state.end.row);
-  const maxRow = Math.max(state.start.row, state.end.row);
-  const minCol = Math.min(state.start.col, state.end.col);
-  const maxCol = Math.max(state.start.col, state.end.col);
-  table.querySelectorAll('td[data-row-index][data-col-index]').forEach(cell => {
-    const rowIndex = Number(cell.dataset.rowIndex);
-    const colIndex = Number(cell.dataset.colIndex);
-    if (rowIndex >= minRow && rowIndex <= maxRow && colIndex >= minCol && colIndex <= maxCol) {
-      cell.classList.add('cell-range-selected');
-    }
-  });
-  const anchor = table.querySelector(`td[data-row-index="${state.start.row}"][data-col-index="${state.start.col}"]`);
-  anchor?.classList.add('cell-range-anchor');
-}
-
-function sheetCellText(cell) {
-  const control = cell.querySelector('input, select, textarea');
-  return control ? control.value : cell.textContent.trim();
-}
-
-function sheetSelectionToTsv(table) {
-  const state = spreadsheetSelections.get(table);
-  if (!state?.start || !state?.end) return '';
-  const minRow = Math.min(state.start.row, state.end.row);
-  const maxRow = Math.max(state.start.row, state.end.row);
-  const minCol = Math.min(state.start.col, state.end.col);
-  const maxCol = Math.max(state.start.col, state.end.col);
-  const lines = [];
-  for (let rowIndex = minRow; rowIndex <= maxRow; rowIndex++) {
-    const values = [];
-    for (let colIndex = minCol; colIndex <= maxCol; colIndex++) {
-      const cell = table.querySelector(`td[data-row-index="${rowIndex}"][data-col-index="${colIndex}"]`);
-      values.push(cell ? sheetCellText(cell) : '');
-    }
-    lines.push(values.join('\t'));
-  }
-  return lines.join('\n');
-}
-
-function nativeInputTextIsSelected() {
-  const active = document.activeElement;
-  return active instanceof HTMLInputElement
-    && typeof active.selectionStart === 'number'
-    && active.selectionStart !== active.selectionEnd;
-}
-
 function normalizePastedDate(rawValue) {
   const value = String(rawValue ?? '').trim();
   if (!value) return '';
@@ -1390,21 +1340,24 @@ function normalizePastedAmount(rawValue) {
   return value.startsWith('.') ? `0${value}` : value.startsWith('-.') ? value.replace('-.', '-0.') : value;
 }
 
-function applySpreadsheetPaste(config, table, clipboardText) {
+function resetSheetSelection(tableElement) {
+  spreadsheetGrids.get(tableElement)?.clearSelection();
+}
+
+function applyGridPaste(config, payload) {
   if (!canWrite) {
     showToast('This access key is view-only. Pasting changes is not permitted.', true);
-    return;
+    return null;
   }
-  const state = spreadsheetSelections.get(table);
-  if (!state?.start) {
-    showToast('Select a starting cell before pasting spreadsheet data.', true);
-    return;
+  const { fillRange } = payload;
+  let { matrix, startRow, startCol } = payload;
+  if (fillRange) {
+    // One copied value fills every selected cell, like Excel.
+    const value = matrix[0][0];
+    matrix = Array.from({ length: fillRange.maxRow - fillRange.minRow + 1 }, () =>
+      Array.from({ length: fillRange.maxCol - fillRange.minCol + 1 }, () => value));
   }
-  const normalized = clipboardText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n$/, '');
-  if (!normalized) return;
-  const matrix = normalized.split('\n').map(line => line.split('\t'));
-  const startRow = state.start.row;
-  const startCol = state.start.col;
+
   const modelRows = config.getRows();
   let applied = 0;
   let skipped = 0;
@@ -1438,7 +1391,7 @@ function applySpreadsheetPaste(config, table, clipboardText) {
         if (parsedAmount === null) { skipped++; return; }
         model[field] = parsedAmount;
       } else {
-        model[field] = rawValue;
+        model[field] = String(rawValue ?? '').slice(0, 120);
       }
       model._dirty = true;
       model._isNew = Boolean(model._isNew || !model.id);
@@ -1447,60 +1400,27 @@ function applySpreadsheetPaste(config, table, clipboardText) {
   });
 
   config.render();
-  state.end = {
-    row: Math.min(modelRows.length - 1, startRow + matrix.length - 1),
-    col: Math.min(config.columns.length - 1, startCol + Math.max(...matrix.map(row => row.length), 1) - 1)
-  };
-  drawSheetRangeSelection(table);
   config.setDirtyStatus();
   if (applied) showToast(`Pasted ${applied} cell${applied === 1 ? '' : 's'}. Save changes to commit.${skipped ? ` ${skipped} cell${skipped === 1 ? '' : 's'} skipped (invalid or calculated cells).` : ''}`);
   else showToast('No editable cells from the pasted range were applied.', true);
+
+  return {
+    endRow: Math.max(0, Math.min(modelRows.length - 1, startRow + matrix.length - 1)),
+    endCol: Math.min(config.columns.length - 1, startCol + Math.max(...matrix.map(row => row.length), 1) - 1)
+  };
 }
 
-function attachSpreadsheetClipboard(table, config) {
-  const state = { start: null, end: null, dragging: false };
-  spreadsheetSelections.set(table, state);
-
-  table.addEventListener('mousedown', event => {
-    if (event.button !== 0) return;
-    const cell = sheetCellFromEvent(event, table);
-    if (!cell) return;
-    state.start = { row: Number(cell.dataset.rowIndex), col: Number(cell.dataset.colIndex) };
-    state.end = { ...state.start };
-    state.dragging = true;
-    drawSheetRangeSelection(table);
-  });
-
-  table.addEventListener('mousemove', event => {
-    if (!state.dragging) return;
-    const cell = sheetCellFromEvent(event, table);
-    if (!cell) return;
-    state.end = { row: Number(cell.dataset.rowIndex), col: Number(cell.dataset.colIndex) };
-    if (state.start.row !== state.end.row || state.start.col !== state.end.col) event.preventDefault();
-    drawSheetRangeSelection(table);
-  });
-
-  document.addEventListener('mouseup', () => { state.dragging = false; });
-
-  table.addEventListener('copy', event => {
-    if (!state.start || nativeInputTextIsSelected()) return;
-    const text = sheetSelectionToTsv(table);
-    if (!text || !event.clipboardData) return;
-    event.clipboardData.setData('text/plain', text);
-    event.preventDefault();
-  });
-
-  table.addEventListener('paste', event => {
-    if (!event.clipboardData) return;
-    const text = event.clipboardData.getData('text/plain');
-    if (!text.includes('\t') && !text.includes('\n')) return;
-    event.preventDefault();
-    applySpreadsheetPaste(config, table, text);
-  });
+function showCopyToast({ rows, columns, cut }) {
+  const cells = rows * columns;
+  showToast(`${cut ? 'Cut' : 'Copied'} ${cells} cell${cells === 1 ? '' : 's'}${cells > 1 ? ` (${rows} × ${columns})` : ''} — paste into Excel with Ctrl+V.`);
 }
 
 function signOutToLogin() {
+  clearAllSpreadsheetSelections();
+  // Explicit sign-out is the only normal way to end the saved session: remove
+  // the encrypted session and the browser-session marker, then sign out locally.
   clearBrowserSessionCookie();
+  encryptedAuthStorage.removeItem(EXPENSE_VAULT_AUTH_STORAGE_KEY).catch(() => {});
   supabase.auth.signOut({ scope: 'local' }).catch(() => {});
   currentUser = null;
   canWrite = false;
@@ -1574,19 +1494,33 @@ loginForm.addEventListener('submit', async event => {
     const result = await callAccess('login', { key });
     if (!result.session?.access_token || !result.session?.refresh_token) throw new Error('The sign-in service did not return a valid session.');
     const browserSessionMarker = beginBrowserSession();
-    const { error: sessionError } = await supabase.auth.setSession({
+    const sessionTokens = {
       access_token: result.session.access_token,
       refresh_token: result.session.refresh_token
-    });
+    };
+    const { error: sessionError } = await supabase.auth.setSession(sessionTokens);
     if (sessionError) {
       clearBrowserSessionCookie();
       throw sessionError;
     }
+
+    // Persist explicitly after setSession as a second, awaited write. This avoids
+    // depending solely on SDK initialization/refresh timing for the first save.
+    const { data: currentSessionData, error: currentSessionError } = await supabase.auth.getSession();
+    if (currentSessionError) throw currentSessionError;
+    const sessionToPersist = currentSessionData?.session || result.session;
+    await encryptedAuthStorage.setItem(EXPENSE_VAULT_AUTH_STORAGE_KEY, JSON.stringify(sessionToPersist));
+
     el('loginKey').value = '';
     await loadWorkspace();
     const persistenceStatus = getEncryptedSessionPersistenceStatus();
+    const diagnostics = getEncryptedSessionDiagnostics();
     if (!browserSessionMarker || !persistenceStatus.persisted) {
-      showToast(`Secure session persistence is unavailable: ${persistenceStatus.error || 'browser storage is blocked'}. You may need to enter your key again after refresh or reopening the tab.`, true);
+      console.warn('[ExpenseVault] Encrypted browser-session persistence was not confirmed.', {
+        ...diagnostics,
+        error: persistenceStatus.error
+      });
+      showToast(`Secure session could not be saved: ${persistenceStatus.error || 'browser session marker unavailable'}. Refresh may require your key again.`, true);
     }
   } catch (error) {
     loginMessage.textContent = error.message || 'Sign-in failed. Please try again.';
@@ -1602,8 +1536,7 @@ addButton.addEventListener('click', () => {
   rows.unshift(row);
   selectedClientId = row.clientId;
   renderTable();
-  const firstInput = tableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"] input[data-field="entry_date"]`);
-  firstInput?.focus();
+  spreadsheetGrids.get(table)?.startEditing(0, 0);
   setSheetStatus('New row — remember to save', 'dirty');
 });
 
@@ -1634,7 +1567,7 @@ cashAddButton.addEventListener('click', () => {
   setCashVaultStatus('New daily count — remember to save', 'dirty');
   const rowElement = cashTableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`);
   rowElement?.scrollIntoView({ block: 'nearest' });
-  rowElement?.querySelector('input.quantity-cell')?.focus();
+  spreadsheetGrids.get(el('cashCountTable'))?.startEditing(0, 1);
 });
 
 cashSaveButton.addEventListener('click', saveCashCountChanges);
@@ -1660,8 +1593,7 @@ receivedAddButton.addEventListener('click', () => {
   receivedRows.unshift(row);
   selectedReceivedClientId = row.clientId;
   renderReceivedTable();
-  const firstInput = receivedTableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"] input[data-field="entry_date"]`);
-  firstInput?.focus();
+  spreadsheetGrids.get(el('receivedTable'))?.startEditing(0, 0);
   receivedSheetStatus.textContent = 'New row — remember to save';
   receivedSheetStatus.classList.add('dirty');
 });
@@ -1772,14 +1704,24 @@ el('cashPeopleBalanceList').addEventListener('click', event => {
   if (button) beginEditCashPersonBalance(button.dataset.personId);
 });
 
-attachSpreadsheetClipboard(table, {
+function registerSpreadsheet(tableElement, config) {
+  const paste = payload => applyGridPaste(config, payload);
+  spreadsheetGrids.set(tableElement, createSpreadsheetGrid(tableElement, {
+    columns: config.columns,
+    getRowCount: () => config.getRows().length,
+    onPaste: paste,
+    onCopy: showCopyToast
+  }));
+}
+
+registerSpreadsheet(table, {
   columns: COLUMNS,
   getRows: () => rows,
   makeRow: makeEmptyRow,
   render: renderTable,
   setDirtyStatus: () => { setSheetStatus('Unsaved changes from paste', 'dirty'); updateToolbar(); }
 });
-attachSpreadsheetClipboard(el('receivedTable'), {
+registerSpreadsheet(el('receivedTable'), {
   columns: RECEIVING_COLUMNS,
   getRows: () => receivedRows,
   makeRow: makeEmptyReceivedRow,
@@ -1791,7 +1733,7 @@ attachSpreadsheetClipboard(el('receivedTable'), {
     updateReceivedToolbar();
   }
 });
-attachSpreadsheetClipboard(el('cashCountTable'), {
+registerSpreadsheet(el('cashCountTable'), {
   columns: CASH_COUNT_COLUMNS,
   getRows: () => cashCounts,
   render: renderCashCounts,
@@ -1800,28 +1742,83 @@ attachSpreadsheetClipboard(el('cashCountTable'), {
 
 el('cashAsOfDate').value = localDateString();
 syncCashDateControls();
-resetCashMovementForm();
 buildTableHeader();
 buildReceivingTableHeader();
 buildCashTableHeader();
-el('loginKey').focus();
 
+// Restore the saved login before showing the access-key form so a page refresh
+// goes straight back into the workspace. Only an explicit Sign out (or a session
+// the server confirms is no longer valid) sends the person back to the key form.
 async function restoreBrowserSession() {
+  authScreen.classList.add('restoring');
+  let restored = false;
   try {
-    const { data, error } = await supabase.auth.getSession();
+    const diagnosticsBeforeRestore = getEncryptedSessionDiagnostics();
+    console.info('[ExpenseVault] Browser-session restore check.', diagnosticsBeforeRestore);
+
+    if (!diagnosticsBeforeRestore.browserSessionCookiePresent) {
+      // Nothing to restore: first visit, signed out, or browser data was cleared.
+      return;
+    }
+
+    // Read the encrypted value directly as well as through Supabase Auth. This
+    // provides a deterministic recovery path if the SDK's first initialization
+    // raced the async IndexedDB key lookup on a page refresh.
+    const encryptedSessionJson = await encryptedAuthStorage.getItem(EXPENSE_VAULT_AUTH_STORAGE_KEY);
+    let encryptedSession = null;
+    if (encryptedSessionJson) {
+      try {
+        encryptedSession = JSON.parse(encryptedSessionJson);
+      } catch (_) {
+        throw new Error('The saved encrypted session is not valid JSON. Please sign in again.');
+      }
+      if (!encryptedSession?.access_token || !encryptedSession?.refresh_token) {
+        throw new Error('The saved encrypted session is incomplete. Please sign in again.');
+      }
+    }
+
+    let { data, error } = await supabase.auth.getSession();
     if (error) throw error;
-    if (!data.session?.access_token) return;
+
+    // If the encrypted adapter has a valid session but the SDK did not hydrate
+    // it during startup, explicitly restore the two tokens through Supabase Auth.
+    if (!data.session?.access_token && encryptedSession) {
+      const hydrated = await supabase.auth.setSession({
+        access_token: encryptedSession.access_token,
+        refresh_token: encryptedSession.refresh_token
+      });
+      if (hydrated.error) throw hydrated.error;
+      data = hydrated.data;
+      await encryptedAuthStorage.setItem(EXPENSE_VAULT_AUTH_STORAGE_KEY, JSON.stringify(data.session || encryptedSession));
+    }
+
+    if (!data.session?.access_token) {
+      const latestDiagnostics = getEncryptedSessionDiagnostics();
+      console.warn('[ExpenseVault] Browser-session marker exists but no restorable session was found.', latestDiagnostics);
+      if (latestDiagnostics.encryptedBlobPresent) {
+        loginMessage.textContent = 'The saved session could not be restored. Please enter your access key; if this repeats, browser storage may be blocked.';
+      }
+      return;
+    }
+
     await loadWorkspace();
+    restored = true;
   } catch (error) {
     const message = error?.message || 'Could not restore the saved browser session.';
-    const isInvalidSession = /sign in again|session has expired|no longer active|invalid jwt|invalid token/i.test(message);
+    const isInvalidSession = /sign in again|session has expired|no longer active|invalid jwt|invalid token|not authenticated|refresh token.*(invalid|not found|already used)|invalid refresh token/i.test(message);
     if (isInvalidSession) {
       clearBrowserSessionCookie();
       await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-      loginMessage.textContent = 'Your browser session has ended. Please enter your access key again.';
+      loginMessage.textContent = 'Your saved session is no longer valid. Please enter your access key again.';
     } else {
-      loginMessage.textContent = `Could not restore the session: ${message}`;
+      // Likely a temporary problem such as being offline: keep the saved session
+      // so a refresh can try again, and let the person use their key meanwhile.
+      console.error('[ExpenseVault] Browser-session restore failed:', message);
+      loginMessage.textContent = `Could not restore the saved session (${message}). Refresh to try again, or enter your access key.`;
     }
+  } finally {
+    authScreen.classList.remove('restoring');
+    if (!restored) el('loginKey').focus();
   }
 }
 

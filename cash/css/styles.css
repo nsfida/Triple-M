@@ -396,12 +396,46 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
   .cash-person-edit-button { grid-column: 1 / -1; justify-self: end; }
 }
 
-/* Spreadsheet selection/copy/paste. Native input text selection remains usable,
-   while dragged cell ranges copy as tab-separated values for Excel. */
-.expense-table td { user-select: text; -webkit-user-select: text; }
-.expense-table td.cell-range-selected { background: #e4f1ff !important; box-shadow: inset 0 0 0 1px #8bb8ee; }
+/* Spreadsheet selection, copy and paste.
+   Cells behave like a spreadsheet: click selects, drag selects a range, double-click
+   / Enter / typing edits. Selection is drawn by js/spreadsheet-grid.js. */
+.expense-table td { user-select: none; -webkit-user-select: none; }
+.expense-table td.cell-editing input,
+.expense-table td.cell-editing select { user-select: text; -webkit-user-select: text; }
+.expense-table td.cell-range-selected { background: #dcebfb !important; box-shadow: inset 0 0 0 1px #9fc3ee; }
+.expense-table tr.selected td.cell-range-selected { background: #cfe3fa !important; }
 .expense-table td.cell-range-anchor { box-shadow: inset 0 0 0 2px #2877c7; }
-.expense-table tr.selected td.cell-range-selected { background: #d6e9ff !important; }
+.expense-table td.cell-range-single { background: inherit !important; }
+.expense-table tr.selected td.cell-range-single { background: #edf6ff !important; }
+.expense-table td.cell-editing { background: #ffffff !important; box-shadow: inset 0 0 0 2px var(--accent); }
+.expense-table td.cell-editing input.cell-input,
+.expense-table td.cell-editing select.cell-input { background: #ffffff; }
+
+/* With a mouse, the first click selects the cell instead of dropping a caret in
+   it, so ranges can be dragged across any column. Touch screens keep native inputs. */
+@media (hover: hover) and (pointer: fine) {
+  .expense-table td { cursor: cell; }
+  .expense-table td input.cell-input,
+  .expense-table td select.cell-input { pointer-events: none; }
+  .expense-table td.cell-editing input.cell-input,
+  .expense-table td.cell-editing select.cell-input { pointer-events: auto; cursor: text; }
+  .expense-table td.cell-editing select.cell-input { cursor: pointer; }
+}
+
+/* Hidden element that holds keyboard focus (and the copy/paste clipboard) while cells are selected. */
+.sheet-clipboard-proxy {
+  position: fixed; top: 0; left: 0; width: 1px; height: 1px; margin: 0; padding: 0; border: 0;
+  opacity: 0; overflow: hidden; resize: none; pointer-events: none; font-size: 16px; z-index: -1;
+}
+
+/* While a saved login is being restored, hide the key form so it does not flash.
+   The animation is a fail-safe: the form always reappears after 10 seconds. */
+@keyframes ev-reveal-login { to { visibility: visible; } }
+.auth-screen.restoring .stack-form,
+.auth-screen.restoring .micro-copy {
+  visibility: hidden;
+  animation: ev-reveal-login 0s linear 10s forwards;
+}
 
 @media (max-width: 1120px) {
   .cash-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
