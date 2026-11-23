@@ -253,6 +253,7 @@ const CANONICAL_MIGRATION_FILES = [
   "235_card_billing_switch.sql",
   "236_triplem_drive.sql",
   "237_triplem_drive_catalog_bookings.sql",
+  "238_triplem_drive_assign_triplemdrive.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

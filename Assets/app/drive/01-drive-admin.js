@@ -16,7 +16,9 @@
   function open({ mode = "enable", user, drive = {}, rpc, host, onSaved }) {
     close();
     const enable = mode === "enable";
-    const initial = drive.slug || suggest(user);
+    // Triplem Drive's own page is triplem.vip/triplemdrive/. While no account has that address, it is
+    // offered first (the server check below says at once if it is already taken).
+    const initial = drive.slug || (enable ? "triplemdrive" : suggest(user));
     box = document.createElement("div");
     box.className = "td-adlg";
     box.innerHTML = `<div class="td-adlg-backdrop" data-td-x></div>

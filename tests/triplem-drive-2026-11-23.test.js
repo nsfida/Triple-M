@@ -193,3 +193,13 @@ test("migration 237 re-declares only the address check and the public booking fu
   assert.match(code, /left\(nullif\(btrim\(coalesce\(p->'catalog'->>'vehicle', ''\)\), ''\), 120\)/);
   assert.match(code, /interval '1 hour'/);
 });
+
+test("migration 238 only moves the test address book -> triplemdrive, guarded", { skip: !exists("migrations/238_triplem_drive_assign_triplemdrive.sql") }, () => {
+  const code = read("migrations/238_triplem_drive_assign_triplemdrive.sql").replace(/--.*$/gm, "");
+  assert.doesNotMatch(code, /\b(create|alter|drop)\s+table\b|\btruncate\b|\bdelete\b/i);
+  assert.match(code, /if n <> 1 then/);
+  assert.match(code, /lower\(slug\) = 'triplemdrive'\) then/);
+  assert.match(code, /set slug = 'triplemdrive', is_root = false/);
+  assert.match(read("Assets/app/drive/01-drive-admin.js"), /drive\.slug \|\| \(enable \? "triplemdrive" : suggest\(user\)\)/);
+  assert.doesNotMatch(read("Assets/app/drive/01-drive-admin.js"), /data-td-root|\/triplemdrive\/<\/em>/);
+});
