@@ -83,6 +83,8 @@ html[data-triplem-theme-mode="dark"] .td-app{--td-bg:#0b1220;--td-surface:#111a2
 .td-ov-filters button[aria-checked="true"],.td-chips button[aria-checked="true"]{background:var(--td-blue);border-color:var(--td-blue);color:#fff}
 .td-callout{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:var(--td-radius);border:1px solid color-mix(in srgb,var(--td-warn) 35%,var(--td-line));background:color-mix(in srgb,var(--td-warn) 8%,var(--td-surface))}
 .td-callout>i{color:var(--td-warn);font-size:1.2rem}
+.td-callout.is-info{border-color:color-mix(in srgb,var(--td-blue) 30%,var(--td-line));background:color-mix(in srgb,var(--td-blue) 6%,var(--td-surface))}
+.td-callout.is-info>i{color:var(--td-blue)}
 .td-callout>div{flex:1;display:flex;flex-direction:column}
 .td-callout span{color:var(--td-muted);font-size:.85rem}
 .td-public{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}

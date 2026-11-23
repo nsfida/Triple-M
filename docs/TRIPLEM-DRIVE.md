@@ -30,6 +30,15 @@ The **Triplem Drive** card appears on the Home screen only for authorised accoun
 | Business Page | Public business name (independent of the account name and the address), logo (PNG/JPG/WebP, proportions kept, the name is shown without a logo), banner, tagline, description, phone, WhatsApp, email, address, hours, map link, social links, contact instructions, terms, cancellation policy, currency, time zone, default trip length, automatic confirmation; Publish / Unpublish, Preview (a 30-minute private link before publishing), Copy link |
 | Booking Form | Show or hide, require, rename and reorder fields; defaults for pickup, destination and notes; up to 12 custom questions (short text, long text, number, choice, yes/no); the message shown after sending. Name, mobile and pickup date are always asked. |
 
+## Website catalogue (`triplemdrive/catalog/catalog.json`)
+
+The listed vehicles and prices come from a JSON file instead of the database: SUV (GMC Yukon, GMC Yukon XL, Chevrolet Tahoe, Chevrolet Suburban), Sedan (Lexus ES, Ford Taurus, BMW 7 Series), Mini Van (Hyundai Staria, Toyota HiAce). It also holds the 8 intercity routes from Riyadh, airport and inside-city transfers, full-day bookings (SAR) and the terms (24/7; 15% on the final invoice when an invoice is needed; 5% for cash; 0% with advance payment to an individual account; at least 1 hour before the trip; pickup location by WhatsApp after payment; complaints by WhatsApp with a picture or by the official Triplem email). Cars added later are added in the dashboard (database) and appear under "More vehicles".
+
+- `apply_to.root: true` shows it on the business that owns `/triplemdrive/`. To show it on another business, add that business's address to `apply_to.slugs`.
+- To change a price, edit `services[].prices` (`suv`, `sedan`, `minivan`). To add a model, add it to `vehicles` and to its class in `classes`.
+- The booking form gets "Service", "Vehicle type", "Preferred model" and the listed price. The request is stored with those choices (database update 237) and waits for your confirmation.
+- Photos: `triplemdrive/catalog/photos/<file>`. Run `node scripts/fetch_drive_catalog_photos.js` on your computer. It downloads the Wikimedia Commons photos named in the JSON (free licences) and writes `credits.json` (authors and licences shown under "Vehicle photo credits"). Check each photo, then upload the folder. Until a photo file is uploaded, the page shows the same picture directly from Wikimedia Commons. To use your own photo, save it under the same file name (JPG, about 1600 px wide).
+
 ## Public page
 
 `/triplemdrive/<address>/` (also `/triplemdrive/?b=<address>`). It shows the business header with its own logo and name, introduction, fleet by section, vehicle details with photos, routes, rates, the booking form, contact details, terms and footer.

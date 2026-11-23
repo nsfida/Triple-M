@@ -197,3 +197,48 @@ a{color:var(--blue)}
   .tds-specs{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*{transition:none !important;animation:none !important}}
+
+/* Website catalogue (catalog.json): vehicle types, price list, terms, booking choice */
+.tds-cat-classes{display:flex;flex-direction:column;gap:34px}
+.tds-cat-class[hidden]{display:none}
+.tds-cat-class-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid var(--line)}
+.tds-cat-class-head h3{margin:0;font-size:1.25rem;letter-spacing:-.01em}
+.tds-cat-group{margin-bottom:28px}
+.tds-cat-group-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.tds-cat-group-head h3{margin:0;font-size:1.12rem}
+.tds-cat-group-head small{color:var(--muted)}
+.tds-table-wrap{background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:auto;box-shadow:var(--shadow)}
+.tds-table{width:100%;border-collapse:collapse;font-size:.95rem}
+.tds-table thead th{background:var(--navy);color:#fff;text-align:left;font-weight:700;font-size:.82rem;letter-spacing:.04em;text-transform:uppercase;padding:12px 16px;white-space:nowrap}
+.tds-table tbody th{text-align:left;font-weight:700;padding:12px 16px;white-space:nowrap}
+.tds-table tbody th i{color:var(--accent);font-size:.8rem;margin:0 4px}
+.tds-table td{padding:10px 16px;white-space:nowrap;color:var(--navy)}
+.tds-table tbody tr{border-top:1px solid var(--line)}
+.tds-table tbody tr:nth-child(even){background:#f8fafd}
+.tds-table td:last-child{text-align:right}
+.tds-table .tds-btn{min-height:36px;padding:6px 14px}
+.tds-cat-cards{display:none;flex-direction:column;gap:10px}
+.tds-cat-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tds-cat-prices span{display:flex;flex-direction:column;background:#f3f6fb;border-radius:10px;padding:8px}
+.tds-cat-prices small{color:var(--muted);font-size:.72rem}
+.tds-cat-prices b{color:var(--navy);font-size:.9rem}
+.tds-cat-terms{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:22px}
+.tds-cat-term{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+.tds-cat-term>i{width:34px;height:34px;flex:0 0 34px;border-radius:10px;display:grid;place-items:center;background:#eef3fb;color:var(--blue)}
+.tds-cat-term.is-key>i{background:#fef3c7;color:#b45309}
+.tds-cat-term span{display:flex;flex-direction:column}
+.tds-cat-term small{color:var(--muted);font-size:.78rem}
+.tds-cat-form{border:0;margin:0;padding:0 0 14px;border-bottom:1px dashed var(--line)}
+.tds-cat-form legend{font-weight:800;font-size:1.02rem;margin-bottom:12px;padding:0}
+.tds-cat-quote{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:12px;background:linear-gradient(135deg,#0b1f4d,#163a86);color:#fff}
+.tds-cat-quote span{font-size:.85rem;opacity:.85}
+.tds-cat-quote b{font-size:1.2rem}
+.tds-credits-wrap{padding:6px 0 18px}
+.tds-credits{font-size:.8rem;color:var(--muted)}
+.tds-credits summary{cursor:pointer}
+.tds-credits ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
+.tds-credits a{color:var(--muted);word-break:break-all}
+@media (max-width: 760px){
+  .tds-table-wrap{display:none}
+  .tds-cat-cards{display:flex}
+}

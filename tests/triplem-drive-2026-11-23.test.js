@@ -154,3 +154,32 @@ test("brand spelling: Triplem / TRIPLEM / Triplem Drive only", () => {
   if (exists(MIG)) files.push(MIG);
   for (const f of files) if (exists(f)) assert.doesNotMatch(read(f), /TRIPLEm/, f);
 });
+
+test("website catalogue: the listed cars, routes and prices; photos local first, Commons as fallback", () => {
+  const cat = JSON.parse(read("triplemdrive/catalog/catalog.json"));
+  assert.deepEqual(cat.classes.map(c => c.name), ["SUV", "Sedan", "Mini Van"]);
+  assert.deepEqual(cat.vehicles.map(v => v.name), ["GMC Yukon", "GMC Yukon XL", "Chevrolet Tahoe", "Chevrolet Suburban", "Lexus ES", "Ford Taurus", "BMW 7 Series", "Hyundai Staria", "Toyota HiAce"]);
+  const price = (k, c) => cat.services.find(s => s.key === k).prices[c];
+  assert.equal(cat.currency, "SAR");
+  assert.equal(cat.services.length, 11);
+  assert.deepEqual([price("riyadh-jeddah", "suv"), price("riyadh-jeddah", "sedan"), price("riyadh-jeddah", "minivan")], [1900, 1425, 1710]);
+  assert.deepEqual([price("airport", "suv"), price("inside-city", "sedan"), price("full-day", "minivan")], [145, 70, 1100]);
+  assert.equal(cat.terms.timing, "24/7");
+  assert.equal(cat.terms.min_notice_minutes, 60);
+  for (const v of cat.vehicles) for (const p of v.photos) { assert.match(p.file, /^[a-z0-9-]+\.jpg$/); assert.ok(p.commons, v.name); }
+  const js = read("triplemdrive/catalog.js");
+  assert.match(js, /Special:FilePath/);
+  assert.match(js, /Vehicle photo credits/);
+  assert.match(read("triplemdrive/index.html"), /\/triplemdrive\/catalog\.js\?v=/);
+  assert.match(read("triplemdrive/site.js"), /p\.catalog = c;/);
+  assert.ok(exists("scripts/fetch_drive_catalog_photos.js"));
+});
+
+test("migration 237 only re-declares the public booking function", { skip: !exists("migrations/237_triplem_drive_catalog_bookings.sql") }, () => {
+  const code = read("migrations/237_triplem_drive_catalog_bookings.sql").replace(/--.*$/gm, "");
+  assert.doesNotMatch(code, /\b(create|alter|drop)\s+table\b|\btruncate\b/i);
+  assert.equal((code.match(/create or replace function/g) || []).length, 1);
+  assert.match(code, /create or replace function public\.app_drive_public_book\(p_slug text, p jsonb\)/);
+  assert.match(code, /left\(nullif\(btrim\(coalesce\(p->'catalog'->>'vehicle', ''\)\), ''\), 120\)/);
+  assert.match(code, /interval '1 hour'/);
+});

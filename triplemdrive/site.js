@@ -20,7 +20,8 @@
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const qs = new URLSearchParams(location.search);
   const preview = qs.get("preview") || "";
-  const S = { slug: "", site: null, media: new Map(), section: "", vehicle: null };
+  const S = { slug: "", site: null, media: new Map(), section: "", vehicle: null, cat: null };
+  const CAT = () => (S.cat ? window.TDCatalog : null);
 
   async function rpc(fn, args) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
@@ -148,7 +149,7 @@
           <span class="tds-brand-name">${esc(b.name)}</span>
         </a>
         <nav class="tds-nav" aria-label="Page">
-          ${vehicles.length ? `<a href="#fleet">Fleet</a>` : ""}${(s.routes || []).length ? `<a href="#routes">Routes</a>` : ""}${(s.rates || []).length ? `<a href="#rates">Rates</a>` : ""}<a href="#contact">Contact</a>
+          ${vehicles.length || CAT() ? `<a href="#fleet">Fleet</a>` : ""}${(s.routes || []).length ? `<a href="#routes">Routes</a>` : ""}${(s.rates || []).length || CAT() ? `<a href="#rates">${CAT() ? "Prices" : "Rates"}</a>` : ""}<a href="#contact">Contact</a>
         </nav>
         <a class="tds-btn is-primary tds-head-cta" href="#book"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Book now</span></a>
       </header>
@@ -163,7 +164,8 @@
               ${wa ? `<a class="tds-btn is-wa is-lg" href="${esc(wa)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> WhatsApp</a>` : b.phone ? `<a class="tds-btn is-ghost is-lg" href="tel:${esc(b.phone)}"><i class="fa-solid fa-phone" aria-hidden="true"></i> Call us</a>` : ""}
             </div>
             <ul class="tds-hero-facts">
-              ${vehicles.length ? `<li><i class="fa-solid fa-car-side" aria-hidden="true"></i>${vehicles.length} vehicle${vehicles.length === 1 ? "" : "s"}</li>` : ""}
+              ${vehicles.length + (CAT()?.count() || 0) ? `<li><i class="fa-solid fa-car-side" aria-hidden="true"></i>${vehicles.length + (CAT()?.count() || 0)} vehicle${vehicles.length + (CAT()?.count() || 0) === 1 ? "" : "s"}</li>` : ""}
+              ${CAT()?.get()?.terms?.timing ? `<li><i class="fa-solid fa-headset" aria-hidden="true"></i>${esc(CAT().get().terms.timing)}</li>` : ""}
               ${b.hours ? `<li><i class="fa-regular fa-clock" aria-hidden="true"></i>${esc(b.hours)}</li>` : ""}
               ${b.address ? `<li><i class="fa-solid fa-location-dot" aria-hidden="true"></i>${esc(b.address.split("\n")[0])}</li>` : ""}
             </ul>
@@ -172,10 +174,11 @@
 
         ${b.description ? `<section class="tds-sec tds-about"><div class="tds-wrap"><h2>About us</h2><p class="tds-pre">${esc(b.description)}</p></div></section>` : ""}
 
-        <section class="tds-sec" id="fleet"><div class="tds-wrap">
-          <div class="tds-sec-head"><h2>Our fleet</h2>${sections.length > 1 ? `<div class="tds-chips" role="radiogroup" aria-label="Fleet sections"><button type="button" role="radio" aria-checked="true" data-sec="">All</button>${sections.map(x => `<button type="button" role="radio" aria-checked="false" data-sec="${esc(x.key)}">${esc(x.name)}</button>`).join("")}</div>` : ""}</div>
+        ${CAT() ? CAT().sectionsHtml() : ""}
+        ${CAT() && !vehicles.length ? "" : `<section class="tds-sec" id="${CAT() ? "more-fleet" : "fleet"}"><div class="tds-wrap">
+          <div class="tds-sec-head"><h2>${CAT() ? "More vehicles" : "Our fleet"}</h2>${sections.length > 1 ? `<div class="tds-chips" role="radiogroup" aria-label="Fleet sections"><button type="button" role="radio" aria-checked="true" data-sec="">All</button>${sections.map(x => `<button type="button" role="radio" aria-checked="false" data-sec="${esc(x.key)}">${esc(x.name)}</button>`).join("")}</div>` : ""}</div>
           ${vehicles.length ? `<div class="tds-grid" data-grid>${vehicles.map(vehicleCard).join("")}</div>` : `<p class="tds-muted">Our vehicles will be listed here soon. You can still send a booking request below.</p>`}
-        </div></section>
+        </div></section>`}
 
         ${(s.routes || []).length ? `<section class="tds-sec is-tint" id="routes"><div class="tds-wrap"><h2>Popular routes</h2>
           <div class="tds-routes">${s.routes.map(r => `<article class="tds-route">
@@ -185,7 +188,7 @@
               <div class="tds-route-foot"><span class="tds-price">${r.price != null ? esc(money(r.price)) : "Request a Quote"}</span><button type="button" class="tds-btn" data-book-route="${esc(r.key)}">Book</button></div>
             </article>`).join("")}</div></div></section>` : ""}
 
-        ${(s.rates || []).length ? `<section class="tds-sec" id="rates"><div class="tds-wrap"><h2>Rates</h2>
+        ${(s.rates || []).length ? `<section class="tds-sec" id="${CAT() ? "more-rates" : "rates"}"><div class="tds-wrap"><h2>Rates</h2>
           <div class="tds-rates">${s.rates.map(r => `<div class="tds-rate"><div><b>${esc(r.label)}</b>${r.section ? `<small>${esc((sections.find(x => x.key === r.section) || {}).name || "")}</small>` : ""}${r.extras ? `<small>${esc(r.extras)}</small>` : ""}</div>
             <span class="tds-price">${r.amount != null ? `${esc(money(r.amount))} <small>${esc(PER[r.type] || "")}</small>` : "Request a Quote"}</span></div>`).join("")}</div>
           <p class="tds-muted">Prices in ${esc(cur())}. Payment is arranged directly with us; nothing is charged online.</p></div></section>` : ""}
@@ -194,7 +197,7 @@
           <div class="tds-book-intro"><h2>Request a booking</h2><p>Send your request and we will contact you to confirm your reservation.</p>
             ${b.contact_note ? `<p class="tds-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>${esc(b.contact_note)}</p>` : ""}
           </div>
-          <form class="tds-form" data-form novalidate>${formHtml()}</form>
+          <form class="tds-form" data-form novalidate>${CAT() ? CAT().formHtml() : ""}${formHtml()}</form>
         </div></section>
 
         <section class="tds-sec" id="contact"><div class="tds-wrap"><h2>Contact</h2>
@@ -209,6 +212,7 @@
           ${b.terms || b.cancellation_policy ? `<div class="tds-terms">${b.terms ? `<details><summary>Terms and conditions</summary><p class="tds-pre">${esc(b.terms)}</p></details>` : ""}${b.cancellation_policy ? `<details><summary>Cancellation policy</summary><p class="tds-pre">${esc(b.cancellation_policy)}</p></details>` : ""}</div>` : ""}
         </div></section>
       </main>
+      ${CAT() ? `<div class="tds-wrap tds-credits-wrap">${CAT().creditsHtml()}</div>` : ""}
       <footer class="tds-foot"><div class="tds-wrap"><span>© ${new Date().getFullYear()} ${esc(b.name)}</span><span>Powered by <a href="${CANON_ORIGIN}/" rel="noopener">Triplem Drive · Triplem VIP</a></span></div></footer>
       <dialog class="tds-dlg" data-dlg aria-labelledby="tdsDlgTitle"></dialog>`;
     app.removeAttribute("aria-busy");
@@ -312,6 +316,17 @@
     for (const [k, v] of fd.entries()) { if (k.startsWith("q_")) p.answers[k.slice(2)] = String(v).trim(); else p[k] = String(v).trim(); }
     form.querySelectorAll('input[type="checkbox"][name^="q_"]').forEach(c => { p.answers[c.name.slice(2)] = c.checked ? "yes" : ""; });
     // Browser checks first (the server checks everything again).
+    for (const k of Object.keys(p)) if (k.startsWith("cat_")) delete p[k];
+    if (CAT()) {
+      const c = CAT().payload(form);
+      if (!c) { showErr(form, "Choose the service and the vehicle type.", form.elements.cat_service.value ? form.elements.cat_class : form.elements.cat_service); return; }
+      p.catalog = c;
+      const mins = CAT().minNoticeMinutes();
+      if (mins && p.pickup_date && p.pickup_time) {
+        const t = new Date(`${p.pickup_date}T${p.pickup_time}`);
+        if (t - Date.now() < mins * 60000) { showErr(form, `Please book at least ${mins >= 60 && mins % 60 === 0 ? mins / 60 + " hour" + (mins === 60 ? "" : "s") : mins + " minutes"} before the trip.`, form.elements.pickup_time); return; }
+      }
+    }
     const missing = [...form.querySelectorAll("[required]")].find(el => el.type === "checkbox" ? !el.checked : !String(el.value || "").trim());
     if (missing) { showErr(form, "Please fill in the required fields.", missing); return; }
     btn.disabled = true; btn.classList.add("is-busy");
@@ -344,6 +359,11 @@
   function bind() {
     const form = app.querySelector("[data-form]");
     form?.addEventListener("submit", e => { e.preventDefault(); submit(form); });
+    if (CAT()) {
+      app.addEventListener("error", CAT().onImgError, true);
+      app.addEventListener("load", CAT().onImgLoad, true);
+      form?.addEventListener("change", e => { if (String(e.target.name || "").startsWith("cat_")) CAT().syncForm(form); });
+    }
     form?.addEventListener("change", e => {
       if (e.target.name === "route") {
         const r = (S.site.routes || []).find(x => x.key === e.target.value);
@@ -361,6 +381,18 @@
         return;
       }
       const op = t.closest("[data-open]"); if (op) return vehicleDialog(op.dataset.open);
+      if (CAT()) {
+        const cf = t.closest("[data-cat-filter]");
+        if (cf) {
+          app.querySelectorAll("[data-cat-filter]").forEach(x => x.setAttribute("aria-checked", String(x === cf)));
+          app.querySelectorAll("[data-cat-class]").forEach(c => { c.hidden = !!cf.dataset.catFilter && c.dataset.catClass !== cf.dataset.catFilter; });
+          return;
+        }
+        const co = t.closest("[data-cat-open]"); if (co) return CAT().dialog(app.querySelector("[data-dlg]"), co.dataset.catOpen, !S.site.preview);
+        const cb = t.closest("[data-cat-book]");
+        if (cb) { const d = app.querySelector("[data-dlg]"); if (d?.open) d.close(); CAT().preset(app.querySelector("[data-form]"), { model: cb.dataset.catBook }); return goBook(); }
+        const cs = t.closest("[data-cat-service]"); if (cs) { CAT().preset(app.querySelector("[data-form]"), { service: cs.dataset.catService }); return goBook(); }
+      }
       const bk = t.closest("[data-book]");
       if (bk) { const d = app.querySelector("[data-dlg]"); if (d?.open) d.close(); pick("vehicle", bk.dataset.book); return; }
       const br = t.closest("[data-book-route]"); if (br) return pick("route", br.dataset.bookRoute);
@@ -374,6 +406,10 @@
       }
       if (t.closest("[data-close]") || t.matches("dialog")) t.closest("dialog")?.close();
     });
+  }
+  function goBook() {
+    document.getElementById("book")?.scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => app.querySelector('[data-form] [name="customer_name"]')?.focus({ preventScroll: true }), 450);
   }
   function pick(name, value) {
     const form = app.querySelector("[data-form]");
@@ -389,7 +425,7 @@
     let r;
     try { r = await rpc("app_drive_public_site", { p_slug: S.slug || null, p_preview: preview || null }); }
     catch (e) { seo({ title: "Triplem Drive", description: "Vehicle bookings by Triplem Drive.", index: false }); return messagePage("fa-wifi", "This page could not be loaded", "Check your connection and try again.", `<button class="tds-btn is-primary" onclick="location.reload()">Try again</button>`); }
-    if (r && r.ok) { S.site = r; if (!S.slug) S.slug = r.slug; return render(); }
+    if (r && r.ok) { S.site = r; if (!S.slug) S.slug = r.slug; S.cat = window.TDCatalog ? await window.TDCatalog.load(r) : null; return render(); }
     if (r && r.reason === "moved" && r.slug) { location.replace(`/triplemdrive/${encodeURIComponent(r.slug)}/${location.hash}`); return; }
     seo({ title: r?.reason === "unpublished" ? `${r.business_name || "Triplem Drive"} · Not available` : "Page not found · Triplem Drive", description: "This Triplem Drive page is not available.", index: false });
     if (r && r.reason === "unpublished") return messagePage("fa-eye-slash", r.business_name || "Not available yet", "This booking page is not available at the moment. Please contact the business directly.");

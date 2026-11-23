@@ -380,7 +380,9 @@
           <select data-td-fleet-section aria-label="Section"><option value="">All sections</option><option value="none"${st.section === "none" ? " selected" : ""}>No section</option>${(S.ctx.sections || []).map(s => `<option value="${esc(s.id)}"${st.section === s.id ? " selected" : ""}>${esc(s.name)}</option>`).join("")}</select>
           ${btn("vehicle-new", "Add vehicle", "fa-plus", { primary: true })}
         </div>
+        <div data-td-cat-note></div>
         <div data-td-fleet-list>${skel(6)}</div>`;
+      catalogueNote(el.querySelector("[data-td-cat-note]"));
       const q = el.querySelector("[data-td-fleet-q]");
       let tm = 0;
       q.addEventListener("input", () => { clearTimeout(tm); tm = setTimeout(() => { st.q = q.value.trim(); load(true); }, 260); });
@@ -419,6 +421,21 @@
       load(true);
     }
   };
+
+  // Website catalogue (triplemdrive/catalog/catalog.json): listed models and prices shown on the public
+  // page of the business it applies to. They are not database vehicles, so they are shown here as a note.
+  async function catalogueNote(box) {
+    if (!box) return;
+    try {
+      const r = await fetch(`triplemdrive/catalog/catalog.json?v=${Date.now().toString(36).slice(0, 5)}`, { cache: "no-cache" });
+      if (!r.ok) return;
+      const c = await r.json(), f = S.ctx.fleet, to = c.apply_to || {};
+      if (!((to.root && f.is_root) || (Array.isArray(to.slugs) && to.slugs.includes(f.slug)))) return;
+      if (!box.isConnected) return;
+      box.innerHTML = `<div class="td-callout is-info"><i class="fa-solid fa-file-code" aria-hidden="true"></i><div><b>Website catalogue: ${c.vehicles.length} listed vehicles and ${c.services.length} prices</b>
+        <span>${esc((c.classes || []).map(k => `${k.name}: ${(k.models || []).map(m => (c.vehicles.find(v => v.key === m) || {}).name).filter(Boolean).join(", ")}`).join(" · "))}. These come from triplemdrive/catalog/catalog.json and are shown on your public page. Vehicles you add below are added to them.</span></div>${btn("open-public", "View", "fa-arrow-up-right-from-square")}</div>`;
+    } catch (_) {}
+  }
 
   function vehicleForm(v = {}) {
     const specs = (v.specs || []).concat([{ label: "", value: "" }]);
