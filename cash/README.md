@@ -18,6 +18,14 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
+## Latest update (migration 010 required)
+
+- **Expenses fit the window:** all 32 columns are sized as percentages, with smaller text, so no horizontal scrolling is needed on normal desktop widths.
+- **New rows go to the bottom:** Expenses, Received and Cash Vault list oldest first; Add row / Add day appends at the bottom and opens it for typing, like Excel.
+- **Clear cell selection:** the active cell has a blue frame and fill, the cell being typed in has a bold green frame, and its row and column heading are highlighted.
+- **Cash Vault table:** column titles are bold; cell numbers are regular.
+- **Dated people balances:** every balance now has a date. The balance on a date is the latest entry on or before it. Changing today's figure leaves earlier dates unchanged; edit an earlier date's entry to change that date. **Run `sql/migrations/010_dated_person_balances.sql` in the Supabase SQL Editor before using the updated app.**
+
 ## Project structure
 
 ```text
@@ -39,7 +47,8 @@ expense_vault_project/
 │       ├── 006_cash_person_accounts_and_denomination_adjustments.sql
 │       ├── 007_cash_people_amount_only.sql
 │       ├── 008_separate_person_movements_from_physical_cash_count.sql
-│       └── 009_signed_person_balances.sql
+│       ├── 009_signed_person_balances.sql
+│       └── 010_dated_person_balances.sql
 └── supabase/
     ├── config.toml
     └── functions/

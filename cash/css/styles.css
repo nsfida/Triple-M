@@ -448,3 +448,64 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* ===================================================================== */
+/* Update: fit-to-window Expenses, clear cell selection, Cash Vault type, */
+/* dated people balances                                                  */
+/* ===================================================================== */
+
+/* 1. Expenses: all 32 columns fit the window width (no sideways scrolling).
+      Column widths are percentages set in js/app.js. Below ~1240px the frame
+      scrolls instead of squeezing the figures further. */
+.expense-table.fit-table { width: 100%; min-width: 1240px; max-width: none; table-layout: fixed; font-size: 9px; }
+.fit-table th { height: 44px; padding: 3px 2px; font-size: 8px; line-height: 1.15; text-align: center; overflow-wrap: anywhere; letter-spacing: 0; }
+.fit-table th.date-cell { min-width: 0; text-align: left; padding-left: 4px; }
+.fit-table td { height: 31px; padding: 1px; overflow: hidden; }
+.expense-table.fit-table input.cell-input,
+.expense-table.fit-table select.cell-input { height: 27px; padding: 0 2px; font-size: 9px; text-overflow: clip; }
+.expense-table.fit-table input.amount-cell { font-size: 9px; letter-spacing: -.2px; -moz-appearance: textfield; appearance: textfield; }
+.expense-table.fit-table input.amount-cell::-webkit-outer-spin-button,
+.expense-table.fit-table input.amount-cell::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.expense-table.fit-table input.total-cell { font-size: 9px; padding: 0 3px; }
+.expense-table.fit-table .date-cell input { font-size: 9px; padding: 0 1px 0 3px; }
+.fit-table input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; padding: 0 0 0 1px; width: 10px; opacity: .55; }
+.fit-table select.cell-input { padding-left: 0; }
+
+/* 3. Selected cell: unmistakable while navigating AND while typing. */
+.expense-table td.cell-range-selected { background: #d4e6fc !important; box-shadow: none; }
+.expense-table td.cell-range-single { background: #d4e6fc !important; }
+.expense-table tr.selected td.cell-range-single { background: #d4e6fc !important; }
+.expense-table td.cell-range-anchor { outline: 2px solid #1d6fd1; outline-offset: -2px; box-shadow: none; position: relative; z-index: 2; }
+.expense-table td.cell-range-selected input.cell-input,
+.expense-table td.cell-range-selected select.cell-input { background: transparent; }
+/* Cell being typed in: white, bold green frame and a soft glow. */
+.expense-table td.cell-editing { background: #ffffff !important; outline: 3px solid #0f9a6f; outline-offset: -2px; box-shadow: 0 0 0 3px rgba(15, 154, 111, .25); position: relative; z-index: 3; }
+.expense-table td.cell-editing input.cell-input,
+.expense-table td.cell-editing select.cell-input { background: #ffffff; border-color: transparent; box-shadow: none; color: #0b1f33; }
+/* Row and column of the active cell. */
+.expense-table tr.row-active td { background: #f1f7ff; }
+.expense-table tr.row-active td.cell-range-selected { background: #d4e6fc !important; }
+.expense-table th.col-active { background: #bcd7f7; color: #0a3d7a; box-shadow: inset 0 -3px 0 #1d6fd1; }
+.cash-count-table td.cell-range-selected input.quantity-cell { background: transparent; border-color: transparent; }
+.cash-count-table tr.row-active td { background: #f1f7ff; }
+.cash-count-table td.cell-editing input.quantity-cell { background: #ffffff; }
+
+/* 4. Cash Vault table: bold column titles, regular cell text and numbers. */
+.cash-count-table th { font-size: 12px; font-weight: 700 !important; color: #1d2939; }
+.cash-count-table th.cash-total-heading { font-weight: 700 !important; }
+.cash-count-table input.quantity-cell,
+.cash-count-table input.cash-date-cell,
+.cash-count-table input.cash-row-total,
+.cash-count-table input.total-cell { font-weight: 400 !important; }
+
+/* 5. Dated people balances panel. */
+.cash-person-view-date { display: grid; gap: 6px; margin-bottom: 14px; padding: 12px 16px; border: 1px solid #d6e4fb; border-radius: 12px; background: #edf4ff; }
+.cash-person-view-date label { color: #214f91; font-size: 11px; font-weight: 700; }
+.cash-person-view-date input { width: 100%; min-height: 38px; padding: 6px 10px; font-size: 13px; }
+.cash-person-balance-form input[type="date"] { font: 13px 'DM Mono', monospace; }
+.cash-panel-caption { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+.cash-person-balance-date { display: block; margin-top: 3px; color: #8792a1; font-size: 9px; }
+
+/* Excel export button (top right) */
+.button-excel { background: #1d7a46; border-color: #176338; color: #ffffff; }
+.button-excel:hover:not(:disabled) { background: #176338; }

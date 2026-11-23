@@ -8,7 +8,7 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js';
-import { clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js';
+import { clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=excel-export-5';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -72,15 +72,18 @@ const CASH_COUNT_COLUMNS = [
 const CASH_QUANTITY_FIELDS = CASH_DENOMINATIONS.map(item => item.field);
 
 const COLUMNS = [
-  { label: 'Date', field: 'entry_date', kind: 'date', width: 116 },
-  { label: 'Supplier', field: 'supplier', kind: 'text', width: 126 },
-  { label: 'TRN#', field: 'trn_number', kind: 'text', width: 88 },
-  { label: 'Name', field: 'spent_by', kind: 'text', width: 106 },
-  { label: 'Inv#', field: 'invoice_number', kind: 'text', width: 82 },
-  ...AMOUNT_COLUMNS.map(([label, field]) => ({ label, field, kind: 'amount', width: 64 })),
-  { label: 'Total', field: 'total', kind: 'total', width: 78 },
-  { label: 'TYPE', field: 'transaction_type', kind: 'select', width: 72 }
+  // Widths are relative weights: the Expenses table turns them into percentages
+  // so all 32 columns always fit the window without horizontal scrolling.
+  { label: 'Date', field: 'entry_date', kind: 'date', width: 84 },
+  { label: 'Supplier', field: 'supplier', kind: 'text', width: 96 },
+  { label: 'TRN#', field: 'trn_number', kind: 'text', width: 58 },
+  { label: 'Name', field: 'spent_by', kind: 'text', width: 74 },
+  { label: 'Inv#', field: 'invoice_number', kind: 'text', width: 58 },
+  ...AMOUNT_COLUMNS.map(([label, field]) => ({ label, field, kind: 'amount', width: 40 })),
+  { label: 'Total', field: 'total', kind: 'total', width: 52 },
+  { label: 'TYPE', field: 'transaction_type', kind: 'select', width: 50 }
 ];
+const COLUMN_WEIGHT_TOTAL = COLUMNS.reduce((sum, column) => sum + column.width, 0);
 
 const RECEIVING_COLUMNS = [
   { label: 'Date', field: 'entry_date', kind: 'date', width: 116 },
@@ -140,6 +143,7 @@ let cashVaultLoading = false;
 let cashSummaryRequestId = 0;
 let cashAvailableBalance = null;
 let cashPeople = [];
+let cashPeopleViewDate = '';
 let cashPeopleLoading = false;
 let cashPeopleLoadPromise = null;
 let editingCashPersonId = null;
@@ -266,7 +270,8 @@ function buildCashTableHeader() {
 function resetCashPersonBalanceForm() {
   editingCashPersonId = null;
   el('cashPersonBalanceForm').reset();
-  el('saveCashPersonBalance').textContent = 'Add person';
+  el('cashPersonDate').value = cashPeopleViewDate || el('cashAsOfDate').value || localDateString();
+  el('saveCashPersonBalance').textContent = 'Save balance';
   el('cancelCashPersonEdit').classList.add('hidden');
   el('cashPersonBalanceMessage').textContent = '';
   el('cashPersonBalanceMessage').style.color = '';
@@ -278,7 +283,7 @@ function updateCashPersonBalancePermission() {
   form.querySelectorAll('input, button').forEach(control => {
     control.disabled = !canWrite;
   });
-  el('cashPersonBalanceForm').querySelector('button[type="submit"]').textContent = editingCashPersonId ? 'Save changes' : 'Add person';
+  el('cashPersonBalanceForm').querySelector('button[type="submit"]').textContent = editingCashPersonId ? 'Save changes' : 'Save balance';
 }
 
 function makeEmptyRow() {
@@ -334,8 +339,7 @@ function buildTableHeader() {
   COLUMNS.forEach(column => {
     const th = document.createElement('th');
     th.textContent = column.label;
-    th.style.width = `${column.width}px`;
-    th.style.minWidth = `${column.width}px`;
+    th.style.width = `${(column.width / COLUMN_WEIGHT_TOTAL * 100).toFixed(3)}%`;
     if (column.kind === 'date') th.classList.add('date-cell');
     headerRow.appendChild(th);
   });
@@ -570,7 +574,7 @@ async function refreshCashSummary() {
     el('cashReceivedValue').textContent = '—';
     el('cashExpensesValue').textContent = '—';
     el('cashPeopleAdjustmentValue').textContent = '—';
-    showToast(`Unable to calculate cash balance: ${explainLedgerError(error)}. Confirm migrations 005, 006, 008 and 009 have been applied.`, true);
+    showToast(`Unable to calculate cash balance: ${explainLedgerError(error)}. Confirm migrations 005, 006, 008, 009 and 010 have been applied.`, true);
     updateCashCountedSummary();
     return;
   }
@@ -597,7 +601,7 @@ async function reloadCashCountRows() {
   const { data, error } = await supabase
     .from('cash_vault_counts')
     .select('*')
-    .order('count_date', { ascending: false });
+    .order('count_date', { ascending: true });
   if (error) throw error;
 
   cashCounts = (data || []).map(record => ({
@@ -622,6 +626,7 @@ async function loadCashVault() {
 
   try {
     await reloadCashCountRows();
+    scrollSheetToBottom(el('cashCountTable'));
     cashVaultLoaded = true;
     cashVaultLoading = false;
     cashAddButton.disabled = !canWrite;
@@ -680,7 +685,7 @@ async function saveCashCountChanges() {
     }
   }
 
-  cashCounts.sort((a, b) => String(b.count_date).localeCompare(String(a.count_date)));
+  cashCounts.sort((a, b) => String(a.count_date).localeCompare(String(b.count_date)));
   renderCashCounts();
   if (failures.length) {
     setCashVaultStatus(`${saved} saved · ${failures.length} need attention`, 'error');
@@ -716,17 +721,21 @@ async function deleteSelectedCashCount() {
 
 function renderCashPeopleData() {
   el('cashPeopleCount').textContent = `${cashPeople.length} ${cashPeople.length === 1 ? 'person' : 'people'}`;
+  el('cashPeopleListCaption').textContent = `Balances in force on ${formatDateLabel(cashPeopleViewDate)}`;
   const balanceList = el('cashPeopleBalanceList');
   if (!cashPeople.length) {
-    balanceList.innerHTML = '<p class="muted">No people added yet.</p>';
+    balanceList.innerHTML = `<p class="muted">No balances on or before ${escapeHtml(formatDateLabel(cashPeopleViewDate))}.</p>`;
   } else {
     balanceList.innerHTML = cashPeople.map(person => {
-      const balance = Number(person.cash_adjustment || 0);
+      const balance = Number(person.amount || 0);
       const amountClass = balance > 0.0001 ? 'person-positive' : balance < -0.0001 ? 'person-negative' : 'person-zero';
-      return `<article class="cash-person-balance-item" data-person-id="${escapeHtml(person.id)}">
-        <div class="cash-person-balance-main"><strong>${escapeHtml(person.name)}</strong></div>
+      const entryNote = person.effective_date === cashPeopleViewDate
+        ? 'Entered on this date'
+        : `Carried forward from ${formatDateLabel(person.effective_date)}`;
+      return `<article class="cash-person-balance-item" data-person-id="${escapeHtml(person.person_id)}">
+        <div class="cash-person-balance-main"><strong>${escapeHtml(person.person_name)}</strong><span class="cash-person-balance-date">${escapeHtml(entryNote)}</span></div>
         <strong class="cash-person-balance-amount ${amountClass}">${formatSignedCashAdjustment(balance)}</strong>
-        ${canWrite ? `<button class="cash-person-edit-button" type="button" data-person-action="edit" data-person-id="${escapeHtml(person.id)}">Edit</button>` : ''}
+        ${canWrite ? `<button class="cash-person-edit-button" type="button" data-person-action="edit" data-person-id="${escapeHtml(person.person_id)}">Edit</button>` : ''}
       </article>`;
     }).join('');
   }
@@ -741,19 +750,17 @@ async function loadCashPeopleData({ force = false } = {}) {
   }
 
   cashPeopleLoading = true;
+  if (!cashPeopleViewDate) cashPeopleViewDate = el('cashAsOfDate').value || localDateString();
   el('cashPeopleBalanceList').innerHTML = '<p class="muted">Loading people…</p>';
   cashPeopleLoadPromise = (async () => {
     try {
-      const { data, error } = await supabase
-        .from('cash_people')
-        .select('id, name, cash_adjustment')
-        .order('name', { ascending: true });
+      const { data, error } = await supabase.rpc('get_person_balances_as_of', { p_as_of: cashPeopleViewDate });
       if (error) throw error;
-      cashPeople = data || [];
+      cashPeople = (data || []).slice().sort((a, b) => String(a.person_name).localeCompare(String(b.person_name)));
       renderCashPeopleData();
     } catch (error) {
       el('cashPeopleBalanceList').innerHTML = `<p class="form-message">${escapeHtml(error.message || 'Unable to load people.')}</p>`;
-      showToast(`Unable to load people balances: ${explainLedgerError(error)}. Confirm migration 009 has been applied.`, true);
+      showToast(`Unable to load people balances: ${explainLedgerError(error)}. Confirm migration 010 has been applied.`, true);
     }
   })();
 
@@ -766,6 +773,8 @@ async function loadCashPeopleData({ force = false } = {}) {
 }
 
 function openCashPeoplePanel() {
+  cashPeopleViewDate = el('cashAsOfDate').value || localDateString();
+  el('cashPeopleViewDate').value = cashPeopleViewDate;
   resetCashPersonBalanceForm();
   el('cashPeopleDialog').showModal();
   loadCashPeopleData();
@@ -811,6 +820,13 @@ async function saveCashPersonBalance(event) {
     return;
   }
 
+  const balanceDate = el('cashPersonDate').value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(balanceDate)) {
+    message.textContent = 'Choose the date this balance applies from.';
+    el('cashPersonDate').focus();
+    return;
+  }
+
   const button = el('saveCashPersonBalance');
   const wasEditing = Boolean(editingCashPersonId);
   button.disabled = true;
@@ -818,15 +834,19 @@ async function saveCashPersonBalance(event) {
     const { data, error } = await supabase.rpc('set_cash_person_balance', {
       p_person_id: editingCashPersonId,
       p_person_name: name,
-      p_cash_adjustment: amount
+      p_cash_adjustment: amount,
+      p_balance_date: balanceDate
     });
     if (error) throw error;
     if (!data) throw new Error('The person balance could not be saved.');
 
+    // Show the date that was just saved so the change is visible straight away.
+    cashPeopleViewDate = balanceDate;
+    el('cashPeopleViewDate').value = balanceDate;
     resetCashPersonBalanceForm();
     message.style.color = 'var(--accent)';
-    message.textContent = wasEditing ? 'Person balance updated.' : 'Person added.';
-    showToast(wasEditing ? `${name}'s balance updated.` : `${name} added to People balances.`);
+    message.textContent = `Balance saved for ${formatDateLabel(balanceDate)}.`;
+    showToast(`${name}'s balance saved for ${formatDateLabel(balanceDate)}. Other dates are unchanged.`);
 
     try {
       await Promise.all([
@@ -849,11 +869,12 @@ async function saveCashPersonBalance(event) {
 }
 
 function beginEditCashPersonBalance(personId) {
-  const person = cashPeople.find(item => item.id === personId);
+  const person = cashPeople.find(item => item.person_id === personId);
   if (!person || !canWrite) return;
-  editingCashPersonId = person.id;
-  el('cashPersonName').value = person.name;
-  el('cashPersonAdjustment').value = Number(person.cash_adjustment || 0).toFixed(2);
+  editingCashPersonId = person.person_id;
+  el('cashPersonName').value = person.person_name;
+  el('cashPersonDate').value = cashPeopleViewDate;
+  el('cashPersonAdjustment').value = Number(person.amount || 0).toFixed(2);
   el('saveCashPersonBalance').textContent = 'Save changes';
   el('cancelCashPersonEdit').classList.remove('hidden');
   el('cashPersonBalanceMessage').textContent = '';
@@ -936,14 +957,14 @@ function explainLedgerError(error) {
   const cashVaultError = normalized.includes('cash_vault_counts') || normalized.includes('get_cash_vault_summary');
   if (normalized.includes('permission denied for schema') || normalized.includes('permission denied for table') || normalized.includes('permission denied for function')) {
     if (personCashError) return 'People balance permissions are configured by sql/migrations/009_signed_person_balances.sql. Confirm migration 009 has been applied, then refresh this page.';
-    if (normalized.includes('get_cash_vault_summary')) return 'The Cash Vault balance function needs migration 009. Run sql/migrations/009_signed_person_balances.sql, then refresh this page.';
+    if (normalized.includes('get_cash_vault_summary')) return 'The Cash Vault balance function needs migration 009. Run sql/migrations/010_dated_person_balances.sql, then refresh this page.';
     return cashVaultError
       ? 'Cash Vault permissions are configured by sql/migrations/005_cash_vault_counts_and_balance.sql. Confirm that migration 005 has been applied, then refresh this page.'
       : 'Database permissions need the ledger repair. In Supabase SQL Editor, run sql/migrations/004_fix_public_schema_access.sql, then refresh this page.';
   }
   if ((normalized.includes('relation') && normalized.includes('does not exist')) || normalized.includes('could not find the function')) {
     if (personCashError) return 'The signed people-balance column or function is missing. Confirm sql/migrations/009_signed_person_balances.sql has been applied, then refresh this page.';
-    if (normalized.includes('get_cash_vault_summary')) return 'The updated Cash Vault summary is missing. Run sql/migrations/009_signed_person_balances.sql, then refresh this page.';
+    if (normalized.includes('get_cash_vault_summary')) return 'The updated Cash Vault summary is missing. Run sql/migrations/010_dated_person_balances.sql, then refresh this page.';
     return cashVaultError
       ? 'The Cash Vault table is missing. Run sql/migrations/005_cash_vault_counts_and_balance.sql, then refresh this page.'
       : 'The ledger table is missing. Apply the numbered SQL migrations in order, then refresh this page.';
@@ -993,6 +1014,7 @@ async function loadWorkspace() {
   cashVaultLoading = false;
   cashAvailableBalance = null;
   cashPeople = [];
+  cashPeopleViewDate = '';
   cashPeopleLoading = false;
   cashPeopleLoadPromise = null;
   editingCashPersonId = null;
@@ -1015,8 +1037,8 @@ async function loadExpenses() {
   const { data, error } = await supabase
     .from('expense_records')
     .select('*')
-    .order('entry_date', { ascending: false })
-    .order('created_at', { ascending: false });
+    .order('entry_date', { ascending: true })
+    .order('created_at', { ascending: true });
   if (error) {
     expensesLoading = false;
     addButton.disabled = !canWrite;
@@ -1026,9 +1048,10 @@ async function loadExpenses() {
   }
   const localUnsaved = rows.filter(row => row._isNew && row._dirty);
   rows = (data || []).map(rowFromDatabase);
-  rows.unshift(...localUnsaved);
+  rows.push(...localUnsaved);
   if (!rows.some(row => row.clientId === selectedClientId)) selectedClientId = null;
   renderTable();
+  scrollSheetToBottom(table);
   expensesLoaded = true;
   expensesLoading = false;
   addButton.disabled = !canWrite;
@@ -1073,8 +1096,8 @@ async function loadReceived() {
   const { data, error } = await supabase
     .from('received_records')
     .select('*')
-    .order('entry_date', { ascending: false })
-    .order('created_at', { ascending: false });
+    .order('entry_date', { ascending: true })
+    .order('created_at', { ascending: true });
   if (error) {
     receivedLoading = false;
     receivedAddButton.disabled = !canWrite;
@@ -1085,9 +1108,10 @@ async function loadReceived() {
   }
   const localUnsaved = receivedRows.filter(row => row._isNew && row._dirty);
   receivedRows = (data || []).map(record => ({ ...record, clientId: record.id, _dirty: false, _isNew: false }));
-  receivedRows.unshift(...localUnsaved);
+  receivedRows.push(...localUnsaved);
   if (!receivedRows.some(row => row.clientId === selectedReceivedClientId)) selectedReceivedClientId = null;
   renderReceivedTable();
+  scrollSheetToBottom(el('receivedTable'));
   receivedLoaded = true;
   receivedLoading = false;
   receivedAddButton.disabled = !canWrite;
@@ -1340,6 +1364,11 @@ function normalizePastedAmount(rawValue) {
   return value.startsWith('.') ? `0${value}` : value.startsWith('-.') ? value.replace('-.', '-0.') : value;
 }
 
+function scrollSheetToBottom(tableElement) {
+  const frame = tableElement?.closest('.table-frame');
+  if (frame) frame.scrollTop = frame.scrollHeight;
+}
+
 function resetSheetSelection(tableElement) {
   spreadsheetGrids.get(tableElement)?.clearSelection();
 }
@@ -1438,6 +1467,7 @@ function signOutToLogin() {
   cashVaultLoading = false;
   cashAvailableBalance = null;
   cashPeople = [];
+  cashPeopleViewDate = '';
   cashPeopleLoading = false;
   cashPeopleLoadPromise = null;
   editingCashPersonId = null;
@@ -1533,10 +1563,11 @@ loginForm.addEventListener('submit', async event => {
 addButton.addEventListener('click', () => {
   if (!canWrite) return;
   const row = makeEmptyRow();
-  rows.unshift(row);
+  rows.push(row);
   selectedClientId = row.clientId;
   renderTable();
-  spreadsheetGrids.get(table)?.startEditing(0, 0);
+  scrollSheetToBottom(table);
+  spreadsheetGrids.get(table)?.startEditing(rows.length - 1, 0);
   setSheetStatus('New row — remember to save', 'dirty');
 });
 
@@ -1561,13 +1592,12 @@ cashAddButton.addEventListener('click', () => {
     return;
   }
   const row = makeEmptyCashCountRow(countDate);
-  cashCounts.unshift(row);
+  cashCounts.push(row);
   selectedCashClientId = row.clientId;
   renderCashCounts();
   setCashVaultStatus('New daily count — remember to save', 'dirty');
-  const rowElement = cashTableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`);
-  rowElement?.scrollIntoView({ block: 'nearest' });
-  spreadsheetGrids.get(el('cashCountTable'))?.startEditing(0, 1);
+  scrollSheetToBottom(el('cashCountTable'));
+  spreadsheetGrids.get(el('cashCountTable'))?.startEditing(cashCounts.length - 1, 1);
 });
 
 cashSaveButton.addEventListener('click', saveCashCountChanges);
@@ -1590,10 +1620,11 @@ el('cashQuickDate').addEventListener('change', () => {
 receivedAddButton.addEventListener('click', () => {
   if (!canWrite) return;
   const row = makeEmptyReceivedRow();
-  receivedRows.unshift(row);
+  receivedRows.push(row);
   selectedReceivedClientId = row.clientId;
   renderReceivedTable();
-  spreadsheetGrids.get(el('receivedTable'))?.startEditing(0, 0);
+  scrollSheetToBottom(el('receivedTable'));
+  spreadsheetGrids.get(el('receivedTable'))?.startEditing(receivedRows.length - 1, 0);
   receivedSheetStatus.textContent = 'New row — remember to save';
   receivedSheetStatus.classList.add('dirty');
 });
@@ -1699,10 +1730,107 @@ el('cashPeopleDialog').addEventListener('click', event => {
 });
 el('cashPersonBalanceForm').addEventListener('submit', saveCashPersonBalance);
 el('cancelCashPersonEdit').addEventListener('click', resetCashPersonBalanceForm);
+el('cashPeopleViewDate').addEventListener('change', () => {
+  const value = el('cashPeopleViewDate').value;
+  if (!value) return;
+  cashPeopleViewDate = value;
+  if (!editingCashPersonId) el('cashPersonDate').value = value;
+  loadCashPeopleData({ force: true });
+});
 el('cashPeopleBalanceList').addEventListener('click', event => {
   const button = event.target.closest('button[data-person-action="edit"]');
   if (button) beginEditCashPersonBalance(button.dataset.personId);
 });
+
+/* ------------------------------------------------------------------ */
+/* Excel export: Cash Vault, Expenses and Received (all dates, all rows) */
+/* ------------------------------------------------------------------ */
+
+async function fetchAllRecords(tableName, orderFields) {
+  const pageSize = 1000;
+  const all = [];
+  for (let from = 0; ; from += pageSize) {
+    let query = supabase.from(tableName).select('*');
+    orderFields.forEach(field => { query = query.order(field, { ascending: true }); });
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error) throw error;
+    all.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return all;
+}
+
+function excelDateCell(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? ''));
+  if (!match) return value ?? '';
+  const serial = Math.round((Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) - Date.UTC(1899, 11, 30)) / 86400000);
+  return { t: 'n', v: serial, z: 'dd/mm/yyyy' };
+}
+
+function buildExportSheet(XLSX, columns, records, valueFor) {
+  const matrix = [columns.map(column => column.label)];
+  records.forEach(record => {
+    matrix.push(columns.map(column => {
+      if (column.kind === 'date') return excelDateCell(record[column.field]);
+      return valueFor(record, column);
+    }));
+  });
+  const sheet = XLSX.utils.aoa_to_sheet(matrix);
+  sheet['!cols'] = columns.map(column => ({
+    wch: column.kind === 'date' ? 12 : column.kind === 'text' ? 18 : Math.max(8, column.label.length + 2)
+  }));
+  return sheet;
+}
+
+async function exportToExcel() {
+  const button = el('exportExcelButton');
+  if (!currentUser) return;
+  button.disabled = true;
+  const originalLabel = button.textContent;
+  button.textContent = 'Preparing…';
+  try {
+    const [XLSX, cashRecords, expenseRecords, receivedRecords] = await Promise.all([
+      import('https://esm.sh/xlsx@0.18.5'),
+      fetchAllRecords('cash_vault_counts', ['count_date']),
+      fetchAllRecords('expense_records', ['entry_date', 'created_at']),
+      fetchAllRecords('received_records', ['entry_date', 'created_at'])
+    ]);
+
+    const numberOrBlank = value => (value === '' || value == null ? 0 : Number(value));
+    const cashSheet = buildExportSheet(XLSX, CASH_COUNT_COLUMNS, cashRecords, (record, column) => {
+      if (column.kind === 'total') return calculateCashCountCents(record) / 100;
+      return numberOrBlank(record[column.field]);
+    });
+    const expenseSheet = buildExportSheet(XLSX, COLUMNS, expenseRecords, (record, column) => {
+      if (column.kind === 'total') return Number(calculateTotal(record, AMOUNT_FIELDS).toFixed(2));
+      if (column.kind === 'amount') return numberOrBlank(record[column.field]);
+      return record[column.field] ?? '';
+    });
+    const receivedSheet = buildExportSheet(XLSX, RECEIVING_COLUMNS, receivedRecords, (record, column) => {
+      if (column.kind === 'total') return Number(calculateTotal(record, RECEIVING_AMOUNT_FIELDS).toFixed(2));
+      if (column.kind === 'amount') return numberOrBlank(record[column.field]);
+      return record[column.field] ?? '';
+    });
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, cashSheet, 'Cash Vault');
+    XLSX.utils.book_append_sheet(workbook, expenseSheet, 'Expenses');
+    XLSX.utils.book_append_sheet(workbook, receivedSheet, 'Received');
+    XLSX.writeFile(workbook, `Expense-Vault-${localDateString()}.xlsx`);
+
+    const unsaved = rows.some(row => row._dirty) || receivedRows.some(row => row._dirty) || cashCounts.some(row => row._dirty);
+    showToast(unsaved
+      ? 'Excel downloaded. It contains saved data only — save your pending changes and export again to include them.'
+      : 'Excel file downloaded.');
+  } catch (error) {
+    showToast(`Excel export failed: ${explainLedgerError(error)}`, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = originalLabel;
+  }
+}
+
+el('exportExcelButton').addEventListener('click', exportToExcel);
 
 function registerSpreadsheet(tableElement, config) {
   const paste = payload => applyGridPaste(config, payload);

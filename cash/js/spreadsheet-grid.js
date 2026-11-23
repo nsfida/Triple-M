@@ -209,8 +209,19 @@ function paintSelection(grid) {
     cell.classList.remove('cell-range-selected', 'cell-range-single', 'cell-range-anchor');
   });
   grid.painted = [];
+  // Also mark the column heading and the row of the active cell so it is always
+  // obvious where typing will go.
+  (grid.markedNodes || []).forEach(node => node.classList.remove('col-active', 'row-active'));
+  grid.markedNodes = [];
   const range = selectionRange(grid);
   if (!range) return;
+  const headerCells = grid.table.tHead?.rows[0]?.cells;
+  for (let col = range.minCol; col <= range.maxCol; col += 1) {
+    const th = headerCells?.[col];
+    if (th) { th.classList.add('col-active'); grid.markedNodes.push(th); }
+  }
+  const activeRow = grid.table.tBodies[0]?.rows[grid.anchor.row];
+  if (activeRow?.dataset.clientId) { activeRow.classList.add('row-active'); grid.markedNodes.push(activeRow); }
 
   const tbody = grid.table.tBodies[0];
   const single = range.minRow === range.maxRow && range.minCol === range.maxCol;
