@@ -289,6 +289,11 @@ function clearSelection(grid) {
   }
 }
 
+// Stops a mouse drag-selection that is in progress (used when a row move starts).
+export function cancelSpreadsheetDrag() {
+  if (activeGrid?.dragging) endDrag(activeGrid);
+}
+
 export function clearAllSpreadsheetSelections() {
   grids.forEach(grid => {
     if (grid.anchor || grid.editing) clearSelection(grid);

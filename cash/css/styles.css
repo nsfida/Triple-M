@@ -612,3 +612,10 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 @media (max-width: 560px) {
   .staff-panel { width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; }
 }
+
+/* Press-and-hold row moving (Expenses / Received) */
+.expense-table tbody tr { -webkit-touch-callout: none; }
+.expense-table tbody tr.row-dragging td { background: #dbe9ff !important; box-shadow: 0 6px 18px rgba(30, 60, 120, .28); position: relative; z-index: 5; }
+.expense-table tbody tr.drop-before td { box-shadow: inset 0 3px 0 #2b6fd6; }
+.expense-table tbody tr.drop-after td { box-shadow: inset 0 -3px 0 #2b6fd6; }
+body.reordering-rows, body.reordering-rows * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }

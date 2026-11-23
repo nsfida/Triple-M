@@ -8,7 +8,7 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js';
-import { clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=blank-zero-7';
+import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=row-move-8';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -1202,7 +1202,7 @@ async function loadExpenses() {
   const { data, error } = await supabase
     .from('expense_records')
     .select('*')
-    .order('entry_date', { ascending: true })
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) {
     expensesLoading = false;
@@ -1262,7 +1262,7 @@ async function loadReceived() {
   const { data, error } = await supabase
     .from('received_records')
     .select('*')
-    .order('entry_date', { ascending: true })
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) {
     receivedLoading = false;
@@ -1299,6 +1299,9 @@ function handleReceivedInput(event) {
     fieldInput.value = row.entry_date;
     warnOldDate();
     return;
+  }
+  if (fieldInput.dataset.field === 'name' || fieldInput.dataset.field === 'merchant') {
+    autocompleteInput(event, fieldInput, receivedRows, row, fieldInput.dataset.field);
   }
   row[fieldInput.dataset.field] = fieldInput.value;
   row._dirty = true;
@@ -1337,6 +1340,7 @@ async function saveReceivedChanges() {
   for (const row of dirtyRows) {
     try {
       const payload = getReceivedPayload(row);
+      applyMovedOrder(payload, row, receivedRows);
       const result = row.id
         ? await supabase.from('received_records').update(payload).eq('id', row.id).select('*').single()
         : await supabase.from('received_records').insert(payload).select('*').single();
@@ -1407,8 +1411,10 @@ function onTableInput(event) {
     warnOldDate();
     return;
   }
+  if (field === 'supplier' || field === 'spent_by') autocompleteInput(event, fieldInput, rows, row, field);
   row[field] = fieldInput.value;
   markRowDirty(row);
+  if (field === 'supplier' && event.type === 'change') autofillFromSupplier(row, tr);
   const totalInput = tr.querySelector('.total-cell');
   if (totalInput) totalInput.value = formatBlankIfZero(calculateTotal(row));
 }
@@ -1442,6 +1448,7 @@ async function saveChanges() {
   for (const row of dirtyRows) {
     try {
       const payload = getPayload(row);
+      applyMovedOrder(payload, row, rows);
       let result;
       if (row.id) {
         result = await supabase.from('expense_records').update(payload).eq('id', row.id).select('*').single();
@@ -1987,8 +1994,8 @@ async function exportToExcel() {
     const [XLSX, cashRecords, expenseRecords, receivedRecords] = await Promise.all([
       import('https://esm.sh/xlsx@0.18.5'),
       fetchAllRecords('cash_vault_counts', ['count_date']),
-      fetchAllRecords('expense_records', ['entry_date', 'created_at']),
-      fetchAllRecords('received_records', ['entry_date', 'created_at'])
+      fetchAllRecords('expense_records', ['sort_order', 'created_at']),
+      fetchAllRecords('received_records', ['sort_order', 'created_at'])
     ]);
 
     const numberOrBlank = value => (value === '' || value == null ? 0 : Number(value));
@@ -2026,6 +2033,230 @@ async function exportToExcel() {
 }
 
 el('exportExcelButton').addEventListener('click', exportToExcel);
+
+// ---------------------------------------------------------------------------
+// Type-ahead: while typing a Supplier / Name / Merchant, complete it from the rows above
+// (most recent first). The completed part is selected, so Enter/Tab accepts it and
+// typing on or pressing Backspace discards it. Choosing a Supplier also fills in
+// TRN# and Name from its most recent row when those cells are still empty.
+// ---------------------------------------------------------------------------
+function autocompleteInput(event, input, sourceRows, currentRow, field) {
+  if (event.type !== 'input' || event.inputType !== 'insertText') return;
+  if (input.type !== 'text' || document.activeElement !== input) return;
+  const typed = input.value;
+  if (!typed.trim()) return;
+  if (input.selectionStart !== typed.length || input.selectionEnd !== typed.length) return;
+  const lower = typed.toLowerCase();
+  for (let index = sourceRows.length - 1; index >= 0; index -= 1) {
+    const candidate = sourceRows[index];
+    if (candidate === currentRow) continue;
+    const text = String(candidate[field] ?? '');
+    if (text.length > typed.length && text.toLowerCase().startsWith(lower)) {
+      input.value = typed + text.slice(typed.length);
+      try { input.setSelectionRange(typed.length, input.value.length); } catch (_) { /* ignore */ }
+      return;
+    }
+  }
+}
+
+function autofillFromSupplier(row, tr) {
+  const key = String(row.supplier ?? '').trim().toLowerCase();
+  if (!key || isRowLocked(row, 'entry_date')) return;
+  const needTrn = !row.trn_number || row.trn_number === '---';
+  const needName = !String(row.spent_by ?? '').trim();
+  if (!needTrn && !needName) return;
+  let trn = '';
+  let name = '';
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const other = rows[index];
+    if (other === row || String(other.supplier ?? '').trim().toLowerCase() !== key) continue;
+    if (!trn && other.trn_number && other.trn_number !== '---') trn = other.trn_number;
+    if (!name && String(other.spent_by ?? '').trim()) name = other.spent_by;
+    if (trn && name) break;
+  }
+  const setField = (field, value) => {
+    row[field] = value;
+    const input = tr?.querySelector(`[data-field="${field}"]`);
+    if (input) input.value = value;
+  };
+  let filled = 0;
+  if (needTrn && trn) { setField('trn_number', trn); filled += 1; }
+  if (needName && name) { setField('spent_by', name); filled += 1; }
+  if (filled) markRowDirty(row);
+}
+
+// ---------------------------------------------------------------------------
+// Row order: press and hold a row, then drag it up or down. Saved rows store their
+// position (sort_order) in the database; the position of a row is placed halfway
+// between its new neighbours so only the moved row is updated.
+// ---------------------------------------------------------------------------
+function computeSortOrder(list, index) {
+  const orderOf = item => (item?.sort_order == null || item.sort_order === '' ? null : Number(item.sort_order));
+  let previous = null;
+  let following = null;
+  for (let i = index - 1; i >= 0; i -= 1) { const v = orderOf(list[i]); if (Number.isFinite(v)) { previous = v; break; } }
+  for (let i = index + 1; i < list.length; i += 1) { const v = orderOf(list[i]); if (Number.isFinite(v)) { following = v; break; } }
+  if (previous !== null && following !== null) {
+    const middle = (previous + following) / 2;
+    return middle > previous && middle < following ? middle : null;
+  }
+  if (previous !== null) return previous + 1;
+  if (following !== null) return following - 1;
+  return 1;
+}
+
+function applyMovedOrder(payload, row, list) {
+  if (!row._orderMoved) return;
+  const order = computeSortOrder(list, list.indexOf(row));
+  if (order !== null) payload.sort_order = order;
+}
+
+function enableRowReorder({ tableElement, tbody, getRows, render, tableName, dateField }) {
+  const frame = tableElement.closest('.table-frame');
+  const HOLD_MS = 450;
+  let pending = null;
+  let drag = null;
+  let frameRequest = 0;
+
+  const blockTouchScroll = event => { if (drag) event.preventDefault(); };
+  const blockMenu = event => { if (pending || drag) event.preventDefault(); };
+
+  function clearIndicators() {
+    tbody.querySelectorAll('.drop-before, .drop-after').forEach(node => node.classList.remove('drop-before', 'drop-after'));
+  }
+
+  function updateTarget() {
+    if (!drag) return;
+    const trs = [...tbody.querySelectorAll('tr[data-client-id]')];
+    if (!trs.length) return;
+    const hit = document.elementFromPoint(drag.x, drag.y)?.closest('tr[data-client-id]');
+    let target = null;
+    let position = 'after';
+    if (hit && tbody.contains(hit)) {
+      const rect = hit.getBoundingClientRect();
+      target = hit;
+      position = drag.y < rect.top + rect.height / 2 ? 'before' : 'after';
+    } else if (drag.y < trs[0].getBoundingClientRect().top) {
+      target = trs[0]; position = 'before';
+    } else if (drag.y > trs[trs.length - 1].getBoundingClientRect().bottom) {
+      target = trs[trs.length - 1]; position = 'after';
+    } else {
+      return;
+    }
+    clearIndicators();
+    drag.target = target;
+    drag.position = position;
+    if (target !== drag.tr) target.classList.add(position === 'before' ? 'drop-before' : 'drop-after');
+  }
+
+  function tick() {
+    if (!drag) return;
+    const rect = frame.getBoundingClientRect();
+    const topEdge = rect.top + 80;
+    if (drag.y < topEdge) frame.scrollTop -= Math.min(24, Math.max(4, (topEdge - drag.y) / 3));
+    else if (drag.y > rect.bottom - 48) frame.scrollTop += Math.min(24, Math.max(4, (drag.y - (rect.bottom - 48)) / 3));
+    updateTarget();
+    frameRequest = requestAnimationFrame(tick);
+  }
+
+  function activate() {
+    if (!pending) return;
+    const row = getRows().find(item => item.clientId === pending.tr.dataset.clientId);
+    if (!row) { stop(); return; }
+    if (!canWrite) { stop(); return; }
+    if (isRowLocked(row, dateField)) { warnLockedEdit(); stop(); return; }
+    drag = { row, tr: pending.tr, x: pending.x, y: pending.y, target: null, position: 'after' };
+    pending = null;
+    cancelSpreadsheetDrag();
+    drag.tr.classList.add('row-dragging');
+    document.body.classList.add('reordering-rows');
+    try { navigator.vibrate?.(15); } catch (_) { /* not supported */ }
+    frameRequest = requestAnimationFrame(tick);
+  }
+
+  function onMove(event) {
+    if (pending) {
+      pending.x = event.clientX;
+      pending.y = event.clientY;
+      if (Math.hypot(event.clientX - pending.startX, event.clientY - pending.startY) > 6) stop();
+    } else if (drag) {
+      drag.x = event.clientX;
+      drag.y = event.clientY;
+      updateTarget();
+    }
+  }
+
+  async function onUp() {
+    const finished = drag;
+    stop();
+    if (!finished || !finished.target || finished.target === finished.tr) return;
+    const list = getRows();
+    const from = list.indexOf(finished.row);
+    let to = list.findIndex(item => item.clientId === finished.target.dataset.clientId) + (finished.position === 'after' ? 1 : 0);
+    if (from < 0 || to < 0) return;
+    if (from < to) to -= 1;
+    if (to === from) return;
+
+    const snapshot = list.slice();
+    list.splice(from, 1);
+    list.splice(to, 0, finished.row);
+    const restore = () => { list.splice(0, list.length, ...snapshot); render(); };
+
+    if (!finished.row.id) {
+      finished.row._orderMoved = true;
+      render();
+      return;
+    }
+    const order = computeSortOrder(list, to);
+    if (order === null) {
+      restore();
+      showToast('The row could not be placed there. Move it a little further up or down.', true);
+      return;
+    }
+    render();
+    const { data, error } = await supabase.from(tableName).update({ sort_order: order }).eq('id', finished.row.id).select('sort_order').single();
+    if (error) {
+      restore();
+      showToast(`The row could not be moved: ${explainLedgerError(error)}. Confirm migration 012 has been applied.`, true);
+      return;
+    }
+    finished.row.sort_order = Number(data.sort_order);
+    showToast('Row moved.');
+  }
+
+  function stop() {
+    if (pending) clearTimeout(pending.timer);
+    pending = null;
+    cancelAnimationFrame(frameRequest);
+    if (drag) drag.tr.classList.remove('row-dragging');
+    clearIndicators();
+    document.body.classList.remove('reordering-rows');
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUpHandler);
+    window.removeEventListener('pointercancel', onCancelHandler);
+    window.removeEventListener('touchmove', blockTouchScroll);
+    window.removeEventListener('contextmenu', blockMenu, true);
+    drag = null;
+  }
+
+  const onUpHandler = () => { onUp(); };
+  const onCancelHandler = () => { stop(); };
+
+  tbody.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || pending || drag || !canWrite) return;
+    const tr = event.target.closest('tr[data-client-id]');
+    if (!tr || tr.querySelector('td.cell-editing')) return;
+    pending = {
+      tr, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY,
+      timer: setTimeout(activate, HOLD_MS)
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUpHandler);
+    window.addEventListener('pointercancel', onCancelHandler);
+    window.addEventListener('touchmove', blockTouchScroll, { passive: false });
+    window.addEventListener('contextmenu', blockMenu, true);
+  });
+}
 
 function registerSpreadsheet(tableElement, config) {
   const paste = payload => applyGridPaste(config, payload);
@@ -2069,6 +2300,9 @@ registerSpreadsheet(el('cashCountTable'), {
   render: renderCashCounts,
   setDirtyStatus: () => { setCashVaultStatus('Unsaved changes from paste', 'dirty'); updateCashCountToolbar(); }
 });
+
+enableRowReorder({ tableElement: table, tbody: tableBody, getRows: () => rows, render: renderTable, tableName: 'expense_records', dateField: 'entry_date' });
+enableRowReorder({ tableElement: el('receivedTable'), tbody: receivedTableBody, getRows: () => receivedRows, render: renderReceivedTable, tableName: 'received_records', dateField: 'entry_date' });
 
 el('cashAsOfDate').value = localDateString();
 syncCashDateControls();
