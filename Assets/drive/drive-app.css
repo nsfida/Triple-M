@@ -358,3 +358,11 @@ html[data-triplem-theme-mode="dark"] .td-ph{background:linear-gradient(135deg,#1
 .td-adlg-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line,#e3e8f1)}
 .aum-drive{display:flex;flex-direction:column;gap:10px;margin-top:10px;padding:12px;border-radius:12px;border:1px solid var(--line,#e3e8f1)}
 .aum-drive a{color:#1d4ed8;font-weight:600;word-break:break-all}
+
+/* Inquiries badge (2026-11-23) */
+.td-nav-item{position:relative}
+.td-badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#f59e0b;color:#1f1300;font-size:.72rem;font-weight:800;display:inline-grid;place-items:center}
+.td-more-sheet button .td-badge{position:absolute;top:6px;right:8px}
+.td-more-sheet button{position:relative}
+.td-stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.td-place a{margin-left:6px;font-size:.8rem}

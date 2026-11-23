@@ -12,7 +12,7 @@
 (function (global) {
   "use strict";
 
-  const V = "20261123-td4";
+  const V = "20261123-td6";
   const APP_SCRIPTS = ["Assets/app/drive/02-drive-app.js", "Assets/app/drive/03-drive-ops.js", "Assets/app/drive/04-drive-setup.js"];
   const APP_CSS = "Assets/drive/drive-app.css";
   const ADMIN_SCRIPT = "Assets/app/drive/01-drive-admin.js";
@@ -113,8 +113,66 @@
   }
 
   // ---- notifications ----------------------------------------------------------------------------
-  function isDriveBooking(n) {
-    try { const p = typeof notificationPayloadObject === "function" ? notificationPayloadObject(n) : (n?.payload || {}); return p && p.type === "drive_booking" ? p : null; } catch (_) { return null; }
+  const payloadOf = n => { try { return (typeof notificationPayloadObject === "function" ? notificationPayloadObject(n) : n?.payload) || {}; } catch (_) { return {}; } };
+  function isDriveBooking(n) { const p = payloadOf(n); return p && p.type === "drive_booking" ? p : null; }
+  function isDriveInquiry(n) { const p = payloadOf(n); return p && p.type === "drive_inquiry" ? p : null; }
+
+  // A short "ding" for every new booking request and inquiry (Assets/sounds/drive_ding.mp3).
+  let lastDing = 0, audio = null;
+  function ding() {
+    if (Date.now() - lastDing < 2500) return;
+    lastDing = Date.now();
+    try { audio = audio || new Audio("Assets/sounds/drive_ding.mp3?v=20261123"); audio.currentTime = 0; const p = audio.play(); if (p && p.catch) p.catch(() => {}); } catch (_) {}
+  }
+  // New Triplem Drive notifications seen in the bell list (works with or without push).
+  const SEEN_KEY = "triplem-drive-seen-v1";
+  function checkNew(items) {
+    const u = st()?.sessionUser; if (!u || !Array.isArray(items)) return;
+    const drive = items.filter(n => !n.is_read && (isDriveBooking(n) || isDriveInquiry(n)));
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || "{}"); } catch (_) {}
+    const mine = new Set(seen[u.id] || []);
+    const first = !seen[u.id];
+    const fresh = drive.filter(n => !mine.has(String(n.id)) && Date.now() - Date.parse(n.created_at || 0) < 30 * 60000);
+    drive.forEach(n => mine.add(String(n.id)));
+    seen[u.id] = [...mine].slice(-200);
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (_) {}
+    if (!first && fresh.length) { ding(); try { global.TriplemDriveApp?.onNews?.(); } catch (_) {} }
+  }
+  function wrapList() {
+    if (global.__tdListWrapped || typeof global.fetchMyNotificationsList !== "function") return;
+    global.__tdListWrapped = true;
+    const orig = global.fetchMyNotificationsList;
+    global.fetchMyNotificationsList = async function () {
+      const r = await orig.apply(this, arguments);
+      try { if (enabled()) checkNew(r?.items); } catch (_) {}
+      return r;
+    };
+  }
+  function onPush(event) {
+    const msg = event?.data || {};
+    if (msg.type !== "TRIPLEM_PUSH_RECEIVED") return;
+    const type = msg.payload?.data?.type || "";
+    if (type !== "drive_booking" && type !== "drive_inquiry") return;
+    if (!enabled()) return;
+    ding();
+    try { global.TriplemDriveApp?.onNews?.(); } catch (_) {}
+  }
+  // Opened from a push notification: /?push=drive&kind=booking|inquiry&id=<id>
+  function openFromLink() {
+    let q;
+    try { q = new URLSearchParams(location.search); } catch (_) { return; }
+    if (q.get("push") !== "drive") return;
+    const kind = q.get("kind"), id = q.get("id") || "";
+    let tries = 0;
+    const t = setInterval(() => {
+      if (++tries > 120) return clearInterval(t);
+      if (!st()?.unlocked) return;
+      clearInterval(t);
+      try { const u = new URL(location.href); ["push", "kind", "id"].forEach(k => u.searchParams.delete(k)); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (_) {}
+      if (!enabled()) return;
+      open(kind === "inquiry" ? "inquiries" : "bookings", kind === "inquiry" ? { inquiry: id } : { booking: id });
+    }, 500);
   }
   function wrapNotifications() {
     if (global.__tdNotifWrapped) return;
@@ -124,9 +182,16 @@
     global.notificationActions = function (n) {
       const list = origActions.apply(this, arguments) || [];
       if (isDriveBooking(n) && enabled()) list.unshift({ id: "drive-open", label: "Open booking", icon: "fa-car-side", primary: true });
+      if (isDriveInquiry(n) && enabled()) list.unshift({ id: "drive-inquiry", label: "Open inquiry", icon: "fa-envelope-open-text", primary: true });
       return list;
     };
     global.runNotificationAction = async function (n, action) {
+      const qi = isDriveInquiry(n);
+      if (action === "drive-inquiry" && qi) {
+        try { global.closeNotificationDetail?.(); } catch (_) {}
+        try { global.TriplemDetailPanels?.close?.(); } catch (_) {}
+        return open("inquiries", { inquiry: qi.inquiry_id });
+      }
       const p = isDriveBooking(n);
       if (action === "drive-open" && p) {
         try { global.closeNotificationDetail?.(); } catch (_) {}
@@ -141,11 +206,13 @@
     if (!enabled()) { try { global.TriplemDriveApp?.close?.({ force: true }); } catch (_) {} }
   }
 
-  global.TriplemDrive = Object.freeze({ enabled, flag, decorateHome, open, loadApp, version: V });
+  global.TriplemDrive = Object.freeze({ enabled, flag, decorateHome, open, loadApp, ding, version: V });
   global.TriplemDriveAdmin = Object.freeze({ openDialog, publicUrl, actionLabel });
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wrapNotifications, { once: true });
-  else wrapNotifications();
-  global.addEventListener("load", wrapNotifications);
+  const install = () => { wrapNotifications(); wrapList(); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", install, { once: true });
+  else install();
+  global.addEventListener("load", () => { install(); openFromLink(); });
+  try { navigator.serviceWorker?.addEventListener?.("message", onPush); } catch (_) {}
   document.addEventListener("triplem:session-changed", onSession);
 })(window);

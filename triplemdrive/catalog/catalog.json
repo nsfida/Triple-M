@@ -2,87 +2,399 @@
   "version": 1,
   "updated": "2026-11-23",
   "about": "Triplem Drive website catalogue: the listed vehicles, routes and prices shown on the public page. Cars added later are managed in the Triplem Drive dashboard (database). Prices are in the currency below and exclude the additions listed under terms.",
-  "apply_to": { "root": false, "slugs": ["triplemdrive"] },
+  "apply_to": {
+    "root": false,
+    "slugs": [
+      "triplemdrive"
+    ]
+  },
+  "vehicles_in_database": true,
   "currency": "SAR",
   "classes": [
-    { "key": "suv", "name": "SUV", "models": ["gmc-yukon", "gmc-yukon-xl", "chevrolet-tahoe", "chevrolet-suburban"] },
-    { "key": "sedan", "name": "Sedan", "models": ["lexus-es", "ford-taurus", "bmw-7-series"] },
-    { "key": "minivan", "name": "Mini Van", "models": ["hyundai-staria", "toyota-hiace"] }
+    {
+      "key": "suv",
+      "name": "SUV",
+      "models": [
+        "gmc-yukon",
+        "gmc-yukon-xl",
+        "chevrolet-tahoe",
+        "chevrolet-suburban"
+      ]
+    },
+    {
+      "key": "sedan",
+      "name": "Sedan",
+      "models": [
+        "lexus-es",
+        "ford-taurus",
+        "bmw-7-series"
+      ]
+    },
+    {
+      "key": "minivan",
+      "name": "Mini Van",
+      "models": [
+        "hyundai-staria",
+        "toyota-hiace"
+      ]
+    }
   ],
   "vehicles": [
-    { "key": "gmc-yukon", "name": "GMC Yukon", "class": "suv",
+    {
+      "key": "gmc-yukon",
+      "name": "GMC Yukon",
+      "class": "suv",
       "photos": [
-        { "file": "gmc-yukon.jpg", "commons": "2021 GMC Yukon Denali in Hunter Metallic, front left.jpg" },
-        { "file": "gmc-yukon-rear.jpg", "commons": "2021 GMC Yukon Denali in Hunter Metallic, rear left.jpg" }
-      ] },
-    { "key": "gmc-yukon-xl", "name": "GMC Yukon XL", "class": "suv",
+        {
+          "file": "gmc-yukon.jpg",
+          "commons": "2021 GMC Yukon Denali in Hunter Metallic, front left.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/2021_GMC_Yukon_Denali_in_Hunter_Metallic%2C_front_left.jpg/1280px-2021_GMC_Yukon_Denali_in_Hunter_Metallic%2C_front_left.jpg"
+        },
+        {
+          "file": "gmc-yukon-rear.jpg",
+          "commons": "2021 GMC Yukon Denali in Hunter Metallic, rear left.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/2021_GMC_Yukon_Denali_in_Hunter_Metallic%2C_rear_left.jpg/1280px-2021_GMC_Yukon_Denali_in_Hunter_Metallic%2C_rear_left.jpg"
+        }
+      ]
+    },
+    {
+      "key": "gmc-yukon-xl",
+      "name": "GMC Yukon XL",
+      "class": "suv",
       "photos": [
-        { "file": "gmc-yukon-xl.jpg", "commons": "2021 GMC Yukon XL SLT, front 9.24.20.jpg" },
-        { "file": "gmc-yukon-xl-rear.jpg", "commons": "2021 GMC Yukon XL SLE, rear 3.24.22.jpg" }
-      ] },
-    { "key": "chevrolet-tahoe", "name": "Chevrolet Tahoe", "class": "suv",
+        {
+          "file": "gmc-yukon-xl.jpg",
+          "commons": "2021 GMC Yukon XL SLT, front 9.24.20.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/2021_GMC_Yukon_XL_SLT%2C_front_9.24.20.jpg/1280px-2021_GMC_Yukon_XL_SLT%2C_front_9.24.20.jpg"
+        },
+        {
+          "file": "gmc-yukon-xl-rear.jpg",
+          "commons": "2021 GMC Yukon XL SLE, rear 3.24.22.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/2021_GMC_Yukon_XL_SLE%2C_rear_3.24.22.jpg/1280px-2021_GMC_Yukon_XL_SLE%2C_rear_3.24.22.jpg"
+        }
+      ]
+    },
+    {
+      "key": "chevrolet-tahoe",
+      "name": "Chevrolet Tahoe",
+      "class": "suv",
       "photos": [
-        { "file": "chevrolet-tahoe.jpg", "commons": "2022 Chevrolet Tahoe RST, front 3.7.22.jpg" },
-        { "file": "chevrolet-tahoe-rear.jpg", "commons": "2021 Chevrolet Tahoe High Country, rear 12.24.20.jpg" }
-      ] },
-    { "key": "chevrolet-suburban", "name": "Chevrolet Suburban", "class": "suv",
+        {
+          "file": "chevrolet-tahoe.jpg",
+          "commons": "2022 Chevrolet Tahoe RST, front 3.7.22.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/2022_Chevrolet_Tahoe_RST%2C_front_3.7.22.jpg/1280px-2022_Chevrolet_Tahoe_RST%2C_front_3.7.22.jpg"
+        },
+        {
+          "file": "chevrolet-tahoe-rear.jpg",
+          "commons": "2021 Chevrolet Tahoe High Country, rear 12.24.20.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/2021_Chevrolet_Tahoe_High_Country%2C_rear_12.24.20.jpg/1280px-2021_Chevrolet_Tahoe_High_Country%2C_rear_12.24.20.jpg"
+        }
+      ]
+    },
+    {
+      "key": "chevrolet-suburban",
+      "name": "Chevrolet Suburban",
+      "class": "suv",
       "photos": [
-        { "file": "chevrolet-suburban.jpg", "commons": "2025 Chevrolet Suburban LT, front 5.5.25.jpg" },
-        { "file": "chevrolet-suburban-rear.jpg", "commons": "2025 Chevrolet Suburban LT, rear 5.5.25.jpg" }
-      ] },
-    { "key": "lexus-es", "name": "Lexus ES", "class": "sedan",
+        {
+          "file": "chevrolet-suburban.jpg",
+          "commons": "2025 Chevrolet Suburban LT, front 5.5.25.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/2025_Chevrolet_Suburban_LT%2C_front_5.5.25.jpg/1280px-2025_Chevrolet_Suburban_LT%2C_front_5.5.25.jpg"
+        },
+        {
+          "file": "chevrolet-suburban-rear.jpg",
+          "commons": "2025 Chevrolet Suburban LT, rear 5.5.25.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/2025_Chevrolet_Suburban_LT%2C_rear_5.5.25.jpg/1280px-2025_Chevrolet_Suburban_LT%2C_rear_5.5.25.jpg"
+        }
+      ]
+    },
+    {
+      "key": "lexus-es",
+      "name": "Lexus ES",
+      "class": "sedan",
       "photos": [
-        { "file": "lexus-es.jpg", "commons": "2022 Lexus ES 350 (GSZ10) 1X7A5794.jpg" },
-        { "file": "lexus-es-2.jpg", "commons": "2021 Lexus ES300h Premium.jpg" }
-      ] },
-    { "key": "ford-taurus", "name": "Ford Taurus", "class": "sedan",
+        {
+          "file": "lexus-es.jpg",
+          "commons": "2022 Lexus ES 350 (GSZ10) 1X7A5794.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/2022_Lexus_ES_350_%28GSZ10%29_1X7A5794.jpg/1280px-2022_Lexus_ES_350_%28GSZ10%29_1X7A5794.jpg"
+        },
+        {
+          "file": "lexus-es-2.jpg",
+          "commons": "2021 Lexus ES300h Premium.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/2021_Lexus_ES300h_Premium.jpg/1280px-2021_Lexus_ES300h_Premium.jpg"
+        }
+      ]
+    },
+    {
+      "key": "ford-taurus",
+      "name": "Ford Taurus",
+      "class": "sedan",
       "photos": [
-        { "file": "ford-taurus.jpg", "commons": "Ford Taurus VII facelift 004.jpg" },
-        { "file": "ford-taurus-rear.jpg", "commons": "Ford Taurus VII facelift 005.jpg" }
-      ] },
-    { "key": "bmw-7-series", "name": "BMW 7 Series", "class": "sedan",
+        {
+          "file": "ford-taurus.jpg",
+          "commons": "Ford Taurus VII facelift 004.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ford_Taurus_VII_facelift_004.jpg/1280px-Ford_Taurus_VII_facelift_004.jpg"
+        },
+        {
+          "file": "ford-taurus-rear.jpg",
+          "commons": "Ford Taurus VII facelift 005.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Ford_Taurus_VII_facelift_005.jpg/1280px-Ford_Taurus_VII_facelift_005.jpg"
+        }
+      ]
+    },
+    {
+      "key": "bmw-7-series",
+      "name": "BMW 7 Series",
+      "class": "sedan",
       "photos": [
-        { "file": "bmw-7-series.jpg", "commons": "BMW 7-Series (G70) 750e IMG 9358.jpg" }
-      ] },
-    { "key": "hyundai-staria", "name": "Hyundai Staria", "class": "minivan",
+        {
+          "file": "bmw-7-series.jpg",
+          "commons": "BMW 7-Series (G70) 750e IMG 9358.jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/BMW_7-Series_%28G70%29_750e_IMG_9358.jpg/1280px-BMW_7-Series_%28G70%29_750e_IMG_9358.jpg"
+        }
+      ]
+    },
+    {
+      "key": "hyundai-staria",
+      "name": "Hyundai Staria",
+      "class": "minivan",
       "photos": [
-        { "file": "hyundai-staria.jpg", "commons": "Hyundai Staria Lounge Limousine 2.2D US4 Abyss Black Pearl (4).jpg" },
-        { "file": "hyundai-staria-2.jpg", "commons": "Hyundai Staria Tourer US4 Creamy White (1) (cropped).jpg" }
-      ] },
-    { "key": "toyota-hiace", "name": "Toyota HiAce", "class": "minivan",
+        {
+          "file": "hyundai-staria.jpg",
+          "commons": "Hyundai Staria Lounge Limousine 2.2D US4 Abyss Black Pearl (4).jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Hyundai_Staria_Lounge_Limousine_2.2D_US4_Abyss_Black_Pearl_%284%29.jpg/1280px-Hyundai_Staria_Lounge_Limousine_2.2D_US4_Abyss_Black_Pearl_%284%29.jpg"
+        },
+        {
+          "file": "hyundai-staria-2.jpg",
+          "commons": "Hyundai Staria Tourer US4 Creamy White (1) (cropped).jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Hyundai_Staria_Tourer_US4_Creamy_White_%281%29_%28cropped%29.jpg/1280px-Hyundai_Staria_Tourer_US4_Creamy_White_%281%29_%28cropped%29.jpg"
+        }
+      ]
+    },
+    {
+      "key": "toyota-hiace",
+      "name": "Toyota HiAce",
+      "class": "minivan",
       "photos": [
-        { "file": "toyota-hiace.jpg", "commons": "2020 Toyota HiAce (front).jpg" }
-      ] }
+        {
+          "file": "toyota-hiace.jpg",
+          "commons": "2020 Toyota HiAce (front).jpg",
+          "upload": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/2020_Toyota_HiAce_%28front%29.jpg/1280px-2020_Toyota_HiAce_%28front%29.jpg"
+        }
+      ]
+    }
   ],
   "service_groups": [
-    { "key": "intercity", "name": "Intercity transfer services", "note": "One way, either direction." },
-    { "key": "city", "name": "Riyadh, Jeddah, Dammam, Medinah", "note": "Airport and inside-city transfers." },
-    { "key": "full_day", "name": "Full day bookings", "note": "Inside city only." }
+    {
+      "key": "intercity",
+      "name": "Intercity transfer services",
+      "note": "One way, either direction."
+    },
+    {
+      "key": "city",
+      "name": "Riyadh, Jeddah, Dammam, Medinah",
+      "note": "Airport and inside-city transfers."
+    },
+    {
+      "key": "full_day",
+      "name": "Full day bookings",
+      "note": "Inside city only."
+    }
   ],
   "services": [
-    { "key": "riyadh-dammam", "group": "intercity", "from": "Riyadh", "to": "Dammam / Al Khobar", "prices": { "suv": 1100, "sedan": 825, "minivan": 990 } },
-    { "key": "riyadh-dubai-border", "group": "intercity", "from": "Riyadh", "to": "Dubai Border", "prices": { "suv": 1200, "sedan": 900, "minivan": 1080 } },
-    { "key": "riyadh-jeddah", "group": "intercity", "from": "Riyadh", "to": "Jeddah", "prices": { "suv": 1900, "sedan": 1425, "minivan": 1710 } },
-    { "key": "riyadh-makkah", "group": "intercity", "from": "Riyadh", "to": "Makkah", "prices": { "suv": 1800, "sedan": 1350, "minivan": 1620 } },
-    { "key": "riyadh-qasim", "group": "intercity", "from": "Riyadh", "to": "Qasim", "prices": { "suv": 1100, "sedan": 825, "minivan": 990 } },
-    { "key": "riyadh-medinah", "group": "intercity", "from": "Riyadh", "to": "Medinah", "prices": { "suv": 1800, "sedan": 1350, "minivan": 1620 } },
-    { "key": "riyadh-kuwait-border", "group": "intercity", "from": "Riyadh", "to": "Kuwait Border", "prices": { "suv": 1200, "sedan": 900, "minivan": 1080 } },
-    { "key": "riyadh-qatar-border", "group": "intercity", "from": "Riyadh", "to": "Qatar Border", "prices": { "suv": 1200, "sedan": 900, "minivan": 1080 } },
-    { "key": "airport", "group": "city", "name": "Airport transfer", "prices": { "suv": 145, "sedan": 85, "minivan": 120 } },
-    { "key": "inside-city", "group": "city", "name": "Inside city transfer", "prices": { "suv": 90, "sedan": 70, "minivan": 100 } },
-    { "key": "full-day", "group": "full_day", "name": "Full day (inside city only)", "prices": { "suv": 1200, "sedan": 850, "minivan": 1100 } }
+    {
+      "key": "riyadh-dammam",
+      "group": "intercity",
+      "from": "Riyadh",
+      "to": "Dammam / Al Khobar",
+      "prices": {
+        "suv": 1100,
+        "sedan": 825,
+        "minivan": 990
+      }
+    },
+    {
+      "key": "riyadh-dubai-border",
+      "group": "intercity",
+      "from": "Riyadh",
+      "to": "Dubai Border",
+      "prices": {
+        "suv": 1200,
+        "sedan": 900,
+        "minivan": 1080
+      }
+    },
+    {
+      "key": "riyadh-jeddah",
+      "group": "intercity",
+      "from": "Riyadh",
+      "to": "Jeddah",
+      "prices": {
+        "suv": 1900,
+        "sedan": 1425,
+        "minivan": 1710
+      }
+    },
+    {
+      "key": "riyadh-makkah",
+      "group": "intercity",
+      "from": "Riyadh",
+      "to": "Makkah",
+      "prices": {
+        "suv": 1800,
+        "sedan": 1350,
+        "minivan": 1620
+      }
+    },
+    {
+      "key": "riyadh-qasim",
+      "group": "intercity",
+      "from": "Riyadh",
+      "to": "Qasim",
+      "prices": {
+        "suv": 1100,
+        "sedan": 825,
+        "minivan": 990
+      }
+    },
+    {
+      "key": "riyadh-medinah",
+      "group": "intercity",
+      "from": "Riyadh",
+      "to": "Medinah",
+      "prices": {
+        "suv": 1800,
+        "sedan": 1350,
+        "minivan": 1620
+      }
+    },
+    {
+      "key": "riyadh-kuwait-border",
+      "group": "intercity",
+      "from": "Riyadh",
+      "to": "Kuwait Border",
+      "prices": {
+        "suv": 1200,
+        "sedan": 900,
+        "minivan": 1080
+      }
+    },
+    {
+      "key": "riyadh-qatar-border",
+      "group": "intercity",
+      "from": "Riyadh",
+      "to": "Qatar Border",
+      "prices": {
+        "suv": 1200,
+        "sedan": 900,
+        "minivan": 1080
+      }
+    },
+    {
+      "key": "airport",
+      "group": "city",
+      "name": "Airport transfer",
+      "prices": {
+        "suv": 145,
+        "sedan": 85,
+        "minivan": 120
+      }
+    },
+    {
+      "key": "inside-city",
+      "group": "city",
+      "name": "Inside city transfer",
+      "prices": {
+        "suv": 90,
+        "sedan": 70,
+        "minivan": 100
+      }
+    },
+    {
+      "key": "full-day",
+      "group": "full_day",
+      "name": "Full day (inside city only)",
+      "prices": {
+        "suv": 1200,
+        "sedan": 850,
+        "minivan": 1100
+      }
+    }
   ],
   "terms": {
     "timing": "24/7",
     "min_notice_minutes": 60,
     "lines": [
-      { "label": "Need an invoice", "value": "15% is applied on the final invoice" },
-      { "label": "Cash payment", "value": "5% on the final invoice" },
-      { "label": "Transfer to an individual account", "value": "0% · advance payment" },
-      { "label": "Minimum time before the trip", "value": "1 hour" },
-      { "label": "Pickup location", "value": "Send your location to our WhatsApp number after payment" },
-      { "label": "Complaints", "value": "WhatsApp only, with a picture, or the official Triplem email" },
-      { "label": "Emergency contact", "value": "Email the official Triplem email" }
+      {
+        "label": "Need an invoice",
+        "value": "15% is applied on the final invoice"
+      },
+      {
+        "label": "Cash payment",
+        "value": "5% on the final invoice"
+      },
+      {
+        "label": "Transfer to an individual account",
+        "value": "0% · advance payment"
+      },
+      {
+        "label": "Minimum time before the trip",
+        "value": "1 hour"
+      },
+      {
+        "label": "Pickup location",
+        "value": "Send your location to our WhatsApp number after payment"
+      },
+      {
+        "label": "Complaints",
+        "value": "WhatsApp only, with a picture, or the official Triplem email"
+      },
+      {
+        "label": "Emergency contact",
+        "value": "Email the official Triplem email"
+      }
     ]
-  }
+  },
+  "faq": [
+    {
+      "q": "How do I book a car?",
+      "a": "Choose a car or a price and tap Book. Fill in the short form and send it. We contact you to confirm your reservation."
+    },
+    {
+      "q": "Do I pay online?",
+      "a": "No. Nothing is charged online; payment is arranged directly with us."
+    },
+    {
+      "q": "I need an invoice. Is anything added?",
+      "a": "Yes. If you need an invoice, 15% is applied on the final invoice."
+    },
+    {
+      "q": "Can I pay in cash?",
+      "a": "Yes. Cash payment is 5% on the final invoice."
+    },
+    {
+      "q": "Can I pay by transfer to an individual account?",
+      "a": "Yes, 0% is added; payment is in advance."
+    },
+    {
+      "q": "How early should I book?",
+      "a": "At least 1 hour before the trip."
+    },
+    {
+      "q": "How do I share my pickup location?",
+      "a": "Pick it on the map in the booking form, or send your location to our WhatsApp number after payment."
+    },
+    {
+      "q": "When are you available?",
+      "a": "24/7, every day."
+    },
+    {
+      "q": "How do I make a complaint?",
+      "a": "On WhatsApp only, with a picture, or by the official Triplem email."
+    },
+    {
+      "q": "Who do I contact in an emergency?",
+      "a": "Email the official Triplem email."
+    }
+  ]
 }

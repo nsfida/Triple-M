@@ -7,6 +7,12 @@
   const { esc, api, errText, toast, pill, bPill, skel, empty, btn, F, formValues, panelForm, panel, rerender, closePanel, confirmBox, fmtDate, fmtTime, fmtWhen, ymd, today, parseLocal } = A;
   const pbtn = (act, label, icon, o) => btn(act, label, icon, o).replace("data-td-act=", "data-dp-act=");
   const waDigits = m => String(m || "").replace(/[^\d]/g, "");
+  // Places picked on the map on the public page end with "· lat,lng": show the place and a map link.
+  const placeHtml = t => {
+    const m = String(t || "").match(/^(.*?)\s*·\s*(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)\s*$/);
+    if (!m) return esc(t || "—");
+    return `<span class="td-place">${esc(m[1] || "Pinned location")}<a href="https://www.google.com/maps?q=${esc(m[2])},${esc(m[3])}" target="_blank" rel="noopener"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Map</a></span>`;
+  };
 
   // ---- Bookings list ----------------------------------------------------------------------------
   const STATUS_CHIPS = [["open", "Open"], ["pending", "Pending"], ["confirmed", "Confirmed"], ["completed", "Completed"], ["cancelled", "Cancelled"], ["rejected", "Rejected"], ["no_show", "No Show"], ["", "All"]];
@@ -135,7 +141,7 @@
           + `<div class="td-pacts">${(NEXT[b.status] || []).map(([s, label, icon, primary]) => pbtn("bk-set", label, icon, { primary: !!primary, danger: ["rejected", "cancelled", "no_show"].includes(s), data: `data-s="${s}"`, disabled: !!st.busy })).join("")}</div>`
           + K.section("Customer", K.kv([["Name", esc(b.customer_name)], ["Mobile", `<a href="tel:${esc(b.customer_mobile)}">${esc(b.customer_mobile)}</a>`], b.customer_email ? ["Email", `<a href="mailto:${esc(b.customer_email)}">${esc(b.customer_email)}</a>`] : null, ["Bookings with you", esc(String(b.customer_bookings || 1))]]))
           + K.section("Trip", K.kv([["Vehicle", esc(b.vehicle_name || "Any vehicle") + (b.vehicle_registration ? ` <small class="td-muted">${esc(b.vehicle_registration)}</small>` : "")], b.route_name ? ["Route", esc(b.route_name)] : null,
-              ["Pickup", esc(b.pickup || "—")], ["Destination", esc(b.destination || "—")], ["Pickup date", esc(fmtDate(b.start_at)) + (b.pickup_time_set ? " · " + esc(fmtTime(b.start_at)) : "")],
+              ["Pickup", placeHtml(b.pickup)], ["Destination", placeHtml(b.destination)], ["Pickup date", esc(fmtDate(b.start_at)) + (b.pickup_time_set ? " · " + esc(fmtTime(b.start_at)) : "")],
               ["Return", esc(fmtDate(b.end_at)) + " · " + esc(fmtTime(b.end_at))], b.passengers ? ["Passengers", esc(String(b.passengers))] : null, ["Submitted", esc(fmtWhen(b.submitted_at))]]))
           + ((b.answers || []).length ? K.section("Answers", K.kv(b.answers.map(a => [a.label, `<span dir="auto">${esc(a.answer)}</span>`]))) : "")
           + (b.customer_notes ? K.section("Customer notes", `<p class="td-pre" dir="auto">${esc(b.customer_notes)}</p>`) : "")
@@ -351,6 +357,65 @@
     });
     api("app_drive_bookings_list", { p: { mobile: c.customer_mobile, status: "", limit: 50, sort: "start_desc" } }).then(r => { st.rows = r.rows || []; rerender(); }).catch(() => { st.rows = []; rerender(); });
   };
+
+  // ---- Inquiries (questions sent from the public page; database update 239) ----------------------------
+  const I_STATUS = { new: ["New", "warn", "fa-envelope"], answered: ["Answered", "ok", "fa-reply"], closed: ["Closed", "", "fa-box-archive"] };
+  const iPill = s => { const x = I_STATUS[s] || [s, ""]; return pill(x[0], x[1], x[2]); };
+  let IS = null;
+  app.register("inquiries", {
+    render(el, _A, opts) {
+      if (!IS || opts.status !== undefined) IS = { status: opts.status ?? "", q: "", rows: [], total: 0 };
+      el.innerHTML = `<div class="td-chips" role="radiogroup" aria-label="Status">${[["", "All"], ["new", "New"], ["answered", "Answered"], ["closed", "Closed"]].map(([k, t]) => `<button type="button" role="radio" aria-checked="${IS.status === k}" data-td-act="iq-status" data-s="${k}">${esc(t)}</button>`).join("")}</div>
+        <div class="td-toolbar"><label class="td-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Name, mobile, email or message" value="${esc(IS.q)}" data-iq-q aria-label="Search inquiries"></label>
+          <p class="td-muted">Questions visitors send from your public page. You get a notification (and a push message) for each one.</p></div>
+        <div data-iq>${skel(5)}</div>`;
+      let tm = 0;
+      el.querySelector("[data-iq-q]").addEventListener("input", e => { clearTimeout(tm); tm = setTimeout(() => { IS.q = e.target.value.trim(); load(true); }, 260); });
+      async function load(reset) {
+        const box = el.querySelector("[data-iq]");
+        if (reset) IS.rows = [];
+        try {
+          const r = await api("app_drive_inquiries_list", { p: { status: IS.status, q: IS.q, limit: 25, offset: IS.rows.length } });
+          IS.rows = IS.rows.concat(r.rows || []); IS.total = r.total || 0;
+          box.innerHTML = IS.rows.length ? `<ul class="td-list">${IS.rows.map((q, i) => `<li class="td-list-row is-click" data-td-act="iq-open" data-i="${i}" role="button" tabindex="0">
+              <span class="td-list-ico" aria-hidden="true"><i class="fa-solid ${q.status === "new" ? "fa-envelope" : "fa-envelope-open"}"></i></span>
+              <span class="td-list-main"><b>${esc(q.name)}${q.subject ? " · " + esc(q.subject) : ""}</b><small>${esc(q.message)}</small></span>
+              <span class="td-list-meta">${iPill(q.status)}<small>${esc(fmtWhen(q.created_at))}</small></span></li>`).join("")}</ul>
+            <div class="td-more-row"><span>${IS.rows.length} of ${IS.total}</span>${IS.rows.length < IS.total ? btn("iq-more", "Load more", "fa-angles-down") : ""}</div>`
+            : empty("fa-envelope-open-text", IS.q || IS.status ? "No inquiries match" : "No inquiries yet", "Questions sent from your public page appear here.");
+        } catch (e) { box.innerHTML = empty("fa-triangle-exclamation", "Inquiries could not be loaded", /function|schema/i.test(errText(e)) ? "Inquiries need database update 239." : errText(e)); }
+      }
+      A.actions["iq-more"] = () => load(false);
+      A.inquiriesReload = () => load(true);
+      load(true).then(() => { if (opts.inquiry) { const i = IS.rows.findIndex(q => q.id === opts.inquiry); if (i >= 0) openInquiry(IS.rows[i]); } });
+    }
+  });
+  A.actions["iq-status"] = b => { IS.status = b.dataset.s; A.refresh(); };
+  A.actions["iq-open"] = b => openInquiry(IS.rows[+b.dataset.i]);
+  function openInquiry(q) {
+    if (!q) return;
+    const st = { q };
+    const msgText = () => `Hello ${q.name},\n\nThank you for your message to ${A.ctx().fleet.business_name}.\n\n`;
+    panel({
+      tabs: [["main", "Inquiry", "fa-solid fa-envelope-open-text"]], tab: "main", state: st,
+      head: () => ({ title: st.q.name, icon: "fa-envelope-open-text", sub: esc(fmtWhen(st.q.created_at)), pills: [iPill(st.q.status)] }),
+      render() {
+        const K = A.DP().kit, x = st.q, wa = waDigits(x.mobile);
+        return K.section("Message", `${x.subject ? `<p><b>${esc(x.subject)}</b></p>` : ""}<p class="td-pre" dir="auto">${esc(x.message)}</p>`)
+          + K.section("Contact", K.kv([x.mobile ? ["Mobile", `<a href="tel:${esc(x.mobile)}">${esc(x.mobile)}</a>`] : null, x.email ? ["Email", `<a href="mailto:${esc(x.email)}">${esc(x.email)}</a>`] : null]))
+          + `<div class="td-pacts">${wa.length >= 7 ? `<a class="td-btn" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(msgText())}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i><span>Reply on WhatsApp</span></a>` : ""}
+              ${x.email ? `<a class="td-btn" href="mailto:${esc(x.email)}?subject=${encodeURIComponent(`Re: ${x.subject || "Your inquiry"}`)}&body=${encodeURIComponent(msgText())}"><i class="fa-regular fa-envelope"></i><span>Email draft</span></a>` : ""}
+              ${pbtn("iq-book", "New booking", "fa-calendar-plus")}</div>`
+          + K.section("Status", `<div class="td-pacts">${Object.entries(I_STATUS).map(([k, v]) => pbtn("iq-set", v[0], v[2], { primary: x.status === k, data: `data-s="${k}"` })).join("")}</div>`)
+          + K.section("Internal notes", `<textarea class="td-notes" data-iq-notes rows="3" maxlength="3000" placeholder="Only you can see these notes">${esc(x.internal_notes || "")}</textarea><div class="td-inline is-end">${pbtn("iq-notes", "Save notes", "fa-floppy-disk")}</div>`);
+      },
+      actions: {
+        "iq-set": async b => { st.q = await api("app_drive_inquiry_set", { p_id: q.id, p_status: b.dataset.s, p_internal_notes: null, p_set_notes: false }); Object.assign(q, st.q); rerender(); A.DP().toast("Saved"); A.inquiriesReload?.(); A.refreshBadges?.(); },
+        "iq-notes": async () => { st.q = await api("app_drive_inquiry_set", { p_id: q.id, p_status: null, p_internal_notes: A.DP().custom.body().querySelector("[data-iq-notes]").value, p_set_notes: true }); Object.assign(q, st.q); rerender(); A.DP().toast("Notes saved"); },
+        "iq-book": () => { A.openBookingForm(null, {}); setTimeout(() => { const f = panelForm(); if (f) { f.elements.customer_name.value = q.name; if (q.mobile) f.elements.customer_mobile.value = q.mobile; if (q.email) f.elements.customer_email.value = q.email; } }, 30); }
+      }
+    });
+  }
 
   // ---- Drivers ------------------------------------------------------------------------------------------
   app.register("drivers", {

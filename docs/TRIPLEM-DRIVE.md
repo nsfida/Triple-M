@@ -28,36 +28,56 @@ The **Triplem Drive** card appears on the Home screen only for authorised accoun
 | Drivers | Name, mobile, email, notes, active |
 | Customers | Built from your own bookings (grouped by mobile number), private to your business |
 | Business Page | Public business name (independent of the account name and the address), logo (PNG/JPG/WebP, proportions kept, the name is shown without a logo), banner, tagline, description, phone, WhatsApp, email, address, hours, map link, social links, contact instructions, terms, cancellation policy, currency, time zone, default trip length, automatic confirmation; Publish / Unpublish, Preview (a 30-minute private link before publishing), Copy link |
+| Inquiries | Questions sent from the public page: status chips (New, Answered, Closed), search, the message and contact details, **Reply on WhatsApp** / **Reply by email**, status, internal notes and **New booking** from an inquiry. The menu shows the number of new inquiries. |
 | Booking Form | Show or hide, require, rename and reorder fields; defaults for pickup, destination and notes; up to 12 custom questions (short text, long text, number, choice, yes/no); the message shown after sending. Name, mobile and pickup date are always asked. |
 
 ## Website catalogue (`triplemdrive/catalog/catalog.json`)
 
-The listed vehicles and prices come from a JSON file instead of the database: SUV (GMC Yukon, GMC Yukon XL, Chevrolet Tahoe, Chevrolet Suburban), Sedan (Lexus ES, Ford Taurus, BMW 7 Series), Mini Van (Hyundai Staria, Toyota HiAce). It also holds the 8 intercity routes from Riyadh, airport and inside-city transfers, full-day bookings (SAR) and the terms (24/7; 15% on the final invoice when an invoice is needed; 5% for cash; 0% with advance payment to an individual account; at least 1 hour before the trip; pickup location by WhatsApp after payment; complaints by WhatsApp with a picture or by the official Triplem email). Cars added later are added in the dashboard (database) and appear under "More vehicles".
+The listed vehicles and prices come from a JSON file instead of the database: SUV (GMC Yukon, GMC Yukon XL, Chevrolet Tahoe, Chevrolet Suburban), Sedan (Lexus ES, Ford Taurus, BMW 7 Series), Mini Van (Hyundai Staria, Toyota HiAce). It also holds the 8 intercity routes from Riyadh, airport and inside-city transfers, full-day bookings (SAR) and the terms (24/7; 15% on the final invoice when an invoice is needed; 5% for cash; 0% with advance payment to an individual account; at least 1 hour before the trip; pickup location by WhatsApp after payment; complaints by WhatsApp with a picture or by the official Triplem email). Cars added later are added in the dashboard (database) and appear in the same Vehicles tab.
 
 - `apply_to.slugs: ["triplemdrive"]` shows it on Triplem Drive's page (`https://triplem.vip/triplemdrive/`). It is not shown on other businesses.
 - To change a price, edit `services[].prices` (`suv`, `sedan`, `minivan`). To add a model, add it to `vehicles` and to its class in `classes`.
 - The booking form gets "Service", "Vehicle type", "Preferred model" and the listed price. The request is stored with those choices (database update 237) and waits for your confirmation.
-- Photos: `triplemdrive/catalog/photos/<file>`. One click on GitHub: Actions › **Triplem Drive catalogue photos** › Run workflow. It downloads the photos and commits them with `credits.json`. Or run `node scripts/fetch_drive_catalog_photos.js` on your computer. It downloads the Wikimedia Commons photos named in the JSON (free licences) and writes `credits.json` (authors and licences shown under "Vehicle photo credits"). Check each photo, then upload the folder. Until a photo file is uploaded, the page shows the same picture directly from Wikimedia Commons. To use your own photo, save it under the same file name (JPG, about 1600 px wide).
+- Photos: `triplemdrive/catalog/photos/<file>`. One click on GitHub: Actions › **Triplem Drive catalogue photos** › Run workflow. It downloads the photos and commits them with `credits.json`. Or run `node scripts/fetch_drive_catalog_photos.js` on your computer. It downloads the Wikimedia Commons photos named in the JSON (free licences) and writes `credits.json` (authors and licences shown under "Photo credits" in the footer). Check each photo, then upload the folder. Until a photo file is uploaded, the page shows the same picture directly from Wikimedia Commons. To use your own photo, save it under the same file name (JPG, about 1600 px wide).
 
 ## Public page
 
-`/<address>/` (also `/triplemdrive/?b=<address>`; Triplem Drive: `/triplemdrive/`). It shows the business header with its own logo and name, introduction, fleet by section, vehicle details with photos, routes, rates, the booking form, contact details, terms and footer.
+`/<address>/` (also `/triplemdrive/?b=<address>`; Triplem Drive: `/triplemdrive/`). It uses the Triplem VIP default look (light background, glass cards, Inter, small pill buttons, round icon buttons) with the Triplem Drive logo (`triplemdrive/assets/logo.svg`; a business's own logo replaces it).
 
+- **Header:** logo and name, Call, WhatsApp, Ask a question and **Book**.
+- **Tabs:** Vehicles (filter by type; each card opens the car), Prices (price list by group; Book on each row), Routes (when the business has public routes), FAQ (questions from `catalog.json`, the cancellation policy and terms of the business), Contact.
+- **Side panels** (same style as Triplem VIP; from the bottom on phones): car details (photos, details, prices, **Book this car**), booking, map picker, Ask a question, photo credits. Panels stack; Esc or × closes the top one.
+- **Booking panel:** service, vehicle type tiles with the price for the chosen service, model chips with photos (or Any model), pickup and drop-off, date and time, details and the questions of the Booking Form. The footer shows the listed price and **Send request**.
+- **Pickup and drop-off:** type the address as before, or tap **Map**: search a place, use your location or move the map under the pin, then **Use this place**. The address name is filled in and the point is saved with it (`address · lat,lng`); in Triplem Drive › Bookings it opens in Google Maps. Map: OpenStreetMap; address search: Nominatim (`https://nominatim.openstreetmap.org` is allowed in `_headers`).
 - Only published, enabled businesses and only public vehicles, routes and rates are shown. Registration numbers, internal notes, internal ids and customer data are never sent to the page.
 - Title, description, canonical address, Open Graph and structured data (AutoRental) come from the business. Unpublished or unknown addresses are `noindex`. The pages are not in the sitemap.
-- A request is shown as received only after the server stored it and returned its reference (TD-000123). Default status Pending, with the message “Your booking request has been received. Our team will contact you to confirm your reservation.”. If **Confirm requests automatically** is on, a request for a specific, free vehicle is confirmed at once.
-- The server checks the business, the vehicle (belongs to it, public, bookable status), every required field, the dates (not in the past, at most 2 years ahead) and the availability. Only **confirmed** bookings and blocks make a vehicle unavailable; cancelled, rejected, pending, completed and no-show bookings do not.
-- Spam protection: a hidden honeypot field, at most 6 requests per network per 10 minutes and 40 per day, and at most 4 per mobile number per hour for each business. Errors are plain messages; no technical details.
+- A request is shown as received only after the server stored it and returned its reference (TD-000123). Default status Pending. If **Confirm requests automatically** is on, a request for a specific, free vehicle is confirmed at once.
+- The server checks the business, the vehicle, every required field, the dates and the availability. Only **confirmed** bookings and blocks make a vehicle unavailable.
+- Spam protection: a hidden honeypot field, at most 6 requests per network per 10 minutes and 40 per day, and at most 4 per mobile number per hour for each business.
+
+## Listed cars in the fleet (update 240)
+
+The 9 cars of the price sheet are ordinary vehicles of the Triplem Drive fleet after database update 240 (keys `cat-<model>`, sections SUV, Sedan, Mini Van). The business manages them in Triplem Drive › Fleet like any other vehicle: edit, photos, hide from the public page, out of service, bookings.
+
+- **Photos:** the Fleet page shows "Add the listed photos" while listed cars have no photos. It takes each listed photo from `triplemdrive/catalog/photos/` (filled by the GitHub action) or, if missing, from Wikimedia Commons, and stores it as a normal vehicle photo (replace, reorder, remove). Until then the public page shows the listed photo.
+- **Public page:** the fleet cars are the models of each vehicle type in the booking panel and use the listed prices (catalog.json). A fleet car is in a type by its key or by its section name (SUV, Sedan, Mini Van), so new cars added to those sections appear as models too. A booking for a chosen model is linked to that car (availability and calendar apply); "Any model" is not linked to a car.
+- Prices and services stay in `catalog.json`. Before update 240 the public page shows the listed cars straight from `catalog.json`.
+
+## Notifications for the business (update 239)
+
+Every booking request and every inquiry:
+
+1. adds a bell notification in Triplem VIP (opens the booking or the inquiry);
+2. sends a **push notification** to the business owner's devices where push is switched on (Settings › Notifications), even when Triplem VIP is closed. Tapping it opens the booking or the inquiry;
+3. plays a short **ding** (`Assets/sounds/drive_ding.mp3`) when Triplem VIP is open, once per new item (not for items already seen on this device).
+
+The page cannot send pushes by itself: it passes a one-time token from the server to the `push-notifications` Edge Function, which asks the database who to notify (service role only). Deploy the Edge Function after running 239.
 
 ## Hosting the address
 
 - `/triplemdrive/` is a real page (`triplemdrive/index.html`) and shows the business whose address is `triplemdrive`.
 - Any other `/<address>/` does not exist as a file, so the host serves `404.html`. It sends the visitor to `/triplemdrive/?b=<address>`, and the page puts `/<address>/` back in the address bar. This works on GitHub Pages, Cloudflare Pages and Netlify. Earlier `/triplemdrive/<address>/` links work the same way (and through `_redirects` on Cloudflare Pages / Netlify).
 - Search engines: `/triplemdrive/` is indexed normally. Other addresses first answer "not found" before the page loads, so search engines may not index them. If another business needs search visibility, give it its own folder (a copy of `triplemdrive/index.html` saved as `<address>/index.html`).
-
-## Booking side panel
-
-Every **Book** button (header, hero, vehicle cards, price tables, the "Ready when you are" band) opens the booking form in a side panel styled like the Triplem VIP side panels: the business logo and name, 24/7 and "No online payment" pills, sections (Choose your trip, Trip, When, Your details, Anything else), and a fixed footer with the listed price and **Send request**. On phones it opens from the bottom. After sending, the panel shows the reference, a WhatsApp button and **Done**; opening it again starts a new request.
 
 ## Database (update 236)
 
@@ -74,7 +94,7 @@ Apply on a copy first. Then run `tests/db/triplem-drive-236.sql` (all in one tra
 ## Known limits (v1)
 
 - Team members of an authorised account cannot open Triplem Drive yet.
-- Distances and durations of routes are entered by hand (no map service).
+- Distances and durations of routes are entered by hand (the map is used only to pick pickup and drop-off points).
 - Images are stored in the database (compressed). For very large fleets, moving them to file storage would be a later step.
-- Notifications for new requests use the existing in-app notification (bell). There are no separate emails or SMS.
+- Notifications: bell, push and ding (update 239). There are no emails or SMS.
 - The public page is in English.

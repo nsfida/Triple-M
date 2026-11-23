@@ -10,6 +10,7 @@
   const NAV = [
     { key: "overview", label: "Overview", icon: "fa-gauge-high" },
     { key: "bookings", label: "Bookings", icon: "fa-calendar-check" },
+    { key: "inquiries", label: "Inquiries", icon: "fa-envelope-open-text" },
     { key: "calendar", label: "Availability", icon: "fa-calendar-days" },
     { key: "fleet", label: "Fleet", icon: "fa-car-side" },
     { key: "sections", label: "Fleet Sections", icon: "fa-layer-group" },
@@ -190,7 +191,27 @@
   async function loadContext() {
     S.ctx = await api("app_drive_context");
     paintBrand();
+    refreshBadges();
     return S.ctx;
+  }
+  // New inquiries: a count beside "Inquiries" (needs database update 239; quietly skipped before it).
+  async function refreshBadges() {
+    try {
+      const r = await api("app_drive_inquiries_list", { p: { status: "new", limit: 1 } });
+      S.newInquiries = Number(r?.new) || 0;
+    } catch (_) { S.newInquiries = 0; }
+    S.root?.querySelectorAll('[data-td-view="inquiries"]').forEach(b => {
+      let badge = b.querySelector(".td-badge");
+      if (!S.newInquiries) { badge?.remove(); return; }
+      if (!badge) { badge = document.createElement("b"); badge.className = "td-badge"; b.appendChild(badge); }
+      badge.textContent = String(S.newInquiries);
+    });
+  }
+  // A new booking request or inquiry arrived (push or bell): refresh what is on screen.
+  function onNews() {
+    if (!S.root || S.root.hidden) return;
+    refreshBadges();
+    if (["overview", "bookings", "inquiries", "calendar"].includes(S.view) && !DP()?.isOpen?.()) show(S.view, null);
   }
   const ctx = () => S.ctx;
   const sectionName = id => (S.ctx?.sections || []).find(s => s.id === id)?.name || "";
@@ -338,6 +359,7 @@
               ${stat(o.today, "Today", "fa-sun", "", "go-today")}
               ${stat(o.upcoming_7, "Next 7 days", "fa-calendar-week")}
               ${stat(o.confirmed_upcoming, "Confirmed upcoming", "fa-circle-check", "ok", "go-confirmed")}
+              ${stat(S.newInquiries || 0, "New inquiries", "fa-envelope-open-text", S.newInquiries ? "warn" : "", "go-inquiries")}
             </div>
             <div class="td-range"><span>Requests received in the last ${esc(st.range === 365 ? "12 months" : st.range + " days")}: <b>${rangeTotal}</b></span>
               <div class="td-range-bar" role="img" aria-label="Requests by status">${Object.keys(B_STATUS).filter(k => r[k]).map(k => `<i class="is-${B_STATUS[k][1] || "plain"}" style="flex:${Number(r[k])}" title="${esc(B_STATUS[k][0])}: ${r[k]}"></i>`).join("") || "<i class='is-empty' style='flex:1'></i>"}</div>
@@ -422,18 +444,89 @@
     }
   };
 
-  // Website catalogue (triplemdrive/catalog/catalog.json): listed models and prices shown on the public
-  // page of the business it applies to. They are not database vehicles, so they are shown here as a note.
+  // Listed cars (triplemdrive/catalog/catalog.json). Since database update 240 they are ordinary vehicles of
+  // this fleet; the public page uses the listed prices for them. Cars without photos can get the listed
+  // photos in one step; they are then normal photos (replace, reorder or remove them like any other).
+  let catalogueCache = null;
+  async function loadCatalogue() {
+    if (catalogueCache) return catalogueCache;
+    const r = await fetch(`triplemdrive/catalog/catalog.json?v=${Date.now().toString(36).slice(0, 5)}`, { cache: "no-cache" });
+    if (!r.ok) return null;
+    const c = await r.json(), f = S.ctx.fleet, to = c.apply_to || {};
+    if (!((to.root && f.is_root) || (Array.isArray(to.slugs) && to.slugs.includes(f.slug)))) return null;
+    return (catalogueCache = c);
+  }
+  const norm = t => String(t || "").trim().toLowerCase().replace(/\s+/g, " ");
+  async function fleetAll() {
+    let rows = [], off = 0, total = 1;
+    while (rows.length < total && off < 1000) {
+      const r = await api("app_drive_vehicles_list", { p: { limit: 100, offset: off } });
+      rows = rows.concat(r.rows || []); total = r.total || 0; off = rows.length;
+      if (!(r.rows || []).length) break;
+    }
+    return rows;
+  }
+  // One listed photo as a File: the copy on this website first, otherwise the same picture from Wikimedia Commons.
+  async function listedPhotoFile(p) {
+    try {
+      const r = await fetch(`triplemdrive/catalog/photos/${encodeURIComponent(p.file)}`, { cache: "no-cache" });
+      const type = (r.headers.get("content-type") || "").split(";")[0];
+      if (r.ok && /^image\/(jpeg|png|webp)$/.test(type)) return new File([await r.blob()], p.file, { type });
+    } catch (_) {}
+    if (!p.upload) return null;
+    const img = await new Promise(res => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = () => res(null); i.src = p.upload; });
+    if (!img) return null;
+    try {
+      const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      const blob = await new Promise(res => c.toBlob(res, "image/jpeg", 0.92));
+      return blob ? new File([blob], p.file, { type: "image/jpeg" }) : null;
+    } catch (_) { return null; }
+  }
   async function catalogueNote(box) {
     if (!box) return;
     try {
-      const r = await fetch(`triplemdrive/catalog/catalog.json?v=${Date.now().toString(36).slice(0, 5)}`, { cache: "no-cache" });
-      if (!r.ok) return;
-      const c = await r.json(), f = S.ctx.fleet, to = c.apply_to || {};
-      if (!((to.root && f.is_root) || (Array.isArray(to.slugs) && to.slugs.includes(f.slug)))) return;
+      const c = await loadCatalogue();
+      if (!c || !box.isConnected) return;
+      const rows = await fleetAll();
       if (!box.isConnected) return;
-      box.innerHTML = `<div class="td-callout is-info"><i class="fa-solid fa-file-code" aria-hidden="true"></i><div><b>Website catalogue: ${c.vehicles.length} listed vehicles and ${c.services.length} prices</b>
-        <span>${esc((c.classes || []).map(k => `${k.name}: ${(k.models || []).map(m => (c.vehicles.find(v => v.key === m) || {}).name).filter(Boolean).join(", ")}`).join(" · "))}. These come from triplemdrive/catalog/catalog.json and are shown on your public page. Vehicles you add below are added to them.</span></div>${btn("open-public", "View", "fa-arrow-up-right-from-square")}</div>`;
+      const listed = c.vehicles.map(v => ({ v, car: rows.find(r => norm(r.name) === norm(v.name)) }));
+      const inFleet = listed.filter(x => x.car), missing = inFleet.filter(x => !(x.car.photos || []).length && (x.v.photos || []).length);
+      if (!inFleet.length) {
+        box.innerHTML = `<div class="td-callout is-info"><i class="fa-solid fa-file-code" aria-hidden="true"></i><div><b>Listed cars: ${c.vehicles.length} on your public page</b>
+          <span>${esc(c.vehicles.map(v => v.name).join(", "))}. They appear here after database update 240; then you can edit them and change their photos like any other vehicle.</span></div>${btn("open-public", "View", "fa-arrow-up-right-from-square")}</div>`;
+        return;
+      }
+      box.innerHTML = `<div class="td-callout is-info"><i class="fa-solid fa-car-side" aria-hidden="true"></i><div><b>Listed cars: ${inFleet.length} of ${c.vehicles.length} in your fleet</b>
+        <span>${missing.length ? `${missing.length} of them ${missing.length === 1 ? "has" : "have"} no photos yet, so your public page shows the listed photo. Add the listed photos to manage them here, or open a car and add your own.` : "Edit them, change their photos, hide them or mark them out of service like any other vehicle. Your public page uses the listed prices for SUV, Sedan and Mini Van."}</span></div>
+        ${missing.length ? btn("cat-photos", "Add the listed photos", "fa-images", { primary: true }) : btn("open-public", "View", "fa-arrow-up-right-from-square")}</div>`;
+      A.actions["cat-photos"] = async b => {
+        b.disabled = true;
+        let cars = 0, photos = 0; const failed = [];
+        try {
+          const now = await fleetAll();
+          const todo = c.vehicles.map(v => ({ v, car: now.find(r => norm(r.name) === norm(v.name)) })).filter(x => x.car && !(x.car.photos || []).length);
+          for (const [i, x] of todo.entries()) {
+            toast(`Adding photos ${i + 1} of ${todo.length}: ${x.v.name}…`);
+            let n = 0;
+            for (const p of (x.v.photos || []).slice(0, 12)) {
+              const file = await listedPhotoFile(p);
+              if (!file) continue;
+              try {
+                const img = await compressImage(file);
+                await api("app_drive_media_add", { p_kind: "vehicle", p_vehicle_id: x.car.id, p_mime: img.mime, p_width: img.width, p_height: img.height, p_data: img.data, p_thumb: img.thumb });
+                n++;
+              } catch (_) {}
+            }
+            if (n) { cars++; photos += n; } else failed.push(x.v.name);
+          }
+        } finally {
+          S.fleetReload?.();
+          catalogueNote(box);
+        }
+        toast(failed.length ? `${photos} photo${photos === 1 ? "" : "s"} added to ${cars} car${cars === 1 ? "" : "s"}. Not found: ${failed.join(", ")}. Upload the photos to GitHub (Actions › Triplem Drive catalogue photos) or add your own.`
+          : `${photos} photo${photos === 1 ? "" : "s"} added to ${cars} car${cars === 1 ? "" : "s"}`, !failed.length);
+      };
     } catch (_) {}
   }
 
@@ -647,12 +740,13 @@
   const A = {
     esc, api, errText, toast, money, currency, parseLocal, fmtDate, fmtTime, fmtWhen, ymd, today, pill, bPill, vPill, skel, empty, btn, F, formValues, panelForm,
     panel, rerender, closePanel, confirmBox, compressImage, pickFiles, mediaUrls, fillMedia, loadContext, ctx, sectionName, vehicleName, publicUrl,
-    sectionOptions, vehicleOptions, B_STATUS, V_STATUS, show, refresh, openVehicle, DP,
+    sectionOptions, vehicleOptions, B_STATUS, V_STATUS, show, refresh, openVehicle, DP, refreshBadges,
     actions: {
       "ov-range": b => { S.ovr.range = +b.dataset.d; refresh(); },
       "ov-retry": () => refresh(),
       "go-profile": () => show("profile"),
       "go-fleet": () => show("fleet"),
+      "go-inquiries": () => show("inquiries", { status: "new" }),
       "go-pending": () => show("bookings", { status: "pending" }),
       "go-confirmed": () => show("bookings", { status: "confirmed" }),
       "go-today": () => { const d = ymd(today()); show("bookings", { status: "open", from: d, to: d }); },
@@ -668,5 +762,5 @@
     register(key, view) { VIEWS[key] = view; }
   };
 
-  global.TriplemDriveApp = Object.freeze({ open, close, register: A.register, A, isOpen: () => !!(S.root && !S.root.hidden) });
+  global.TriplemDriveApp = Object.freeze({ open, close, register: A.register, A, onNews, isOpen: () => !!(S.root && !S.root.hidden) });
 })(window);

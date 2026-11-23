@@ -138,9 +138,9 @@ test("public page: address routing, SEO, escaping, honeypot; not in the sitemap"
   assert.match(js, /app_drive_public_site/);
   assert.match(js, /history\.replaceState\(null, "", `\/\$\{v\}\/\$\{keep\}/);
   assert.match(js, /return "triplemdrive";/);
-  assert.match(js, /data-book-open/);
-  assert.match(js, /class="tds-pnl-panel" role="dialog" aria-modal="true"/);
-  assert.match(js, /form="tdsBookForm"/);
+  assert.match(js, /data-act="book"/);
+  assert.match(js, /el\.className = "tdp-pnl"; el\.setAttribute\("role", "dialog"\); el\.setAttribute\("aria-modal", "true"\)/);
+  assert.match(js, /form="tdpBook"/);
   assert.match(js, /index \? "index,follow" : "noindex,nofollow"/);
   assert.match(js, /"@type": "AutoRental"/);
   assert.match(js, /name="website" tabindex="-1"/);
@@ -174,11 +174,12 @@ test("website catalogue: the listed cars, routes and prices; photos local first,
   assert.equal(cat.terms.timing, "24/7");
   assert.equal(cat.terms.min_notice_minutes, 60);
   for (const v of cat.vehicles) for (const p of v.photos) { assert.match(p.file, /^[a-z0-9-]+\.jpg$/); assert.ok(p.commons, v.name); }
-  const js = read("triplemdrive/catalog.js");
+  const js = read("triplemdrive/site.js");
   assert.match(js, /Special:FilePath/);
-  assert.match(js, /Vehicle photo credits/);
-  assert.match(read("triplemdrive/index.html"), /\/triplemdrive\/catalog\.js\?v=/);
-  assert.match(read("triplemdrive/site.js"), /p\.catalog = c;/);
+  assert.match(js, /Photo credits/);
+  assert.match(js, /p\.catalog = \{ vehicle: /);
+  assert.ok(!exists("triplemdrive/catalog.js"), "the catalogue code is part of site.js");
+  assert.ok(Array.isArray(cat.faq) && cat.faq.length >= 8, "FAQ tab content");
   assert.ok(exists("scripts/fetch_drive_catalog_photos.js"));
 });
 
@@ -202,4 +203,72 @@ test("migration 238 only moves the test address book -> triplemdrive, guarded", 
   assert.match(code, /set slug = 'triplemdrive', is_root = false/);
   assert.match(read("Assets/app/drive/01-drive-admin.js"), /drive\.slug \|\| \(enable \? "triplemdrive" : suggest\(user\)\)/);
   assert.doesNotMatch(read("Assets/app/drive/01-drive-admin.js"), /data-td-root|\/triplemdrive\/<\/em>/);
+});
+
+test("public page looks like Triplem VIP: tabs, side panels, map picker, inquiries, business notified", () => {
+  const js = read("triplemdrive/site.js"), css = read("triplemdrive/site.css");
+  for (const t of ['["vehicles", "Vehicles"', '["prices", "Prices"', '["faq", "FAQ"', '["contact", "Contact"']) assert.ok(js.includes(t), t);
+  assert.match(js, /function openCar\(/);
+  assert.match(js, /function openBooking\(/);
+  assert.match(js, /function openMap\(/);
+  assert.match(js, /function openInquiry\(/);
+  assert.match(js, /data-map="\$\{key\}"/, "map button beside the typed address");
+  assert.match(js, /name="\$\{key\}" maxlength="150"/, "pickup and drop-off can still be typed");
+  assert.match(js, /\(t \|\| "Pinned location"\)\.slice\(0, 200 - tail\.length\) \+ tail/);
+  assert.match(js, /https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/leaflet\/1\.9\.4\/leaflet\.min\.js/);
+  assert.match(js, /© OpenStreetMap contributors/);
+  assert.match(js, /app_drive_public_inquiry/);
+  assert.match(js, /action: "drive_notify", token/);
+  assert.match(js, /notifyBusiness\(r\.push_token\)/);
+  assert.match(js, /src = LOGO|const LOGO = "\/triplemdrive\/assets\/logo\.svg"/);
+  assert.ok(exists("triplemdrive/assets/logo.svg"));
+  assert.match(css, /--primary: #2457d6;/);
+  assert.match(css, /--bg: #edf1f7;/);
+  assert.match(css, /width: min\(600px, calc\(100vw - 24px\)\)/);
+  assert.match(read("_headers"), /connect-src 'self' https:\/\/\*\.supabase\.co https:\/\/nominatim\.openstreetmap\.org/);
+});
+
+test("Triplem Drive manager: inquiries, ding and push for every booking and inquiry", () => {
+  const acc = read("Assets/app/drive/00-drive-access.js");
+  assert.match(acc, /drive_ding\.mp3/);
+  assert.match(acc, /triplem-drive-seen-v1/);
+  assert.match(acc, /TRIPLEM_PUSH_RECEIVED/);
+  assert.match(acc, /drive_inquiry/);
+  assert.ok(exists("Assets/sounds/drive_ding.mp3"));
+  const ops = read("Assets/app/drive/03-drive-ops.js");
+  assert.match(ops, /app_drive_inquiries_list/);
+  assert.match(ops, /app_drive_inquiry_set/);
+  const fn = read("supabase/functions/push-notifications/index.ts");
+  assert.match(fn, /action === "drive_notify"/);
+  assert.match(fn, /app_push_service_drive_dispatch/);
+  assert.match(read("index.html"), /00-drive-access\.js\?v=20261123-td6/);
+});
+
+test("migration 239 is additive: two new tables, no change to existing data", { skip: !exists("migrations/239_triplem_drive_inquiries_push.sql") }, () => {
+  const code = read("migrations/239_triplem_drive_inquiries_push.sql").replace(/--.*$/gm, "").replace("'alter table public.%I enable row level security'", "");
+  assert.match(read("migrations/239_triplem_drive_inquiries_push.sql"), /foreach t in array array\['app_drive_inquiries','app_drive_push_dispatches'\]/, "row level security only on the two new tables");
+  assert.doesNotMatch(code, /\b(alter|drop)\s+table\b|\btruncate\b|\bdrop\s+column\b/i);
+  assert.equal((code.match(/create table if not exists/g) || []).length, 2);
+  assert.doesNotMatch(code.replace(/delete from public\.app_drive_(push_dispatches|public_hits) where created_at < now\(\) - interval '2 days';/g, ""), /\bdelete\s+from\b/i, "only expired push tokens and rate-limit hits are cleaned up");
+  assert.match(code, /grant execute on function public\.app_push_service_drive_dispatch\(text\) to service_role/);
+  assert.match(code, /revoke all on function public\.app_push_service_drive_dispatch\(text\) from public, anon, authenticated/);
+  assert.match(code, /notify pgrst, 'reload schema'/);
+});
+
+test("migration 240: listed cars into the Triplem Drive fleet, inserts only, once", () => {
+  const raw = read("migrations/240_triplem_drive_listed_cars_to_fleet.sql"), code = raw.replace(/--.*$/gm, "");
+  assert.doesNotMatch(code, /\b(alter|drop)\s+table\b|\btruncate\b|\bdelete\s+from\b|\bupdate\s+public\./i);
+  assert.match(code, /where lower\(slug\) = 'triplemdrive'/);
+  assert.match(code, /if exists \(select 1 from public\.app_drive_vehicles where pkey = car\.pkey\) then continue; end if;/);
+  const cat = JSON.parse(read("triplemdrive/catalog/catalog.json"));
+  for (const v of cat.vehicles) assert.ok(code.includes(`'cat-${v.key}'`), v.key);
+  assert.equal(cat.vehicles_in_database, true);
+  for (const v of cat.vehicles) for (const p of v.photos) assert.match(p.upload, /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/thumb\/[0-9a-f]\/[0-9a-f]{2}\//);
+  const js = read("triplemdrive/site.js");
+  assert.match(js, /startsWith\("cat-"\)/);
+  assert.match(js, /if \(m\?\.dbKey\) p\.vehicle = m\.dbKey;/, "a chosen model books the fleet car");
+  const app = read("Assets/app/drive/02-drive-app.js");
+  assert.match(app, /"cat-photos"/);
+  assert.match(app, /Add the listed photos/);
+  assert.match(read("scripts/build_full_schema_sql.js"), /240_triplem_drive_listed_cars_to_fleet\.sql/);
 });

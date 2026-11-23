@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 384" role="img" aria-label="Triplem Drive">
+  <defs>
+    <linearGradient id="tdT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a7a78"/><stop offset=".55" stop-color="#0f5b5b"/><stop offset="1" stop-color="#0a3e40"/></linearGradient>
+    <linearGradient id="tdG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f9e08f"/><stop offset=".45" stop-color="#e0b154"/><stop offset="1" stop-color="#b9862c"/></linearGradient>
+    <linearGradient id="tdP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbe7a4"/><stop offset=".5" stop-color="#e2b65a"/><stop offset="1" stop-color="#c0902f"/></linearGradient>
+  </defs>
+  <g stroke="#06292b" stroke-width="3" stroke-linejoin="round">
+    <path d="M18 26 L62 62 V302 H18 Z" fill="url(#tdT)"/>
+    <path d="M366 26 L322 62 V302 H366 Z" fill="url(#tdT)"/>
+    <path d="M68 192 L106 224 V302 H68 Z" fill="url(#tdG)" stroke="#8a6420"/>
+    <path d="M316 192 L278 224 V302 H316 Z" fill="url(#tdG)" stroke="#8a6420"/>
+    <path d="M62 146 L192 254 L322 146 V178 L192 286 L62 178 Z" fill="#0b4547"/>
+    <path d="M62 120 L192 228 L322 120 V146 L192 254 L62 146 Z" fill="url(#tdG)" stroke="#8a6420"/>
+    <path d="M18 26 L192 170 L366 26 L322 120 L192 228 L62 120 Z" fill="url(#tdT)"/>
+    <path d="M192 12 L278 98 L254 120 L192 58 L130 120 L106 98 Z" fill="url(#tdT)"/>
+    <path d="M192 66 L236 110 L192 158 L148 110 Z" fill="url(#tdG)" stroke="#8a6420"/>
+  </g>
+  <path d="M14 344 H92 M292 344 H370" stroke="#c99a3a" stroke-width="5" stroke-linecap="round"/>
+  <rect x="98" y="320" width="188" height="48" rx="24" fill="url(#tdP)" stroke="#8a6420" stroke-width="3"/>
+  <text x="192" y="355" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="800" letter-spacing="9" fill="#0b3f40">DRIVE</text>
+</svg>

@@ -254,6 +254,8 @@ const CANONICAL_MIGRATION_FILES = [
   "236_triplem_drive.sql",
   "237_triplem_drive_catalog_bookings.sql",
   "238_triplem_drive_assign_triplemdrive.sql",
+  "239_triplem_drive_inquiries_push.sql",
+  "240_triplem_drive_listed_cars_to_fleet.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

@@ -1,9 +1,17 @@
-/* Triplem Drive - public business page (2026-11-23).
- * https://triplem.vip/triplemdrive/<address>/ (or /triplemdrive/?b=<address>, or /triplemdrive/ for the
- * business the Main Admin chose). Everything shown comes from app_drive_public_site, which returns
- * only published, enabled businesses and only their public vehicles, routes and rates (never
- * registration numbers, internal notes, internal ids or customer data). A booking request is shown
- * as received only after app_drive_public_book has stored it and returned its reference.
+/* Triplem Drive - public business page (2026-11-23, Triplem VIP look).
+ *
+ * https://triplem.vip/<address>/ (Triplem Drive itself: https://triplem.vip/triplemdrive/). Other addresses
+ * reach this page through 404.html (/<address>/ -> /triplemdrive/?b=<address>); the short address is put
+ * back in the address bar. Earlier /triplemdrive/<address>/ links still work.
+ *
+ * Layout like Triplem VIP: a header with round icon buttons, tabs (Vehicles, Prices, Routes, FAQ, Contact),
+ * and every detail in a side panel: car details, booking (car selection, pickup and drop-off typed or
+ * picked on a map), inquiries and photo credits.
+ *
+ * Data: app_drive_public_site (published businesses only; never registrations, notes, ids or customer
+ * data) and, for Triplem Drive, triplemdrive/catalog/catalog.json (listed cars, routes, prices, FAQ).
+ * A request is shown as received only after the server stored it and returned its reference; then the
+ * business gets a push notification (push-notifications Edge Function, one-time token from the server).
  */
 (function () {
   "use strict";
@@ -15,13 +23,17 @@
     "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5bXp0cWJzY2ZvZGVsb3Zkcm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MjcxNDAsImV4cCI6MjA5NDMwMzE0MH0",
     "eASEqmcC9-eDDgjYFsa3Ne8idK-6KmfXHbxvhWVwZSA"].join(".");
   const CANON_ORIGIN = "https://triplem.vip";
+  const CAT_BASE = "/triplemdrive/catalog/";
+  const LOGO = "/triplemdrive/assets/logo.svg";
+  const LEAFLET_JS = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+  const LEAFLET_CSS = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
+  const GEO = "https://nominatim.openstreetmap.org";
 
   const app = document.getElementById("tdsApp");
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const qs = new URLSearchParams(location.search);
   const preview = qs.get("preview") || "";
-  const S = { slug: "", site: null, media: new Map(), section: "", vehicle: null, cat: null };
-  const CAT = () => (S.cat ? window.TDCatalog : null);
+  const S = { slug: "", site: null, cat: null, credits: {}, media: new Map(), tab: "vehicles", filter: "", group: "", stack: [] };
 
   async function rpc(fn, args) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
@@ -32,12 +44,19 @@
     if (!res.ok) throw new Error("The page could not be loaded. Please try again.");
     return res.json();
   }
+  // Push notification to the business after a request was stored (one-time token from the server).
+  function notifyBusiness(token) {
+    if (!token) return;
+    try {
+      fetch(`${SUPABASE_URL}/functions/v1/push-notifications`, {
+        method: "POST", keepalive: true,
+        headers: { "Content-Type": "application/json", apikey: ANON, Authorization: `Bearer ${ANON}` },
+        body: JSON.stringify({ action: "drive_notify", token })
+      }).catch(() => {});
+    } catch (_) {}
+  }
 
-  // ---- address -------------------------------------------------------------------------------
-  // Every business has its own address directly after the domain: https://triplem.vip/<address>/.
-  // /triplemdrive/ is the page of the business whose address is "triplemdrive" (Triplem Drive itself).
-  // Other addresses reach this page through 404.html (/<address>/ -> /triplemdrive/?b=<address>), and the
-  // short address is put back in the address bar. Earlier /triplemdrive/<address>/ links still work.
+  // ---- address -----------------------------------------------------------------------------------
   function resolveSlug() {
     const keep = preview ? `?preview=${encodeURIComponent(preview)}` : "";
     const put = v => { try { history.replaceState(null, "", `/${v}/${keep}${location.hash}`); } catch (_) {} return v; };
@@ -51,7 +70,7 @@
   }
   const addressOf = v => `${CANON_ORIGIN}/${v}/`;
 
-  // ---- SEO -------------------------------------------------------------------------------------
+  // ---- SEO ---------------------------------------------------------------------------------------
   function meta(sel, attr, value) {
     let el = document.head.querySelector(sel);
     if (!el) { el = document.createElement("meta"); const [, k, v] = sel.match(/\[(\w+(?::\w+)?)="([^"]+)"\]/) || []; if (k) el.setAttribute(k, v); document.head.appendChild(el); }
@@ -67,7 +86,7 @@
     if (business) meta('meta[property="og:site_name"]', "content", business.name);
     const ld = document.getElementById("tdLd");
     if (ld && business && index) {
-      const data = { "@context": "https://schema.org", "@type": "AutoRental", name: business.name, url, description: description };
+      const data = { "@context": "https://schema.org", "@type": "AutoRental", name: business.name, url, description };
       if (business.phone) data.telephone = business.phone;
       if (business.email) data.email = business.email;
       if (business.address) data.address = business.address;
@@ -79,7 +98,8 @@
     } else if (ld) ld.textContent = "{}";
   }
 
-  // ---- images ----------------------------------------------------------------------------------
+  // ---- images ------------------------------------------------------------------------------------
+  // Database photos (business uploads) by key, through the public function.
   async function loadMedia(keys, size = "thumb") {
     const want = [...new Set(keys.filter(Boolean))].filter(k => !S.media.has(`${size}:${k}`));
     for (let i = 0; i < want.length; i += 24) {
@@ -94,404 +114,703 @@
     }
   }
   async function fillImages(root, size = "thumb") {
-    const imgs = [...root.querySelectorAll("img[data-k]")].filter(i => !i.src || i.dataset.size !== size);
+    const imgs = [...root.querySelectorAll("img[data-k]")];
     if (!imgs.length) return;
-    // Visible first: load what is on screen, the rest when it scrolls into view.
-    const load = async list => {
-      await loadMedia(list.map(i => i.dataset.k), size);
-      list.forEach(i => { const u = S.media.get(`${size}:${i.dataset.k}`); if (u) { i.src = u; i.dataset.size = size; i.classList.add("is-in"); } else i.closest(".tds-ph")?.classList.add("is-none"); });
-    };
-    if (!("IntersectionObserver" in window)) return load(imgs);
-    const io = new IntersectionObserver(entries => {
-      const vis = entries.filter(e => e.isIntersecting).map(e => e.target);
-      vis.forEach(v => io.unobserve(v));
-      if (vis.length) load(vis);
-    }, { rootMargin: "300px" });
-    imgs.forEach(i => io.observe(i));
+    await loadMedia(imgs.map(i => i.dataset.k), size);
+    imgs.forEach(i => { const u = S.media.get(`${size}:${i.dataset.k}`) || S.media.get(`thumb:${i.dataset.k}`); if (u) { i.src = u; i.classList.add("is-in"); } else i.closest(".tdp-ph")?.classList.add("is-none"); });
+  }
+  // Catalogue photos: the uploaded file first, otherwise the same picture from Wikimedia Commons.
+  const commonsFile = name => `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(name)}?width=1600`;
+  const commonsPage = name => `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(String(name).replace(/ /g, "_"))}`;
+  function onImgError(e) {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement)) return;
+    if (img.dataset.commons && !img.dataset.tried) { img.dataset.tried = "1"; img.src = commonsFile(img.dataset.commons); return; }
+    if (img.dataset.commons || img.dataset.k) { img.closest(".tdp-ph")?.classList.add("is-none"); img.remove(); }
+  }
+  function onImgLoad(e) { const img = e.target; if (img instanceof HTMLImageElement && img.closest(".tdp-ph")) img.classList.add("is-in"); }
+  function photo(p, alt = "", cls = "") {
+    if (!p) return `<span class="tdp-ph is-none ${cls}"><i class="fa-solid fa-car-side" aria-hidden="true"></i></span>`;
+    if (p.key) return `<span class="tdp-ph ${cls}"><img data-k="${esc(p.key)}" alt="${esc(alt)}" loading="lazy" decoding="async"><i class="fa-solid fa-car-side" aria-hidden="true"></i></span>`;
+    return `<span class="tdp-ph ${cls}"><img src="${esc(CAT_BASE + "photos/" + p.file)}" data-commons="${esc(p.commons || "")}" alt="${esc(alt)}" loading="lazy" decoding="async"><i class="fa-solid fa-car-side" aria-hidden="true"></i></span>`;
   }
 
-  // ---- formatting ------------------------------------------------------------------------------
-  const cur = () => S.site?.business?.currency || "USD";
-  function money(v) {
+  // ---- money and data --------------------------------------------------------------------------------
+  const PER = { per_trip: "per trip", hourly: "per hour", daily: "per day", weekly: "per week", monthly: "per month", route: "per trip", custom_quote: "" };
+  function money(v, cur) {
     const n = Number(v);
     if (!Number.isFinite(n)) return "";
-    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: cur(), maximumFractionDigits: n % 1 ? 2 : 0 }).format(n); }
-    catch (_) { return `${cur()} ${n.toLocaleString()}`; }
+    const c = cur || S.site?.business?.currency || "USD";
+    if (S.cat && c === S.cat.currency) return `${c} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)}`;
+    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: c, maximumFractionDigits: n % 1 ? 2 : 0 }).format(n); } catch (_) { return `${c} ${n.toLocaleString()}`; }
   }
-  const PER = { per_trip: "per trip", hourly: "per hour", daily: "per day", weekly: "per week", monthly: "per month", route: "per trip", custom_quote: "" };
-  function fromPrice(v) {
-    if (!v.show_price) return null;
-    const priced = (v.rates || []).filter(r => r.amount != null);
-    if (!priced.length) return null;
-    const best = priced.slice().sort((a, b) => Number(a.amount) - Number(b.amount))[0];
-    return { amount: money(best.amount), per: PER[best.type] || "" };
-  }
+  const catMoney = v => (v === null || v === undefined || v === "" ? "On request" : money(v, S.cat?.currency || "SAR"));
   const waLink = (n, text = "") => { const d = String(n || "").replace(/[^\d]/g, ""); return d.length >= 7 ? `https://wa.me/${d}${text ? `?text=${encodeURIComponent(text)}` : ""}` : ""; };
   const minsText = m => { m = Number(m) || 0; if (!m) return ""; const h = Math.floor(m / 60), r = m % 60; return h ? `${h} h${r ? ` ${r} min` : ""}` : `${r} min`; };
+  const serviceName = s => s.name || `${s.from} ⇄ ${s.to}`;
+  const today = () => S.site.today || new Date().toISOString().slice(0, 10);
 
-  // ---- page ------------------------------------------------------------------------------------
+  // Cars. The listed cars (catalog.json) live in the fleet of the business since database update 240
+  // (keys "cat-<model>"), so the business manages them in Triplem VIP › Triplem Drive › Fleet. A fleet car
+  // belongs to a listed vehicle type (SUV, Sedan, Mini Van) by its key or by its section name; those are
+  // the models in the booking panel and they use the listed prices. Until the business uploads photos,
+  // a listed car shows its listed photo. Before update 240 the listed cars come from catalog.json itself.
+  const catVehicle = v => (S.cat && String(v.key || "").startsWith("cat-") ? S.cat.vehicles.find(x => "cat-" + x.key === v.key) : null);
+  function classOf(v) {
+    if (!S.cat) return "";
+    const cv = catVehicle(v); if (cv) return cv.class;
+    const sec = (S.site.sections || []).find(x => x.key === v.section);
+    const k = sec && (S.cat.classes || []).find(c => c.name.trim().toLowerCase() === sec.name.trim().toLowerCase());
+    return k ? k.key : "";
+  }
+  const className = key => (S.cat?.classes || []).find(c => c.key === key)?.name || key;
+  function classFrom(key) {
+    const prices = (S.cat?.services || []).map(s => Number(s.prices?.[key])).filter(Number.isFinite);
+    return prices.length ? catMoney(Math.min(...prices)) : "";
+  }
+  let carsMemo = null;
+  function cars() {
+    if (carsMemo) return carsMemo;
+    const out = [], db = S.site.vehicles || [];
+    const fleetModels = S.cat ? db.filter(v => classOf(v)) : [];
+    // Listed cars straight from catalog.json only while the fleet has none of them (before update 240).
+    if (S.cat && !fleetModels.length && !(S.cat.vehicles_in_database && db.length)) {
+      for (const v of S.cat.vehicles) out.push({ id: "c:" + v.key, key: v.key, dbKey: "", name: v.name, cls: v.class, group: v.class, groupName: className(v.class),
+        photos: v.photos || [], from: classFrom(v.class), bookable: true });
+    }
+    for (const v of db) {
+      const cls = S.cat ? classOf(v) : "";
+      const sec = (S.site.sections || []).find(x => x.key === v.section);
+      const own = (v.photos || []).map(k => ({ key: k }));
+      const priced = v.show_price ? (v.rates || []).filter(r => r.amount != null) : [];
+      const best = priced.slice().sort((a, b) => Number(a.amount) - Number(b.amount))[0];
+      out.push({ id: "d:" + v.key, key: v.key, dbKey: v.key, name: v.name, cls, group: cls || (sec ? "s:" + sec.key : ""),
+        groupName: cls ? className(cls) : sec?.name || [v.make, v.model].filter(Boolean).join(" ") || "Vehicle",
+        photos: own.length ? own : (catVehicle(v)?.photos || []),
+        from: cls ? (v.show_price === false ? "" : classFrom(cls)) : best ? `${money(best.amount)} ${PER[best.type] || ""}`.trim() : "",
+        bookable: v.bookable !== false, v });
+    }
+    return (carsMemo = out);
+  }
+  const carById = id => cars().find(c => c.id === id);
+  const models = cls => cars().filter(c => c.cls && c.bookable && (!cls || c.cls === cls));
+  function filters() {
+    const list = [];
+    if (S.cat) (S.cat.classes || []).filter(c => cars().some(x => x.cls === c.key)).forEach(c => list.push([c.key, c.name]));
+    (S.site.sections || []).filter(s => cars().some(x => x.group === "s:" + s.key)).forEach(s => list.push(["s:" + s.key, s.name]));
+    return list;
+  }
+
+  // ---- page ----------------------------------------------------------------------------------------
   function messagePage(icon, title, text, extra = "") {
-    app.innerHTML = `<main id="tdsMain" class="tds-msg"><div class="tds-msg-card"><span class="tds-msg-ico"><i class="fa-solid ${icon}" aria-hidden="true"></i></span><h1>${esc(title)}</h1><p>${esc(text)}</p>${extra}</div>
-      <footer class="tds-foot is-min"><span>Powered by <a href="${CANON_ORIGIN}/" rel="noopener">Triplem Drive · Triplem VIP</a></span></footer></main>`;
+    app.innerHTML = `<main id="tdsMain" class="tdp-msg"><div class="tdp-msg-card"><img src="${LOGO}" alt="Triplem Drive" class="tdp-msg-logo"><span class="tdp-msg-ico"><i class="fa-solid ${icon}" aria-hidden="true"></i></span><h1>${esc(title)}</h1><p>${esc(text)}</p>${extra}</div>
+      <footer class="tdp-foot is-min"><span>Powered by <a href="${CANON_ORIGIN}/" rel="noopener">Triplem Drive · Triplem VIP</a></span></footer></main>`;
     app.removeAttribute("aria-busy");
   }
+
+  const TABS = () => [
+    ["vehicles", "Vehicles", "fa-car-side"],
+    ["prices", "Prices", "fa-tags"],
+    ...((S.site.routes || []).length ? [["routes", "Routes", "fa-route"]] : []),
+    ["faq", "FAQ", "fa-circle-question"],
+    ["contact", "Contact", "fa-headset"]
+  ];
 
   function render() {
     const s = S.site, b = s.business;
-    const url = addressOf(s.slug);
     const desc = (b.tagline || b.description || `Book vehicles from ${b.name} online.`).replace(/\s+/g, " ").trim().slice(0, 155);
-    seo({ title: `${b.name} · Vehicle Bookings`, description: desc, url, index: !s.preview, business: b });
-    const vehicles = s.vehicles || [];
-    const sections = s.sections || [];
+    seo({ title: `${b.name} · Vehicle Bookings`, description: desc, url: addressOf(s.slug), index: !s.preview, business: b });
     const wa = waLink(b.whatsapp, `Hello ${b.name}, I would like to book a vehicle.`);
-    const socialIcons = { website: "fa-solid fa-globe", instagram: "fa-brands fa-instagram", facebook: "fa-brands fa-facebook", x: "fa-brands fa-x-twitter", tiktok: "fa-brands fa-tiktok", youtube: "fa-brands fa-youtube", linkedin: "fa-brands fa-linkedin" };
-    const social = Object.entries(b.social || {}).filter(([k, v]) => v && socialIcons[k]);
+    const timing = S.cat?.terms?.timing;
+    const n = cars().length;
     app.innerHTML = `
-      ${s.preview ? `<div class="tds-preview"><i class="fa-solid fa-eye" aria-hidden="true"></i> Preview · this page is not published yet. Booking requests are switched off.</div>` : ""}
-      <header class="tds-head">
-        <a class="tds-brand" href="#top" aria-label="${esc(b.name)}">
-          ${b.logo ? `<span class="tds-logo"><img data-k="${esc(b.logo)}" alt="${esc(b.name)} logo"></span>` : `<span class="tds-logo is-text" aria-hidden="true">${esc(b.name.trim().charAt(0).toUpperCase())}</span>`}
-          <span class="tds-brand-name">${esc(b.name)}</span>
+      ${s.preview ? `<div class="tdp-preview"><i class="fa-solid fa-eye" aria-hidden="true"></i> Preview · this page is not published yet. Requests are switched off.</div>` : ""}
+      <header class="tdp-top">
+        <a class="tdp-brand" href="${esc(addressOf(s.slug))}" aria-label="${esc(b.name)}">
+          ${b.logo ? `<span class="tdp-logo is-own"><img data-k="${esc(b.logo)}" alt=""></span>` : `<span class="tdp-logo"><img src="${LOGO}" alt=""></span>`}
+          <span class="tdp-brand-text"><strong>${esc(b.name)}</strong><small>Fleet &amp; Vehicle Bookings</small></span>
         </a>
-        <nav class="tds-nav" aria-label="Page">
-          ${vehicles.length || CAT() ? `<a href="#fleet">Fleet</a>` : ""}${(s.routes || []).length ? `<a href="#routes">Routes</a>` : ""}${(s.rates || []).length || CAT() ? `<a href="#rates">${CAT() ? "Prices" : "Rates"}</a>` : ""}<a href="#contact">Contact</a>
-        </nav>
-        <button type="button" class="tds-btn is-primary tds-head-cta" data-book-open><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Book now</span></button>
+        <div class="tdp-top-actions">
+          ${b.phone ? `<a class="tdp-icon" href="tel:${esc(b.phone)}" title="Call" aria-label="Call"><i class="fa-solid fa-phone" aria-hidden="true"></i></a>` : ""}
+          ${wa ? `<a class="tdp-icon" href="${esc(wa)}" target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></a>` : ""}
+          <button type="button" class="tdp-icon" data-act="inquiry" title="Ask a question" aria-label="Ask a question"><i class="fa-regular fa-comment-dots" aria-hidden="true"></i></button>
+          <button type="button" class="tdp-btn is-primary" data-act="book"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Book</span></button>
+        </div>
       </header>
-      <main id="tdsMain">
-        <section class="tds-hero${b.banner ? " has-banner" : ""}" id="top">
-          ${b.banner ? `<img class="tds-hero-img" data-k="${esc(b.banner)}" data-size-hint="full" alt="">` : ""}
-          <div class="tds-hero-inner">
+      <main id="tdsMain" class="tdp-main">
+        <section class="tdp-hero">
+          ${b.banner ? `<span class="tdp-hero-art"><img data-k="${esc(b.banner)}" alt=""></span>` : ""}
+          <div class="tdp-hero-copy">
+            <span class="tdp-kicker"><i class="fa-solid fa-car-side" aria-hidden="true"></i> Triplem Drive</span>
             <h1>${esc(b.name)}</h1>
-            ${b.tagline ? `<p class="tds-tagline">${esc(b.tagline)}</p>` : ""}
-            <div class="tds-hero-cta">
-              <button type="button" class="tds-btn is-primary is-lg" data-book-open><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Book now</button>
-              ${wa ? `<a class="tds-btn is-wa is-lg" href="${esc(wa)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> WhatsApp</a>` : b.phone ? `<a class="tds-btn is-ghost is-lg" href="tel:${esc(b.phone)}"><i class="fa-solid fa-phone" aria-hidden="true"></i> Call us</a>` : ""}
+            ${b.tagline ? `<p>${esc(b.tagline)}</p>` : ""}
+            <div class="tdp-chips">
+              ${n ? `<span><i class="fa-solid fa-car-side" aria-hidden="true"></i>${n} vehicle${n === 1 ? "" : "s"}</span>` : ""}
+              ${timing ? `<span><i class="fa-regular fa-clock" aria-hidden="true"></i>${esc(timing)}</span>` : b.hours ? `<span><i class="fa-regular fa-clock" aria-hidden="true"></i>${esc(b.hours)}</span>` : ""}
+              <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>No online payment</span>
+              ${b.address ? `<span><i class="fa-solid fa-location-dot" aria-hidden="true"></i>${esc(b.address.split("\n")[0])}</span>` : ""}
             </div>
-            <ul class="tds-hero-facts">
-              ${vehicles.length + (CAT()?.count() || 0) ? `<li><i class="fa-solid fa-car-side" aria-hidden="true"></i>${vehicles.length + (CAT()?.count() || 0)} vehicle${vehicles.length + (CAT()?.count() || 0) === 1 ? "" : "s"}</li>` : ""}
-              ${CAT()?.get()?.terms?.timing ? `<li><i class="fa-solid fa-headset" aria-hidden="true"></i>${esc(CAT().get().terms.timing)}</li>` : ""}
-              ${b.hours ? `<li><i class="fa-regular fa-clock" aria-hidden="true"></i>${esc(b.hours)}</li>` : ""}
-              ${b.address ? `<li><i class="fa-solid fa-location-dot" aria-hidden="true"></i>${esc(b.address.split("\n")[0])}</li>` : ""}
-            </ul>
+            <div class="tdp-actions">
+              <button type="button" class="tdp-btn is-primary" data-act="book"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Book a ride</span></button>
+              <button type="button" class="tdp-btn" data-tab-go="prices"><i class="fa-solid fa-tags" aria-hidden="true"></i><span>See prices</span></button>
+              <button type="button" class="tdp-btn" data-act="inquiry"><i class="fa-regular fa-comment-dots" aria-hidden="true"></i><span>Ask a question</span></button>
+            </div>
           </div>
         </section>
-
-        ${b.description ? `<section class="tds-sec tds-about"><div class="tds-wrap"><h2>About us</h2><p class="tds-pre">${esc(b.description)}</p></div></section>` : ""}
-
-        ${CAT() ? CAT().sectionsHtml() : ""}
-        ${CAT() && !vehicles.length ? "" : `<section class="tds-sec" id="${CAT() ? "more-fleet" : "fleet"}"><div class="tds-wrap">
-          <div class="tds-sec-head"><h2>${CAT() ? "More vehicles" : "Our fleet"}</h2>${sections.length > 1 ? `<div class="tds-chips" role="radiogroup" aria-label="Fleet sections"><button type="button" role="radio" aria-checked="true" data-sec="">All</button>${sections.map(x => `<button type="button" role="radio" aria-checked="false" data-sec="${esc(x.key)}">${esc(x.name)}</button>`).join("")}</div>` : ""}</div>
-          ${vehicles.length ? `<div class="tds-grid" data-grid>${vehicles.map(vehicleCard).join("")}</div>` : `<p class="tds-muted">Our vehicles will be listed here soon. You can still send a booking request below.</p>`}
-        </div></section>`}
-
-        ${(s.routes || []).length ? `<section class="tds-sec is-tint" id="routes"><div class="tds-wrap"><h2>Popular routes</h2>
-          <div class="tds-routes">${s.routes.map(r => `<article class="tds-route">
-              <div class="tds-route-line"><b>${esc(r.pickup)}</b><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i><b>${esc(r.destination)}</b></div>
-              ${(r.stops || []).length ? `<small>via ${esc(r.stops.join(", "))}</small>` : ""}
-              <div class="tds-route-meta">${r.distance_km ? `<span><i class="fa-solid fa-road" aria-hidden="true"></i>${esc(r.distance_km)} km</span>` : ""}${r.duration_min ? `<span><i class="fa-regular fa-clock" aria-hidden="true"></i>${esc(minsText(r.duration_min))}</span>` : ""}</div>
-              <div class="tds-route-foot"><span class="tds-price">${r.price != null ? esc(money(r.price)) : "Request a Quote"}</span><button type="button" class="tds-btn" data-book-route="${esc(r.key)}">Book</button></div>
-            </article>`).join("")}</div></div></section>` : ""}
-
-        ${(s.rates || []).length ? `<section class="tds-sec" id="${CAT() ? "more-rates" : "rates"}"><div class="tds-wrap"><h2>Rates</h2>
-          <div class="tds-rates">${s.rates.map(r => `<div class="tds-rate"><div><b>${esc(r.label)}</b>${r.section ? `<small>${esc((sections.find(x => x.key === r.section) || {}).name || "")}</small>` : ""}${r.extras ? `<small>${esc(r.extras)}</small>` : ""}</div>
-            <span class="tds-price">${r.amount != null ? `${esc(money(r.amount))} <small>${esc(PER[r.type] || "")}</small>` : "Request a Quote"}</span></div>`).join("")}</div>
-          <p class="tds-muted">Prices in ${esc(cur())}. Payment is arranged directly with us; nothing is charged online.</p></div></section>` : ""}
-
-        <section class="tds-sec tds-cta" id="book"><div class="tds-wrap tds-cta-in">
-          <div><h2>Ready when you are</h2><p>Send your booking request in under a minute. We will contact you to confirm your reservation.</p>
-            ${b.contact_note ? `<p class="tds-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>${esc(b.contact_note)}</p>` : ""}</div>
-          <button type="button" class="tds-btn is-primary is-lg" data-book-open><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Book now</button>
-        </div></section>
-
-        <section class="tds-sec" id="contact"><div class="tds-wrap"><h2>Contact</h2>
-          <div class="tds-contact">
-            ${b.phone ? `<a class="tds-cbox" href="tel:${esc(b.phone)}"><i class="fa-solid fa-phone" aria-hidden="true"></i><span><small>Phone</small><b>${esc(b.phone)}</b></span></a>` : ""}
-            ${wa ? `<a class="tds-cbox" href="${esc(waLink(b.whatsapp))}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span><small>WhatsApp</small><b>${esc(b.whatsapp)}</b></span></a>` : ""}
-            ${b.email ? `<a class="tds-cbox" href="mailto:${esc(b.email)}"><i class="fa-regular fa-envelope" aria-hidden="true"></i><span><small>Email</small><b>${esc(b.email)}</b></span></a>` : ""}
-            ${b.address ? `<${b.location_url ? `a href="${esc(b.location_url)}" target="_blank" rel="noopener"` : "div"} class="tds-cbox"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span><small>Address</small><b class="tds-pre">${esc(b.address)}</b></span></${b.location_url ? "a" : "div"}>` : ""}
-            ${b.hours ? `<div class="tds-cbox"><i class="fa-regular fa-clock" aria-hidden="true"></i><span><small>Hours</small><b>${esc(b.hours)}</b></span></div>` : ""}
-          </div>
-          ${social.length ? `<div class="tds-social">${social.map(([k, v]) => `<a href="${esc(v)}" target="_blank" rel="noopener nofollow" aria-label="${esc(k)}"><i class="${socialIcons[k]}" aria-hidden="true"></i></a>`).join("")}</div>` : ""}
-          ${b.terms || b.cancellation_policy ? `<div class="tds-terms">${b.terms ? `<details><summary>Terms and conditions</summary><p class="tds-pre">${esc(b.terms)}</p></details>` : ""}${b.cancellation_policy ? `<details><summary>Cancellation policy</summary><p class="tds-pre">${esc(b.cancellation_policy)}</p></details>` : ""}</div>` : ""}
-        </div></section>
+        <nav class="tdp-tabs" role="tablist" aria-label="${esc(b.name)}">${TABS().map(([k, t, i]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${S.tab === k}"><i class="fa-solid ${i}" aria-hidden="true"></i><span>${esc(t)}</span></button>`).join("")}</nav>
+        <section class="tdp-view" data-view role="tabpanel"></section>
       </main>
-      ${CAT() ? `<div class="tds-wrap tds-credits-wrap">${CAT().creditsHtml()}</div>` : ""}
-      <footer class="tds-foot"><div class="tds-wrap"><span>© ${new Date().getFullYear()} ${esc(b.name)}</span><span>Powered by <a href="${CANON_ORIGIN}/" rel="noopener">Triplem Drive · Triplem VIP</a></span></div></footer>
-      <dialog class="tds-dlg" data-dlg aria-labelledby="tdsDlgTitle"></dialog>
-      ${panelHtml()}`;
+      <footer class="tdp-foot"><span>© ${new Date().getFullYear()} ${esc(b.name)}</span>
+        <span>${S.cat ? `<button type="button" class="tdp-link" data-act="credits">Photo credits</button> · ` : ""}Powered by <a href="${CANON_ORIGIN}/" rel="noopener">Triplem Drive · Triplem VIP</a></span></footer>
+      <div class="tdp-layer" data-layer><div class="tdp-backdrop" data-close-top></div></div>`;
     app.removeAttribute("aria-busy");
-    bind();
-    fillImages(app, "thumb");
-    const hero = app.querySelector(".tds-hero-img");
-    if (hero) loadMedia([hero.dataset.k], "full").then(() => { const u = S.media.get(`full:${hero.dataset.k}`); if (u) { hero.src = u; hero.classList.add("is-in"); } });
-    if (location.hash && location.hash.length > 1) { try { document.querySelector(location.hash)?.scrollIntoView(); } catch (_) {} }
+    showTab(S.tab);
+    fillImages(app.querySelector(".tdp-top"));
+    const art = app.querySelector(".tdp-hero-art img"); if (art) loadMedia([art.dataset.k], "full").then(() => { const u = S.media.get(`full:${art.dataset.k}`); if (u) { art.src = u; art.classList.add("is-in"); } });
   }
 
-  function vehicleCard(v) {
-    const p = fromPrice(v);
-    const facts = [v.capacity ? `<span><i class="fa-solid fa-user-group" aria-hidden="true"></i>${esc(v.capacity)}</span>` : "", v.transmission ? `<span><i class="fa-solid fa-gears" aria-hidden="true"></i>${esc(v.transmission)}</span>` : "", v.fuel ? `<span><i class="fa-solid fa-gas-pump" aria-hidden="true"></i>${esc(v.fuel)}</span>` : "", v.year ? `<span><i class="fa-regular fa-calendar" aria-hidden="true"></i>${esc(v.year)}</span>` : ""].join("");
-    return `<article class="tds-card" data-sec-of="${esc(v.section || "")}">
-      <button type="button" class="tds-card-media" data-open="${esc(v.key)}" aria-label="View ${esc(v.name)}">
-        <span class="tds-ph">${v.photos?.[0] ? `<img data-k="${esc(v.photos[0])}" alt="${esc(v.name)}" loading="lazy">` : ""}<i class="fa-solid fa-car-side" aria-hidden="true"></i></span>
-        ${v.featured ? `<span class="tds-badge">Featured</span>` : ""}${v.photos?.length > 1 ? `<span class="tds-count"><i class="fa-regular fa-images" aria-hidden="true"></i>${v.photos.length}</span>` : ""}
-      </button>
-      <div class="tds-card-body">
-        <h3>${esc(v.name)}</h3>
-        ${[v.make, v.model].filter(Boolean).length ? `<small class="tds-muted">${esc([v.make, v.model].filter(Boolean).join(" "))}</small>` : ""}
-        ${facts ? `<div class="tds-facts">${facts}</div>` : ""}
-        <div class="tds-card-foot">
-          <span class="tds-price">${p ? `<small>From</small> ${esc(p.amount)} <small>${esc(p.per)}</small>` : "Request a Quote"}</span>
-          ${v.bookable ? `<button type="button" class="tds-btn is-primary" data-book="${esc(v.key)}">Book</button>` : `<span class="tds-muted">Not available</span>`}
-        </div>
-      </div>
-    </article>`;
+  function showTab(tab) {
+    if (!TABS().some(t => t[0] === tab)) tab = "vehicles";
+    S.tab = tab;
+    app.querySelectorAll("[data-tab]").forEach(x => x.setAttribute("aria-selected", String(x.dataset.tab === tab)));
+    const v = app.querySelector("[data-view]");
+    v.innerHTML = VIEWS[tab]();
+    v.dataset.view = tab;
+    fillImages(v);
   }
 
-  function vehicleDialog(key) {
-    const v = (S.site.vehicles || []).find(x => x.key === key);
-    const dlg = app.querySelector("[data-dlg]");
-    if (!v || !dlg) return;
-    const p = fromPrice(v);
-    dlg.innerHTML = `<div class="tds-dlg-card">
-      <button type="button" class="tds-dlg-x" data-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-      <div class="tds-gallery">${v.photos?.length ? `<span class="tds-ph is-big"><img data-k="${esc(v.photos[0])}" alt="${esc(v.name)}" data-main><i class="fa-solid fa-car-side"></i></span>
-        ${v.photos.length > 1 ? `<div class="tds-thumbs">${v.photos.map((k, i) => `<button type="button" data-thumb="${esc(k)}" aria-label="Photo ${i + 1}"${i === 0 ? ' aria-current="true"' : ""}><span class="tds-ph"><img data-k="${esc(k)}" alt=""></span></button>`).join("")}</div>` : ""}` : `<span class="tds-ph is-big is-none"><i class="fa-solid fa-car-side"></i></span>`}</div>
-      <div class="tds-dlg-body">
-        <h2 id="tdsDlgTitle">${esc(v.name)}</h2>
-        ${[v.make, v.model, v.year].filter(Boolean).length ? `<p class="tds-muted">${esc([v.make, v.model, v.year].filter(Boolean).join(" · "))}</p>` : ""}
-        <dl class="tds-specs">${[["Passengers", v.capacity], ["Transmission", v.transmission], ["Fuel", v.fuel], ...(v.specs || []).map(s => [s.label, s.value])].filter(([, x]) => x).map(([k, x]) => `<div><dt>${esc(k)}</dt><dd>${esc(x)}</dd></div>`).join("")}</dl>
-        ${v.description ? `<p class="tds-pre">${esc(v.description)}</p>` : ""}
-        ${v.show_price && (v.rates || []).length ? `<div class="tds-rates is-compact">${v.rates.map(r => `<div class="tds-rate"><div><b>${esc(r.label)}</b>${r.extras ? `<small>${esc(r.extras)}</small>` : ""}</div><span class="tds-price">${r.amount != null ? `${esc(money(r.amount))} <small>${esc(PER[r.type] || "")}</small>` : "Request a Quote"}</span></div>`).join("")}</div>` : `<p class="tds-price">${p ? esc(p.amount) : "Request a Quote"}</p>`}
-        ${v.bookable ? `<button type="button" class="tds-btn is-primary is-lg is-block" data-book="${esc(v.key)}"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Book this vehicle</button>` : `<p class="tds-muted">This vehicle cannot be booked at the moment.</p>`}
-      </div></div>`;
-    dlg.showModal ? dlg.showModal() : dlg.setAttribute("open", "");
-    fillImages(dlg, "thumb").then(() => {
-      const main = dlg.querySelector("[data-main]");
-      if (main) loadMedia([main.dataset.k], "full").then(() => { const u = S.media.get(`full:${main.dataset.k}`); if (u) { main.src = u; main.classList.add("is-in"); } });
+  const VIEWS = {
+    vehicles() {
+      const list = cars().filter(c => !S.filter || c.group === S.filter);
+      const f = filters();
+      return `<div class="tdp-bar">
+          ${f.length > 1 ? `<div class="tdp-seg" role="radiogroup" aria-label="Vehicle type"><button type="button" role="radio" aria-checked="${!S.filter}" data-filter="">All</button>${f.map(([k, t]) => `<button type="button" role="radio" aria-checked="${S.filter === k}" data-filter="${esc(k)}">${esc(t)}</button>`).join("")}</div>` : "<span></span>"}
+          <small class="tdp-muted">${list.length} vehicle${list.length === 1 ? "" : "s"}</small></div>
+        ${list.length ? `<div class="tdp-grid">${list.map(c => `<article class="tdp-card" data-car="${esc(c.id)}" tabindex="0" role="button" aria-label="${esc(c.name)} details">
+            ${photo(c.photos[0], c.name)}
+            <div class="tdp-card-body">
+              <div class="tdp-card-title"><b>${esc(c.name)}</b><span class="tdp-pill">${esc(c.groupName)}</span></div>
+              <div class="tdp-card-foot"><span class="tdp-price">${c.from ? `<small>From</small> ${esc(c.from)}` : "Request a quote"}</span>
+                ${c.bookable ? `<button type="button" class="tdp-btn is-primary is-sm" data-book-car="${esc(c.id)}"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Book</span></button>` : `<span class="tdp-muted">Not available</span>`}</div>
+            </div></article>`).join("")}</div>`
+          : `<div class="tdp-empty"><i class="fa-solid fa-car-side" aria-hidden="true"></i><b>Our vehicles will be listed here soon</b><p>You can still send a booking request.</p><button type="button" class="tdp-btn is-primary" data-act="book">Book</button></div>`}`;
+    },
+    prices() {
+      let html = "";
+      if (S.cat) {
+        const groups = (S.cat.service_groups || []).filter(g => S.cat.services.some(s => s.group === g.key));
+        if (!S.group || !groups.some(g => g.key === S.group)) S.group = groups[0]?.key || "";
+        const g = groups.find(x => x.key === S.group);
+        const classes = S.cat.classes || [];
+        const rows = S.cat.services.filter(s => s.group === S.group);
+        html += `<div class="tdp-bar"><div class="tdp-seg" role="radiogroup" aria-label="Price list">${groups.map(x => `<button type="button" role="radio" aria-checked="${x.key === S.group}" data-group="${esc(x.key)}">${esc(x.name)}</button>`).join("")}</div>
+            ${g?.note ? `<small class="tdp-muted">${esc(g.note)}</small>` : ""}</div>
+          <div class="tdp-card is-flat"><div class="tdp-table-wrap"><table class="tdp-table"><thead><tr><th>Service</th>${classes.map(c => `<th>${esc(c.name)}</th>`).join("")}<th></th></tr></thead>
+            <tbody>${rows.map(s => `<tr><th scope="row">${s.from ? `${esc(s.from)} <i class="fa-solid fa-right-left" aria-hidden="true"></i> ${esc(s.to)}` : esc(serviceName(s))}</th>
+              ${classes.map(c => `<td>${esc(catMoney(s.prices?.[c.key]))}</td>`).join("")}
+              <td><button type="button" class="tdp-btn is-sm" data-book-service="${esc(s.key)}">Book</button></td></tr>`).join("")}</tbody></table></div>
+          <div class="tdp-plist">${rows.map(s => `<button type="button" class="tdp-prow" data-book-service="${esc(s.key)}"><b>${esc(serviceName(s))}</b>
+              <span>${classes.map(c => `<em><small>${esc(c.name)}</small>${esc(catMoney(s.prices?.[c.key]))}</em>`).join("")}</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>`).join("")}</div></div>
+          <p class="tdp-muted tdp-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Prices in ${esc(S.cat.currency || "SAR")}. Payment is arranged directly with us; nothing is charged online.${S.cat.terms?.lines?.length ? ` <button type="button" class="tdp-link" data-tab-go="faq">Payment terms</button>` : ""}</p>`;
+      }
+      const rates = S.site.rates || [];
+      if (rates.length) html += `<h2 class="tdp-h2">${S.cat ? "Other rates" : "Rates"}</h2><div class="tdp-card is-flat"><ul class="tdp-rows">${rates.map(r => `<li><span><b>${esc(r.label)}</b>${r.extras ? `<small>${esc(r.extras)}</small>` : ""}</span><span class="tdp-price">${r.amount != null ? `${esc(money(r.amount))} <small>${esc(PER[r.type] || "")}</small>` : "Request a quote"}</span></li>`).join("")}</ul></div>`;
+      if (!html) html = `<div class="tdp-empty"><i class="fa-solid fa-tags" aria-hidden="true"></i><b>Prices on request</b><p>Send a booking request or a question and we will send you a quote.</p><button type="button" class="tdp-btn is-primary" data-act="book">Book</button></div>`;
+      return html;
+    },
+    routes() {
+      return `<div class="tdp-grid is-routes">${(S.site.routes || []).map(r => `<article class="tdp-card tdp-route">
+          <div class="tdp-route-line"><b>${esc(r.pickup)}</b><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i><b>${esc(r.destination)}</b></div>
+          ${(r.stops || []).length ? `<small class="tdp-muted">via ${esc(r.stops.join(", "))}</small>` : ""}
+          <div class="tdp-chips is-muted">${r.distance_km ? `<span><i class="fa-solid fa-road" aria-hidden="true"></i>${esc(r.distance_km)} km</span>` : ""}${r.duration_min ? `<span><i class="fa-regular fa-clock" aria-hidden="true"></i>${esc(minsText(r.duration_min))}</span>` : ""}</div>
+          <div class="tdp-card-foot"><span class="tdp-price">${r.price != null ? esc(money(r.price)) : "Request a quote"}</span><button type="button" class="tdp-btn is-primary is-sm" data-book-route="${esc(r.key)}">Book</button></div></article>`).join("")}</div>`;
+    },
+    faq() {
+      const b = S.site.business, items = [...(S.cat?.faq || [])];
+      if (!S.cat) items.push({ q: "How do I book?", a: "Choose a vehicle and tap Book, or tap Book at the top. We contact you to confirm your reservation." }, { q: "Do I pay online?", a: "No. Payment is arranged directly with us." });
+      if (b.cancellation_policy) items.push({ q: "What is the cancellation policy?", a: b.cancellation_policy });
+      if (b.terms) items.push({ q: "Terms and conditions", a: b.terms });
+      const t = S.cat?.terms;
+      return `<div class="tdp-card is-flat"><div class="tdp-faq">${items.map((x, i) => `<details${i === 0 ? " open" : ""}><summary><span>${esc(x.q)}</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary><p>${esc(x.a)}</p></details>`).join("")}</div></div>
+        ${t?.lines?.length ? `<h2 class="tdp-h2">Good to know</h2><div class="tdp-terms">${t.timing ? `<div><i class="fa-regular fa-clock" aria-hidden="true"></i><span><small>Timing</small><b>${esc(t.timing)}</b></span></div>` : ""}${t.lines.map(l => `<div><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span><small>${esc(l.label)}</small><b>${esc(l.value)}</b></span></div>`).join("")}</div>` : ""}
+        <div class="tdp-cta"><span><b>Still have a question?</b><small>Send it and we will get back to you.</small></span><button type="button" class="tdp-btn is-primary" data-act="inquiry"><i class="fa-regular fa-comment-dots" aria-hidden="true"></i><span>Ask a question</span></button></div>`;
+    },
+    contact() {
+      const b = S.site.business, wa = waLink(b.whatsapp);
+      const icons = { website: "fa-solid fa-globe", instagram: "fa-brands fa-instagram", facebook: "fa-brands fa-facebook", x: "fa-brands fa-x-twitter", tiktok: "fa-brands fa-tiktok", youtube: "fa-brands fa-youtube", linkedin: "fa-brands fa-linkedin" };
+      const social = Object.entries(b.social || {}).filter(([k, v]) => v && icons[k]);
+      const row = (href, icon, label, value, ext) => `<${href ? `a href="${esc(href)}"${ext ? ' target="_blank" rel="noopener"' : ""}` : "div"} class="tdp-crow"><span class="tdp-crow-ico"><i class="${icon}" aria-hidden="true"></i></span><span><small>${esc(label)}</small><b>${esc(value)}</b></span>${href ? `<i class="fa-solid fa-chevron-right tdp-crow-go" aria-hidden="true"></i>` : ""}</${href ? "a" : "div"}>`;
+      return `<div class="tdp-two"><div class="tdp-card is-flat"><div class="tdp-crows">
+          ${b.phone ? row(`tel:${b.phone}`, "fa-solid fa-phone", "Phone", b.phone) : ""}
+          ${wa ? row(wa, "fa-brands fa-whatsapp", "WhatsApp", b.whatsapp, true) : ""}
+          ${b.email ? row(`mailto:${b.email}`, "fa-regular fa-envelope", "Email", b.email) : ""}
+          ${b.address ? row(b.location_url || "", "fa-solid fa-location-dot", "Address", b.address, true) : ""}
+          ${b.hours ? row("", "fa-regular fa-clock", "Hours", b.hours) : S.cat?.terms?.timing ? row("", "fa-regular fa-clock", "Hours", S.cat.terms.timing) : ""}
+        </div>${social.length ? `<div class="tdp-social">${social.map(([k, v]) => `<a class="tdp-icon" href="${esc(v)}" target="_blank" rel="noopener nofollow" aria-label="${esc(k)}"><i class="${icons[k]}" aria-hidden="true"></i></a>`).join("")}</div>` : ""}</div>
+        <div class="tdp-card is-flat tdp-ask"><span class="tdp-ask-ico"><i class="fa-regular fa-comment-dots" aria-hidden="true"></i></span><b>Send us a message</b><p>${esc(b.contact_note || "Questions about a trip, a group booking or a quote? Write to us and we will answer by phone, WhatsApp or email.")}</p>
+          <button type="button" class="tdp-btn is-primary" data-act="inquiry"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i><span>Ask a question</span></button></div></div>`;
+    }
+  };
+
+  // ---- side panels (Triplem VIP look) ----------------------------------------------------------------
+  // panel({ id, icon | avatar, title, sub, pills, tabs:[[key,label,icon]], tab, body(tab) -> html, foot(tab) -> html, mount(el, tab) })
+  function panel(def) {
+    const layer = app.querySelector("[data-layer]");
+    const el = document.createElement("aside");
+    el.className = "tdp-pnl"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true");
+    el.dataset.pid = def.id || "";
+    const d = { tab: def.tabs?.[0]?.[0] || "main", ...def };
+    el._def = d;
+    paintPanel(el);
+    layer.appendChild(el);
+    S.stack.push(el);
+    layer.classList.add("is-on");
+    document.documentElement.classList.add("tdp-lock");
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("is-open")));
+    setTimeout(() => el.querySelector("[data-autofocus]")?.focus({ preventScroll: true }), 420);
+    return el;
+  }
+  function paintPanel(el, { keepScroll = false } = {}) {
+    const d = el._def;
+    const y = keepScroll ? el.querySelector(".tdp-pnl-body")?.scrollTop || 0 : 0;
+    el.innerHTML = `<header class="tdp-pnl-head">
+        <span class="tdp-pnl-ava">${d.avatar || `<i class="fa-solid ${d.icon || "fa-car-side"}" aria-hidden="true"></i>`}</span>
+        <div class="tdp-pnl-id"><strong>${esc(d.title)}</strong>${d.sub ? `<small>${esc(d.sub)}</small>` : ""}${(d.pills || []).length ? `<div class="tdp-pills">${d.pills.join("")}</div>` : ""}</div>
+        <button type="button" class="tdp-pnl-x" data-close-top aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </header>
+      ${(d.tabs || []).length > 1 ? `<nav class="tdp-pnl-tabs" role="tablist">${d.tabs.map(([k, t, i]) => `<button type="button" role="tab" data-ptab="${k}" aria-selected="${d.tab === k}"><i class="fa-solid ${i}" aria-hidden="true"></i>${esc(t)}</button>`).join("")}</nav>` : ""}
+      <div class="tdp-pnl-body">${d.body(d.tab)}</div>
+      ${d.foot ? `<footer class="tdp-pnl-foot">${d.foot(d.tab)}</footer>` : ""}`;
+    const body = el.querySelector(".tdp-pnl-body"); body.scrollTop = y;
+    fillImages(el);
+    d.mount?.(el, d.tab);
+  }
+  function closeTop() {
+    const el = S.stack.pop(); if (!el) return;
+    el.classList.remove("is-open");
+    el._def.onClose?.();
+    setTimeout(() => el.remove(), 340);
+    if (!S.stack.length) {
+      app.querySelector("[data-layer]")?.classList.remove("is-on");
+      document.documentElement.classList.remove("tdp-lock");
+    }
+  }
+  function closeAll() { while (S.stack.length) closeTop(); }
+  const pill = (t, i, tone = "") => `<span class="tdp-pill${tone ? " is-" + tone : ""}">${i ? `<i class="fa-solid ${i}" aria-hidden="true"></i>` : ""}${esc(t)}</span>`;
+
+  // ---- car details panel ---------------------------------------------------------------------------
+  function openCar(id) {
+    const c = carById(id); if (!c) return;
+    const classPrices = () => {
+      if (c.cls) return S.cat.services.filter(s => Number.isFinite(Number(s.prices?.[c.group])));
+      return [];
+    };
+    panel({
+      id: "car", title: c.name, sub: c.groupName, avatar: c.photos[0] ? photo(c.photos[0], "", "is-ava") : "",
+      pills: [pill(c.groupName, "fa-car-side", "info"), c.from ? pill(`From ${c.from}`, "fa-tag") : "", ...(c.v?.capacity ? [pill(`${c.v.capacity} seats`, "fa-user-group")] : [])].filter(Boolean),
+      tabs: [["overview", "Overview", "fa-circle-info"], ["prices", "Prices", "fa-tags"]],
+      body(tab) {
+        if (tab === "prices") {
+          const rows = classPrices();
+          if (rows.length) return `<section class="tdp-psec"><h3>${esc(c.groupName)} prices</h3><ul class="tdp-rows">${rows.map(s => `<li><span><b>${esc(serviceName(s))}</b></span><span class="tdp-price">${esc(catMoney(s.prices[c.group]))}</span><button type="button" class="tdp-btn is-sm" data-book-car="${esc(c.id)}" data-service="${esc(s.key)}">Book</button></li>`).join("")}</ul></section>`;
+          const rates = c.v?.show_price ? c.v.rates || [] : [];
+          return rates.length ? `<section class="tdp-psec"><h3>Rates</h3><ul class="tdp-rows">${rates.map(r => `<li><span><b>${esc(r.label)}</b>${r.extras ? `<small>${esc(r.extras)}</small>` : ""}</span><span class="tdp-price">${r.amount != null ? `${esc(money(r.amount))} <small>${esc(PER[r.type] || "")}</small>` : "Request a quote"}</span></li>`).join("")}</ul></section>`
+            : `<p class="tdp-muted">Prices on request. Send a booking request and we will send you a quote.</p>`;
+        }
+        const v = c.v || {};
+        const facts = [["Type", c.groupName], ["Passengers", v.capacity], ["Transmission", v.transmission], ["Fuel", v.fuel], ["Year", v.year], ...(v.specs || []).map(s => [s.label, s.value])].filter(([, x]) => x);
+        return `<div class="tdp-gallery">${photo(c.photos[0], c.name, "is-big")}${c.photos.length > 1 ? `<div class="tdp-thumbs">${c.photos.map((p, i) => `<button type="button" data-thumb="${i}" aria-label="Photo ${i + 1}"${i === 0 ? ' aria-current="true"' : ""}>${photo(p, "")}</button>`).join("")}</div>` : ""}</div>
+          <section class="tdp-psec"><h3>Details</h3><dl class="tdp-kv">${facts.map(([k, x]) => `<div><dt>${esc(k)}</dt><dd>${esc(x)}</dd></div>`).join("")}</dl></section>
+          ${v.description ? `<section class="tdp-psec"><h3>About this car</h3><p class="tdp-pre">${esc(v.description)}</p></section>` : ""}
+          ${c.cls ? `<section class="tdp-psec"><h3>Popular prices</h3><ul class="tdp-rows">${classPrices().slice(0, 4).map(s => `<li><span><b>${esc(serviceName(s))}</b></span><span class="tdp-price">${esc(catMoney(s.prices[c.group]))}</span></li>`).join("")}</ul>
+            <button type="button" class="tdp-link" data-ptab-go="prices">All prices</button></section>` : ""}`;
+      },
+      foot: () => c.bookable ? `<span class="tdp-foot-note">${c.from ? `<small>From</small><b>${esc(c.from)}</b>` : `<small>Price</small><b>On request</b>`}</span><button type="button" class="tdp-btn is-primary" data-book-car="${esc(c.id)}"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Book this car</span></button>` : `<span class="tdp-muted">This vehicle cannot be booked at the moment.</span>`,
+      mount(el) {
+        el.querySelectorAll("[data-thumb]").forEach(b => b.addEventListener("click", () => {
+          const p = c.photos[+b.dataset.thumb], main = el.querySelector(".tdp-gallery > .tdp-ph");
+          el.querySelectorAll("[data-thumb]").forEach(x => x.toggleAttribute("aria-current", x === b));
+          main.outerHTML = photo(p, c.name, "is-big"); fillImages(el.querySelector(".tdp-gallery"));
+        }));
+        el.querySelector("[data-ptab-go]")?.addEventListener("click", () => { el._def.tab = "prices"; paintPanel(el); });
+      }
     });
   }
 
-  // ---- booking form ----------------------------------------------------------------------------
-  const today = () => S.site.today || new Date().toISOString().slice(0, 10);
-  function formHtml() {
-    const f = S.site.form, vehicles = (S.site.vehicles || []).filter(v => v.bookable), routes = S.site.routes || [];
-    const field = x => {
-      if (!x.enabled) return "";
-      const req = x.required ? " required" : "", star = x.required ? ' <em aria-hidden="true">*</em>' : "";
-      let lab = `<span>${esc(x.label)}${star}</span>`;
-      const def = esc(x.default || "");
-      switch (x.key) {
-        case "customer_name": return `<label class="tds-f">${lab}<input name="customer_name" autocomplete="name" maxlength="80"${req}></label>`;
-        case "customer_mobile": return `<label class="tds-f">${lab}<input name="customer_mobile" type="tel" autocomplete="tel" inputmode="tel" maxlength="24" placeholder="+971 50 123 4567"${req}></label>`;
-        case "customer_email": return `<label class="tds-f">${lab}<input name="customer_email" type="email" autocomplete="email" maxlength="160"${req}></label>`;
-        // With the website catalogue, its Service / Vehicle type choice replaces the route list, and the
-        // vehicle list only offers the cars added in the dashboard (optional).
-        case "vehicle": if (CAT()) lab = `<span>${esc("Specific vehicle (optional)")}</span>`; return vehicles.length ? `<label class="tds-f is-wide">${lab}<select name="vehicle"${req}><option value="">${x.required ? "Choose a vehicle" : "Any suitable vehicle"}</option>${vehicles.map(v => `<option value="${esc(v.key)}">${esc(v.name)}${v.capacity ? ` · ${esc(v.capacity)} seats` : ""}</option>`).join("")}</select></label>` : "";
-        case "route": return routes.length && !CAT() ? `<label class="tds-f is-wide">${lab}<select name="route"${req}><option value="">${x.required ? "Choose a route" : "No fixed route"}</option>${routes.map(r => `<option value="${esc(r.key)}">${esc(r.pickup)} → ${esc(r.destination)}${r.price != null ? " · " + esc(money(r.price)) : ""}</option>`).join("")}</select></label>` : "";
-        case "pickup": return `<label class="tds-f">${lab}<input name="pickup" maxlength="200" value="${def}"${req}></label>`;
-        case "destination": return `<label class="tds-f">${lab}<input name="destination" maxlength="200" value="${def}"${req}></label>`;
-        case "pickup_date": return `<label class="tds-f">${lab}<input name="pickup_date" type="date" min="${esc(today())}"${req}></label>`;
-        case "pickup_time": return `<label class="tds-f">${lab}<input name="pickup_time" type="time"${req}></label>`;
-        case "return_date": return `<label class="tds-f">${lab}<input name="return_date" type="date" min="${esc(today())}"${req}></label>`;
-        case "return_time": return `<label class="tds-f">${lab}<input name="return_time" type="time"${req}></label>`;
-        case "passengers": return `<label class="tds-f">${lab}<input name="passengers" type="number" min="1" max="500" inputmode="numeric"${req}></label>`;
-        case "notes": return `<label class="tds-f is-wide">${lab}<textarea name="customer_notes" rows="3" maxlength="2000">${def}</textarea></label>`;
-        default: return "";
+  // ---- booking panel -------------------------------------------------------------------------------
+  const F = () => S.site.form || { fields: [], questions: [] };
+  const fieldCfg = key => (F().fields || []).find(f => f.key === key) || { key, enabled: false };
+  function input(key, html) {
+    const f = fieldCfg(key);
+    if (!f.enabled) return "";
+    return html(f, f.required ? " required" : "", `<span>${esc(f.label)}${f.required ? ' <em aria-hidden="true">*</em>' : ""}</span>`);
+  }
+  function placeField(key) {
+    return input(key, (f, req, lab) => `<div class="tdp-f is-wide">${lab}<div class="tdp-place">
+        <input name="${key}" maxlength="150" value="${esc(f.default || "")}" placeholder="${key === "pickup" ? "Type the pickup address" : "Type the drop-off address"}" autocomplete="street-address"${req}>
+        <button type="button" class="tdp-place-btn" data-map="${key}" title="Pick on map" aria-label="Pick ${esc(f.label)} on map"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i><span>Map</span></button>
+      </div><small class="tdp-place-hint" data-place-hint="${key}" hidden></small></div>`);
+  }
+  function bookingBody(st) {
+    const c = S.cat, withCars = (c?.classes || []).filter(k => models(k.key).length), classes = withCars.length ? withCars : (c?.classes || []);
+    const svc = c?.services.find(s => s.key === st.service);
+    const dbCars = (S.site.vehicles || []).filter(v => v.bookable && !(c && classOf(v)));
+    const routes = S.site.routes || [];
+    let html = "";
+    if (c) {
+      const groups = (c.service_groups || []).filter(g => c.services.some(s => s.group === g.key));
+      html += `<section class="tdp-psec"><h3>Trip</h3><div class="tdp-f is-wide"><span>Service <em aria-hidden="true">*</em></span>
+          <select name="cat_service" data-autofocus required><option value="">Choose a route or service</option>${groups.map(g => `<optgroup label="${esc(g.name)}">${c.services.filter(s => s.group === g.key).map(s => `<option value="${esc(s.key)}"${s.key === st.service ? " selected" : ""}>${esc(serviceName(s))}</option>`).join("")}</optgroup>`).join("")}</select></div></section>
+        <section class="tdp-psec"><h3>Vehicle</h3>
+          <div class="tdp-types" role="radiogroup" aria-label="Vehicle type">${classes.map(k => {
+            const list = models(k.key), first = list.find(m => m.photos[0]) || list[0];
+            const price = svc ? catMoney(svc.prices?.[k.key]) : "";
+            return `<button type="button" role="radio" class="tdp-type" data-type="${esc(k.key)}" aria-checked="${st.cls === k.key}">${photo(first?.photos?.[0], "")}<b>${esc(k.name)}</b><small>${price ? esc(price) : `${list.length} model${list.length === 1 ? "" : "s"}`}</small></button>`;
+          }).join("")}</div>
+          ${st.cls ? `<div class="tdp-models" role="radiogroup" aria-label="Model"><button type="button" role="radio" class="tdp-model" data-model="" aria-checked="${!st.model}"><i class="fa-solid fa-shuffle" aria-hidden="true"></i><span>Any model</span></button>${models(st.cls).map(m => `<button type="button" role="radio" class="tdp-model" data-model="${esc(m.id)}" aria-checked="${st.model === m.id}">${photo(m.photos[0], "")}<span>${esc(m.name)}</span></button>`).join("")}</div>` : `<p class="tdp-muted">Choose a vehicle type to see its models.</p>`}
+          ${dbCars.length ? input("vehicle", (f, req) => `<div class="tdp-f is-wide"><span>Or a specific car</span><select name="vehicle"><option value="">—</option>${dbCars.map(v => `<option value="${esc(v.key)}"${st.vehicle === v.key ? " selected" : ""}>${esc(v.name)}</option>`).join("")}</select></div>`) : ""}
+        </section>`;
+    } else {
+      html += `<section class="tdp-psec"><h3>Vehicle</h3>${dbCars.length ? input("vehicle", (f, req, lab) => `<div class="tdp-f is-wide">${lab}<select name="vehicle" data-autofocus${req}><option value="">${f.required ? "Choose a car" : "Any suitable car"}</option>${dbCars.map(v => `<option value="${esc(v.key)}"${st.vehicle === v.key ? " selected" : ""}>${esc(v.name)}${v.capacity ? ` · ${esc(v.capacity)} seats` : ""}</option>`).join("")}</select></div>`) : `<p class="tdp-muted">We will suggest a suitable car.</p>`}
+        ${routes.length ? input("route", (f, req, lab) => `<div class="tdp-f is-wide">${lab}<select name="route"${req}><option value="">${f.required ? "Choose a route" : "No fixed route"}</option>${routes.map(r => `<option value="${esc(r.key)}"${st.route === r.key ? " selected" : ""}>${esc(r.pickup)} → ${esc(r.destination)}${r.price != null ? " · " + esc(money(r.price)) : ""}</option>`).join("")}</select></div>`) : ""}</section>`;
+    }
+    html += `<section class="tdp-psec"><h3>Pickup and drop-off</h3><div class="tdp-fgrid">
+        ${placeField("pickup")}${placeField("destination")}
+        ${input("pickup_date", (f, req, lab) => `<label class="tdp-f">${lab}<input name="pickup_date" type="date" min="${esc(today())}"${req}></label>`)}
+        ${input("pickup_time", (f, req, lab) => `<label class="tdp-f">${lab}<input name="pickup_time" type="time"${req}></label>`)}
+        ${input("return_date", (f, req, lab) => `<label class="tdp-f">${lab}<input name="return_date" type="date" min="${esc(today())}"${req}></label>`)}
+        ${input("return_time", (f, req, lab) => `<label class="tdp-f">${lab}<input name="return_time" type="time"${req}></label>`)}
+        ${input("passengers", (f, req, lab) => `<label class="tdp-f">${lab}<input name="passengers" type="number" min="1" max="500" inputmode="numeric"${req}></label>`)}
+      </div></section>
+      <section class="tdp-psec"><h3>Your details</h3><div class="tdp-fgrid">
+        ${input("customer_name", (f, req, lab) => `<label class="tdp-f">${lab}<input name="customer_name" autocomplete="name" maxlength="80"${req}></label>`)}
+        ${input("customer_mobile", (f, req, lab) => `<label class="tdp-f">${lab}<input name="customer_mobile" type="tel" autocomplete="tel" inputmode="tel" maxlength="24" placeholder="+966 50 123 4567"${req}></label>`)}
+        ${input("customer_email", (f, req, lab) => `<label class="tdp-f is-wide">${lab}<input name="customer_email" type="email" autocomplete="email" maxlength="160"${req}></label>`)}
+      </div></section>`;
+    const q = (F().questions || []).map(x => {
+      const req = x.required ? " required" : "", star = x.required ? ' <em aria-hidden="true">*</em>' : "", name = `q_${esc(x.id)}`;
+      if (x.type === "checkbox") return `<label class="tdp-check is-wide"><input type="checkbox" name="${name}"${req}><span>${esc(x.label)}${star}</span></label>`;
+      if (x.type === "select") return `<label class="tdp-f"><span>${esc(x.label)}${star}</span><select name="${name}"${req}><option value="">Choose…</option>${(x.choices || []).map(o => `<option>${esc(o)}</option>`).join("")}</select></label>`;
+      if (x.type === "textarea") return `<label class="tdp-f is-wide"><span>${esc(x.label)}${star}</span><textarea name="${name}" rows="2" maxlength="500"${req}></textarea></label>`;
+      return `<label class="tdp-f"><span>${esc(x.label)}${star}</span><input name="${name}" ${x.type === "number" ? 'type="number" inputmode="decimal"' : 'type="text"'} maxlength="500"${req}></label>`;
+    }).join("");
+    const notes = input("notes", (f, req, lab) => `<label class="tdp-f is-wide">${lab}<textarea name="customer_notes" rows="3" maxlength="2000">${esc(f.default || "")}</textarea></label>`);
+    if (q || notes) html += `<section class="tdp-psec"><h3>Anything else</h3><div class="tdp-fgrid">${q}${notes}</div></section>`;
+    html += `<label class="tdp-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+      <p class="tdp-err" data-err role="alert" hidden></p>
+      <p class="tdp-muted tdp-privacy"><i class="fa-solid fa-lock" aria-hidden="true"></i> We use your details only for this booking. No payment is taken online.</p>`;
+    return `<form id="tdpBook" class="tdp-form" novalidate>${html}</form>`;
+  }
+  function quote(st) {
+    if (!S.cat) return "";
+    const s = S.cat.services.find(x => x.key === st.service);
+    return s && st.cls ? catMoney(s.prices?.[st.cls]) : "";
+  }
+
+  function openBooking(preset = {}) {
+    const st = { service: preset.service || "", cls: preset.cls || "", model: preset.model || "", vehicle: preset.vehicle || "", route: preset.route || "", places: {}, done: null, values: null };
+    const p = panel({
+      id: "book", title: "Book your trip", sub: S.site.business.name, icon: "fa-calendar-check",
+      pills: [S.cat?.terms?.timing ? pill(S.cat.terms.timing, "fa-clock", "info") : "", pill("No online payment", "fa-shield-halved")].filter(Boolean).concat(S.site.preview ? [pill("Preview", "fa-eye", "warn")] : []),
+      body: () => st.done ? doneHtml(st.done) : bookingBody(st),
+      foot: () => st.done
+        ? `${waLink(S.site.business.whatsapp) ? `<a class="tdp-btn" href="${esc(waLink(S.site.business.whatsapp, `Hello ${S.site.business.name}, about my booking ${st.done.reference}.`))}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>WhatsApp us</span></a>` : "<span></span>"}<button type="button" class="tdp-btn is-primary" data-close-top>Done</button>`
+        : `<span class="tdp-foot-note" data-quote>${S.cat ? `<small>Listed price</small><b>${esc(quote(st) || "—")}</b>` : `<small>Price</small><b>Confirmed by us</b>`}</span>
+           <button type="submit" form="tdpBook" class="tdp-btn is-primary" data-send${S.site.preview ? " disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i><span>Send request</span></button>`,
+      mount(el) {
+        const form = el.querySelector("#tdpBook"); if (!form) return;
+        if (st.values) restore(form, st.values);
+        Object.entries(st.places).forEach(([k, pl]) => { if (form.elements[k] && pl) hint(form, k, pl); });
+        const save = () => { st.values = snapshot(form); };
+        form.addEventListener("input", e => { if ((e.target.name === "pickup" || e.target.name === "destination") && st.places[e.target.name]) { delete st.places[e.target.name]; hint(form, e.target.name, null); } save(); });
+        form.addEventListener("change", e => {
+          save();
+          if (e.target.name === "cat_service") { st.service = e.target.value; paintPanel(el, { keepScroll: true }); }
+          if (e.target.name === "route") { const r = (S.site.routes || []).find(x => x.key === e.target.value); if (r) { if (form.elements.pickup && !form.elements.pickup.value) form.elements.pickup.value = r.pickup; if (form.elements.destination && !form.elements.destination.value) form.elements.destination.value = r.destination; save(); } }
+          if (e.target.name === "pickup_date" && form.elements.return_date) form.elements.return_date.min = e.target.value || today();
+        });
+        el.querySelectorAll("[data-type]").forEach(b => b.addEventListener("click", () => { save(); st.cls = b.dataset.type; if (st.model && !models(st.cls).some(m => m.id === st.model)) st.model = ""; paintPanel(el, { keepScroll: true }); }));
+        el.querySelectorAll("[data-model]").forEach(b => b.addEventListener("click", () => { save(); st.model = b.dataset.model; paintPanel(el, { keepScroll: true }); }));
+        el.querySelectorAll("[data-map]").forEach(b => b.addEventListener("click", () => { save(); openMap(b.dataset.map, st.places[b.dataset.map], pl => { st.places[b.dataset.map] = pl; const f2 = el.querySelector("#tdpBook"); if (f2?.elements[b.dataset.map]) { f2.elements[b.dataset.map].value = pl.label; hint(f2, b.dataset.map, pl); st.values = snapshot(f2); } }); }));
+        form.addEventListener("submit", e => { e.preventDefault(); save(); sendBooking(el, st); });
       }
-    };
-    const q = x => {
-      const req = x.required ? " required" : "", star = x.required ? ' <em aria-hidden="true">*</em>' : "";
-      const name = `q_${esc(x.id)}`;
-      if (x.type === "checkbox") return `<label class="tds-check is-wide"><input type="checkbox" name="${name}"${req}><span>${esc(x.label)}${star}</span></label>`;
-      if (x.type === "select") return `<label class="tds-f">${`<span>${esc(x.label)}${star}</span>`}<select name="${name}"${req}><option value="">Choose…</option>${(x.choices || []).map(c => `<option>${esc(c)}</option>`).join("")}</select></label>`;
-      if (x.type === "textarea") return `<label class="tds-f is-wide"><span>${esc(x.label)}${star}</span><textarea name="${name}" rows="2" maxlength="500"${req}></textarea></label>`;
-      return `<label class="tds-f"><span>${esc(x.label)}${star}</span><input name="${name}" ${x.type === "number" ? 'type="number" inputmode="decimal"' : 'type="text"'} maxlength="500"${req}></label>`;
-    };
-    // Grouped like the Triplem VIP side panels; within a group the business's own order is kept.
-    const GROUPS = [["Trip", ["vehicle", "route", "pickup", "destination"]], ["When", ["pickup_date", "pickup_time", "return_date", "return_time", "passengers"]],
-      ["Your details", ["customer_name", "customer_mobile", "customer_email"]], ["Anything else", ["notes"]]];
-    const sec = (title, html) => html.trim() ? `<section class="tds-psec"><h3>${esc(title)}</h3><div class="tds-fgrid">${html}</div></section>` : "";
-    return GROUPS.map(([title, keys]) => sec(title, f.fields.filter(x => keys.includes(x.key)).map(field).join("") + (title === "Anything else" ? (f.questions || []).map(q).join("") : ""))).join("")
-      + `<label class="tds-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
-      <p class="tds-err" data-err role="alert" hidden></p>
-      <p class="tds-muted tds-small tds-privacy"><i class="fa-solid fa-lock" aria-hidden="true"></i> We use your details only to handle this booking. No payment is taken online.</p>`;
+    });
+    return p;
   }
-
-  // ---- booking side panel ------------------------------------------------------------------------
-  function panelHtml() {
-    const b = S.site.business, t = CAT()?.get()?.terms;
-    return `<div class="tds-pnl" data-pnl aria-hidden="true">
-      <div class="tds-pnl-backdrop" data-pnl-close></div>
-      <aside class="tds-pnl-panel" role="dialog" aria-modal="true" aria-labelledby="tdsPnlTitle">
-        <header class="tds-pnl-head">
-          <span class="tds-pnl-ava">${b.logo ? `<img data-k="${esc(b.logo)}" alt="">` : `<i class="fa-solid fa-car-side" aria-hidden="true"></i>`}</span>
-          <div class="tds-pnl-id"><strong id="tdsPnlTitle">Book your trip</strong><small>${esc(b.name)}</small>
-            <div class="tds-pnl-pills">${t?.timing ? `<span><i class="fa-regular fa-clock" aria-hidden="true"></i>${esc(t.timing)}</span>` : ""}<span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>No online payment</span>${S.site.preview ? `<span class="is-warn"><i class="fa-solid fa-eye" aria-hidden="true"></i>Preview</span>` : ""}</div></div>
-          <button type="button" class="tds-pnl-x" data-pnl-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-        </header>
-        <div class="tds-pnl-body" data-pnl-body>${panelForm()}</div>
-        <footer class="tds-pnl-foot" data-pnl-foot>${panelFoot()}</footer>
-      </aside></div>`;
+  function hint(form, key, pl) {
+    const h = form.querySelector(`[data-place-hint="${key}"]`); if (!h) return;
+    if (!pl) { h.hidden = true; h.textContent = ""; return; }
+    h.hidden = false; h.innerHTML = `<i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i> Pinned on the map (${pl.lat.toFixed(5)}, ${pl.lng.toFixed(5)})`;
   }
-  const panelForm = () => `<form id="tdsBookForm" class="tds-form" data-form novalidate>${CAT() ? CAT().formHtml() : ""}${formHtml()}</form>`;
-  const panelFoot = () => `<div class="tds-pnl-quote" data-pnl-quote>${CAT() ? `<small>Listed price</small><b>—</b>` : `<small>Price</small><b>Confirmed by us</b>`}</div>
-    <button type="submit" form="tdsBookForm" class="tds-btn is-primary is-lg" data-submit${S.site.preview ? " disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send request</button>`;
-  const pnl = () => app.querySelector("[data-pnl]");
-  let lastFocus = null;
-  function openPanel(after) {
-    const p = pnl(); if (!p) return;
-    if (S.done) { app.querySelector("[data-pnl-body]").innerHTML = panelForm(); app.querySelector("[data-pnl-foot]").innerHTML = panelFoot(); S.done = false; bindForm(); }
-    lastFocus = document.activeElement;
-    p.classList.add("is-open"); p.setAttribute("aria-hidden", "false");
-    document.documentElement.classList.add("tds-lock");
-    const form = app.querySelector("[data-form]");
-    if (typeof after === "function") after(form);
-    syncQuote();
-    setTimeout(() => { const first = form?.querySelector("select:not([disabled]), input:not([type=hidden]):not([tabindex='-1'])"); first?.focus({ preventScroll: true }); }, 400);
+  const snapshot = form => { const o = {}; for (const el of form.elements) if (el.name) o[el.name] = el.type === "checkbox" ? el.checked : el.value; return o; };
+  const restore = (form, o) => { for (const el of form.elements) if (el.name && el.name in o && el.name !== "cat_service") { if (el.type === "checkbox") el.checked = !!o[el.name]; else el.value = o[el.name]; } };
+  function doneHtml(r) {
+    return `<div class="tdp-done" role="status" tabindex="-1"><span class="tdp-done-ico ${r.status === "confirmed" ? "is-ok" : ""}"><i class="fa-solid ${r.status === "confirmed" ? "fa-circle-check" : "fa-paper-plane"}" aria-hidden="true"></i></span>
+      <h2>${r.status === "confirmed" ? "Booking confirmed" : r.inquiry ? "Message sent" : "Request received"}</h2><p>${esc(r.message)}</p>
+      ${r.reference ? `<p class="tdp-ref">Your reference<b>${esc(r.reference)}</b></p>` : ""}</div>`;
   }
-  function closePanel() {
-    const p = pnl(); if (!p || !p.classList.contains("is-open")) return;
-    p.classList.remove("is-open"); p.setAttribute("aria-hidden", "true");
-    document.documentElement.classList.remove("tds-lock");
-    try { lastFocus?.focus({ preventScroll: true }); } catch (_) {}
+  function showErr(el, text, field) {
+    const err = el.querySelector("[data-err]"); if (!err) return;
+    err.textContent = text; err.hidden = false;
+    el.querySelectorAll(".is-bad").forEach(x => x.classList.remove("is-bad"));
+    if (field) { field.classList.add("is-bad"); field.scrollIntoView({ block: "center", behavior: "smooth" }); try { field.focus({ preventScroll: true }); } catch (_) {} }
+    else err.scrollIntoView({ block: "center", behavior: "smooth" });
   }
-  function syncQuote() {
-    const q = app.querySelector("[data-pnl-quote] b"), src = app.querySelector("[data-form] [data-cat-quote] b");
-    if (q && src) q.textContent = src.textContent;
+  function placeValue(form, st, key) {
+    const t = String(form.elements[key]?.value || "").trim();
+    const pl = st.places[key];
+    if (!pl) return t;
+    const tail = ` · ${pl.lat.toFixed(6)},${pl.lng.toFixed(6)}`;
+    return (t || "Pinned location").slice(0, 200 - tail.length) + tail;
   }
-
-  async function submit(form) {
-    const err = form.querySelector("[data-err]"), btn = app.querySelector("[data-pnl-foot] [data-submit]");
-    err.hidden = true;
-    form.querySelectorAll(".is-bad").forEach(x => x.classList.remove("is-bad"));
+  async function sendBooking(el, st) {
+    const form = el.querySelector("#tdpBook"), btn = el.querySelector("[data-send]");
+    el.querySelector("[data-err]").hidden = true;
     const fd = new FormData(form), p = { answers: {} };
-    for (const [k, v] of fd.entries()) { if (k.startsWith("q_")) p.answers[k.slice(2)] = String(v).trim(); else p[k] = String(v).trim(); }
+    for (const [k, v] of fd.entries()) { if (k.startsWith("q_")) p.answers[k.slice(2)] = String(v).trim(); else if (!k.startsWith("cat_")) p[k] = String(v).trim(); }
     form.querySelectorAll('input[type="checkbox"][name^="q_"]').forEach(c => { p.answers[c.name.slice(2)] = c.checked ? "yes" : ""; });
-    // Browser checks first (the server checks everything again).
-    for (const k of Object.keys(p)) if (k.startsWith("cat_")) delete p[k];
-    if (CAT()) {
-      const c = CAT().payload(form);
-      if (!c) { showErr(form, "Choose the service and the vehicle type.", form.elements.cat_service.value ? form.elements.cat_class : form.elements.cat_service); return; }
-      p.catalog = c;
-      const mins = CAT().minNoticeMinutes();
-      if (mins && p.pickup_date && p.pickup_time) {
-        const t = new Date(`${p.pickup_date}T${p.pickup_time}`);
-        if (t - Date.now() < mins * 60000) { showErr(form, `Please book at least ${mins >= 60 && mins % 60 === 0 ? mins / 60 + " hour" + (mins === 60 ? "" : "s") : mins + " minutes"} before the trip.`, form.elements.pickup_time); return; }
+    if (form.elements.pickup) p.pickup = placeValue(form, st, "pickup");
+    if (form.elements.destination) p.destination = placeValue(form, st, "destination");
+    if (S.cat) {
+      const svc = S.cat.services.find(x => x.key === st.service);
+      if (!svc) return showErr(el, "Choose the route or service.", form.elements.cat_service);
+      if (!st.cls) return showErr(el, "Choose the vehicle type.", el.querySelector("[data-type]"));
+      const k = (S.cat.classes || []).find(x => x.key === st.cls), m = models(st.cls).find(x => x.id === st.model);
+      if (m?.dbKey) p.vehicle = m.dbKey; else delete p.vehicle;
+      p.catalog = { vehicle: `${k?.name || st.cls} · ${m ? m.name : "Any model"}`, service: serviceName(svc), price: quote(st) };
+      const mins = Number(S.cat.terms?.min_notice_minutes) || 0;
+      if (mins && p.pickup_date && p.pickup_time && new Date(`${p.pickup_date}T${p.pickup_time}`) - Date.now() < mins * 60000) {
+        return showErr(el, `Please book at least ${mins % 60 === 0 ? `${mins / 60} hour${mins === 60 ? "" : "s"}` : `${mins} minutes`} before the trip.`, form.elements.pickup_time);
       }
     }
-    const missing = [...form.querySelectorAll("[required]")].find(el => el.type === "checkbox" ? !el.checked : !String(el.value || "").trim());
-    if (missing) { showErr(form, "Please fill in the required fields.", missing); return; }
+    const missing = [...form.querySelectorAll("[required]")].find(x => x.type === "checkbox" ? !x.checked : !String(x.value || "").trim());
+    if (missing) return showErr(el, "Please fill in the required fields.", missing);
     btn.disabled = true; btn.classList.add("is-busy");
     try {
       const r = await rpc("app_drive_public_book", { p_slug: S.slug, p });
       if (r && r.ok && r.reference) {
-        S.done = true;
-        app.querySelector("[data-pnl-body]").innerHTML = `<div class="tds-done" role="status" tabindex="-1">
-            <span class="tds-done-ico ${r.status === "confirmed" ? "is-ok" : ""}"><i class="fa-solid ${r.status === "confirmed" ? "fa-circle-check" : "fa-paper-plane"}" aria-hidden="true"></i></span>
-            <h2>${r.status === "confirmed" ? "Booking confirmed" : "Request received"}</h2>
-            <p>${esc(r.message)}</p>
-            <p class="tds-ref">Your reference<b>${esc(r.reference)}</b></p>
-          </div>`;
-        app.querySelector("[data-pnl-foot]").innerHTML = `${waLink(S.site.business.whatsapp) ? `<a class="tds-btn is-wa is-lg" href="${esc(waLink(S.site.business.whatsapp, `Hello ${S.site.business.name}, about my booking ${r.reference}.`))}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> WhatsApp us</a>` : "<span></span>"}<button type="button" class="tds-btn is-lg" data-pnl-close>Done</button>`;
-        app.querySelector(".tds-done")?.focus();
+        notifyBusiness(r.push_token);
+        st.done = r; el._def.title = r.status === "confirmed" ? "Booking confirmed" : "Request received";
+        paintPanel(el); el.querySelector(".tdp-done")?.focus();
         return;
       }
-      const el = r?.field ? form.querySelector(`[name="${r.field === "notes" ? "customer_notes" : r.field}"]`) : null;
-      showErr(form, r?.error || "Your request could not be sent. Please try again.", el);
-    } catch (_) {
-      showErr(form, "Your request could not be sent. Check your connection and try again.");
-    } finally { if (btn.isConnected) { btn.disabled = false; btn.classList.remove("is-busy"); } }
-  }
-  function showErr(form, text, el) {
-    const err = form.querySelector("[data-err]");
-    err.textContent = text; err.hidden = false;
-    if (el) { el.classList.add("is-bad"); el.scrollIntoView({ block: "center", behavior: "smooth" }); el.focus({ preventScroll: true }); }
-    else err.scrollIntoView({ block: "center", behavior: "smooth" });
+      const f = r?.field ? form.querySelector(`[name="${r.field === "notes" ? "customer_notes" : r.field}"]`) : null;
+      showErr(el, r?.error || "Your request could not be sent. Please try again.", f);
+    } catch (_) { showErr(el, "Your request could not be sent. Check your connection and try again."); }
+    finally { if (btn.isConnected) { btn.disabled = false; btn.classList.remove("is-busy"); } }
   }
 
-  function bindForm() {
-    const form = app.querySelector("[data-form]");
-    if (!form) return;
-    form.addEventListener("submit", e => { e.preventDefault(); submit(form); });
-    form.addEventListener("change", e => {
-      if (CAT() && String(e.target.name || "").startsWith("cat_")) { CAT().syncForm(form); syncQuote(); }
-      if (e.target.name === "route") {
-        const r = (S.site.routes || []).find(x => x.key === e.target.value);
-        if (r) { const a = form.elements.pickup, b = form.elements.destination; if (a && !a.value) a.value = r.pickup; if (b && !b.value) b.value = r.destination; }
+  // ---- map picker (OpenStreetMap; address search and names by Nominatim) ------------------------------
+  let leafletP = null;
+  function leaflet() {
+    if (window.L) return Promise.resolve(window.L);
+    if (leafletP) return leafletP;
+    leafletP = new Promise((resolve, reject) => {
+      const l = document.createElement("link"); l.rel = "stylesheet"; l.href = LEAFLET_CSS; document.head.appendChild(l);
+      const s = document.createElement("script"); s.src = LEAFLET_JS; s.async = true;
+      s.onload = () => window.L ? resolve(window.L) : reject(new Error("map")); s.onerror = () => { leafletP = null; reject(new Error("map")); };
+      document.head.appendChild(s);
+    });
+    return leafletP;
+  }
+  async function geo(path) {
+    const r = await fetch(`${GEO}${path}${path.includes("?") ? "&" : "?"}format=jsonv2&accept-language=en`, { headers: { Accept: "application/json" } });
+    if (!r.ok) throw new Error("geo");
+    return r.json();
+  }
+  const shortName = j => {
+    const a = j?.address || {};
+    const street = a.road || a.pedestrian || a.neighbourhood || "";
+    const parts = j?.name ? [j.name, a.city || a.town || a.village || a.state] : [street || a.suburb, street ? a.suburb : "", a.city || a.town || a.village || a.state];
+    parts.splice(0, parts.length, ...parts.filter(Boolean));
+    return [...new Set(parts)].join(", ") || String(j?.display_name || "").split(",").slice(0, 3).join(",").trim();
+  };
+  function openMap(field, current, onPick) {
+    const label = fieldCfg(field).label || (field === "pickup" ? "Pickup" : "Drop-off");
+    const st = { pl: current || null, map: null, timer: 0, seq: 0 };
+    const center = current ? [current.lat, current.lng] : (S.cat ? [24.7136, 46.6753] : [25.2048, 55.2708]);
+    panel({
+      id: "map", title: `${label} on the map`, sub: "Move the map so the pin sits on the place", icon: "fa-map-location-dot",
+      body: () => `<div class="tdp-mapbox">
+          <div class="tdp-map-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Search a place or address" data-msearch data-autofocus aria-label="Search a place"><button type="button" class="tdp-icon is-sm" data-mlocate title="Use my location" aria-label="Use my location"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i></button></div>
+          <ul class="tdp-map-results" data-mresults hidden></ul>
+          <div class="tdp-map" data-map-el><div class="tdp-map-loading"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Loading the map…</div></div>
+          <span class="tdp-map-pin" aria-hidden="true"><i class="fa-solid fa-location-dot"></i></span>
+        </div>`,
+      foot: () => `<span class="tdp-foot-note" data-mlabel><small>Selected place</small><b>${esc(current?.label || "Move the map")}</b></span>
+        <button type="button" class="tdp-btn is-primary" data-muse disabled><i class="fa-solid fa-check" aria-hidden="true"></i><span>Use this place</span></button>`,
+      onClose: () => { try { st.map?.remove(); } catch (_) {} },
+      async mount(el) {
+        const lab = el.querySelector("[data-mlabel] b"), use = el.querySelector("[data-muse]");
+        const setPl = (lat, lng, name) => { st.pl = { lat, lng, label: name || `Pinned location` }; lab.textContent = st.pl.label; use.disabled = false; };
+        const reverse = async (lat, lng) => {
+          const my = ++st.seq; lab.textContent = "Finding the address…"; use.disabled = true;
+          try { const j = await geo(`/reverse?lat=${lat}&lon=${lng}&zoom=18`); if (my === st.seq) setPl(lat, lng, shortName(j)); }
+          catch (_) { if (my === st.seq) setPl(lat, lng, `Pinned location`); }
+        };
+        try {
+          const L = await leaflet();
+          const box = el.querySelector("[data-map-el]"); box.innerHTML = "";
+          st.map = L.map(box, { zoomControl: false, attributionControl: true }).setView(center, current ? 16 : 12);
+          L.control.zoom({ position: "bottomright" }).addTo(st.map);
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap contributors" }).addTo(st.map);
+          st.map.on("moveend", () => { clearTimeout(st.timer); if (st.quiet) { st.quiet = false; return; } const c = st.map.getCenter(); st.timer = setTimeout(() => reverse(c.lat, c.lng), 450); });
+          st.map.on("click", e => st.map.panTo(e.latlng));
+          if (current) setPl(current.lat, current.lng, current.label);
+          setTimeout(() => st.map.invalidateSize(), 420);
+        } catch (_) {
+          el.querySelector("[data-map-el]").innerHTML = `<div class="tdp-map-loading"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> The map could not be loaded. You can still type the address.</div>`;
+        }
+        const search = el.querySelector("[data-msearch]"), results = el.querySelector("[data-mresults]");
+        let t = 0;
+        search.addEventListener("input", () => {
+          clearTimeout(t);
+          const q = search.value.trim();
+          if (q.length < 3) { results.hidden = true; return; }
+          t = setTimeout(async () => {
+            try {
+              const list = await geo(`/search?q=${encodeURIComponent(q)}&limit=6&addressdetails=1`);
+              results.innerHTML = (list || []).map((x, i) => `<li><button type="button" data-mres="${i}"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span><b>${esc(shortName(x))}</b><small>${esc(x.display_name)}</small></span></button></li>`).join("") || `<li class="tdp-muted">No places found</li>`;
+              results.hidden = false;
+              results.querySelectorAll("[data-mres]").forEach(b => b.addEventListener("click", () => {
+                const x = list[+b.dataset.mres]; results.hidden = true; search.value = shortName(x);
+                const lat = Number(x.lat), lng = Number(x.lon);
+                st.seq++; clearTimeout(st.timer); setPl(lat, lng, shortName(x));
+                if (st.map) { st.quiet = true; st.map.setView([lat, lng], 17); }
+              }));
+            } catch (_) { results.innerHTML = `<li class="tdp-muted">Search is not available right now. Move the map instead.</li>`; results.hidden = false; }
+          }, 600);
+        });
+        el.querySelector("[data-mlocate]").addEventListener("click", () => {
+          if (!navigator.geolocation) return;
+          navigator.geolocation.getCurrentPosition(pos => { st.map?.setView([pos.coords.latitude, pos.coords.longitude], 17); },
+            () => { lab.textContent = "Your location is not available. Move the map instead."; }, { enableHighAccuracy: true, timeout: 10000 });
+        });
+        use.addEventListener("click", () => { if (!st.pl) return; const pl = st.pl; closeTop(); onPick(pl); });
       }
-      if (e.target.name === "pickup_date" && form.elements.return_date) form.elements.return_date.min = e.target.value || today();
     });
   }
+
+  // ---- inquiry panel -------------------------------------------------------------------------------
+  function openInquiry() {
+    const st = { done: null, values: null };
+    panel({
+      id: "ask", title: "Ask a question", sub: S.site.business.name, icon: "fa-comment-dots",
+      pills: [pill("We reply by phone, WhatsApp or email", "fa-reply", "info")],
+      body: () => st.done ? doneHtml({ ...st.done, inquiry: true }) : `<form id="tdpAsk" class="tdp-form" novalidate>
+          <section class="tdp-psec"><h3>Your message</h3><div class="tdp-fgrid">
+            <label class="tdp-f is-wide"><span>Subject</span><input name="subject" maxlength="120" placeholder="e.g. Group trip to Makkah" data-autofocus></label>
+            <label class="tdp-f is-wide"><span>Message <em aria-hidden="true">*</em></span><textarea name="message" rows="5" maxlength="2000" required></textarea></label>
+          </div></section>
+          <section class="tdp-psec"><h3>Your details</h3><div class="tdp-fgrid">
+            <label class="tdp-f"><span>Name <em aria-hidden="true">*</em></span><input name="name" maxlength="80" autocomplete="name" required></label>
+            <label class="tdp-f"><span>Mobile</span><input name="mobile" type="tel" inputmode="tel" maxlength="24" autocomplete="tel" placeholder="+966 50 123 4567"></label>
+            <label class="tdp-f is-wide"><span>Email</span><input name="email" type="email" maxlength="160" autocomplete="email"></label>
+          </div><small class="tdp-muted">Give a mobile number or an email so we can answer.</small></section>
+          <label class="tdp-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+          <p class="tdp-err" data-err role="alert" hidden></p></form>`,
+      foot: () => st.done ? `<span></span><button type="button" class="tdp-btn is-primary" data-close-top>Done</button>`
+        : `<span class="tdp-foot-note"><small>Answer</small><b>As soon as possible</b></span><button type="submit" form="tdpAsk" class="tdp-btn is-primary" data-send${S.site.preview ? " disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i><span>Send</span></button>`,
+      mount(el) {
+        const form = el.querySelector("#tdpAsk"); if (!form) return;
+        form.addEventListener("submit", async e => {
+          e.preventDefault();
+          const p = Object.fromEntries([...new FormData(form).entries()].map(([k, v]) => [k, String(v).trim()]));
+          if (!p.message) return showErr(el, "Write your message.", form.elements.message);
+          if (!p.name) return showErr(el, "Enter your name.", form.elements.name);
+          if (!p.mobile && !p.email) return showErr(el, "Enter your mobile number or email so we can answer.", form.elements.mobile);
+          const btn = el.querySelector("[data-send]"); btn.disabled = true; btn.classList.add("is-busy");
+          try {
+            const r = await rpc("app_drive_public_inquiry", { p_slug: S.slug, p });
+            if (r && r.ok) { notifyBusiness(r.push_token); st.done = r; el._def.title = "Message sent"; paintPanel(el); return; }
+            showErr(el, r?.error || "Your message could not be sent. Please try again.", r?.field ? form.elements[r.field] : null);
+          } catch (_) { showErr(el, "Your message could not be sent. Check your connection and try again."); }
+          finally { if (btn.isConnected) { btn.disabled = false; btn.classList.remove("is-busy"); } }
+        });
+      }
+    });
+  }
+
+  function openCredits() {
+    const items = (S.cat?.vehicles || []).flatMap(v => (v.photos || []).filter(p => p.commons).map(p => ({ v, p })));
+    panel({
+      id: "credits", title: "Photo credits", sub: "Vehicle photos", icon: "fa-camera",
+      body: () => `<section class="tdp-psec"><h3>Wikimedia Commons</h3><ul class="tdp-rows">${items.map(({ v, p }) => {
+        const cr = S.credits[p.file] || {};
+        return `<li><span><b>${esc(v.name)}</b><small><a href="${esc(commonsPage(p.commons))}" target="_blank" rel="noopener nofollow">${esc(p.commons)}</a>${cr.author ? ` · ${esc(cr.author)}` : ""} · ${esc(cr.license || "free licence (see the file page)")}</small></span></li>`;
+      }).join("")}</ul></section>`
+    });
+  }
+
+  // ---- events --------------------------------------------------------------------------------------
   function bind() {
-    bindForm();
-    if (CAT()) {
-      app.addEventListener("error", CAT().onImgError, true);
-      app.addEventListener("load", CAT().onImgLoad, true);
-    }
-    document.addEventListener("keydown", e => { if (e.key === "Escape" && pnl()?.classList.contains("is-open") && !app.querySelector("dialog[open]")) closePanel(); });
+    app.addEventListener("error", onImgError, true);
+    app.addEventListener("load", onImgLoad, true);
     app.addEventListener("click", e => {
       const t = e.target;
-      const sec = t.closest("[data-sec]");
-      if (sec) {
-        S.section = sec.dataset.sec;
-        app.querySelectorAll("[data-sec]").forEach(x => x.setAttribute("aria-checked", String(x === sec)));
-        app.querySelectorAll("[data-sec-of]").forEach(c => { c.hidden = !!S.section && c.dataset.secOf !== S.section; });
-        return;
+      if (t.closest("[data-close-top]")) return closeTop();
+      const tab = t.closest("[data-tab]"); if (tab) return showTab(tab.dataset.tab);
+      const go = t.closest("[data-tab-go]"); if (go) { closeAll(); showTab(go.dataset.tabGo); app.querySelector(".tdp-tabs")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+      const ptab = t.closest("[data-ptab]"); if (ptab) { const el = ptab.closest(".tdp-pnl"); el._def.tab = ptab.dataset.ptab; return paintPanel(el); }
+      const flt = t.closest("[data-filter]"); if (flt) { S.filter = flt.dataset.filter; return showTab("vehicles"); }
+      const grp = t.closest("[data-group]"); if (grp) { S.group = grp.dataset.group; return showTab("prices"); }
+      const act = t.closest("[data-act]");
+      if (act) { const a = act.dataset.act; if (a === "book") return openBooking(); if (a === "inquiry") return openInquiry(); if (a === "credits") return openCredits(); }
+      const bc = t.closest("[data-book-car]");
+      if (bc) {
+        const c = carById(bc.dataset.bookCar); if (!c) return;
+        if (S.stack.length && S.stack[S.stack.length - 1]._def.id === "car") closeTop();
+        return openBooking(c.cls ? { cls: c.cls, model: c.id, service: bc.dataset.service || "" } : { vehicle: c.key });
       }
-      if (t.closest("[data-pnl-close]")) return closePanel();
-      if (t.closest("[data-book-open]")) return openPanel();
-      const op = t.closest("[data-open]"); if (op) return vehicleDialog(op.dataset.open);
-      if (CAT()) {
-        const cf = t.closest("[data-cat-filter]");
-        if (cf) {
-          app.querySelectorAll("[data-cat-filter]").forEach(x => x.setAttribute("aria-checked", String(x === cf)));
-          app.querySelectorAll("[data-cat-class]").forEach(c => { c.hidden = !!cf.dataset.catFilter && c.dataset.catClass !== cf.dataset.catFilter; });
-          return;
-        }
-        const co = t.closest("[data-cat-open]"); if (co) return CAT().dialog(app.querySelector("[data-dlg]"), co.dataset.catOpen, !S.site.preview);
-        const cb = t.closest("[data-cat-book]");
-        if (cb) { const d = app.querySelector("[data-dlg]"); if (d?.open) d.close(); return openPanel(f => CAT().preset(f, { model: cb.dataset.catBook })); }
-        const cs = t.closest("[data-cat-service]"); if (cs) return openPanel(f => CAT().preset(f, { service: cs.dataset.catService }));
-      }
-      const bk = t.closest("[data-book]");
-      if (bk) { const d = app.querySelector("[data-dlg]"); if (d?.open) d.close(); pick("vehicle", bk.dataset.book); return; }
-      const br = t.closest("[data-book-route]"); if (br) return pick("route", br.dataset.bookRoute);
-      const th = t.closest("[data-thumb]");
-      if (th) {
-        const dlg = th.closest("dialog"), main = dlg.querySelector("[data-main]");
-        dlg.querySelectorAll("[data-thumb]").forEach(x => x.toggleAttribute("aria-current", x === th));
-        main.dataset.k = th.dataset.thumb; main.classList.remove("is-in");
-        loadMedia([th.dataset.thumb], "full").then(() => { const u = S.media.get(`full:${th.dataset.thumb}`) || S.media.get(`thumb:${th.dataset.thumb}`); if (u) { main.src = u; main.classList.add("is-in"); } });
-        return;
-      }
-      if (t.closest("[data-close]") || t.matches("dialog")) t.closest("dialog")?.close();
+      const bs = t.closest("[data-book-service]"); if (bs) return openBooking({ service: bs.dataset.bookService });
+      const br = t.closest("[data-book-route]"); if (br) return openBooking({ route: br.dataset.bookRoute });
+      const card = t.closest("[data-car]"); if (card) return openCar(card.dataset.car);
     });
-  }
-  function pick(name, value) {
-    openPanel(form => { const sel = form?.elements[name]; if (sel) { sel.value = value; sel.dispatchEvent(new Event("change", { bubbles: true })); } });
+    app.addEventListener("input", e => {
+      const f = e.target.closest?.(".tdp-form"); if (!f || !e.target.classList.contains("is-bad")) return;
+      e.target.classList.remove("is-bad"); const err = f.querySelector("[data-err]"); if (err) err.hidden = true;
+    });
+    app.addEventListener("keydown", e => {
+      const card = e.target.closest?.("[data-car]");
+      if (card && (e.key === "Enter" || e.key === " ") && e.target === card) { e.preventDefault(); openCar(card.dataset.car); }
+    });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && S.stack.length) { e.preventDefault(); closeTop(); } });
   }
 
-  // ---- start -----------------------------------------------------------------------------------
+  // ---- start ---------------------------------------------------------------------------------------
+  async function loadCatalogue(site) {
+    try {
+      const r = await fetch(`${CAT_BASE}catalog.json?v=${Date.now().toString(36).slice(0, 5)}`, { cache: "no-cache" });
+      if (!r.ok) return null;
+      const c = await r.json(), to = c.apply_to || {};
+      if (!((to.root && site.is_root) || (Array.isArray(to.slugs) && to.slugs.includes(site.slug)))) return null;
+      if (!Array.isArray(c.vehicles) || !Array.isArray(c.services)) return null;
+      try { const cr = await fetch(`${CAT_BASE}credits.json`, { cache: "no-cache" }); if (cr.ok) S.credits = await cr.json(); } catch (_) {}
+      return c;
+    } catch (_) { return null; }
+  }
   async function start() {
     S.slug = resolveSlug();
     let r;
     try {
       r = await rpc("app_drive_public_site", { p_slug: S.slug, p_preview: preview || null });
-      // Before an account has the address "triplemdrive", /triplemdrive/ shows the business marked for it.
       if (r && !r.ok && r.reason === "not_found" && S.slug === "triplemdrive") r = await rpc("app_drive_public_site", { p_slug: null, p_preview: preview || null });
+    } catch (e) {
+      seo({ title: "Triplem Drive", description: "Vehicle bookings by Triplem Drive.", index: false });
+      return messagePage("fa-wifi", "This page could not be loaded", "Check your connection and try again.", `<button class="tdp-btn is-primary" onclick="location.reload()">Try again</button>`);
     }
-    catch (e) { seo({ title: "Triplem Drive", description: "Vehicle bookings by Triplem Drive.", index: false }); return messagePage("fa-wifi", "This page could not be loaded", "Check your connection and try again.", `<button class="tds-btn is-primary" onclick="location.reload()">Try again</button>`); }
     if (r && r.ok) {
-      S.site = r; S.slug = r.slug; S.cat = window.TDCatalog ? await window.TDCatalog.load(r) : null;
-      render();
-      if (/^#book\b/.test(location.hash)) openPanel();
+      S.site = r; S.slug = r.slug; S.cat = await loadCatalogue(r);
+      const h = (location.hash || "").replace("#", "");
+      if (["vehicles", "prices", "routes", "faq", "contact"].includes(h)) S.tab = h;
+      render(); bind();
+      if (h === "book") openBooking(); else if (h === "ask") openInquiry();
       return;
     }
     if (r && r.reason === "moved" && r.slug) { location.replace(`/${encodeURIComponent(r.slug)}/${location.hash}`); return; }
     seo({ title: r?.reason === "unpublished" ? `${r.business_name || "Triplem Drive"} · Not available` : "Page not found · Triplem Drive", description: "This Triplem Drive page is not available.", index: false });
     if (r && r.reason === "unpublished") return messagePage("fa-eye-slash", r.business_name || "Not available yet", "This booking page is not available at the moment. Please contact the business directly.");
-    return messagePage("fa-route", "Page not found", qs.get("nf") ? "The page you are looking for could not be found." : "There is no booking page at this address.", `<a class="tds-btn is-primary" href="${CANON_ORIGIN}/">Go to Triplem VIP</a>`);
+    return messagePage("fa-route", "Page not found", qs.get("nf") ? "The page you are looking for could not be found." : "There is no booking page at this address.", `<a class="tdp-btn is-primary" href="${CANON_ORIGIN}/">Go to Triplem VIP</a>`);
   }
   start();
 })();
