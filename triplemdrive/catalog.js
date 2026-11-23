@@ -103,14 +103,14 @@
   // ---- booking form fields --------------------------------------------------------------------
   function formHtml() {
     const groups = C.service_groups || [];
-    return `<fieldset class="tds-cat-form"><legend>Choose your trip</legend><div class="tds-fgrid">
+    return `<section class="tds-psec tds-cat-form"><h3>Choose your trip</h3><div class="tds-fgrid">
       <label class="tds-f is-wide"><span>Service <em aria-hidden="true">*</em></span><select name="cat_service" required><option value="">Choose a route or service</option>
         ${groups.map(g => { const rows = C.services.filter(s => s.group === g.key); return rows.length ? `<optgroup label="${esc(g.name)}">${rows.map(s => `<option value="${esc(s.key)}">${esc(serviceName(s))}</option>`).join("")}</optgroup>` : ""; }).join("")}
       </select></label>
       <label class="tds-f"><span>Vehicle type <em aria-hidden="true">*</em></span><select name="cat_class" required><option value="">Choose</option>${(C.classes || []).map(c => `<option value="${esc(c.key)}">${esc(c.name)}</option>`).join("")}</select></label>
       <label class="tds-f"><span>Preferred model</span><select name="cat_model"><option value="">Any model</option></select></label>
       <div class="tds-cat-quote is-wide" data-cat-quote aria-live="polite"><span>Listed price</span><b>—</b></div>
-    </div></fieldset>`;
+    </div></section>`;
   }
   function syncForm(form) {
     const c = form.elements.cat_class?.value || "", m = form.elements.cat_model;

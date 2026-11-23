@@ -2,7 +2,7 @@
   "version": 1,
   "updated": "2026-11-23",
   "about": "Triplem Drive website catalogue: the listed vehicles, routes and prices shown on the public page. Cars added later are managed in the Triplem Drive dashboard (database). Prices are in the currency below and exclude the additions listed under terms.",
-  "apply_to": { "root": true, "slugs": [] },
+  "apply_to": { "root": false, "slugs": ["triplemdrive"] },
   "currency": "SAR",
   "classes": [
     { "key": "suv", "name": "SUV", "models": ["gmc-yukon", "gmc-yukon-xl", "chevrolet-tahoe", "chevrolet-suburban"] },

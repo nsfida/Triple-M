@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8"/>
   <script>
-    // Triplem Drive public pages: /triplemdrive/<address>/ is served by /triplemdrive/ (static hosting).
-    (function () { var m = location.pathname.match(/^\/triplemdrive\/([A-Za-z0-9-]{3,40})\/?$/); if (m) location.replace("/triplemdrive/?b=" + encodeURIComponent(m[1].toLowerCase()) + location.search.replace(/^\?/, "&") + location.hash); })();
+    // Triplem Drive business pages: https://triplem.vip/<address>/ (and earlier /triplemdrive/<address>/) are
+    // served by /triplemdrive/ on static hosting. Unknown addresses show the normal "not found" message there.
+    (function () { var p = location.pathname, m = p.match(/^\/triplemdrive\/([A-Za-z0-9-]{3,40})\/?$/) || p.match(/^\/([a-z0-9-]{3,40})\/?$/); if (m) location.replace("/triplemdrive/?b=" + encodeURIComponent(m[1].toLowerCase()) + "&nf=1" + location.search.replace(/^\?/, "&") + location.hash); })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Page Not Found | Triplem VIP</title>

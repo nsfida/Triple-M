@@ -112,12 +112,13 @@
       if (okMsg) toast(okMsg, "ok");
       return true;
     } catch (err) {
+      if (err?.quiet) return false; // nothing went wrong (e.g. a dialog opened instead)
       const msg = String(err?.message || err || "The change was not saved.");
       if (typeof isAdminSecurityKeyError === "function" && isAdminSecurityKeyError(err)) {
         toast("Admin security key needed. Unlock it, then try again.", "bad");
         try { await ensureAdminSecurityAccess?.(); } catch (_) {}
       } else {
-        if (msg.replace(/^Error:\s*/, "")) toast(msg.replace(/^Error:\s*/, ""), "bad");
+        toast(msg.replace(/^Error:\s*/, ""), "bad");
       }
       return false;
     } finally {
@@ -382,12 +383,11 @@
     if (!d) return "";
     if (d.error) return `<p class="aum-muted">${esc(/function|schema/i.test(d.error) ? "Triplem Drive needs database update 236." : d.error)}</p>`;
     if (!d.enabled) return d.exists ? `<p class="aum-muted">Triplem Drive is off. Its vehicles, bookings and page are kept and come back when it is switched on again.</p>` : "";
-    const url = global.TriplemDriveAdmin?.publicUrl?.(d.slug) || `https://triplem.vip/triplemdrive/${d.slug}/`;
+    const url = global.TriplemDriveAdmin?.publicUrl?.(d.slug) || `https://triplem.vip/${d.slug}/`;
     const hist = (d.history || []).slice(0, 5).map(h => `<li><span><b>${esc(global.TriplemDriveAdmin?.actionLabel?.(h) || h.action)}</b></span><small>${esc(when(h.at))} · ${esc(h.by || "Admin")}</small></li>`).join("");
     return `<div class="aum-drive" data-aum-drive>
       ${kv([
         ["Public page", `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url.replace(/^https:\/\//, ""))}</a>`],
-        d.is_root ? ["Also at", `<span>triplem.vip/triplemdrive/</span>`] : null,
         ["Business name", esc(d.business_name || "Triplem Drive")],
         ["Page", d.published ? pill("Published", "ok") : pill("Not published yet", "warn")]
       ])}
@@ -583,7 +583,7 @@
           // Switching on needs the public page address first (dialog); the switch stays off until saved.
           btn.setAttribute("aria-checked", "false");
           openDriveDialog("enable");
-          throw new Error("");
+          throw Object.assign(new Error(""), { quiet: true });
         }
         if (!confirm(`Turn off Triplem Drive for ${u.username}? The section and the public page are hidden; vehicles, bookings and settings are kept.`)) throw new Error("Not changed.");
         cur.drive = await rpc("app_admin_drive_set", { p_user_id: u.id, p_enabled: false, p_slug: null, p_is_root: null });

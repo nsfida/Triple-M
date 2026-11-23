@@ -34,17 +34,22 @@
   }
 
   // ---- address -------------------------------------------------------------------------------
+  // Every business has its own address directly after the domain: https://triplem.vip/<address>/.
+  // /triplemdrive/ is the page of the business whose address is "triplemdrive" (Triplem Drive itself).
+  // Other addresses reach this page through 404.html (/<address>/ -> /triplemdrive/?b=<address>), and the
+  // short address is put back in the address bar. Earlier /triplemdrive/<address>/ links still work.
   function resolveSlug() {
-    const m = location.pathname.match(/^\/triplemdrive\/([a-z0-9-]{3,40})\/?$/i);
-    if (m) return m[1].toLowerCase();
+    const keep = preview ? `?preview=${encodeURIComponent(preview)}` : "";
+    const put = v => { try { history.replaceState(null, "", `/${v}/${keep}${location.hash}`); } catch (_) {} return v; };
     const b = (qs.get("b") || "").toLowerCase();
-    if (/^[a-z0-9-]{3,40}$/.test(b)) {
-      const keep = preview ? `?preview=${encodeURIComponent(preview)}` : "";
-      try { history.replaceState(null, "", `/triplemdrive/${b}/${keep}${location.hash}`); } catch (_) {}
-      return b;
-    }
-    return "";
+    if (/^[a-z0-9-]{3,40}$/.test(b)) return put(b);
+    let m = location.pathname.match(/^\/triplemdrive\/([a-z0-9-]{3,40})\/?$/i);
+    if (m) return put(m[1].toLowerCase());
+    m = location.pathname.match(/^\/([a-z0-9-]{3,40})\/?$/i);
+    if (m) return m[1].toLowerCase();
+    return "triplemdrive";
   }
+  const addressOf = v => `${CANON_ORIGIN}/${v}/`;
 
   // ---- SEO -------------------------------------------------------------------------------------
   function meta(sel, attr, value) {
@@ -133,7 +138,7 @@
 
   function render() {
     const s = S.site, b = s.business;
-    const url = `${CANON_ORIGIN}/triplemdrive/${s.slug}/`;
+    const url = addressOf(s.slug);
     const desc = (b.tagline || b.description || `Book vehicles from ${b.name} online.`).replace(/\s+/g, " ").trim().slice(0, 155);
     seo({ title: `${b.name} · Vehicle Bookings`, description: desc, url, index: !s.preview, business: b });
     const vehicles = s.vehicles || [];
@@ -151,7 +156,7 @@
         <nav class="tds-nav" aria-label="Page">
           ${vehicles.length || CAT() ? `<a href="#fleet">Fleet</a>` : ""}${(s.routes || []).length ? `<a href="#routes">Routes</a>` : ""}${(s.rates || []).length || CAT() ? `<a href="#rates">${CAT() ? "Prices" : "Rates"}</a>` : ""}<a href="#contact">Contact</a>
         </nav>
-        <a class="tds-btn is-primary tds-head-cta" href="#book"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Book now</span></a>
+        <button type="button" class="tds-btn is-primary tds-head-cta" data-book-open><i class="fa-solid fa-calendar-check" aria-hidden="true"></i><span>Book now</span></button>
       </header>
       <main id="tdsMain">
         <section class="tds-hero${b.banner ? " has-banner" : ""}" id="top">
@@ -160,7 +165,7 @@
             <h1>${esc(b.name)}</h1>
             ${b.tagline ? `<p class="tds-tagline">${esc(b.tagline)}</p>` : ""}
             <div class="tds-hero-cta">
-              <a class="tds-btn is-primary is-lg" href="#book"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Request a booking</a>
+              <button type="button" class="tds-btn is-primary is-lg" data-book-open><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Book now</button>
               ${wa ? `<a class="tds-btn is-wa is-lg" href="${esc(wa)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> WhatsApp</a>` : b.phone ? `<a class="tds-btn is-ghost is-lg" href="tel:${esc(b.phone)}"><i class="fa-solid fa-phone" aria-hidden="true"></i> Call us</a>` : ""}
             </div>
             <ul class="tds-hero-facts">
@@ -193,11 +198,10 @@
             <span class="tds-price">${r.amount != null ? `${esc(money(r.amount))} <small>${esc(PER[r.type] || "")}</small>` : "Request a Quote"}</span></div>`).join("")}</div>
           <p class="tds-muted">Prices in ${esc(cur())}. Payment is arranged directly with us; nothing is charged online.</p></div></section>` : ""}
 
-        <section class="tds-sec is-tint" id="book"><div class="tds-wrap tds-book">
-          <div class="tds-book-intro"><h2>Request a booking</h2><p>Send your request and we will contact you to confirm your reservation.</p>
-            ${b.contact_note ? `<p class="tds-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>${esc(b.contact_note)}</p>` : ""}
-          </div>
-          <form class="tds-form" data-form novalidate>${CAT() ? CAT().formHtml() : ""}${formHtml()}</form>
+        <section class="tds-sec tds-cta" id="book"><div class="tds-wrap tds-cta-in">
+          <div><h2>Ready when you are</h2><p>Send your booking request in under a minute. We will contact you to confirm your reservation.</p>
+            ${b.contact_note ? `<p class="tds-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>${esc(b.contact_note)}</p>` : ""}</div>
+          <button type="button" class="tds-btn is-primary is-lg" data-book-open><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Book now</button>
         </div></section>
 
         <section class="tds-sec" id="contact"><div class="tds-wrap"><h2>Contact</h2>
@@ -214,7 +218,8 @@
       </main>
       ${CAT() ? `<div class="tds-wrap tds-credits-wrap">${CAT().creditsHtml()}</div>` : ""}
       <footer class="tds-foot"><div class="tds-wrap"><span>© ${new Date().getFullYear()} ${esc(b.name)}</span><span>Powered by <a href="${CANON_ORIGIN}/" rel="noopener">Triplem Drive · Triplem VIP</a></span></div></footer>
-      <dialog class="tds-dlg" data-dlg aria-labelledby="tdsDlgTitle"></dialog>`;
+      <dialog class="tds-dlg" data-dlg aria-labelledby="tdsDlgTitle"></dialog>
+      ${panelHtml()}`;
     app.removeAttribute("aria-busy");
     bind();
     fillImages(app, "thumb");
@@ -274,14 +279,16 @@
     const field = x => {
       if (!x.enabled) return "";
       const req = x.required ? " required" : "", star = x.required ? ' <em aria-hidden="true">*</em>' : "";
-      const lab = `<span>${esc(x.label)}${star}</span>`;
+      let lab = `<span>${esc(x.label)}${star}</span>`;
       const def = esc(x.default || "");
       switch (x.key) {
         case "customer_name": return `<label class="tds-f">${lab}<input name="customer_name" autocomplete="name" maxlength="80"${req}></label>`;
         case "customer_mobile": return `<label class="tds-f">${lab}<input name="customer_mobile" type="tel" autocomplete="tel" inputmode="tel" maxlength="24" placeholder="+971 50 123 4567"${req}></label>`;
         case "customer_email": return `<label class="tds-f">${lab}<input name="customer_email" type="email" autocomplete="email" maxlength="160"${req}></label>`;
-        case "vehicle": return vehicles.length ? `<label class="tds-f is-wide">${lab}<select name="vehicle"${req}><option value="">${x.required ? "Choose a vehicle" : "Any suitable vehicle"}</option>${vehicles.map(v => `<option value="${esc(v.key)}">${esc(v.name)}${v.capacity ? ` · ${esc(v.capacity)} seats` : ""}</option>`).join("")}</select></label>` : "";
-        case "route": return routes.length ? `<label class="tds-f is-wide">${lab}<select name="route"${req}><option value="">${x.required ? "Choose a route" : "No fixed route"}</option>${routes.map(r => `<option value="${esc(r.key)}">${esc(r.pickup)} → ${esc(r.destination)}${r.price != null ? " · " + esc(money(r.price)) : ""}</option>`).join("")}</select></label>` : "";
+        // With the website catalogue, its Service / Vehicle type choice replaces the route list, and the
+        // vehicle list only offers the cars added in the dashboard (optional).
+        case "vehicle": if (CAT()) lab = `<span>${esc("Specific vehicle (optional)")}</span>`; return vehicles.length ? `<label class="tds-f is-wide">${lab}<select name="vehicle"${req}><option value="">${x.required ? "Choose a vehicle" : "Any suitable vehicle"}</option>${vehicles.map(v => `<option value="${esc(v.key)}">${esc(v.name)}${v.capacity ? ` · ${esc(v.capacity)} seats` : ""}</option>`).join("")}</select></label>` : "";
+        case "route": return routes.length && !CAT() ? `<label class="tds-f is-wide">${lab}<select name="route"${req}><option value="">${x.required ? "Choose a route" : "No fixed route"}</option>${routes.map(r => `<option value="${esc(r.key)}">${esc(r.pickup)} → ${esc(r.destination)}${r.price != null ? " · " + esc(money(r.price)) : ""}</option>`).join("")}</select></label>` : "";
         case "pickup": return `<label class="tds-f">${lab}<input name="pickup" maxlength="200" value="${def}"${req}></label>`;
         case "destination": return `<label class="tds-f">${lab}<input name="destination" maxlength="200" value="${def}"${req}></label>`;
         case "pickup_date": return `<label class="tds-f">${lab}<input name="pickup_date" type="date" min="${esc(today())}"${req}></label>`;
@@ -301,15 +308,61 @@
       if (x.type === "textarea") return `<label class="tds-f is-wide"><span>${esc(x.label)}${star}</span><textarea name="${name}" rows="2" maxlength="500"${req}></textarea></label>`;
       return `<label class="tds-f"><span>${esc(x.label)}${star}</span><input name="${name}" ${x.type === "number" ? 'type="number" inputmode="decimal"' : 'type="text"'} maxlength="500"${req}></label>`;
     };
-    return `<div class="tds-fgrid">${f.fields.map(field).join("")}${(f.questions || []).map(q).join("")}</div>
-      <label class="tds-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+    // Grouped like the Triplem VIP side panels; within a group the business's own order is kept.
+    const GROUPS = [["Trip", ["vehicle", "route", "pickup", "destination"]], ["When", ["pickup_date", "pickup_time", "return_date", "return_time", "passengers"]],
+      ["Your details", ["customer_name", "customer_mobile", "customer_email"]], ["Anything else", ["notes"]]];
+    const sec = (title, html) => html.trim() ? `<section class="tds-psec"><h3>${esc(title)}</h3><div class="tds-fgrid">${html}</div></section>` : "";
+    return GROUPS.map(([title, keys]) => sec(title, f.fields.filter(x => keys.includes(x.key)).map(field).join("") + (title === "Anything else" ? (f.questions || []).map(q).join("") : ""))).join("")
+      + `<label class="tds-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
       <p class="tds-err" data-err role="alert" hidden></p>
-      <button type="submit" class="tds-btn is-primary is-lg is-block" data-submit${S.site.preview ? " disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send booking request</button>
-      <p class="tds-muted tds-small">We use your details only to handle this booking. No payment is taken online.</p>`;
+      <p class="tds-muted tds-small tds-privacy"><i class="fa-solid fa-lock" aria-hidden="true"></i> We use your details only to handle this booking. No payment is taken online.</p>`;
+  }
+
+  // ---- booking side panel ------------------------------------------------------------------------
+  function panelHtml() {
+    const b = S.site.business, t = CAT()?.get()?.terms;
+    return `<div class="tds-pnl" data-pnl aria-hidden="true">
+      <div class="tds-pnl-backdrop" data-pnl-close></div>
+      <aside class="tds-pnl-panel" role="dialog" aria-modal="true" aria-labelledby="tdsPnlTitle">
+        <header class="tds-pnl-head">
+          <span class="tds-pnl-ava">${b.logo ? `<img data-k="${esc(b.logo)}" alt="">` : `<i class="fa-solid fa-car-side" aria-hidden="true"></i>`}</span>
+          <div class="tds-pnl-id"><strong id="tdsPnlTitle">Book your trip</strong><small>${esc(b.name)}</small>
+            <div class="tds-pnl-pills">${t?.timing ? `<span><i class="fa-regular fa-clock" aria-hidden="true"></i>${esc(t.timing)}</span>` : ""}<span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>No online payment</span>${S.site.preview ? `<span class="is-warn"><i class="fa-solid fa-eye" aria-hidden="true"></i>Preview</span>` : ""}</div></div>
+          <button type="button" class="tds-pnl-x" data-pnl-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </header>
+        <div class="tds-pnl-body" data-pnl-body>${panelForm()}</div>
+        <footer class="tds-pnl-foot" data-pnl-foot>${panelFoot()}</footer>
+      </aside></div>`;
+  }
+  const panelForm = () => `<form id="tdsBookForm" class="tds-form" data-form novalidate>${CAT() ? CAT().formHtml() : ""}${formHtml()}</form>`;
+  const panelFoot = () => `<div class="tds-pnl-quote" data-pnl-quote>${CAT() ? `<small>Listed price</small><b>—</b>` : `<small>Price</small><b>Confirmed by us</b>`}</div>
+    <button type="submit" form="tdsBookForm" class="tds-btn is-primary is-lg" data-submit${S.site.preview ? " disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send request</button>`;
+  const pnl = () => app.querySelector("[data-pnl]");
+  let lastFocus = null;
+  function openPanel(after) {
+    const p = pnl(); if (!p) return;
+    if (S.done) { app.querySelector("[data-pnl-body]").innerHTML = panelForm(); app.querySelector("[data-pnl-foot]").innerHTML = panelFoot(); S.done = false; bindForm(); }
+    lastFocus = document.activeElement;
+    p.classList.add("is-open"); p.setAttribute("aria-hidden", "false");
+    document.documentElement.classList.add("tds-lock");
+    const form = app.querySelector("[data-form]");
+    if (typeof after === "function") after(form);
+    syncQuote();
+    setTimeout(() => { const first = form?.querySelector("select:not([disabled]), input:not([type=hidden]):not([tabindex='-1'])"); first?.focus({ preventScroll: true }); }, 400);
+  }
+  function closePanel() {
+    const p = pnl(); if (!p || !p.classList.contains("is-open")) return;
+    p.classList.remove("is-open"); p.setAttribute("aria-hidden", "true");
+    document.documentElement.classList.remove("tds-lock");
+    try { lastFocus?.focus({ preventScroll: true }); } catch (_) {}
+  }
+  function syncQuote() {
+    const q = app.querySelector("[data-pnl-quote] b"), src = app.querySelector("[data-form] [data-cat-quote] b");
+    if (q && src) q.textContent = src.textContent;
   }
 
   async function submit(form) {
-    const err = form.querySelector("[data-err]"), btn = form.querySelector("[data-submit]");
+    const err = form.querySelector("[data-err]"), btn = app.querySelector("[data-pnl-foot] [data-submit]");
     err.hidden = true;
     form.querySelectorAll(".is-bad").forEach(x => x.classList.remove("is-bad"));
     const fd = new FormData(form), p = { answers: {} };
@@ -333,14 +386,15 @@
     try {
       const r = await rpc("app_drive_public_book", { p_slug: S.slug, p });
       if (r && r.ok && r.reference) {
-        form.closest(".tds-book").innerHTML = `<div class="tds-done" role="status" tabindex="-1">
+        S.done = true;
+        app.querySelector("[data-pnl-body]").innerHTML = `<div class="tds-done" role="status" tabindex="-1">
             <span class="tds-done-ico ${r.status === "confirmed" ? "is-ok" : ""}"><i class="fa-solid ${r.status === "confirmed" ? "fa-circle-check" : "fa-paper-plane"}" aria-hidden="true"></i></span>
             <h2>${r.status === "confirmed" ? "Booking confirmed" : "Request received"}</h2>
             <p>${esc(r.message)}</p>
             <p class="tds-ref">Your reference<b>${esc(r.reference)}</b></p>
-            <div class="tds-hero-cta">${waLink(S.site.business.whatsapp) ? `<a class="tds-btn is-wa" href="${esc(waLink(S.site.business.whatsapp, `Hello ${S.site.business.name}, about my booking ${r.reference}.`))}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp us</a>` : ""}<a class="tds-btn" href="#top">Back to top</a></div>
           </div>`;
-        const done = app.querySelector(".tds-done"); done?.focus(); done?.scrollIntoView({ block: "center", behavior: "smooth" });
+        app.querySelector("[data-pnl-foot]").innerHTML = `${waLink(S.site.business.whatsapp) ? `<a class="tds-btn is-wa is-lg" href="${esc(waLink(S.site.business.whatsapp, `Hello ${S.site.business.name}, about my booking ${r.reference}.`))}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> WhatsApp us</a>` : "<span></span>"}<button type="button" class="tds-btn is-lg" data-pnl-close>Done</button>`;
+        app.querySelector(".tds-done")?.focus();
         return;
       }
       const el = r?.field ? form.querySelector(`[name="${r.field === "notes" ? "customer_notes" : r.field}"]`) : null;
@@ -352,25 +406,30 @@
   function showErr(form, text, el) {
     const err = form.querySelector("[data-err]");
     err.textContent = text; err.hidden = false;
-    if (el) { el.classList.add("is-bad"); el.focus({ preventScroll: false }); }
+    if (el) { el.classList.add("is-bad"); el.scrollIntoView({ block: "center", behavior: "smooth" }); el.focus({ preventScroll: true }); }
     else err.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
-  function bind() {
+  function bindForm() {
     const form = app.querySelector("[data-form]");
-    form?.addEventListener("submit", e => { e.preventDefault(); submit(form); });
-    if (CAT()) {
-      app.addEventListener("error", CAT().onImgError, true);
-      app.addEventListener("load", CAT().onImgLoad, true);
-      form?.addEventListener("change", e => { if (String(e.target.name || "").startsWith("cat_")) CAT().syncForm(form); });
-    }
-    form?.addEventListener("change", e => {
+    if (!form) return;
+    form.addEventListener("submit", e => { e.preventDefault(); submit(form); });
+    form.addEventListener("change", e => {
+      if (CAT() && String(e.target.name || "").startsWith("cat_")) { CAT().syncForm(form); syncQuote(); }
       if (e.target.name === "route") {
         const r = (S.site.routes || []).find(x => x.key === e.target.value);
         if (r) { const a = form.elements.pickup, b = form.elements.destination; if (a && !a.value) a.value = r.pickup; if (b && !b.value) b.value = r.destination; }
       }
       if (e.target.name === "pickup_date" && form.elements.return_date) form.elements.return_date.min = e.target.value || today();
     });
+  }
+  function bind() {
+    bindForm();
+    if (CAT()) {
+      app.addEventListener("error", CAT().onImgError, true);
+      app.addEventListener("load", CAT().onImgLoad, true);
+    }
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && pnl()?.classList.contains("is-open") && !app.querySelector("dialog[open]")) closePanel(); });
     app.addEventListener("click", e => {
       const t = e.target;
       const sec = t.closest("[data-sec]");
@@ -380,6 +439,8 @@
         app.querySelectorAll("[data-sec-of]").forEach(c => { c.hidden = !!S.section && c.dataset.secOf !== S.section; });
         return;
       }
+      if (t.closest("[data-pnl-close]")) return closePanel();
+      if (t.closest("[data-book-open]")) return openPanel();
       const op = t.closest("[data-open]"); if (op) return vehicleDialog(op.dataset.open);
       if (CAT()) {
         const cf = t.closest("[data-cat-filter]");
@@ -390,8 +451,8 @@
         }
         const co = t.closest("[data-cat-open]"); if (co) return CAT().dialog(app.querySelector("[data-dlg]"), co.dataset.catOpen, !S.site.preview);
         const cb = t.closest("[data-cat-book]");
-        if (cb) { const d = app.querySelector("[data-dlg]"); if (d?.open) d.close(); CAT().preset(app.querySelector("[data-form]"), { model: cb.dataset.catBook }); return goBook(); }
-        const cs = t.closest("[data-cat-service]"); if (cs) { CAT().preset(app.querySelector("[data-form]"), { service: cs.dataset.catService }); return goBook(); }
+        if (cb) { const d = app.querySelector("[data-dlg]"); if (d?.open) d.close(); return openPanel(f => CAT().preset(f, { model: cb.dataset.catBook })); }
+        const cs = t.closest("[data-cat-service]"); if (cs) return openPanel(f => CAT().preset(f, { service: cs.dataset.catService }));
       }
       const bk = t.closest("[data-book]");
       if (bk) { const d = app.querySelector("[data-dlg]"); if (d?.open) d.close(); pick("vehicle", bk.dataset.book); return; }
@@ -407,29 +468,30 @@
       if (t.closest("[data-close]") || t.matches("dialog")) t.closest("dialog")?.close();
     });
   }
-  function goBook() {
-    document.getElementById("book")?.scrollIntoView({ behavior: "smooth" });
-    setTimeout(() => app.querySelector('[data-form] [name="customer_name"]')?.focus({ preventScroll: true }), 450);
-  }
   function pick(name, value) {
-    const form = app.querySelector("[data-form]");
-    const sel = form?.elements[name];
-    if (sel) { sel.value = value; sel.dispatchEvent(new Event("change", { bubbles: true })); }
-    document.getElementById("book")?.scrollIntoView({ behavior: "smooth" });
-    setTimeout(() => form?.querySelector("input:not([type=hidden]):not([tabindex='-1'])")?.focus({ preventScroll: true }), 450);
+    openPanel(form => { const sel = form?.elements[name]; if (sel) { sel.value = value; sel.dispatchEvent(new Event("change", { bubbles: true })); } });
   }
 
   // ---- start -----------------------------------------------------------------------------------
   async function start() {
     S.slug = resolveSlug();
     let r;
-    try { r = await rpc("app_drive_public_site", { p_slug: S.slug || null, p_preview: preview || null }); }
+    try {
+      r = await rpc("app_drive_public_site", { p_slug: S.slug, p_preview: preview || null });
+      // Before an account has the address "triplemdrive", /triplemdrive/ shows the business marked for it.
+      if (r && !r.ok && r.reason === "not_found" && S.slug === "triplemdrive") r = await rpc("app_drive_public_site", { p_slug: null, p_preview: preview || null });
+    }
     catch (e) { seo({ title: "Triplem Drive", description: "Vehicle bookings by Triplem Drive.", index: false }); return messagePage("fa-wifi", "This page could not be loaded", "Check your connection and try again.", `<button class="tds-btn is-primary" onclick="location.reload()">Try again</button>`); }
-    if (r && r.ok) { S.site = r; if (!S.slug) S.slug = r.slug; S.cat = window.TDCatalog ? await window.TDCatalog.load(r) : null; return render(); }
-    if (r && r.reason === "moved" && r.slug) { location.replace(`/triplemdrive/${encodeURIComponent(r.slug)}/${location.hash}`); return; }
+    if (r && r.ok) {
+      S.site = r; S.slug = r.slug; S.cat = window.TDCatalog ? await window.TDCatalog.load(r) : null;
+      render();
+      if (/^#book\b/.test(location.hash)) openPanel();
+      return;
+    }
+    if (r && r.reason === "moved" && r.slug) { location.replace(`/${encodeURIComponent(r.slug)}/${location.hash}`); return; }
     seo({ title: r?.reason === "unpublished" ? `${r.business_name || "Triplem Drive"} · Not available` : "Page not found · Triplem Drive", description: "This Triplem Drive page is not available.", index: false });
     if (r && r.reason === "unpublished") return messagePage("fa-eye-slash", r.business_name || "Not available yet", "This booking page is not available at the moment. Please contact the business directly.");
-    return messagePage("fa-route", "Page not found", "There is no booking page at this address.", `<a class="tds-btn is-primary" href="${CANON_ORIGIN}/">Go to Triplem VIP</a>`);
+    return messagePage("fa-route", "Page not found", qs.get("nf") ? "The page you are looking for could not be found." : "There is no booking page at this address.", `<a class="tds-btn is-primary" href="${CANON_ORIGIN}/">Go to Triplem VIP</a>`);
   }
   start();
 })();

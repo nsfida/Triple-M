@@ -125,7 +125,7 @@
             <span class="td-publish-ico ${f.published ? "is-on" : ""}"><i class="fa-solid ${f.published ? "fa-globe" : "fa-eye-slash"}" aria-hidden="true"></i></span>
             <div><b>${f.published ? "Your public page is published" : "Your public page is not published"}</b>
               <a href="${esc(A.publicUrl())}" target="_blank" rel="noopener">${esc(A.publicUrl().replace(/^https?:\/\//, ""))}</a>
-              <small>${f.published ? "Customers can see your public vehicles and send booking requests." : "Only you can preview it. Search engines are told not to index it."}${f.is_root ? " Also opens at /triplemdrive/." : ""}</small></div>
+              <small>${f.published ? "Customers can see your public vehicles and send booking requests." : "Only you can preview it. Search engines are told not to index it."}</small></div>
           </div>
           <div class="td-actions">${btn("copy-url", "Copy link", "fa-regular fa-copy")}${btn("preview-public", "Preview", "fa-eye")}${btn(f.published ? "unpublish" : "publish", f.published ? "Unpublish" : "Publish", f.published ? "fa-eye-slash" : "fa-globe", { primary: !f.published })}</div>
         </section>

@@ -5,8 +5,8 @@ Fleet management and public vehicle bookings inside Triplem VIP (2026-11-23, dat
 ## Switching it on (Main Admin only)
 
 1. Admin › open the account › **Sections** › **Features** › **Triplem Drive**.
-2. The switch opens a dialog that asks for the **public page address** (`https://triplem.vip/triplemdrive/<address>/`). The address is checked as you type: lowercase letters, numbers and hyphens, 3 to 40 characters, not reserved, not used by another business (including earlier addresses of other businesses).
-3. Optional: **Also open this business at /triplemdrive/**. Only one business can have the plain address.
+2. The switch opens a dialog that asks for the **public page address**, which comes directly after the domain: `https://triplem.vip/<address>/`. Triplem Drive itself uses `triplemdrive` (`https://triplem.vip/triplemdrive/`); every other business gets its own address, for example `https://triplem.vip/city-star/`. The address is checked as you type: lowercase letters, numbers and hyphens, 3 to 40 characters, not reserved, not used by another business (including earlier addresses of other businesses).
+3. Website pages and folders (Demo, Founder, Security, seo, regions, ar, ur, windows-store, …) are reserved and cannot be used as addresses.
 4. **Change address** (in the same block) changes it later. Links to the old address open the new one.
 5. Switching off hides the Home card and the module and closes the public page. Every vehicle, booking and setting is kept and comes back when it is switched on again.
 
@@ -34,14 +34,14 @@ The **Triplem Drive** card appears on the Home screen only for authorised accoun
 
 The listed vehicles and prices come from a JSON file instead of the database: SUV (GMC Yukon, GMC Yukon XL, Chevrolet Tahoe, Chevrolet Suburban), Sedan (Lexus ES, Ford Taurus, BMW 7 Series), Mini Van (Hyundai Staria, Toyota HiAce). It also holds the 8 intercity routes from Riyadh, airport and inside-city transfers, full-day bookings (SAR) and the terms (24/7; 15% on the final invoice when an invoice is needed; 5% for cash; 0% with advance payment to an individual account; at least 1 hour before the trip; pickup location by WhatsApp after payment; complaints by WhatsApp with a picture or by the official Triplem email). Cars added later are added in the dashboard (database) and appear under "More vehicles".
 
-- `apply_to.root: true` shows it on the business that owns `/triplemdrive/`. To show it on another business, add that business's address to `apply_to.slugs`.
+- `apply_to.slugs: ["triplemdrive"]` shows it on Triplem Drive's page (`https://triplem.vip/triplemdrive/`). It is not shown on other businesses.
 - To change a price, edit `services[].prices` (`suv`, `sedan`, `minivan`). To add a model, add it to `vehicles` and to its class in `classes`.
 - The booking form gets "Service", "Vehicle type", "Preferred model" and the listed price. The request is stored with those choices (database update 237) and waits for your confirmation.
-- Photos: `triplemdrive/catalog/photos/<file>`. Run `node scripts/fetch_drive_catalog_photos.js` on your computer. It downloads the Wikimedia Commons photos named in the JSON (free licences) and writes `credits.json` (authors and licences shown under "Vehicle photo credits"). Check each photo, then upload the folder. Until a photo file is uploaded, the page shows the same picture directly from Wikimedia Commons. To use your own photo, save it under the same file name (JPG, about 1600 px wide).
+- Photos: `triplemdrive/catalog/photos/<file>`. One click on GitHub: Actions › **Triplem Drive catalogue photos** › Run workflow. It downloads the photos and commits them with `credits.json`. Or run `node scripts/fetch_drive_catalog_photos.js` on your computer. It downloads the Wikimedia Commons photos named in the JSON (free licences) and writes `credits.json` (authors and licences shown under "Vehicle photo credits"). Check each photo, then upload the folder. Until a photo file is uploaded, the page shows the same picture directly from Wikimedia Commons. To use your own photo, save it under the same file name (JPG, about 1600 px wide).
 
 ## Public page
 
-`/triplemdrive/<address>/` (also `/triplemdrive/?b=<address>`). It shows the business header with its own logo and name, introduction, fleet by section, vehicle details with photos, routes, rates, the booking form, contact details, terms and footer.
+`/<address>/` (also `/triplemdrive/?b=<address>`; Triplem Drive: `/triplemdrive/`). It shows the business header with its own logo and name, introduction, fleet by section, vehicle details with photos, routes, rates, the booking form, contact details, terms and footer.
 
 - Only published, enabled businesses and only public vehicles, routes and rates are shown. Registration numbers, internal notes, internal ids and customer data are never sent to the page.
 - Title, description, canonical address, Open Graph and structured data (AutoRental) come from the business. Unpublished or unknown addresses are `noindex`. The pages are not in the sitemap.
@@ -51,10 +51,13 @@ The listed vehicles and prices come from a JSON file instead of the database: SU
 
 ## Hosting the address
 
-`/triplemdrive/<address>/` is served by `triplemdrive/index.html`:
+- `/triplemdrive/` is a real page (`triplemdrive/index.html`) and shows the business whose address is `triplemdrive`.
+- Any other `/<address>/` does not exist as a file, so the host serves `404.html`. It sends the visitor to `/triplemdrive/?b=<address>`, and the page puts `/<address>/` back in the address bar. This works on GitHub Pages, Cloudflare Pages and Netlify. Earlier `/triplemdrive/<address>/` links work the same way (and through `_redirects` on Cloudflare Pages / Netlify).
+- Search engines: `/triplemdrive/` is indexed normally. Other addresses first answer "not found" before the page loads, so search engines may not index them. If another business needs search visibility, give it its own folder (a copy of `triplemdrive/index.html` saved as `<address>/index.html`).
 
-- Cloudflare Pages or Netlify: `_redirects` (`/triplemdrive/:slug/ /triplemdrive/index.html 200`).
-- GitHub Pages: `404.html` sends `/triplemdrive/<address>/` to `/triplemdrive/?b=<address>`, and the page puts the short address back in the address bar.
+## Booking side panel
+
+Every **Book** button (header, hero, vehicle cards, price tables, the "Ready when you are" band) opens the booking form in a side panel styled like the Triplem VIP side panels: the business logo and name, 24/7 and "No online payment" pills, sections (Choose your trip, Trip, When, Your details, Anything else), and a fixed footer with the listed price and **Send request**. On phones it opens from the bottom. After sending, the panel shows the reference, a WhatsApp button and **Done**; opening it again starts a new request.
 
 ## Database (update 236)
 

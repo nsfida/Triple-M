@@ -118,7 +118,7 @@ test("Main Admin switch with activation dialog; no switch for team members", () 
   assert.match(aum, /app_admin_drive_set", \{ p_user_id: u\.id, p_enabled: false/);
   const dlg = read("Assets/app/drive/01-drive-admin.js");
   assert.match(dlg, /app_admin_drive_check_slug/);
-  assert.match(dlg, /app_admin_drive_set", \{ p_user_id: user\.id, p_enabled: true, p_slug: okSlug, p_is_root: !!root\.checked \}/);
+  assert.match(dlg, /app_admin_drive_set", \{ p_user_id: user\.id, p_enabled: true, p_slug: okSlug, p_is_root: null \}/);
 });
 
 test("booking details: exact copy header, WhatsApp/email prepared (never claimed as sent)", () => {
@@ -136,7 +136,11 @@ test("public page: address routing, SEO, escaping, honeypot; not in the sitemap"
   assert.match(page, /\/triplemdrive\/site\.js\?v=/);
   const js = read("triplemdrive/site.js");
   assert.match(js, /app_drive_public_site/);
-  assert.match(js, /history\.replaceState\(null, "", `\/triplemdrive\/\$\{b\}\//);
+  assert.match(js, /history\.replaceState\(null, "", `\/\$\{v\}\/\$\{keep\}/);
+  assert.match(js, /return "triplemdrive";/);
+  assert.match(js, /data-book-open/);
+  assert.match(js, /class="tds-pnl-panel" role="dialog" aria-modal="true"/);
+  assert.match(js, /form="tdsBookForm"/);
   assert.match(js, /index \? "index,follow" : "noindex,nofollow"/);
   assert.match(js, /"@type": "AutoRental"/);
   assert.match(js, /name="website" tabindex="-1"/);
@@ -146,6 +150,9 @@ test("public page: address routing, SEO, escaping, honeypot; not in the sitemap"
   assert.match(read("scripts/build_production.js"), /"triplemdrive", "windows-store"\]/);
   assert.match(read("_redirects"), /^\/triplemdrive\/:slug\/\s+\/triplemdrive\/index\.html\s+200$/m);
   assert.match(read("404.html"), /\/triplemdrive\/\?b=/);
+  assert.match(read("404.html"), /p\.match\(\/\^\\\/\(\[a-z0-9-\]\{3,40\}\)\\\/\?\$\/\)/, "top-level business addresses");
+  assert.match(read("Assets/app/drive/00-drive-access.js"), /"https:\/\/triplem\.vip"\}\/\$\{encodeURIComponent/);
+  assert.ok(exists(".github/workflows/drive-catalog-photos.yml"));
 });
 
 test("brand spelling: Triplem / TRIPLEM / Triplem Drive only", () => {
@@ -175,10 +182,13 @@ test("website catalogue: the listed cars, routes and prices; photos local first,
   assert.ok(exists("scripts/fetch_drive_catalog_photos.js"));
 });
 
-test("migration 237 only re-declares the public booking function", { skip: !exists("migrations/237_triplem_drive_catalog_bookings.sql") }, () => {
+test("migration 237 re-declares only the address check and the public booking function", { skip: !exists("migrations/237_triplem_drive_catalog_bookings.sql") }, () => {
   const code = read("migrations/237_triplem_drive_catalog_bookings.sql").replace(/--.*$/gm, "");
-  assert.doesNotMatch(code, /\b(create|alter|drop)\s+table\b|\btruncate\b/i);
-  assert.equal((code.match(/create or replace function/g) || []).length, 1);
+  assert.doesNotMatch(code, /\b(create|alter|drop)\s+table\b|\btruncate\b|\bdelete\s+from\s+public\.(?!app_drive_public_hits)/i);
+  assert.equal((code.match(/create or replace function/g) || []).length, 2);
+  const slug = code.slice(code.indexOf("app_drive__slug_problem("), code.indexOf("$$;", code.indexOf("app_drive__slug_problem(")));
+  assert.doesNotMatch(slug, /'triplemdrive'/, "triplemdrive is allowed");
+  assert.match(slug, /'windows-store'/);
   assert.match(code, /create or replace function public\.app_drive_public_book\(p_slug text, p jsonb\)/);
   assert.match(code, /left\(nullif\(btrim\(coalesce\(p->'catalog'->>'vehicle', ''\)\), ''\), 120\)/);
   assert.match(code, /interval '1 hour'/);

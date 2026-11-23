@@ -28,13 +28,12 @@
           <button type="button" class="td-adlg-x" data-td-x aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>
         <div class="td-adlg-body">
-          ${enable ? `<p class="td-adlg-lead">The account gets Fleet Management &amp; Vehicle Bookings on its Home screen and a public booking page at the address below. You can change the address later.</p>` : `<p class="td-adlg-lead">Links to the old address keep working and open the new one.</p>`}
+          ${enable ? `<p class="td-adlg-lead">The account gets Fleet Management &amp; Vehicle Bookings on its Home screen and its own public booking page at the address below (for example ${esc(location.host || "triplem.vip")}/triplemdrive/ for Triplem Drive). You can change the address later.</p>` : `<p class="td-adlg-lead">Links to the old address keep working and open the new one.</p>`}
           <label class="td-adlg-field"><span>Public page address</span>
-            <span class="td-adlg-url"><em>${esc(location.host || "triplem.vip")}/triplemdrive/</em><input type="text" value="${esc(initial)}" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url" data-td-slug aria-describedby="tdAdlgMsg"><em>/</em></span>
+            <span class="td-adlg-url"><em>${esc(location.host || "triplem.vip")}/</em><input type="text" value="${esc(initial)}" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url" data-td-slug aria-describedby="tdAdlgMsg"><em>/</em></span>
           </label>
           <p class="td-adlg-msg" id="tdAdlgMsg" data-td-msg role="status">Lowercase letters, numbers and hyphens · 3 to 40 characters.</p>
-          <label class="td-adlg-check"><input type="checkbox" data-td-root${drive.is_root ? " checked" : ""}>
-            <span><b>Also open this business at ${esc(location.host || "triplem.vip")}/triplemdrive/</b><small>Only one business can have the plain address. Choosing it here moves it from any other business.</small></span></label>
+
         </div>
         <div class="td-adlg-foot">
           <button type="button" class="aum-btn" data-td-x>Cancel</button>
@@ -42,7 +41,7 @@
         </div>
       </div>`;
     (host || document.body).appendChild(box);
-    const input = box.querySelector("[data-td-slug]"), msg = box.querySelector("[data-td-msg]"), save = box.querySelector("[data-td-save]"), root = box.querySelector("[data-td-root]");
+    const input = box.querySelector("[data-td-slug]"), msg = box.querySelector("[data-td-msg]"), save = box.querySelector("[data-td-save]");
     let okSlug = "";
 
     const show = (text, tone) => { msg.textContent = text; msg.className = `td-adlg-msg${tone ? " is-" + tone : ""}`; };
@@ -50,13 +49,13 @@
       const v = input.value.trim().toLowerCase();
       okSlug = ""; save.disabled = true;
       if (!v) return show("Enter an address.", "bad");
-      if (!enable && v === drive.slug && !!root.checked === !!drive.is_root) return show("This is the current address.", "");
+      if (!enable && v === drive.slug) return show("This is the current address.", "");
       const my = ++seq;
       show("Checking…", "");
       try {
         const r = await rpc("app_admin_drive_check_slug", { p_user_id: user.id, p_slug: v });
         if (my !== seq || !box) return;
-        if (r?.ok) { okSlug = r.slug; save.disabled = false; show(`Available: ${location.host || "triplem.vip"}/triplemdrive/${r.slug}/`, "ok"); }
+        if (r?.ok) { okSlug = r.slug; save.disabled = false; show(`Available: ${location.host || "triplem.vip"}/${r.slug}/`, "ok"); }
         else show(r?.message || "This address cannot be used.", "bad");
       } catch (e) { if (my === seq && box) show(String(e?.message || e).replace(/^Error:\s*/, ""), "bad"); }
     }
@@ -65,13 +64,12 @@
       if (clean !== input.value) input.value = clean;
       clearTimeout(timer); timer = setTimeout(check, 280);
     });
-    root.addEventListener("change", check);
     box.addEventListener("click", async e => {
       if (e.target.closest("[data-td-x]")) return close();
       if (!e.target.closest("[data-td-save]") || save.disabled || !okSlug) return;
       save.disabled = true; save.classList.add("is-busy");
       try {
-        const res = await rpc("app_admin_drive_set", { p_user_id: user.id, p_enabled: true, p_slug: okSlug, p_is_root: !!root.checked });
+        const res = await rpc("app_admin_drive_set", { p_user_id: user.id, p_enabled: true, p_slug: okSlug, p_is_root: null });
         close();
         onSaved?.(res);
       } catch (err) {

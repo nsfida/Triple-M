@@ -12,7 +12,7 @@
 (function (global) {
   "use strict";
 
-  const V = "20261123-td2";
+  const V = "20261123-td3";
   const APP_SCRIPTS = ["Assets/app/drive/02-drive-app.js", "Assets/app/drive/03-drive-ops.js", "Assets/app/drive/04-drive-setup.js"];
   const APP_CSS = "Assets/drive/drive-app.css";
   const ADMIN_SCRIPT = "Assets/app/drive/01-drive-admin.js";
@@ -95,14 +95,16 @@
   }
 
   // ---- Main Admin activation dialog (loaded only when used) -------------------------------------
-  const publicUrl = slug => `${location.origin && /^https?:/.test(location.origin) ? location.origin : "https://triplem.vip"}/triplemdrive/${encodeURIComponent(String(slug || ""))}/`;
+  // Each business has its own address directly after the domain: https://triplem.vip/<address>/
+  // (Triplem Drive itself: https://triplem.vip/triplemdrive/).
+  const publicUrl = slug => `${location.origin && /^https?:/.test(location.origin) ? location.origin : "https://triplem.vip"}/${encodeURIComponent(String(slug || ""))}/`;
   const ACTION_LABELS = { enabled: "Switched on", disabled: "Switched off", address_changed: "Address changed", root_changed: "Main /triplemdrive/ page changed" };
   function actionLabel(h) {
     const base = ACTION_LABELS[h?.action] || String(h?.action || "");
     const d = h?.detail || {};
     if (h?.action === "address_changed") return `${base}: ${d.from || "—"} → ${d.to || "—"}`;
-    if (h?.action === "root_changed") return d.root ? "Now also at /triplemdrive/" : "No longer at /triplemdrive/";
-    if (h?.action === "enabled" && d.slug) return `${base} · /triplemdrive/${d.slug}/`;
+    if (h?.action === "root_changed") return d.root ? "Marked as the main business" : "No longer the main business";
+    if (h?.action === "enabled" && d.slug) return `${base} · /${d.slug}/`;
     return base;
   }
   async function openDialog(opts) {
