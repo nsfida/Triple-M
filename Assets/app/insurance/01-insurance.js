@@ -596,12 +596,23 @@
     </div>`;
   }
 
+  // A temporary invoice is its own document: Gross Premium, Discount, Invoice Amount, Amount Paid and
+  // Balance Due are exactly what was entered in it. Only names, contact and policy details are read from
+  // the linked sale; its real payments are never used (they made temporary invoices show a zero balance).
+  function tempInvoiceAmounts(data) {
+    const sale=Math.max(n(data.sale_price),0);
+    const paid=data.amount_paid==null||data.amount_paid===""?0:Math.max(n(data.amount_paid),0);
+    const balance=data.outstanding==null||data.outstanding===""?Math.max(Math.round((sale-paid)*100)/100,0):Math.max(n(data.outstanding),0);
+    const status=balance<=0.004?"paid":paid>0?"partial":"unpaid";
+    return {gross_premium:n(data.gross_premium),customer_discount:n(data.customer_discount),sale_price:sale,amount_paid:paid,outstanding:balance,payment_status:status};
+  }
   function enrichTemporaryDocument(temp) {
     const base={...(temp?.invoice_data||{}),title:"Invoice",invoice_number:temp?.invoice_number||temp?.invoice_data?.invoice_number||""};
+    const amounts=tempInvoiceAmounts(base);
     const saleId=temp?.sale_id||base.source_sale_id;const sale=S.sales.find(s=>s.id===saleId)||S.customerAccountTransactions.find(s=>s.id===saleId);
-    if(!sale)return base;
+    if(!sale)return {...base,...amounts};
     const source=buildDocumentData(sale,"invoice");
-    return {...source,...base,title:"Invoice",company_id:sale.company_id||source.company_id||base.company_id||null,policy_id:sale.policy_id||source.policy_id||base.policy_id||null,policy_number:base.policy_number||sale.policy_number||"",cancellation_id:sale.cancellation_id||base.cancellation_id||null,cancellation_date:sale.cancellation_date||base.cancellation_date||null,cancellation_time:sale.cancellation_time||base.cancellation_time||null,policy_used_days:sale.policy_used_days??base.policy_used_days??0,cancellation_reason:sale.cancellation_reason||base.cancellation_reason||""};
+    return {...source,...base,...amounts,title:"Invoice",reference:base.invoice_number||source.reference,company_id:sale.company_id||source.company_id||base.company_id||null,policy_id:sale.policy_id||source.policy_id||base.policy_id||null,policy_number:base.policy_number||sale.policy_number||"",cancellation_id:sale.cancellation_id||base.cancellation_id||null,cancellation_date:sale.cancellation_date||base.cancellation_date||null,cancellation_time:sale.cancellation_time||base.cancellation_time||null,policy_used_days:sale.policy_used_days??base.policy_used_days??0,cancellation_reason:sale.cancellation_reason||base.cancellation_reason||""};
   }
 
   function downloadTempInvoicePdf(temp) {
@@ -2209,12 +2220,47 @@
           setBusy(e.currentTarget,true,"Saving");
           try{
             const payload={p_company_id:fd.get("company_id"),p_policy_id:fd.get("policy_id"),p_customer_type:mode,p_customer_id:customer.id||null,p_customer_name:mode==="walkin"?null:customer.name,p_customer_phone:mode==="walkin"?null:customer.phone||null,p_customer_email:mode==="walkin"?null:customer.email||null,p_customer_company:mode==="walkin"?null:customer.company||null,p_customer_trn:mode==="walkin"?null:customer.trn||null,p_customer_address:mode==="walkin"?null:customer.address||null,p_currency:fd.get("currency"),p_gross_premium:math.grossPremium,p_purchase_price:math.purchasePrice,p_sale_price:math.salePrice,p_transaction_date:fd.get("transaction_date"),p_transaction_time:fd.get("transaction_time"),p_notes:fd.get("notes")||null,p_policy_number:String(fd.get("policy_number")||"").trim()||null,p_referral_name:referralName||null,p_referral_commission:referralCommission,p_not_fully_paid:notFullyPaid,p_amount_paid:amountPaid};
-            const res=await rpc(isEdit?"app_insurance_update_sale_with_referral":"app_insurance_create_sale_with_referral",isEdit?{p_sale_id:editSale.id,...payload,p_referral_id:referralId}:{...payload,p_allow_duplicate_customer:allowDuplicate});
-            close();await reloadMasterAndView("sales");notify(isEdit?"Insurance Sale updated.":(math.isLoss?`Insurance sale saved with a loss of ${moneyPlain(math.lossAmount,fd.get("currency"))}.`:"Insurance sale completed."),isEdit?"success":(math.isLoss?"error":"success"));if(res?.item)openSaleDetails(res.item.id);
+            let res;
+            try{res=await rpc(isEdit?"app_insurance_update_sale_with_referral":"app_insurance_create_sale_with_referral",isEdit?{p_sale_id:editSale.id,...payload,p_referral_id:referralId}:{...payload,p_allow_duplicate_customer:allowDuplicate});}
+            catch(err){
+              // Commission already received is more than the edited commission: offer to move the extra.
+              if(!isEdit||!/cannot be lower than commission already received/i.test(String(err?.message||"")))throw err;
+              res=await saveSaleReleasingCommission(editSale,{p_sale_id:editSale.id,...payload,p_referral_id:referralId});
+              if(!res)return;
+            }
+            close();await reloadMasterAndView("sales");notify(isEdit?(res?.release_message||"Insurance Sale updated."):(math.isLoss?`Insurance sale saved with a loss of ${moneyPlain(math.lossAmount,fd.get("currency"))}.`:"Insurance sale completed."),isEdit?"success":(math.isLoss?"error":"success"));if(res?.item)openSaleDetails(res.item.id);
           }catch(err){notify(err.message||`Could not ${isEdit?"update":"complete"} Insurance sale.`,"error");}
           finally{setBusy(e.target?.closest?.("button"),false);}
         };
       }});
+  }
+
+  // Lowering the commission of a sale whose commission was already received (migration 241).
+  // The extra received amount moves to other outstanding commission in the same currency (oldest first);
+  // only if nothing else is outstanding, and the user agrees, the receipt's received amount is reduced.
+  async function saveSaleReleasingCommission(sale,args){
+    const p=await rpc("app_insurance_sale_commission_change_preview",{p_sale_id:sale.id,p_gross_premium:args.p_gross_premium,p_purchase_price:args.p_purchase_price});
+    if(!p||n(p.excess)<=0)return rpc("app_insurance_update_sale_with_referral",args);
+    const cur=p.currency,m=v=>moneyHtml(v,cur);
+    if(p.deductions_block)throw new Error(`The new commission (${moneyPlain(p.new_commission,cur)}) is lower than the commission deductions already applied to this sale (${moneyPlain(p.deducted,cur)}).`);
+    const reduce=n(p.remainder)>0.004;
+    const receipts=(p.receipts||[]).map(r=>esc(r.reference_no)).join(", ");
+    const ok=await new Promise(resolve=>{let done=false;const finish=v=>{if(!done){done=true;resolve(v);}};
+      openModal({id:"insuranceCommissionReleaseModal",title:"Commission already received",subtitle:`${p.reference_no} · ${cur}`,body:`<div class="insurance-release">
+        <div class="insurance-release-rows">
+          <div><span>Commission received for this sale</span><b>${m(n(p.received)+n(p.deducted))}</b></div>
+          <div><span>New commission (Gross Premium − Purchase Price)</span><b>${m(p.new_commission)}</b></div>
+          <div class="is-total"><span>Received more than the new commission</span><b>${m(p.excess)}</b></div>
+        </div>
+        ${n(p.movable)>0?`<p><i class="fa-solid fa-right-left"></i> <b>${m(p.movable)}</b> will be applied to other outstanding commission in ${esc(cur)} (oldest first), inside the same receipt${receipts?` (${receipts})`:""}. The receipt amount does not change.</p>`:""}
+        ${reduce?`<p class="insurance-release-warn"><i class="fa-solid fa-triangle-exclamation"></i> No other commission is outstanding in ${esc(cur)} for <b>${m(p.remainder)}</b>. It will be removed from the received amount of the newest receipt${receipts?` (${receipts})`:""}, with a note. Use this only if the insurance company did not pay this amount, or will pay it back.</p>`:""}
+        <p class="help">Nothing changes if you cancel.</p></div>`,
+        actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceReleaseSave"><i class="fa-solid fa-check"></i> ${reduce?"Reduce receipt and save":"Move and save"}</button>`,
+        onOpen(modal,close){$$('[data-insurance-close]',modal).forEach(el=>el.addEventListener("click",()=>finish(false)));$("#insuranceReleaseSave",modal).onclick=()=>{close();finish(true);};}});});
+    if(!ok)return null;
+    const res=await rpc("app_insurance_update_sale_releasing_commission",{...args,p_reduce_receipts:reduce});
+    const r=res?.commission_release||{};
+    return {...res,release_message:`Insurance Sale updated. ${n(r.moved)>0?`${moneyPlain(r.moved,cur)} of received commission moved to other outstanding commission. `:""}${n(r.reduced)>0?`Receipt reduced by ${moneyPlain(r.reduced,cur)}.`:""}`.trim()};
   }
 
   async function openSaleEditor(id){
@@ -2396,7 +2442,7 @@
 
   function tempDataFromSale(s) {
     const d=buildDocumentData(s,"invoice");
-    return {...d,title:"Invoice",invoice_number:`INV-${String(s.reference_no||"").replace(/^INS-/,"")}`,invoice_date:s.transaction_date,description:s.policy_name_snapshot,source_sale_id:s.id};
+    return {...d,title:"Invoice",invoice_number:`INV-${String(s.reference_no||"").replace(/^INS-/,"")}`,invoice_date:s.transaction_date,description:s.policy_name_snapshot,source_sale_id:s.id,...tempInvoiceAmounts({gross_premium:d.gross_premium,customer_discount:d.customer_discount,sale_price:d.sale_price,amount_paid:0})};
   }
 
   function openTempInvoiceEditor(sale=null,temp=null) {
@@ -2410,10 +2456,18 @@
       <label>Insurance Company<input class="input" name="insurance_company" value="${esc(d.insurance_company||"")}"></label><label>Policy / Description<input class="input" name="policy_name" value="${esc(d.policy_name||d.description||"")}"></label>
       <label class="wide">Policy Number<input class="input" name="policy_number" value="${esc(d.policy_number||"")}" placeholder="Optional"></label>
       <label>Gross Premium<input class="input" type="number" min="0" step="0.01" name="gross_premium" value="${esc(d.gross_premium??"")}"></label><label>Customer Discount<input class="input" type="number" step="0.01" name="customer_discount" value="${esc(d.customer_discount??0)}"></label>
-      <label>Invoice Amount<input class="input" type="number" min="0" step="0.01" name="sale_price" required value="${esc(d.sale_price??"")}"></label><label class="wide">Notes<textarea class="input" name="notes" rows="2">${esc(d.notes||"")}</textarea></label>
+      <label>Invoice Amount<input class="input" type="number" min="0" step="0.01" name="sale_price" required value="${esc(d.sale_price??"")}"></label><label>Amount Paid<input class="input" type="number" min="0" step="0.01" name="amount_paid" value="${esc(d.amount_paid??0)}"></label>
+      <label>Balance Due<input class="input" type="number" min="0" step="0.01" name="outstanding" value="${esc(d.outstanding??"")}"><small class="help" data-temp-balance-hint>Invoice Amount − Amount Paid. You can change it.</small></label>
+      <div class="help wide insurance-temp-note"><i class="fa-solid fa-circle-info"></i> These amounts are only for this temporary invoice. Payments recorded on the Insurance Sale are not used here, and the sale is not changed.</div>
+      <label class="wide">Notes<textarea class="input" name="notes" rows="2">${esc(d.notes||"")}</textarea></label>
     </form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn ghost" id="insuranceTempPreview">Preview</button><button class="btn primary" id="insuranceTempSave">Save</button>`,onOpen(modal,close){
-      const form=$("#insuranceTempForm",modal),tempCurrency=form.elements.currency;if(typeof syncCurrencySelectFonts==="function")syncCurrencySelectFonts(tempCurrency);
-      const read=()=>{const fd=new FormData(form);return{title:"Invoice",invoice_number:String(fd.get("invoice_number")||"").trim(),invoice_date:fd.get("invoice_date"),customer_name:String(fd.get("customer_name")||"").trim(),customer_number:String(fd.get("customer_number")||d.customer_number||"").trim(),currency:fd.get("currency"),insurance_company:String(fd.get("insurance_company")||"").trim(),policy_name:String(fd.get("policy_name")||"").trim(),policy_number:String(fd.get("policy_number")||"").trim(),gross_premium:n(fd.get("gross_premium")),customer_discount:n(fd.get("customer_discount")),sale_price:n(fd.get("sale_price")),notes:String(fd.get("notes")||"").trim(),source_sale_id:sale?.id||temp?.sale_id||d.source_sale_id||null,cancellation_id:d.cancellation_id||null,cancellation_date:d.cancellation_date||null,cancellation_time:d.cancellation_time||null,policy_used_days:n(d.policy_used_days),cancellation_reason:d.cancellation_reason||""};};
+      const form=$("#insuranceTempForm",modal),tempCurrency=form.elements.currency;
+      let balanceTyped=d.outstanding!=null&&Math.abs(n(d.outstanding)-Math.max(n(d.sale_price)-n(d.amount_paid),0))>0.004;
+      const autoBalance=()=>{if(balanceTyped)return;form.elements.outstanding.value=Math.max(Math.round((n(form.elements.sale_price.value)-n(form.elements.amount_paid.value))*100)/100,0).toFixed(2);};
+      form.elements.outstanding.addEventListener("input",()=>{balanceTyped=form.elements.outstanding.value!=="";});
+      form.elements.sale_price.addEventListener("input",autoBalance);form.elements.amount_paid.addEventListener("input",autoBalance);
+      if(form.elements.outstanding.value==="")autoBalance();if(typeof syncCurrencySelectFonts==="function")syncCurrencySelectFonts(tempCurrency);
+      const read=()=>{const fd=new FormData(form);return{title:"Invoice",invoice_number:String(fd.get("invoice_number")||"").trim(),invoice_date:fd.get("invoice_date"),customer_name:String(fd.get("customer_name")||"").trim(),customer_number:String(fd.get("customer_number")||d.customer_number||"").trim(),currency:fd.get("currency"),insurance_company:String(fd.get("insurance_company")||"").trim(),policy_name:String(fd.get("policy_name")||"").trim(),policy_number:String(fd.get("policy_number")||"").trim(),gross_premium:n(fd.get("gross_premium")),customer_discount:n(fd.get("customer_discount")),sale_price:n(fd.get("sale_price")),amount_paid:n(fd.get("amount_paid")),outstanding:String(fd.get("outstanding")??"")===""?Math.max(n(fd.get("sale_price"))-n(fd.get("amount_paid")),0):n(fd.get("outstanding")),notes:String(fd.get("notes")||"").trim(),source_sale_id:sale?.id||temp?.sale_id||d.source_sale_id||null,cancellation_id:d.cancellation_id||null,cancellation_date:d.cancellation_date||null,cancellation_time:d.cancellation_time||null,policy_used_days:n(d.policy_used_days),cancellation_reason:d.cancellation_reason||""};};
       $("#insuranceTempPreview",modal).onclick=()=>{if(!form.reportValidity())return;previewTempInvoice({invoice_number:read().invoice_number,invoice_data:read()});};
       $("#insuranceTempSave",modal).onclick=async e=>{if(!form.reportValidity())return;const data=read();setBusy(e.currentTarget,true,"Saving");try{await rpc("app_insurance_upsert_temp_invoice",{p_id:temp?.id||null,p_sale_id:sale?.id||temp?.sale_id||d.source_sale_id||null,p_invoice_number:data.invoice_number||null,p_invoice_data:data});close();const r=await rpc("app_insurance_list_temp_invoices",{});S.tempInvoices=r?.items||[];if(S.view==="temporary")renderTemporaryInvoices();else if(S.view==="sales")renderSales();else if(S.view==="reports")renderReports();notify("Temporary Invoice saved. Permanent Insurance Sale remains unchanged.");}catch(err){notify(err.message||"Could not save temporary invoice.","error");}finally{setBusy(e.target?.closest?.("button"),false);}};
     }});

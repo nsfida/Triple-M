@@ -241,7 +241,7 @@ test("Triplem Drive manager: inquiries, ding and push for every booking and inqu
   const fn = read("supabase/functions/push-notifications/index.ts");
   assert.match(fn, /action === "drive_notify"/);
   assert.match(fn, /app_push_service_drive_dispatch/);
-  assert.match(read("index.html"), /00-drive-access\.js\?v=20261123-td6/);
+  assert.match(read("index.html"), /00-drive-access\.js\?v=20261123-td7/);
 });
 
 test("migration 239 is additive: two new tables, no change to existing data", { skip: !exists("migrations/239_triplem_drive_inquiries_push.sql") }, () => {
@@ -271,4 +271,32 @@ test("migration 240: listed cars into the Triplem Drive fleet, inserts only, onc
   assert.match(app, /"cat-photos"/);
   assert.match(app, /Add the listed photos/);
   assert.match(read("scripts/build_full_schema_sql.js"), /240_triplem_drive_listed_cars_to_fleet\.sql/);
+});
+
+test("migration 242: 4 photos per vehicle, smaller photos, replace in place; only re-declares media_add", () => {
+  const sql = read("migrations/242_triplem_drive_photo_limits.sql"), code = sql.replace(/--.*$/gm, "");
+  assert.doesNotMatch(code, /\b(alter|drop)\s+table\b|\btruncate\b|\bdrop\s+column\b/i);
+  assert.match(code, /kind = 'vehicle'\) >= 4 then/);
+  assert.match(code, /p_kind = 'vehicle' and octet_length\(b\) > 400 \* 1024/);
+  assert.match(code, /create or replace function public\.app_drive_media_replace\(/);
+  assert.match(code, /where id = p_id and owner_id = o and kind = 'vehicle'/);
+  const app = read("Assets/app/drive/02-drive-app.js");
+  assert.match(app, /const MAX_PHOTOS = 4;/);
+  assert.match(app, /compressImage\(file, \{ max: 1280, thumb: 360, target: 230 \* 1024/);
+  assert.match(app, /"np-add"/, "photos when adding a vehicle");
+  assert.match(app, /api\("app_drive_media_replace"/);
+  assert.doesNotMatch(app, /photos\?\.length \|\| 0\) \+ n >= 12/);
+});
+
+test("Drive notification centre and trip sheet for the driver", () => {
+  const ops = read("Assets/app/drive/03-drive-ops.js"), app = read("Assets/app/drive/02-drive-app.js"), acc = read("Assets/app/drive/00-drive-access.js");
+  assert.match(ops, /A\.openNotificationCentre = \(\) =>/);
+  assert.match(ops, /function openTripSheet\(id\)/);
+  assert.match(ops, /function driverText\(b\)/);
+  assert.match(ops, /https:\/\/www\.google\.com\/maps\?q=\$\{p\.lat\},\$\{p\.lng\}/);
+  assert.match(ops, /app_mark_my_notification_read/);
+  assert.match(ops, /"ts-copy"/);
+  assert.match(ops, /https:\/\/wa\.me\/\$\{num\}\?text=/);
+  assert.match(app, /data-td-act="notif"/);
+  assert.match(acc, /\{ booking: id, sheet: true \}/, "push opens the trip sheet");
 });

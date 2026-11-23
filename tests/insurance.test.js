@@ -594,7 +594,7 @@ test("Insurance Make Sale button opens create mode instead of passing the click 
 
 test("Insurance new-sale RPC payload does not send the edit-only referral_id argument", () => {
   const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
-  const block = source.slice(source.indexOf("const payload={p_company_id:fd.get(\"company_id\")"), source.indexOf("const res=await rpc(isEdit?\"app_insurance_update_sale_with_referral\":\"app_insurance_create_sale_with_referral\""));
+  const block = source.slice(source.indexOf("const payload={p_company_id:fd.get(\"company_id\")"), source.indexOf("try{res=await rpc(isEdit?\"app_insurance_update_sale_with_referral\":\"app_insurance_create_sale_with_referral\""));
   assert.doesNotMatch(block, /p_referral_id:referralId/);
   assert.match(source, /isEdit\?\{p_sale_id:editSale\.id,\.\.\.payload,p_referral_id:referralId\}:\{\.\.\.payload,p_allow_duplicate_customer:allowDuplicate\}/);
 });
@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261110-openingowner214/);
+  assert.match(html, /01-insurance\.js\?v=20261123-ins241/);
 });
 
 
@@ -1122,4 +1122,25 @@ test('Migration 200 is additive, idempotent and safe for live Insurance data', (
   assert.doesNotMatch(sql, /app_insurance_pay_referr/);
   assert.match(sql, /^\s*begin;/im);
   assert.match(sql, /commit;\s*$/i);
+});
+
+test("Temporary invoices use their own amounts, never the real sale's payments", () => {
+  const src = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  assert.match(src, /function tempInvoiceAmounts\(data\)/);
+  assert.match(src, /return \{\.\.\.source,\.\.\.base,\.\.\.amounts,title:"Invoice"/, "temporary amounts win over the sale");
+  assert.match(src, /name="amount_paid"/);
+  assert.match(src, /name="outstanding"/);
+});
+
+test("Lowering commission after it was received: preview, confirm, one-transaction save (migration 241)", () => {
+  const src = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/241_insurance_edit_commission_after_receipt.sql"), "utf8");
+  const code = sql.replace(/--.*$/gm, "");
+  assert.match(src, /app_insurance_sale_commission_change_preview/);
+  assert.match(src, /app_insurance_update_sale_releasing_commission/);
+  assert.doesNotMatch(code, /\b(alter|drop)\s+table\b|\btruncate\b/i);
+  assert.doesNotMatch(code, /create or replace function public\.app_insurance_update_sale_with_referral\b/i, "the existing edit function is not changed");
+  assert.match(code, /res := public\.app_insurance_update_sale_with_referral\(/);
+  assert.match(code, /revoke all on function public\.app_insurance__release_sale_commission/);
+  assert.match(code, /confirm reducing the receipt/);
 });

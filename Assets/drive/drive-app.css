@@ -366,3 +366,35 @@ html[data-triplem-theme-mode="dark"] .td-ph{background:linear-gradient(135deg,#1
 .td-more-sheet button{position:relative}
 .td-stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .td-place a{margin-left:6px;font-size:.8rem}
+
+/* Notification bell in the header (update 5) */
+.td-bell{position:relative}
+.td-bell-n{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--td-bad,#dc2626);color:#fff;font-size:.66rem;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--td-surface,#fff)}
+/* Notification centre (side panel) */
+.td-nc{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px}
+.td-nc-item{width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--td-line,#e3e8f1);border-radius:12px;background:var(--td-surface,#fff);color:inherit;text-align:left;cursor:pointer;font:inherit}
+.td-nc-item:hover{border-color:#c3cede;background:rgba(36,87,214,.03)}
+.td-nc-item.is-new{border-color:rgba(36,87,214,.35);background:rgba(36,87,214,.05)}
+.td-nc-ico{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:.9rem}
+.td-nc-ico.is-bk{background:rgba(5,150,105,.12);color:#059669}
+.td-nc-ico.is-iq{background:rgba(36,87,214,.12);color:#2457d6}
+.td-nc-main{display:grid;min-width:0}
+.td-nc-main b{font-weight:600;font-size:.82rem}
+.td-nc-main small{color:var(--td-muted,#64748b);font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.td-nc-time{display:flex;align-items:center;gap:6px;color:var(--td-muted,#64748b);font-size:.7rem;white-space:nowrap}
+.td-nc-dot{width:8px;height:8px;border-radius:50%;background:#2457d6;display:inline-block}
+/* Trip sheet */
+.td-ts{display:grid;gap:0;margin:8px 0 4px;border:1px solid var(--td-line,#e3e8f1);border-radius:14px;overflow:hidden}
+.td-ts-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px dashed var(--td-line,#e3e8f1)}
+.td-ts-row:last-child{border-bottom:0}
+.td-ts-row small{display:block;color:var(--td-muted,#64748b);font-size:.68rem}
+.td-ts-row b{font-weight:500;font-size:.84rem;word-break:break-word}
+.td-ts-ico{width:30px;height:30px;border-radius:9px;background:rgba(36,87,214,.08);color:#2457d6;display:grid;place-items:center;font-size:.8rem}
+.td-ts-acts{display:flex;gap:6px}
+.td-ts-go{width:32px;height:32px;border-radius:50%;border:1px solid var(--td-line,#e3e8f1);display:grid;place-items:center;color:#2457d6;background:var(--td-surface,#fff);text-decoration:none}
+.td-ts-go:hover{background:rgba(36,87,214,.08)}
+.td-ts-go .fa-whatsapp{color:#16a34a}
+.td-ts-msg{margin:0 0 8px;padding:10px 12px;border-radius:12px;background:var(--td-bg,#f3f6fb);border:1px solid var(--td-line,#e3e8f1);font:inherit;font-size:.78rem;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto}
+/* Photos in Add vehicle */
+.td-new-photos{display:grid;gap:4px;margin:14px 0 4px;padding-top:12px;border-top:1px dashed var(--td-line,#e3e8f1)}
+.td-new-photos > small{color:var(--td-muted,#64748b);font-size:.72rem}

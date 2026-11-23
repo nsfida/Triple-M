@@ -138,19 +138,24 @@
     return new Promise(res => c.toBlob(b => res({ blob: b, w, h }), type, quality));
   }
   const b64 = blob => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1] || ""); fr.onerror = () => rej(new Error("The image could not be read.")); fr.readAsDataURL(blob); });
-  async function compressImage(file, { max = 1600, thumb = 480, keepAlpha = false } = {}) {
+  // Vehicle photos are stored small: at most 1280 px, WebP (JPEG where WebP is not supported), about
+  // 100-250 KB, with a 360 px preview of about 15-30 KB. At most 4 photos per vehicle (server checks too).
+  const MAX_PHOTOS = 4;
+  const compressVehiclePhoto = file => compressImage(file, { max: 1280, thumb: 360, target: 230 * 1024, startQ: 0.74, thumbQ: 0.6 });
+  async function compressImage(file, { max = 1600, thumb = 480, keepAlpha = false, target = 850 * 1024, startQ = 0.84, thumbQ = 0.78 } = {}) {
     if (!file) throw new Error("Choose an image.");
     if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) throw new Error("Use a PNG, JPG or WebP image.");
     if (file.size > 15 * 1024 * 1024) throw new Error("The image is larger than 15 MB.");
     const img = await readImage(file);
     if (img.naturalWidth < 16 || img.naturalHeight < 16) throw new Error("The image is too small.");
     let type = "image/webp";
-    let q = 0.84, full = await canvasBlob(img, max, type, q);
+    let q = startQ, full = await canvasBlob(img, max, type, q);
     if (!full.blob || full.blob.type !== "image/webp") { type = keepAlpha ? "image/png" : "image/jpeg"; full = await canvasBlob(img, max, type, q); }
-    while (full.blob && full.blob.size > 850 * 1024 && q > 0.45 && type !== "image/png") { q -= 0.12; full = await canvasBlob(img, max, type, q); }
-    if (full.blob && full.blob.size > 850 * 1024) full = await canvasBlob(img, Math.round(max * 0.7), type, 0.7);
-    if (!full.blob || full.blob.size > 880 * 1024) throw new Error("The image is too large even after compression. Try a smaller image.");
-    const th = await canvasBlob(img, thumb, type, 0.78);
+    while (full.blob && full.blob.size > target && q > 0.45 && type !== "image/png") { q -= 0.08; full = await canvasBlob(img, max, type, q); }
+    if (full.blob && full.blob.size > target) full = await canvasBlob(img, Math.round(max * 0.75), type, Math.min(q, 0.6));
+    if (!full.blob || full.blob.size > (target < 850 * 1024 ? 390 * 1024 : 880 * 1024)) throw new Error("The image is too large even after compression. Try a smaller image.");
+    let th = await canvasBlob(img, thumb, type, thumbQ);
+    if (th.blob && th.blob.size > 60 * 1024) th = await canvasBlob(img, Math.round(thumb * 0.75), type, 0.5);
     return { mime: type, width: full.w, height: full.h, data: await b64(full.blob), thumb: th.blob && th.blob.size < 115 * 1024 ? await b64(th.blob) : null };
   }
   function pickFiles({ multiple = false } = {}) {
@@ -191,7 +196,7 @@
   async function loadContext() {
     S.ctx = await api("app_drive_context");
     paintBrand();
-    refreshBadges();
+    refreshBadges(); refreshNotifBadge();
     return S.ctx;
   }
   // New inquiries: a count beside "Inquiries" (needs database update 239; quietly skipped before it).
@@ -207,10 +212,20 @@
       badge.textContent = String(S.newInquiries);
     });
   }
+  // Unread Triplem Drive notifications (bookings and inquiries) on the bell in the header.
+  async function refreshNotifBadge() {
+    const el = S.root?.querySelector("[data-td-bell]"); if (!el) return;
+    try {
+      const list = await (A.driveNotifications ? A.driveNotifications() : Promise.resolve([]));
+      const n = list.filter(x => !x.is_read).length;
+      el.hidden = !n; el.textContent = n > 99 ? "99+" : String(n);
+      el.closest("[data-td-act]")?.setAttribute("aria-label", n ? `Notifications, ${n} new` : "Notifications");
+    } catch (_) {}
+  }
   // A new booking request or inquiry arrived (push or bell): refresh what is on screen.
   function onNews() {
     if (!S.root || S.root.hidden) return;
-    refreshBadges();
+    refreshBadges(); refreshNotifBadge();
     if (["overview", "bookings", "inquiries", "calendar"].includes(S.view) && !DP()?.isOpen?.()) show(S.view, null);
   }
   const ctx = () => S.ctx;
@@ -237,6 +252,7 @@
           <button type="button" class="td-icon-btn td-home-btn" data-td-home title="Back to Triplem VIP" aria-label="Back to Triplem VIP"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
           <div class="td-top-title"><small>Triplem Drive</small><h1 data-td-title>Overview</h1></div>
           <div class="td-top-actions">
+            <button type="button" class="td-icon-btn td-bell" data-td-act="notif" title="Notifications" aria-label="Notifications"><i class="fa-regular fa-bell" aria-hidden="true"></i><b class="td-bell-n" data-td-bell hidden></b></button>
             <button type="button" class="td-btn td-hide-sm" data-td-act="open-public"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Public page</span></button>
             <button type="button" class="td-btn is-primary" data-td-act="new-booking"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>New booking</span></button>
           </div>
@@ -326,6 +342,7 @@
     if (act === "home") return close();
     if (act === "open-public") { const u = publicUrl(); if (u) global.open(u, "_blank", "noopener"); return; }
     if (act === "new-booking") return A.openBookingForm?.(null);
+    if (act === "notif") return A.openNotificationCentre?.();
     const h = A.actions[act];
     if (h) Promise.resolve(h(a, e)).catch(err => toast(errText(err), false));
   }
@@ -509,11 +526,11 @@
           for (const [i, x] of todo.entries()) {
             toast(`Adding photos ${i + 1} of ${todo.length}: ${x.v.name}…`);
             let n = 0;
-            for (const p of (x.v.photos || []).slice(0, 12)) {
+            for (const p of (x.v.photos || []).slice(0, MAX_PHOTOS)) {
               const file = await listedPhotoFile(p);
               if (!file) continue;
               try {
-                const img = await compressImage(file);
+                const img = await compressVehiclePhoto(file);
                 await api("app_drive_media_add", { p_kind: "vehicle", p_vehicle_id: x.car.id, p_mime: img.mime, p_width: img.width, p_height: img.height, p_data: img.data, p_thumb: img.thumb });
                 n++;
               } catch (_) {}
@@ -616,7 +633,7 @@
 
   function photosHtml(v) {
     const ph = v.photos || [];
-    return `<div class="aum-note is-info"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><div>The first photo is the main photo. Photos are compressed before upload (PNG, JPG or WebP, up to 12 per vehicle).</div></div>
+    return `<div class="aum-note is-info"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><div>The first photo is the main photo. Up to ${MAX_PHOTOS} photos per vehicle. Photos are made small before upload (about 100-250 KB each). Replacing or removing a photo deletes the old one from storage.</div></div>
       <div class="td-photos">${ph.map((p, i) => `
         <figure class="td-photo">
           <span class="td-ph"><img data-td-media="${esc(p.key)}" alt="Photo ${i + 1}"><i class="fa-solid fa-image"></i></span>
@@ -629,7 +646,7 @@
             <button type="button" data-dp-act="ph-remove" data-i="${i}" title="Remove" aria-label="Remove" class="is-danger"><i class="fa-solid fa-trash"></i></button>
           </figcaption>
         </figure>`).join("")}
-        ${ph.length < 12 ? `<button type="button" class="td-photo-add" data-dp-act="ph-add"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add photos</span></button>` : ""}
+        ${ph.length < MAX_PHOTOS ? `<button type="button" class="td-photo-add" data-dp-act="ph-add"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add photos</span></button>` : ""}
       </div>`;
   }
   function photoActions(st, vehicleId, reload) {
@@ -639,9 +656,9 @@
     async function upload(files) {
       let n = 0;
       for (const f of files) {
-        if ((st.v?.photos?.length || 0) + n >= 12) { DP().toast("A vehicle can have at most 12 photos.", false); break; }
+        if ((st.v?.photos?.length || 0) + n >= MAX_PHOTOS) { DP().toast(`A vehicle can have at most ${MAX_PHOTOS} photos. Replace or remove one first.`, false); break; }
         DP().toast(`Uploading ${n + 1} of ${files.length}…`);
-        const img = await compressImage(f);
+        const img = await compressVehiclePhoto(f);
         await api("app_drive_media_add", { p_kind: "vehicle", p_vehicle_id: vehicleId, p_mime: img.mime, p_width: img.width, p_height: img.height, p_data: img.data, p_thumb: img.thumb });
         n++;
       }
@@ -655,11 +672,10 @@
       "ph-replace": async b => {
         const i = +b.dataset.i, old = st.v.photos[i];
         const [file] = await pickFiles(); if (!file) return;
-        const img = await compressImage(file);
-        const added = await api("app_drive_media_add", { p_kind: "vehicle", p_vehicle_id: vehicleId, p_mime: img.mime, p_width: img.width, p_height: img.height, p_data: img.data, p_thumb: img.thumb });
-        const a = ids(); a.splice(i, 1, added.id);
-        await api("app_drive_media_delete", { p_id: old.id });
-        await order(a); await reload(); S.fleetReload?.(); DP().toast("Photo replaced");
+        const img = await compressVehiclePhoto(file);
+        // Replaced in place: the old image is overwritten in the database (same position, new key).
+        await api("app_drive_media_replace", { p_id: old.id, p_mime: img.mime, p_width: img.width, p_height: img.height, p_data: img.data, p_thumb: img.thumb });
+        await reload(); S.fleetReload?.(); DP().toast("Photo replaced");
       },
       "ph-remove": async b => {
         const p = st.v.photos[+b.dataset.i];
@@ -670,19 +686,46 @@
   }
 
   function newVehicle() {
-    const st = { saving: false };
+    const st = { saving: false, files: [], urls: [] };
+    const photosPick = () => `<section class="td-new-photos"><b>Photos</b><small>Up to ${MAX_PHOTOS}. The first photo is the main photo. They are made small before upload.</small>
+      <div class="td-photos">${st.files.map((f, i) => `<figure class="td-photo"><span class="td-ph"><img src="${esc(st.urls[i])}" alt="Photo ${i + 1}" class="is-in"></span>${i === 0 ? `<span class="td-photo-main">Main photo</span>` : ""}
+        <figcaption><button type="button" data-dp-act="np-remove" data-i="${i}" title="Remove" aria-label="Remove" class="is-danger"><i class="fa-solid fa-trash"></i></button></figcaption></figure>`).join("")}
+        ${st.files.length < MAX_PHOTOS ? `<button type="button" class="td-photo-add" data-dp-act="np-add"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add photos</span></button>` : ""}</div></section>`;
+    const paintPhotos = () => { const box = DP().custom.body()?.querySelector(".td-new-photos"); if (box) box.outerHTML = photosPick(); };
     panel({
       tabs: [["edit", "New vehicle", "fa-solid fa-plus"]], tab: "edit", state: st,
-      head: () => ({ title: "Add vehicle", icon: "fa-car-side", sub: "Add photos after saving", pills: [] }),
-      render: () => vehicleForm({ status: "available", is_public: true, show_price: true }) + `<div class="td-pfoot"><span></span>${btn("v-create", st.saving ? "Saving…" : "Save vehicle", "fa-check", { primary: true, disabled: st.saving }).replace(/data-td-act/g, "data-dp-act")}</div>`,
+      head: () => ({ title: "Add vehicle", icon: "fa-car-side", sub: "Details and photos", pills: [] }),
+      render: () => vehicleForm({ status: "available", is_public: true, show_price: true }) + photosPick() + `<div class="td-pfoot"><span></span>${btn("v-create", st.saving ? "Saving…" : "Save vehicle", "fa-check", { primary: true, disabled: st.saving }).replace(/data-td-act/g, "data-dp-act")}</div>`,
       actions: {
         "spec-add": () => { const box = panelForm()?.querySelector(".td-specs"); const n = box.querySelectorAll(".td-spec").length; box.querySelector("[data-dp-act='spec-add']").insertAdjacentHTML("beforebegin", `<div class="td-spec"><input name="spec_label_${n}" maxlength="40" placeholder="Feature" aria-label="Feature"><input name="spec_value_${n}" maxlength="120" placeholder="Value" aria-label="Value"></div>`); },
+        "np-add": async () => {
+          const files = (await pickFiles({ multiple: true })).filter(f => /^image\/(png|jpe?g|webp)$/i.test(f.type));
+          const room = MAX_PHOTOS - st.files.length;
+          if (files.length > room) DP().toast(`A vehicle can have at most ${MAX_PHOTOS} photos.`, false);
+          files.slice(0, room).forEach(f => { st.files.push(f); st.urls.push(URL.createObjectURL(f)); });
+          paintPhotos();
+        },
+        "np-remove": b => { const i = +b.dataset.i; try { URL.revokeObjectURL(st.urls[i]); } catch (_) {} st.files.splice(i, 1); st.urls.splice(i, 1); paintPhotos(); },
         "v-create": async () => {
           const p = vehiclePayload(panelForm(), null);
           if (!p.name) throw new Error("Enter the vehicle name.");
           st.saving = true;
-          try { const v = await api("app_drive_vehicle_save", { p }); await loadContext(); S.fleetReload?.(); toast("Vehicle added"); openVehicle(v.id, "photos"); }
+          let v;
+          try { v = await api("app_drive_vehicle_save", { p }); }
           catch (e) { st.saving = false; throw e; }
+          let n = 0; const failed = [];
+          for (const [i, f] of st.files.entries()) {
+            try {
+              DP().toast(`Uploading photo ${i + 1} of ${st.files.length}…`);
+              const img = await compressVehiclePhoto(f);
+              await api("app_drive_media_add", { p_kind: "vehicle", p_vehicle_id: v.id, p_mime: img.mime, p_width: img.width, p_height: img.height, p_data: img.data, p_thumb: img.thumb });
+              n++;
+            } catch (e) { failed.push(errText(e)); }
+          }
+          st.urls.forEach(u => { try { URL.revokeObjectURL(u); } catch (_) {} });
+          await loadContext(); S.fleetReload?.();
+          toast(failed.length ? `Vehicle added. ${n} of ${st.files.length} photos uploaded (${failed[0]}).` : `Vehicle added${n ? ` with ${n} photo${n === 1 ? "" : "s"}` : ""}`, !failed.length);
+          openVehicle(v.id, n || !st.files.length ? "details" : "photos");
         }
       }
     });
@@ -740,7 +783,7 @@
   const A = {
     esc, api, errText, toast, money, currency, parseLocal, fmtDate, fmtTime, fmtWhen, ymd, today, pill, bPill, vPill, skel, empty, btn, F, formValues, panelForm,
     panel, rerender, closePanel, confirmBox, compressImage, pickFiles, mediaUrls, fillMedia, loadContext, ctx, sectionName, vehicleName, publicUrl,
-    sectionOptions, vehicleOptions, B_STATUS, V_STATUS, show, refresh, openVehicle, DP, refreshBadges,
+    sectionOptions, vehicleOptions, B_STATUS, V_STATUS, show, refresh, openVehicle, DP, refreshBadges, refreshNotifBadge,
     actions: {
       "ov-range": b => { S.ovr.range = +b.dataset.d; refresh(); },
       "ov-retry": () => refresh(),

@@ -21,7 +21,7 @@ The **Triplem Drive** card appears on the Home screen only for authorised accoun
 | Overview | Pending requests, today, next 7 days, confirmed upcoming, requests by status for 7/30/90 days or 12 months, fleet by status, recent requests, next confirmed trips, public page status |
 | Bookings | Search (reference, customer, mobile, email, place, vehicle), status filters, vehicle filter, date range, sort, 25 per page. Opening a booking: Confirm / Reject / Cancel / Complete / No show / Reopen, edit, internal notes, assign or reassign a driver, status history, **Copy details**, **WhatsApp** (opens wa.me with a prepared message) and **Email draft** (opens your mail app). Nothing is sent automatically. |
 | Availability | 14-day board per vehicle with confirmed and pending bookings and blocks (maintenance, repairs, personal use, other). Click a free day to add a booking. |
-| Fleet | Vehicles with photos (up to 12, compressed in the browser, main photo, reorder, replace, remove), section, status (Available, Booked, Reserved, Out of Service, Under Maintenance, Sold, Inactive), private registration, public visibility, price visibility, featured, specifications, internal notes |
+| Fleet | Vehicles with photos (up to 4, made small in the browser, main photo, reorder, replace, remove), section, status (Available, Booked, Reserved, Out of Service, Under Maintenance, Sold, Inactive), private registration, public visibility, price visibility, featured, specifications, internal notes |
 | Fleet Sections | Create, rename, reorder, activate or deactivate, delete (vehicles stay and simply have no section) |
 | Rates | Per trip, hourly, daily, weekly, monthly, route, custom quote; per vehicle, section or route; minimum and maximum duration, validity dates, extras; public or private. Without a public price the page shows **Request a Quote**. No online payments. |
 | Routes | Pickup, destination, stops, distance and duration (entered by you), price, vehicle or section, public, active, notes |
@@ -54,6 +54,18 @@ The listed vehicles and prices come from a JSON file instead of the database: SU
 - A request is shown as received only after the server stored it and returned its reference (TD-000123). Default status Pending. If **Confirm requests automatically** is on, a request for a specific, free vehicle is confirmed at once.
 - The server checks the business, the vehicle, every required field, the dates and the availability. Only **confirmed** bookings and blocks make a vehicle unavailable.
 - Spam protection: a hidden honeypot field, at most 6 requests per network per 10 minutes and 40 per day, and at most 4 per mobile number per hour for each business.
+
+## Notification centre and trip sheet
+
+- The bell in the Triplem Drive header shows the number of new booking requests and inquiries. It opens the **Notifications** side panel (All, Bookings, Inquiries; Mark all as read).
+- A booking notification (from the panel, the Triplem VIP bell or a push notification) opens the **trip sheet**: pickup date and time, pickup and drop-off with Google Maps links (exact point when the customer pinned it on the map), customer name, mobile (call, WhatsApp), email, vehicle, passengers, service and notes.
+- **Message for the driver**: a short ready-made text with the map links. **Copy for driver** copies it; **Send on WhatsApp** opens WhatsApp with the text, to the chosen driver (from Drivers) or to any contact. **Full booking** opens the complete booking.
+
+## Vehicle photos (update 242)
+
+- Up to **4 photos** per vehicle, also when adding a new vehicle (Fleet › Add vehicle › Photos).
+- Photos are made small in the browser before upload: at most 1280 px, WebP (JPEG where WebP is not available), about 100-250 KB, with a 360 px preview. The server refuses more than 4 photos and vehicle photos over 400 KB.
+- **Replace** overwrites the old photo in the database (same position); **Remove** deletes it. Nothing old is kept.
 
 ## Listed cars in the fleet (update 240)
 

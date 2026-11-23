@@ -77,7 +77,7 @@
       A.actions["bk-next"] = () => { BS.page++; load(); };
       A.bookingsReload = load;
       load();
-      if (opts.booking) openBooking(opts.booking);
+      if (opts.booking) (opts.sheet ? openTripSheet : openBooking)(opts.booking);
     }
   });
   const reloadLists = () => { try { A.bookingsReload?.(); } catch (_) {} };
@@ -228,6 +228,136 @@
     });
   };
   A.openBooking = id => openBooking(id);
+
+  // ---- Notification centre and trip sheet -------------------------------------------------------------
+  // Every booking request and inquiry is a notification (bell + push). The notification centre lists the
+  // Triplem Drive ones; a booking opens as a short trip sheet that can be copied or sent to a driver.
+  const pinOf = t => { const m = String(t || "").match(/^(.*?)\s*·\s*(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)\s*$/); return m ? { label: m[1] || "Pinned location", lat: m[2], lng: m[3] } : null; };
+  const placeLabel = t => pinOf(t)?.label || String(t || "").trim();
+  const mapLink = t => { const p = pinOf(t); if (p) return `https://www.google.com/maps?q=${p.lat},${p.lng}`; const q = String(t || "").trim(); return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : ""; };
+  const listedPrice = b => (b.answers || []).find(a => /listed price/i.test(a.label))?.answer || "";
+  function driverText(b) {
+    const when = `${fmtDate(b.start_at)}${b.pickup_time_set ? " · " + fmtTime(b.start_at) : ""}`;
+    const lines = [
+      `🚗 Trip ${b.reference}`,
+      `📅 ${when}`,
+      `👤 ${b.customer_name} · ${b.customer_mobile}`,
+      b.customer_email ? `✉️ ${b.customer_email}` : "",
+      b.pickup ? `📍 Pickup: ${placeLabel(b.pickup)}` : "",
+      b.pickup ? `🗺️ ${mapLink(b.pickup)}` : "",
+      b.destination ? `🏁 Drop-off: ${placeLabel(b.destination)}` : "",
+      b.destination ? `🗺️ ${mapLink(b.destination)}` : "",
+      [b.vehicle_name ? `🚙 ${b.vehicle_name}` : "", b.passengers ? `👥 ${b.passengers} passenger${b.passengers === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · "),
+      b.route_name ? `🛣️ ${b.route_name}` : "",
+      b.customer_notes ? `📝 ${b.customer_notes}` : ""
+    ];
+    return lines.filter(Boolean).join("\n");
+  }
+  function openTripSheet(id) {
+    const st = { b: null, err: "", busy: "" };
+    const load = async () => { try { st.b = await api("app_drive_booking_get", { p_id: id }); st.err = ""; } catch (e) { st.err = errText(e); } rerender(); };
+    const row = (icon, label, value, extra = "") => `<div class="td-ts-row"><span class="td-ts-ico"><i class="${icon}" aria-hidden="true"></i></span><div><small>${esc(label)}</small><b dir="auto">${value}</b></div>${extra}</div>`;
+    panel({
+      tabs: [["trip", "Trip sheet", "fa-solid fa-route"]], tab: "trip", state: st,
+      head: () => ({ title: st.b ? st.b.reference : "Booking", icon: "fa-route", sub: st.b ? esc(`${st.b.customer_name} · ${fmtDate(st.b.start_at)}${st.b.pickup_time_set ? " " + fmtTime(st.b.start_at) : ""}`) : "Triplem Drive",
+        pills: st.b ? [bPill(st.b.status), st.b.source === "public" ? pill("Public page", "", "fa-globe") : pill("Added by you", "", "fa-user-pen")] : [] }),
+      render() {
+        if (st.err) return `<div class="aum-note is-bad"><i class="fa-solid fa-triangle-exclamation"></i><div>${esc(st.err)}</div></div>`;
+        const b = st.b; if (!b) return skel(6);
+        const K = A.DP().kit;
+        const wa = waDigits(b.customer_mobile);
+        const drivers = (A.ctx().drivers || []).filter(d => d.active || d.id === b.driver_id);
+        const drv = drivers.find(d => d.id === b.driver_id);
+        const text = driverText(b);
+        const mapBtn = t => t ? `<a class="td-ts-go" href="${esc(mapLink(t))}" target="_blank" rel="noopener" title="Open in Google Maps" aria-label="Open in Google Maps"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i></a>` : "";
+        return `<div class="td-ts">
+            ${row("fa-regular fa-calendar", "Pickup", esc(fmtDate(b.start_at)) + (b.pickup_time_set ? " · " + esc(fmtTime(b.start_at)) : ""))}
+            ${row("fa-solid fa-location-dot", "Pickup location", esc(placeLabel(b.pickup) || "—") + (pinOf(b.pickup) ? ' <small class="td-muted">(pinned)</small>' : ""), mapBtn(b.pickup))}
+            ${row("fa-solid fa-flag-checkered", "Drop-off", esc(placeLabel(b.destination) || "—") + (pinOf(b.destination) ? ' <small class="td-muted">(pinned)</small>' : ""), mapBtn(b.destination))}
+            ${row("fa-regular fa-user", "Customer", esc(b.customer_name), `<span class="td-ts-acts"><a class="td-ts-go" href="tel:${esc(b.customer_mobile)}" title="Call" aria-label="Call"><i class="fa-solid fa-phone"></i></a>${wa.length >= 7 ? `<a class="td-ts-go" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>` : ""}</span>`)}
+            ${row("fa-solid fa-phone", "Mobile", `<a href="tel:${esc(b.customer_mobile)}">${esc(b.customer_mobile)}</a>`)}
+            ${b.customer_email ? row("fa-regular fa-envelope", "Email", `<a href="mailto:${esc(b.customer_email)}">${esc(b.customer_email)}</a>`) : ""}
+            ${row("fa-solid fa-car-side", "Vehicle", esc(b.vehicle_name || "Any vehicle") + (b.passengers ? ` · ${esc(String(b.passengers))} passenger${b.passengers === 1 ? "" : "s"}` : ""))}
+            ${b.route_name ? row("fa-solid fa-route", "Service", esc(b.route_name) + (listedPrice(b) ? ` · ${esc(listedPrice(b))}` : "")) : ""}
+            ${b.customer_notes ? row("fa-regular fa-note-sticky", "Notes", esc(b.customer_notes)) : ""}
+          </div>`
+          + K.section("Message for the driver", `<pre class="td-ts-msg" dir="auto">${esc(text)}</pre>
+              <div class="td-inline"><select data-ts-driver aria-label="Driver"><option value="">Choose in WhatsApp</option>${drivers.filter(d => waDigits(d.mobile).length >= 7).map(d => `<option value="${esc(d.id)}"${d.id === b.driver_id ? " selected" : ""}>${esc(d.name)} · ${esc(d.mobile)}</option>`).join("")}</select></div>
+              <div class="td-pacts">${pbtn("ts-copy", "Copy for driver", "fa-regular fa-copy", { primary: true })}${pbtn("ts-wa", "Send on WhatsApp", "fa-brands fa-whatsapp")}</div>
+              <small class="td-muted">${drv ? `Assigned driver: ${esc(drv.name)}. ` : ""}WhatsApp opens with the message ready; nothing is sent until you send it.</small>`)
+          + `<div class="td-pacts">${(NEXT[b.status] || []).filter(x => x[3]).map(([s2, label, icon]) => pbtn("ts-set", label, icon, { data: `data-s="${s2}"`, disabled: !!st.busy })).join("")}${pbtn("ts-full", "Full booking", "fa-solid fa-up-right-and-down-left-from-center")}</div>`;
+      },
+      actions: {
+        "ts-copy": async () => { try { await navigator.clipboard.writeText(driverText(st.b)); A.DP().toast("Copied. Paste it in WhatsApp for the driver."); } catch (_) { A.DP().toast("Could not copy.", false); } },
+        "ts-wa": () => {
+          const sel = A.DP().custom.body().querySelector("[data-ts-driver]")?.value;
+          const d = (A.ctx().drivers || []).find(x => x.id === sel);
+          const num = d ? waDigits(d.mobile) : "";
+          global.open(`https://wa.me/${num}?text=${encodeURIComponent(driverText(st.b))}`, "_blank", "noopener");
+        },
+        "ts-set": async btnEl => {
+          const to = btnEl.dataset.s, label = (A.B_STATUS[to] || [to])[0];
+          st.busy = to; rerender();
+          try { st.b = await api("app_drive_booking_set_status", { p_id: id, p_status: to, p_note: null }); A.DP().toast(`Booking ${label.toLowerCase()}`); reloadLists(); }
+          finally { st.busy = ""; rerender(); }
+        },
+        "ts-full": () => openBooking(id)
+      }
+    });
+    load();
+  }
+  A.openTripSheet = id => openTripSheet(id);
+
+  const isDriveNote = n => { const t = n?.payload?.type; return t === "drive_booking" || t === "drive_inquiry"; };
+  function agoText(iso) {
+    const ms = Date.now() - Date.parse(iso || 0); if (!Number.isFinite(ms)) return "";
+    const m = Math.round(ms / 60000);
+    if (m < 1) return "Just now"; if (m < 60) return `${m} min ago`;
+    const h = Math.round(m / 60); if (h < 24) return `${h} h ago`;
+    return fmtWhen(iso);
+  }
+  async function driveNotifications() {
+    const r = await api("app_list_my_notifications", { p_limit: 100 });
+    return (Array.isArray(r?.items) ? r.items : []).filter(isDriveNote);
+  }
+  async function openNotification(n) {
+    if (!n.is_read) { try { await api("app_mark_my_notification_read", { p_notification_id: n.id }); } catch (_) {} A.refreshNotifBadge?.(); }
+    const p = n.payload || {};
+    if (p.type === "drive_inquiry") return A.show("inquiries", { inquiry: p.inquiry_id });
+    if (p.booking_id) return openTripSheet(p.booking_id);
+  }
+  A.openNotificationCentre = () => {
+    const st = { items: null, err: "", filter: "all" };
+    const load = async () => { try { st.items = await driveNotifications(); st.err = ""; } catch (e) { st.err = errText(e); } rerender(); };
+    panel({
+      tabs: [["all", "All", "fa-solid fa-bell"], ["booking", "Bookings", "fa-solid fa-calendar-check"], ["inquiry", "Inquiries", "fa-solid fa-envelope-open-text"]], tab: "all", state: st,
+      head: () => { const un = (st.items || []).filter(n => !n.is_read).length; return { title: "Notifications", icon: "fa-bell", sub: "New booking requests and inquiries", pills: un ? [pill(`${un} new`, "warn", "fa-circle")] : [] }; },
+      render(tab) {
+        if (st.err) return `<div class="aum-note is-bad"><i class="fa-solid fa-triangle-exclamation"></i><div>${esc(st.err)}</div></div>`;
+        if (!st.items) return skel(6);
+        const list = st.items.filter(n => tab === "all" || (tab === "booking" ? n.payload?.type === "drive_booking" : n.payload?.type === "drive_inquiry"));
+        const un = st.items.filter(n => !n.is_read).length;
+        return (un ? `<div class="td-inline is-end">${pbtn("nc-read-all", "Mark all as read", "fa-solid fa-check-double")}</div>` : "")
+          + (list.length ? `<ul class="td-nc">${list.map(n => {
+            const bk = n.payload?.type === "drive_booking";
+            return `<li><button type="button" class="td-nc-item${n.is_read ? "" : " is-new"}" data-dp-act="nc-open" data-id="${esc(n.id)}">
+              <span class="td-nc-ico ${bk ? "is-bk" : "is-iq"}"><i class="fa-solid ${bk ? "fa-calendar-check" : "fa-envelope-open-text"}" aria-hidden="true"></i></span>
+              <span class="td-nc-main"><b>${esc(n.title || (bk ? "New booking request" : "New inquiry"))}</b><small dir="auto">${esc(n.body || "")}</small></span>
+              <span class="td-nc-time">${esc(agoText(n.created_at))}${n.is_read ? "" : '<i class="td-nc-dot" aria-label="New"></i>'}</span></button></li>`;
+          }).join("")}</ul>` : empty("fa-bell-slash", "No notifications", "New booking requests and inquiries from your public page appear here and as push notifications."));
+      },
+      actions: {
+        "nc-open": b => { const n = (st.items || []).find(x => x.id === b.dataset.id); if (n) openNotification(n); },
+        "nc-read-all": async () => {
+          const unread = (st.items || []).filter(n => !n.is_read);
+          await Promise.all(unread.map(n => api("app_mark_my_notification_read", { p_notification_id: n.id }).catch(() => {})));
+          unread.forEach(n => { n.is_read = true; }); rerender(); A.refreshNotifBadge?.(); A.DP().toast("All marked as read");
+        }
+      }
+    });
+    load();
+  };
+  A.driveNotifications = driveNotifications;
 
   // ---- Availability calendar --------------------------------------------------------------------------
   const DAYS = 14;

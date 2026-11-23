@@ -949,3 +949,17 @@
   color:var(--text,#0f172a);font-size:.74rem;line-height:1.45}
 .insurance-opening-edit-note i{color:var(--primary,#2563eb);margin-top:2px}
 .insurance-opening-balance-form select:disabled{opacity:.72;cursor:not-allowed}
+
+/* Commission already received (migration 241) */
+.insurance-release { display: grid; gap: 10px; font-size: .86rem; }
+.insurance-release-rows { display: grid; border: 1px solid var(--line, rgba(208,213,221,.7)); border-radius: 12px; overflow: hidden; }
+.insurance-release-rows > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; border-bottom: 1px dashed var(--line, rgba(208,213,221,.7)); }
+.insurance-release-rows > div:last-child { border-bottom: 0; }
+.insurance-release-rows span { color: var(--muted, #667085); }
+.insurance-release-rows .is-total { background: rgba(36,87,214,.06); }
+.insurance-release p { margin: 0; line-height: 1.45; }
+.insurance-release p > i { color: var(--primary, #2457d6); margin-right: 4px; }
+.insurance-release-warn { padding: 9px 12px; border-radius: 10px; background: #fff4e5; color: #8a4b06; }
+.insurance-release-warn > i { color: #b25e09 !important; }
+.insurance-temp-note { grid-column: 1 / -1; font-size: .74rem; line-height: 1.4; color: var(--muted, #667085); padding: 7px 10px; border-radius: 10px; background: rgba(36,87,214,.06); }
+.insurance-temp-note > i { color: var(--primary, #2457d6); margin-right: 4px; }

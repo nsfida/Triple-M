@@ -12,7 +12,7 @@
 (function (global) {
   "use strict";
 
-  const V = "20261123-td6";
+  const V = "20261123-td7";
   const APP_SCRIPTS = ["Assets/app/drive/02-drive-app.js", "Assets/app/drive/03-drive-ops.js", "Assets/app/drive/04-drive-setup.js"];
   const APP_CSS = "Assets/drive/drive-app.css";
   const ADMIN_SCRIPT = "Assets/app/drive/01-drive-admin.js";
@@ -171,7 +171,7 @@
       clearInterval(t);
       try { const u = new URL(location.href); ["push", "kind", "id"].forEach(k => u.searchParams.delete(k)); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (_) {}
       if (!enabled()) return;
-      open(kind === "inquiry" ? "inquiries" : "bookings", kind === "inquiry" ? { inquiry: id } : { booking: id });
+      open(kind === "inquiry" ? "inquiries" : "bookings", kind === "inquiry" ? { inquiry: id } : { booking: id, sheet: true });
     }, 500);
   }
   function wrapNotifications() {
@@ -196,7 +196,7 @@
       if (action === "drive-open" && p) {
         try { global.closeNotificationDetail?.(); } catch (_) {}
         try { global.TriplemDetailPanels?.close?.(); } catch (_) {}
-        return open("bookings", { booking: p.booking_id });
+        return open("bookings", { booking: p.booking_id, sheet: true });
       }
       return origRun.apply(this, arguments);
     };
