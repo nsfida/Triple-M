@@ -10,7 +10,35 @@
   },
   "vehicles_in_database": true,
   "currency": "SAR",
+  "support": {
+    "phone": "+966596739938",
+    "whatsapp": "+966596739938",
+    "email": "customersupport@triplem.vip",
+    "note": "Customer support for Triplem Drive (shown on the public page with WhatsApp chat)."
+  },
+  "hero": {
+    "title": "Premium chauffeur rides across Saudi Arabia",
+    "subtitle": "City rides, airport transfers and intercity trips in SUV, sedan and mini van, 24/7.",
+    "photo": {
+      "file": "hero-riyadh.jpg",
+      "commons": "Riyadh Skyline.jpg"
+    }
+  },
   "classes": [
+    {
+      "key": "sedan",
+      "name": "Sedan",
+      "models": [
+        "lexus-es",
+        "ford-taurus",
+        "bmw-7-series"
+      ],
+      "tagline": "Business sedan",
+      "similar": "Lexus ES, Ford Taurus, BMW 7 Series or similar",
+      "seats": 3,
+      "bags": 3,
+      "art": "class-sedan.svg"
+    },
     {
       "key": "suv",
       "name": "SUV",
@@ -19,16 +47,12 @@
         "gmc-yukon-xl",
         "chevrolet-tahoe",
         "chevrolet-suburban"
-      ]
-    },
-    {
-      "key": "sedan",
-      "name": "Sedan",
-      "models": [
-        "lexus-es",
-        "ford-taurus",
-        "bmw-7-series"
-      ]
+      ],
+      "tagline": "Luxury SUV",
+      "similar": "GMC Yukon, Chevrolet Tahoe, Chevrolet Suburban or similar",
+      "seats": 6,
+      "bags": 6,
+      "art": "class-suv.svg"
     },
     {
       "key": "minivan",
@@ -36,7 +60,12 @@
       "models": [
         "hyundai-staria",
         "toyota-hiace"
-      ]
+      ],
+      "tagline": "Family and group van",
+      "similar": "Hyundai Staria, Toyota HiAce or similar",
+      "seats": 7,
+      "bags": 7,
+      "art": "class-minivan.svg"
     }
   ],
   "vehicles": [
@@ -357,8 +386,8 @@
   },
   "faq": [
     {
-      "q": "How do I book a car?",
-      "a": "Choose a car or a price and tap Book. Fill in the short form and send it. We contact you to confirm your reservation."
+      "q": "How do I book a ride?",
+      "a": "Tap Book now or choose what you need: within the city, airport transfer or outside the city. Pick the vehicle type and your car, add the trip and your details, and you see the final price before you send. We contact you on WhatsApp or by phone to confirm."
     },
     {
       "q": "Do I pay online?",
@@ -367,6 +396,10 @@
     {
       "q": "I need an invoice. Is anything added?",
       "a": "Yes. If you need an invoice, 15% is applied on the final invoice."
+    },
+    {
+      "q": "Is a return trip twice the price?",
+      "a": "Yes. A return trip is two one-way trips, so it is twice the one-way price. You see both before you send the request."
     },
     {
       "q": "Can I pay in cash?",
@@ -390,11 +423,145 @@
     },
     {
       "q": "How do I make a complaint?",
-      "a": "On WhatsApp only, with a picture, or by the official Triplem email."
+      "a": "On WhatsApp +966596739938 (with a picture if possible), or by email to customersupport@triplem.vip."
     },
     {
       "q": "Who do I contact in an emergency?",
-      "a": "Email the official Triplem email."
+      "a": "Call or WhatsApp +966596739938, or email customersupport@triplem.vip."
+    }
+  ],
+  "service_types": [
+    {
+      "key": "city",
+      "name": "Within the city",
+      "short": "City ride",
+      "icon": "fa-city",
+      "text": "Point to point rides or a full day with a chauffeur inside the city.",
+      "services": [
+        "inside-city",
+        "full-day"
+      ],
+      "cities": [
+        "riyadh",
+        "jeddah",
+        "dammam",
+        "madinah"
+      ]
+    },
+    {
+      "key": "airport",
+      "name": "Airport transfer",
+      "short": "Airport",
+      "icon": "fa-plane-departure",
+      "text": "Meet and greet at the airport, or a ride to your flight, on time.",
+      "services": [
+        "airport"
+      ],
+      "cities": [
+        "riyadh",
+        "jeddah",
+        "dammam",
+        "madinah"
+      ]
+    },
+    {
+      "key": "intercity",
+      "name": "Outside the city",
+      "short": "Intercity",
+      "icon": "fa-road",
+      "text": "Comfortable intercity trips between Riyadh and other cities and borders.",
+      "services": [
+        "riyadh-dammam",
+        "riyadh-dubai-border",
+        "riyadh-jeddah",
+        "riyadh-makkah",
+        "riyadh-qasim",
+        "riyadh-medinah",
+        "riyadh-kuwait-border",
+        "riyadh-qatar-border"
+      ]
+    }
+  ],
+  "cities": [
+    {
+      "key": "makkah",
+      "name": "Makkah",
+      "landmark": "Al-Masjid al-Haram and the Kaaba",
+      "route": "riyadh-makkah",
+      "airport": {
+        "name": "King Abdulaziz International Airport",
+        "code": "JED",
+        "lat": 21.6796,
+        "lng": 39.1565
+      },
+      "photo": {
+        "file": "city-makkah.jpg",
+        "commons": "The Kaaba during Hajj.jpg"
+      }
+    },
+    {
+      "key": "madinah",
+      "name": "Madinah",
+      "landmark": "Al-Masjid an-Nabawi and the Green Dome",
+      "route": "riyadh-medinah",
+      "airport": {
+        "name": "Prince Mohammad bin Abdulaziz International Airport",
+        "code": "MED",
+        "lat": 24.5534,
+        "lng": 39.7051
+      },
+      "photo": {
+        "file": "city-madinah.jpg",
+        "commons": "The Green Dome, Masjid Nabawi, Madina.jpg"
+      }
+    },
+    {
+      "key": "riyadh",
+      "name": "Riyadh",
+      "landmark": "Kingdom Centre",
+      "airport": {
+        "name": "King Khalid International Airport",
+        "code": "RUH",
+        "lat": 24.9578,
+        "lng": 46.6989
+      },
+      "photo": {
+        "file": "city-riyadh.jpg",
+        "commons": "Riyadh Skyline New.jpg"
+      }
+    },
+    {
+      "key": "jeddah",
+      "name": "Jeddah",
+      "landmark": "Historic Jeddah, Al-Balad",
+      "route": "riyadh-jeddah",
+      "airport": {
+        "name": "King Abdulaziz International Airport",
+        "code": "JED",
+        "lat": 21.6796,
+        "lng": 39.1565
+      },
+      "photo": {
+        "file": "city-jeddah.jpg",
+        "commons": "Bab Jadid, Historic Jeddah (2023).jpg",
+        "note": "Jeddah Tower is still under construction; free photos only show the building site. Replace this with your own photo of the tower when it opens."
+      }
+    },
+    {
+      "key": "dammam",
+      "name": "Dammam & Al Khobar",
+      "landmark": "Khobar Water Tower",
+      "route": "riyadh-dammam",
+      "airport": {
+        "name": "King Fahd International Airport",
+        "code": "DMM",
+        "lat": 26.4712,
+        "lng": 49.7979
+      },
+      "photo": {
+        "file": "city-dammam.jpg",
+        "search": "Khobar Water Tower"
+      }
     }
   ]
 }

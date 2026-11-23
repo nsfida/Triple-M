@@ -162,7 +162,6 @@
           <section class="td-card"><h2>Bookings</h2><div class="td-fgrid">
               ${F.select("currency", "Currency", f.currency, curList.map(c => [c, c]))}
               ${F.select("timezone", "Time zone", tz, zones(tz), { hint: "Dates and times of bookings are in this time zone." })}
-              ${F.num("default_trip_hours", "Default trip length (hours)", f.default_trip_hours, { min: 1, max: 72, step: 1, hint: "Used when a request has a pickup time but no return." })}
             </div>
             <div class="td-switches">${F.sw("auto_confirm", "Confirm requests automatically", f.auto_confirm, "Requests for a specific, free vehicle are confirmed at once. Otherwise every request waits for you (Pending).")}</div>
           </section>

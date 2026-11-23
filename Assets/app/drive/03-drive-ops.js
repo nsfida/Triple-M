@@ -201,7 +201,7 @@
       ${b.id ? "" : F.select("status", "Status", "pending", [["pending", "Pending"], ["confirmed", "Confirmed (checks availability)"]])}
       ${b.id ? "" : F.area("customer_notes", "Customer notes", "", { rows: 2, max: 2000 })}
       ${F.area("internal_notes", "Internal notes (private)", b.internal_notes, { rows: 2 })}
-    </div><p class="td-muted">Without a return date, a booking with a pickup time lasts ${esc(String(c.fleet.default_trip_hours))} hours; without a time it takes the whole day.</p></form>`;
+    </div><p class="td-muted">A booking stays open until you confirm, complete, cancel or reject it. Bookings never make a car unavailable; use the car's status (Available, Booked, Out of Service, ...) or a block for that.</p></form>`;
   }
   function bookingPayload(form, b) {
     const d = formValues(form);
@@ -424,7 +424,7 @@
           ${F.text("start_date", "From", sd || d0, { type: "date", req: true })}${F.text("start_time", "Time", stm || "00:00", { type: "time" })}
           ${F.text("end_date", "Until", ed || d0, { type: "date", req: true })}${F.text("end_time", "Time", etm || "23:59", { type: "time" })}
           ${F.area("note", "Note", k?.note, { rows: 2, max: 600 })}
-        </div><p class="td-muted">A block cannot overlap a confirmed booking. Public requests for blocked times are refused.</p></form>
+        </div><p class="td-muted">Public requests for this car at blocked times are refused. Bookings do not block a car.</p></form>
         <div class="td-pfoot">${k ? pbtn("blk-delete", "Delete", "fa-trash", { danger: true }) : "<span></span>"}${pbtn("blk-save", "Save", "fa-check", { primary: true })}</div>`,
       actions: {
         "blk-save": async () => {
