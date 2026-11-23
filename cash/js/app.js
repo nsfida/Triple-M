@@ -8,7 +8,7 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js';
-import { clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=staff-panel-6';
+import { clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=blank-zero-7';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -227,6 +227,12 @@ function formatAmount(value) {
   return calculateAmount(value).toFixed(2);
 }
 
+// Expenses / Received: zero is shown as an empty cell.
+function formatBlankIfZero(value) {
+  const numeric = calculateAmount(value);
+  return Math.abs(numeric) < 0.005 ? '' : numeric.toFixed(2);
+}
+
 function calculateAmount(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : 0;
@@ -377,7 +383,7 @@ function renderCell(row, column, amountFields = AMOUNT_FIELDS) {
   const value = row[column.field] ?? '';
   const disabled = (canWrite && !isRowLocked(row, 'entry_date')) ? '' : 'disabled';
   if (column.kind === 'total') {
-    return `<input class="cell-input total-cell" type="text" value="${formatAmount(calculateTotal(row, amountFields))}" readonly tabindex="-1" aria-label="Calculated row total">`;
+    return `<input class="cell-input total-cell" type="text" value="${formatBlankIfZero(calculateTotal(row, amountFields))}" readonly tabindex="-1" aria-label="Calculated row total">`;
   }
   if (column.kind === 'select') {
     return `<select class="cell-input" data-field="${column.field}" ${disabled} aria-label="${column.label}">
@@ -389,7 +395,8 @@ function renderCell(row, column, amountFields = AMOUNT_FIELDS) {
     return `<input class="cell-input" type="date" list="recentDates" data-field="${column.field}" value="${escapeHtml(value || localDateString())}" ${disabled} aria-label="${column.label}">`;
   }
   if (column.kind === 'amount') {
-    return `<input class="cell-input amount-cell" type="number" inputmode="decimal" step="0.01" data-field="${column.field}" value="${escapeHtml(value)}" ${disabled} aria-label="${column.label}">`;
+    const shown = value !== '' && value != null && Number(value) === 0 ? '' : value;
+    return `<input class="cell-input amount-cell" type="number" inputmode="decimal" step="0.01" data-field="${column.field}" value="${escapeHtml(shown)}" ${disabled} aria-label="${column.label}">`;
   }
   const placeholder = column.field === 'trn_number' ? '---' : '';
   return `<input class="cell-input" type="text" maxlength="120" data-field="${column.field}" value="${escapeHtml(value)}" placeholder="${placeholder}" ${disabled} aria-label="${column.label}">`;
@@ -1300,7 +1307,7 @@ function handleReceivedInput(event) {
   receivedSheetStatus.classList.remove('error');
   tr.classList.add('dirty-row');
   const totalInput = tr.querySelector('.total-cell');
-  if (totalInput) totalInput.value = formatAmount(calculateTotal(row, RECEIVING_AMOUNT_FIELDS));
+  if (totalInput) totalInput.value = formatBlankIfZero(calculateTotal(row, RECEIVING_AMOUNT_FIELDS));
   updateReceivedToolbar();
 }
 
@@ -1403,7 +1410,7 @@ function onTableInput(event) {
   row[field] = fieldInput.value;
   markRowDirty(row);
   const totalInput = tr.querySelector('.total-cell');
-  if (totalInput) totalInput.value = formatAmount(calculateTotal(row));
+  if (totalInput) totalInput.value = formatBlankIfZero(calculateTotal(row));
 }
 
 function getPayload(row) {
