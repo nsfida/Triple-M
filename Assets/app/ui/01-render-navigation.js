@@ -603,6 +603,7 @@ function workspaceSectionCopy(key){
     expenses: "Wallets, spending, income and transfers.",
     goods: "Stock, customers, sales and operations.",
     inventory2: "POS, stock, purchases, customers and suppliers.",
+    drive: "Manage vehicles, publish your fleet, receive reservations, and coordinate trips.",
     insurance: "Companies, policies, sales and commissions.",
     audit: "Trace activity with clear financial controls.",
     "triplem-ai": "Private AI assistance across your workspace.",
@@ -689,6 +690,7 @@ function openWorkspaceHomeCard(card){
   const tab = String(card?.dataset?.workspaceTab || "").trim();
   if (!tab) return;
   if (tab === "inventory2") { try { window.TriplemInventoryV2?.open?.(); } catch (e) { console.error(e); } return; }
+  if (tab === "drive") { try { window.TriplemDrive?.open?.(); } catch (e) { console.error(e); } return; }
   activate(tab);
 }
 
@@ -795,6 +797,7 @@ function renderWorkspaceHome(){
   }
   bindWorkspaceHomeGrid(grid);
   try { window.TriplemInventoryV2?.decorateHome?.(grid); } catch (_) {}
+  try { window.TriplemDrive?.decorateHome?.(grid); } catch (_) {}
   // Cards hidden with ⋮ › Hide from Home (Home Style); the sections stay in the section switcher.
   const hidden = Array.isArray(style.hidden) ? style.hidden : [];
   if (hidden.length) grid.querySelectorAll(".workspace-home-card[data-home-key]").forEach(card => { if (hidden.includes(card.dataset.homeKey)) card.remove(); });
@@ -1182,6 +1185,7 @@ function activate(tab){
   }
   // Inventory 2.0 opens full screen; V1 stays closed when the Main Admin switched it off.
   if (tab === "inventory2") { window.TriplemInventoryV2?.open?.(); return; }
+  if (tab === "drive") { window.TriplemDrive?.open?.(); return; }
   if ((tab === "goods" || tab === "inventory") && window.TriplemInventoryV2?.v1Hidden?.()) return;
   // Microsoft Store version: no Bitcoin wallet (Store policy 10.2.6).
   if (tab === "bitcoin" && typeof cryptoFeaturesHidden === "function" && cryptoFeaturesHidden()) return;

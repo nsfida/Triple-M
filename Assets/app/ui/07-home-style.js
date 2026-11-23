@@ -163,6 +163,7 @@
     let k = String(key || "").trim();
     if (k === "inventory") k = "goods";
     if (k === "message") k = "messages";
+    if (k === "drive") return "Assets/logo/icons/home/drive.svg?v=20261123a"; // Triplem Drive: one icon for every pack
     if (pack === "classic") return `Assets/logo/icons/${CLASSIC_FILES[k] || "dashboard.png"}`;
     if (!Object.prototype.hasOwnProperty.call(CLASSIC_FILES, k)) k = "dashboard";
     if (pack === "standard") return `Assets/logo/icons/home/${k}.svg?v=20261114c`;

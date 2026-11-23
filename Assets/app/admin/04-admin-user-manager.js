@@ -117,7 +117,7 @@
         toast("Admin security key needed. Unlock it, then try again.", "bad");
         try { await ensureAdminSecurityAccess?.(); } catch (_) {}
       } else {
-        toast(msg.replace(/^Error:\s*/, ""), "bad");
+        if (msg.replace(/^Error:\s*/, "")) toast(msg.replace(/^Error:\s*/, ""), "bad");
       }
       return false;
     } finally {
@@ -188,6 +188,7 @@
     rpc("app_admin_user_overview", { p_user_id: id }).then(keep(v => { cur.overview = v || {}; }), keep(e => { cur.overview = { error: String(e?.message || e) }; }));
     if (isMainAdmin()) {
       rpc("app_admin_inventory_access_get", { p_user_id: id }).then(keep(v => { cur.inv = v || {}; }), keep(e => { cur.inv = { error: String(e?.message || e) }; }));
+      if (!cur.user.team_owner_id) rpc("app_admin_drive_get", { p_user_id: id }).then(keep(v => { cur.drive = v || {}; }), keep(e => { cur.drive = { error: String(e?.message || e) }; }));
       rpc("app_admin_test_account_info", { p_user_id: id }).then(keep(v => { cur.test = v?.test_account === true; }), keep(() => { cur.test = false; }));
     } else {
       cur.inv = { error: "Only the Main Admin can change inventory access." };
@@ -357,8 +358,10 @@
     const features = [
       sw("feature:accounting", "Accounting", "Double-entry books, invoices, VAT and statements", tabs.has("accounting"), { disabled: locked, icon: "fa-solid fa-calculator" }),
       main ? sw("feature:insurance", "Insurance", "Policies, sales, commissions and customers", locked || tabs.has("insurance"), { disabled: locked, icon: "fa-solid fa-shield-heart" }) : "",
-      main ? sw("feature:ai", "Triplem AI", "The user connects their own Gemini key. Turning it off deletes their stored key.", !!u.triplem_ai_access, { disabled: locked, icon: "fa-solid fa-wand-magic-sparkles" }) : ""
-    ].join("");
+      main ? sw("feature:ai", "Triplem AI", "The user connects their own Gemini key. Turning it off deletes their stored key.", !!u.triplem_ai_access, { disabled: locked, icon: "fa-solid fa-wand-magic-sparkles" }) : "",
+      // Triplem Drive (migration 236): Main Admin only; switching on asks for the public page address.
+      main && !u.team_owner_id ? sw("feature:drive", "Triplem Drive", cur.drive?.enabled ? "Fleet management and public vehicle bookings. Turning it off hides it; every record is kept." : "Fleet management and public vehicle bookings. Switching on asks for the public page address.", !!cur.drive?.enabled, { disabled: !cur.drive || !!cur.drive.error, icon: "fa-solid fa-car-side" }) : ""
+    ].join("") + (main && !u.team_owner_id ? driveHtml() : "");
     const btc = storeEdition() ? "" : `<div class="aum-row is-stack"><span class="aum-row-label"><i class="fa-brands fa-bitcoin" aria-hidden="true"></i> Bitcoin</span>
       <div class="aum-seg is-wrap" role="radiogroup" aria-label="Bitcoin access">
         ${[["none", "Off"], ["currency_only", "BTC currency"], ["tab_only", "Bitcoin section"], ["both", "Both"]].map(([v, t]) => `<button type="button" role="radio" data-aum-btc="${v}" aria-checked="${btcMode === v}"${locked ? " disabled" : ""}>${t}</button>`).join("")}
@@ -372,6 +375,25 @@
       ${section("Features", `<div class="aum-switches">${features}</div>${btc}`)}
       ${section("Inventory", inventoryHtml())}
       ${section("Currencies", `<p class="aum-muted">The user can only use the currencies switched on here.</p><div class="aum-chips">${currencies}</div>`)}`;
+  }
+  // Triplem Drive: public page address, root page and the change history (switch is in Features).
+  function driveHtml(){
+    const d = cur.drive;
+    if (!d) return "";
+    if (d.error) return `<p class="aum-muted">${esc(/function|schema/i.test(d.error) ? "Triplem Drive needs database update 236." : d.error)}</p>`;
+    if (!d.enabled) return d.exists ? `<p class="aum-muted">Triplem Drive is off. Its vehicles, bookings and page are kept and come back when it is switched on again.</p>` : "";
+    const url = global.TriplemDriveAdmin?.publicUrl?.(d.slug) || `https://triplem.vip/triplemdrive/${d.slug}/`;
+    const hist = (d.history || []).slice(0, 5).map(h => `<li><span><b>${esc(global.TriplemDriveAdmin?.actionLabel?.(h) || h.action)}</b></span><small>${esc(when(h.at))} · ${esc(h.by || "Admin")}</small></li>`).join("");
+    return `<div class="aum-drive" data-aum-drive>
+      ${kv([
+        ["Public page", `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url.replace(/^https:\/\//, ""))}</a>`],
+        d.is_root ? ["Also at", `<span>triplem.vip/triplemdrive/</span>`] : null,
+        ["Business name", esc(d.business_name || "Triplem Drive")],
+        ["Page", d.published ? pill("Published", "ok") : pill("Not published yet", "warn")]
+      ])}
+      <div class="aum-actions"><button type="button" class="aum-btn" data-aum-act="drive-address"><i class="fa-solid fa-link" aria-hidden="true"></i> Change address</button></div>
+      ${hist ? `<ul class="aum-list">${hist}</ul>` : ""}
+    </div>`;
   }
   function inventoryHtml(){
     const a = cur.inv;
@@ -556,6 +578,15 @@
       } else if (key === "feature:ai") {
         if (!next && !confirm(`Turn off Triplem AI for ${u.username}? Their stored Gemini key is deleted.`)) throw new Error("Not changed.");
         await rpc("app_admin_set_triplem_ai_access", { p_user_id: u.id, p_allowed: next });
+      } else if (key === "feature:drive") {
+        if (next) {
+          // Switching on needs the public page address first (dialog); the switch stays off until saved.
+          btn.setAttribute("aria-checked", "false");
+          openDriveDialog("enable");
+          throw new Error("");
+        }
+        if (!confirm(`Turn off Triplem Drive for ${u.username}? The section and the public page are hidden; vehicles, bookings and settings are kept.`)) throw new Error("Not changed.");
+        cur.drive = await rpc("app_admin_drive_set", { p_user_id: u.id, p_enabled: false, p_slug: null, p_is_root: null });
       } else if (key.startsWith("inv:")) {
         await saveInventory(key.slice(4), next);
       } else if (key === "team:allow") {
@@ -569,6 +600,16 @@
     }, "Saved");
     if (!ok) btn.setAttribute("aria-checked", String(!next));
     await reload();
+  }
+
+  function openDriveDialog(mode){
+    const api = global.TriplemDriveAdmin;
+    if (!api?.openDialog) { toast("Triplem Drive could not be loaded. Reload the page and try again.", "bad"); return; }
+    const id = cur.user.id;
+    api.openDialog({
+      mode, user: cur.user, drive: cur.drive || {}, rpc, host: el.querySelector(".aum-panel"),
+      onSaved: res => { if (!cur || cur.user.id !== id) return; cur.drive = res; toast(mode === "enable" ? "Triplem Drive switched on" : "Address saved", "ok"); reload(); }
+    });
   }
 
   async function saveInventory(which, value){
@@ -643,6 +684,7 @@
     const act = btn.dataset.aumAct, u = cur.user;
     switch (act) {
       case "plan-apply": return applyPlan(btn);
+      case "drive-address": return openDriveDialog("address");
       case "extend": return extend(btn, Number(btn.dataset.v));
       case "copy":
         try { await navigator.clipboard.writeText(u.username); toast("Username copied"); } catch (_) { toast("Could not copy.", "bad"); }

@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
+  <script>
+    // Triplem Drive public pages: /triplemdrive/<address>/ is served by /triplemdrive/ (static hosting).
+    (function () { var m = location.pathname.match(/^\/triplemdrive\/([A-Za-z0-9-]{3,40})\/?$/); if (m) location.replace("/triplemdrive/?b=" + encodeURIComponent(m[1].toLowerCase()) + location.search.replace(/^\?/, "&") + location.hash); })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Page Not Found | Triplem VIP</title>
   <meta name="description" content="The requested Triplem VIP page could not be found. Continue to the homepage, guide library or worldwide availability pages."/>

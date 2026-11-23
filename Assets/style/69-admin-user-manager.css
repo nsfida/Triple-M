@@ -494,3 +494,8 @@ html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked
   html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .tm-dp-lock-ico{display:none}
   html body #tmDetailPanel#tmDetailPanel#tmDetailPanel#tmDetailPanel .tm-dp-docked .modal-footer .btn{flex:1 1 0 !important}
 }
+
+/* Triplem Drive block in Admin › user › Sections › Features (2026-11-23) */
+.aum-drive{display:flex;flex-direction:column;gap:10px;margin-top:10px;padding:12px;border-radius:14px;border:1px solid var(--line,#e3e8f1);background:color-mix(in srgb,var(--primary,#2563eb) 4%,transparent)}
+.aum-drive a{color:var(--primary,#1d4ed8);font-weight:600;word-break:break-all}
+.aum-drive .aum-actions{display:flex;flex-wrap:wrap;gap:8px}

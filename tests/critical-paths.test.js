@@ -3580,7 +3580,15 @@ it('169 keeps the standalone 404 page centered, local and dependency-safe', () =
   assert.match(html, /<meta name="robots" content="noindex,follow/);
   assert.match(html, /src="\/Assets\/logo\/logo\.png"/);
   assert.doesNotMatch(html, /Founder\/style\.css/);
-  assert.doesNotMatch(html, /fonts\.googleapis\.com|cdnjs\.cloudflare\.com|<script\b/i);
+  // 2026-11-23: the only script allowed is the small inline Triplem Drive redirect
+  // (/triplemdrive/<address>/ -> /triplemdrive/?b=<address>, for static hosting); no external scripts.
+  const scripts = html.match(/<script\b[\s\S]*?<\/script>/gi) || [];
+  assert.ok(scripts.length <= 1);
+  if (scripts.length) {
+    assert.doesNotMatch(scripts[0], /\bsrc=/i);
+    assert.match(scripts[0], /\/triplemdrive\/\?b=/);
+  }
+  assert.doesNotMatch(html.replace(/<script\b[\s\S]*?<\/script>/gi, ""), /fonts\.googleapis\.com|cdnjs\.cloudflare\.com|<script\b/i);
   assert.match(html, /\.error-code\s*\{[\s\S]*?align-self:\s*center;[\s\S]*?justify-content:\s*center;/);
   assert.match(html, /main\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/);
   assert.match(html, /\.error-card\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?text-align:\s*center;/);
