@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f3f6fa">
   <meta name="description" content="Private expense register powered by Supabase.">
   <title>Expense Vault</title>
-  <link rel="stylesheet" href="css/styles.css?v=excel-export-5">
+  <link rel="stylesheet" href="css/styles.css?v=staff-panel-6">
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -76,7 +76,7 @@
                 <input id="cashAsOfDate" type="date" aria-label="Cash balance as of date">
               </div>
             </div>
-            <div class="cash-balance-foot">Cash received − cash expenses − current signed people balances. Positive amounts reduce Available Cash; negative amounts increase it.</div>
+            <div class="cash-balance-foot">Cash received − cash expenses − current staff balances. Positive amounts reduce Available Cash; negative amounts increase it.</div>
           </article>
 
           <div class="cash-stat-grid">
@@ -91,7 +91,7 @@
               <span class="cash-stat-note">Cash-type entries to date</span>
             </article>
             <article class="cash-stat-card">
-              <span class="cash-stat-label">PEOPLE BALANCE</span>
+              <span class="cash-stat-label">STAFF BALANCE</span>
               <strong id="cashPeopleAdjustmentValue">—</strong>
               <span class="cash-stat-note">Current total · + reduces cash · − increases cash</span>
             </article>
@@ -122,7 +122,7 @@
             <button id="addCashCountButton" class="button button-primary" type="button">＋ Add day</button>
             <button id="saveCashCountsButton" class="button button-save" type="button" disabled>Save changes</button>
             <button id="deleteCashCountButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
-            <button id="cashPeopleButton" class="button button-outline" type="button">People balances</button>
+            <button id="cashPeopleButton" class="button button-outline" type="button">Staff Balance</button>
           </div>
           <div class="toolbar-right">
             <span id="cashVaultStatus" class="sheet-status" role="status" aria-live="polite">Loading cash counts…</span>
@@ -138,7 +138,7 @@
         </div>
         <datalist id="cashRecentDates"></datalist>
         <div class="sheet-footer">
-          <span>11 denominations · Cash Count is calculated only from the quantities entered here; people movements never change it</span>
+          <span>11 denominations · Cash Count is calculated only from the quantities entered here; Staff Balance movements never change it</span>
           <span id="cashVaultPermissionNote">Write access enabled</span>
         </div>
       </section>
@@ -215,44 +215,89 @@
     </div>
   </main>
 
-  <dialog id="cashPeopleDialog" class="cash-side-panel" aria-labelledby="cashPeopleTitle">
+  <dialog id="cashPeopleDialog" class="cash-side-panel staff-panel" aria-labelledby="cashPeopleTitle">
     <div class="cash-side-panel-shell">
-      <header class="cash-side-panel-header">
-        <div>
-          <p class="eyebrow">CASH VAULT</p>
-          <h2 id="cashPeopleTitle">People balances</h2>
-          <p class="muted">Each balance has a date. It applies from that date until a later entry replaces it, so changing today never changes earlier dates.</p>
+      <header class="sp-header">
+        <div class="sp-avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.4.1 4 1.5 4.5 4.3"/></svg>
         </div>
-        <button id="closeCashPeoplePanel" class="icon-button" type="button" aria-label="Close">×</button>
+        <div class="sp-title">
+          <h2 id="cashPeopleTitle">Staff Balance</h2>
+          <p id="staffPanelSubtitle" class="sp-sub">Cash given to or returned by staff</p>
+          <div class="sp-chips">
+            <span id="staffNetChip" class="sp-chip sp-chip-green">AED 0.00</span>
+            <span id="cashPeopleCount" class="sp-chip sp-chip-blue">0 staff</span>
+          </div>
+        </div>
+        <button id="closeCashPeoplePanel" class="sp-close" type="button" aria-label="Close">×</button>
       </header>
-      <div class="cash-side-panel-content">
-        <div class="cash-person-view-date">
-          <label for="cashPeopleViewDate">View balances as of</label>
-          <input id="cashPeopleViewDate" type="date" aria-label="View people balances as of this date">
-        </div>
-        <form id="cashPersonBalanceForm" class="cash-person-balance-form">
-          <label for="cashPersonName">Person name</label>
-          <input id="cashPersonName" type="text" maxlength="100" placeholder="Enter person's name" autocomplete="off" required>
-          <label for="cashPersonDate">Date of this balance</label>
-          <input id="cashPersonDate" type="date" required>
-          <label for="cashPersonAdjustment">Amount (AED)</label>
-          <input id="cashPersonAdjustment" type="text" inputmode="decimal" placeholder="+1000 or -1000" autocomplete="off" required>
-          <p class="cash-person-balance-help">Positive (+) reduces Available Cash and is shown in red. Negative (−) increases Available Cash and is shown in green.</p>
-          <p id="cashPersonBalanceMessage" class="cash-person-form-message" role="status" aria-live="polite"></p>
-          <div class="cash-person-balance-form-actions">
-            <button id="saveCashPersonBalance" class="button button-primary" type="submit">Save balance</button>
-            <button id="cancelCashPersonEdit" class="button button-quiet hidden" type="button">Cancel edit</button>
-          </div>
-        </form>
 
-        <section class="cash-panel-list-section cash-person-list-section">
-          <div class="cash-panel-section-heading">
-            <div><h3>People</h3><p id="cashPeopleListCaption" class="cash-panel-caption"></p></div>
-            <span id="cashPeopleCount" class="summary-chip">0 people</span>
+      <div class="cash-side-panel-content sp-body">
+        <!-- View 1: staff list -->
+        <section id="staffViewList" class="sp-view">
+          <div class="sp-datebar">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
+            <label for="cashPeopleViewDate">Balances as of</label>
+            <input id="cashPeopleViewDate" type="date" aria-label="Show staff balances as of this date">
+            <span class="sp-hint">Jump to any day to see the balances on that date.</span>
           </div>
-          <div id="cashPeopleBalanceList" class="cash-people-balance-list">
-            <p class="muted">No people added yet.</p>
+          <div class="sp-toolbar">
+            <span id="cashPeopleListCaption" class="sp-section-label">STAFF</span>
+            <button id="staffAddNewButton" class="sp-btn sp-btn-primary" type="button">+ Add New</button>
           </div>
+          <div id="cashPeopleBalanceList" class="sp-list">
+            <p class="muted">No staff added yet.</p>
+          </div>
+        </section>
+
+        <!-- View 2: add amount / add new staff -->
+        <section id="staffViewForm" class="sp-view hidden">
+          <button id="staffFormBack" class="sp-btn sp-btn-ghost sp-back" type="button">‹ Back</button>
+          <form id="staffForm" class="sp-form" novalidate>
+            <div>
+              <h3 id="staffFormTitle">Add amount</h3>
+              <p id="staffFormSubtitle" class="sp-sub"></p>
+            </div>
+            <div id="staffNameField" class="sp-field">
+              <label for="staffName">Staff name</label>
+              <input id="staffName" type="text" maxlength="100" placeholder="Enter staff name" autocomplete="off">
+            </div>
+            <div id="staffCurrentBalanceRow" class="sp-balance-box">
+              <span>Current balance</span><strong id="staffCurrentBalance">AED 0.00</strong>
+            </div>
+            <div class="sp-field">
+              <label id="staffAmountLabel" for="staffAmount">Amount (AED)</label>
+              <input id="staffAmount" type="text" inputmode="decimal" placeholder="+500 or -500" autocomplete="off">
+              <p class="sp-help">Use <b>+</b> to add (cash given to staff — reduces Available Cash) or <b>−</b> to subtract (cash returned — increases Available Cash).</p>
+            </div>
+            <div id="staffPreview" class="sp-preview hidden"></div>
+            <div class="sp-field">
+              <label for="staffDate">Date</label>
+              <input id="staffDate" type="date">
+            </div>
+            <div class="sp-field">
+              <label for="staffNote">Note <span class="sp-optional">(optional)</span></label>
+              <input id="staffNote" type="text" maxlength="300" placeholder="e.g. Advance for PCR work" autocomplete="off">
+            </div>
+            <p id="staffFormMessage" class="sp-message" role="status" aria-live="polite"></p>
+            <div class="sp-actions">
+              <button id="staffSaveButton" class="sp-btn sp-btn-primary" type="submit">Save</button>
+              <button id="staffFormCancel" class="sp-btn sp-btn-ghost" type="button">Cancel</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- View 3: history for one staff member -->
+        <section id="staffViewHistory" class="sp-view hidden">
+          <button id="staffHistoryBack" class="sp-btn sp-btn-ghost sp-back" type="button">‹ Back</button>
+          <div class="sp-history-head">
+            <div class="sp-history-name">
+              <h3 id="staffHistoryName">Staff</h3>
+              <p id="staffHistorySub" class="sp-sub"></p>
+            </div>
+            <button id="staffHistoryAdd" class="sp-btn sp-btn-primary" type="button">+ Add</button>
+          </div>
+          <div id="staffHistoryList" class="sp-list"></div>
         </section>
       </div>
     </div>
@@ -297,6 +342,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js?v=excel-export-5"></script>
+  <script type="module" src="js/app.js?v=staff-panel-6"></script>
 </body>
 </html>

@@ -18,7 +18,13 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
-## Latest update (migration 010 required)
+## Latest update (migration 011 required)
+
+- **Staff Balance** (renamed from People balances): each staff member has an **+ Add** button. Enter a plus or minus amount and an optional note; it is added to / subtracted from the balance. Click a name to see its full history (date, note, amount, balance after). **+ Add New** (top of the panel) creates a staff member.
+- **3-day edit window:** entries older than 3 days (today and the 2 previous days stay editable) are locked in Expenses, Received, Cash Vault and Staff Balance, in the app and in the database. Locked rows are greyed and show a warning when you try to edit or delete them. To change the number of days, edit `EDIT_WINDOW_DAYS` in `js/app.js` and `app_edit_window_start()` in migration 011.
+- **Run `sql/migrations/011_staff_balance_transactions_and_edit_window.sql`** in the Supabase SQL Editor.
+
+## Earlier update (migration 010)
 
 - **Expenses fit the window:** all 32 columns are sized as percentages, with smaller text, so no horizontal scrolling is needed on normal desktop widths.
 - **New rows go to the bottom:** Expenses, Received and Cash Vault list oldest first; Add row / Add day appends at the bottom and opens it for typing, like Excel.
@@ -48,7 +54,8 @@ expense_vault_project/
 │       ├── 007_cash_people_amount_only.sql
 │       ├── 008_separate_person_movements_from_physical_cash_count.sql
 │       ├── 009_signed_person_balances.sql
-│       └── 010_dated_person_balances.sql
+│       ├── 010_dated_person_balances.sql
+│       └── 011_staff_balance_transactions_and_edit_window.sql
 └── supabase/
     ├── config.toml
     └── functions/

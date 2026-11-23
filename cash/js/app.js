@@ -8,7 +8,7 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js';
-import { clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=excel-export-5';
+import { clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=staff-panel-6';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -157,6 +157,45 @@ function localDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+// Edit window: only entries dated today and the previous (EDIT_WINDOW_DAYS - 1) days can be
+// created, changed or deleted. The database enforces the same rule (migration 011).
+const EDIT_WINDOW_DAYS = 3;
+let lastLockToastAt = 0;
+
+function editCutoffDate() {
+  const date = new Date();
+  date.setDate(date.getDate() - (EDIT_WINDOW_DAYS - 1));
+  return localDateString(date);
+}
+
+function formatDmy(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? ''));
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : String(value ?? '');
+}
+
+function isDateEditable(value) {
+  return !value || String(value).slice(0, 10) >= editCutoffDate();
+}
+
+function isRowLocked(row, dateField) {
+  return Boolean(row?.id) && !isDateEditable(row[dateField]);
+}
+
+function withEditWindow(text) {
+  return `${text} · Editable from ${formatDmy(editCutoffDate())} (last ${EDIT_WINDOW_DAYS} days)`;
+}
+
+function warnLockedEdit(action = 'edit') {
+  const now = Date.now();
+  if (now - lastLockToastAt < 1200) return;
+  lastLockToastAt = now;
+  showToast(`Editing is not allowed for older entries. Only entries from the last ${EDIT_WINDOW_DAYS} days (${formatDmy(editCutoffDate())} onward) can be ${action === 'delete' ? 'deleted' : 'changed'}. This entry is locked.`, true);
+}
+
+function warnOldDate() {
+  showToast(`Entries cannot be dated before ${formatDmy(editCutoffDate())}. Editing is not allowed for older dates (last ${EDIT_WINDOW_DAYS} days only).`, true);
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -267,25 +306,6 @@ function buildCashTableHeader() {
   });
 }
 
-function resetCashPersonBalanceForm() {
-  editingCashPersonId = null;
-  el('cashPersonBalanceForm').reset();
-  el('cashPersonDate').value = cashPeopleViewDate || el('cashAsOfDate').value || localDateString();
-  el('saveCashPersonBalance').textContent = 'Save balance';
-  el('cancelCashPersonEdit').classList.add('hidden');
-  el('cashPersonBalanceMessage').textContent = '';
-  el('cashPersonBalanceMessage').style.color = '';
-  updateCashPersonBalancePermission();
-}
-
-function updateCashPersonBalancePermission() {
-  const form = el('cashPersonBalanceForm');
-  form.querySelectorAll('input, button').forEach(control => {
-    control.disabled = !canWrite;
-  });
-  el('cashPersonBalanceForm').querySelector('button[type="submit"]').textContent = editingCashPersonId ? 'Save changes' : 'Save balance';
-}
-
 function makeEmptyRow() {
   const row = {
     clientId: crypto.randomUUID(),
@@ -355,7 +375,7 @@ function recentDateOptions() {
 
 function renderCell(row, column, amountFields = AMOUNT_FIELDS) {
   const value = row[column.field] ?? '';
-  const disabled = canWrite ? '' : 'disabled';
+  const disabled = (canWrite && !isRowLocked(row, 'entry_date')) ? '' : 'disabled';
   if (column.kind === 'total') {
     return `<input class="cell-input total-cell" type="text" value="${formatAmount(calculateTotal(row, amountFields))}" readonly tabindex="-1" aria-label="Calculated row total">`;
   }
@@ -389,7 +409,7 @@ function buildReceivingTableHeader() {
 
 function renderCashCountCell(row, column) {
   const value = row[column.field] ?? '';
-  const disabled = canWrite ? '' : 'disabled';
+  const disabled = (canWrite && !isRowLocked(row, 'count_date')) ? '' : 'disabled';
   if (column.kind === 'total') {
     return `<input class="cell-input total-cell cash-row-total" type="text" value="${formatCashMoney(calculateCashCountCents(row) / 100)}" readonly tabindex="-1" aria-label="Calculated cash count total">`;
   }
@@ -404,9 +424,9 @@ function updateCashCountToolbar() {
   cashSaveButton.disabled = !canWrite || !dirty;
   cashAddButton.disabled = !canWrite;
   cashDeleteButton.disabled = !canWrite || !selectedCashClientId;
-  el('cashVaultPermissionNote').textContent = currentUser?.role === 'owner'
+  el('cashVaultPermissionNote').textContent = withEditWindow(currentUser?.role === 'owner'
     ? 'Owner · full access'
-    : (canWrite ? 'Write access enabled' : 'View-only access');
+    : (canWrite ? 'Write access enabled' : 'View-only access'));
 }
 
 function updateCashCountedSummary() {
@@ -484,6 +504,7 @@ function renderCashCounts() {
       tr.classList.toggle('selected', row.clientId === selectedCashClientId);
       tr.classList.toggle('dirty-row', Boolean(row._dirty));
       tr.classList.toggle('cash-current-date', row.count_date === selectedDate);
+      tr.classList.toggle('locked-row', isRowLocked(row, 'count_date'));
       tr.innerHTML = CASH_COUNT_COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCashCountCell(row, column)}</td>`).join('');
       cashTableBody.appendChild(tr);
     });
@@ -518,6 +539,12 @@ function handleCashCountInput(event) {
   if (!row) return;
   const field = fieldInput.dataset.field;
   const nextValue = fieldInput.value;
+  if (isRowLocked(row, 'count_date')) { fieldInput.value = row[field] ?? ''; warnLockedEdit(); return; }
+  if (field === 'count_date' && nextValue && !isDateEditable(nextValue)) {
+    fieldInput.value = row.count_date;
+    warnOldDate();
+    return;
+  }
   if (field === 'count_date' && nextValue) {
     const duplicate = cashCounts.find(item => item.clientId !== row.clientId && item.count_date === nextValue);
     if (duplicate) {
@@ -564,7 +591,7 @@ async function refreshCashSummary() {
   if (!currentUser) return;
   const selectedDate = el('cashAsOfDate').value || localDateString();
   const requestId = ++cashSummaryRequestId;
-  el('cashBalanceCaption').textContent = `As of ${formatDateLabel(selectedDate)} · Cash ledger minus signed people balances`;
+  el('cashBalanceCaption').textContent = `As of ${formatDateLabel(selectedDate)} · Cash ledger minus staff balances`;
   const { data, error } = await supabase.rpc('get_cash_vault_summary', { p_as_of: selectedDate });
   if (requestId !== cashSummaryRequestId) return;
   if (error) {
@@ -574,7 +601,7 @@ async function refreshCashSummary() {
     el('cashReceivedValue').textContent = '—';
     el('cashExpensesValue').textContent = '—';
     el('cashPeopleAdjustmentValue').textContent = '—';
-    showToast(`Unable to calculate cash balance: ${explainLedgerError(error)}. Confirm migrations 005, 006, 008, 009 and 010 have been applied.`, true);
+    showToast(`Unable to calculate cash balance: ${explainLedgerError(error)}. Confirm migrations 005, 006, 008, 009, 010 and 011 have been applied.`, true);
     updateCashCountedSummary();
     return;
   }
@@ -593,7 +620,7 @@ async function refreshCashSummary() {
   el('cashPeopleAdjustmentValue').classList.toggle('person-negative', peopleAdjustment < -0.0001);
   el('cashBalanceValue').textContent = formatCashMoney(available);
   el('cashBalanceValue').classList.toggle('negative', available < 0);
-  el('cashBalanceCaption').textContent = `As of ${formatDateLabel(selectedDate)} · Received − Expenses − People balance`;
+  el('cashBalanceCaption').textContent = `As of ${formatDateLabel(selectedDate)} · Received − Expenses − Staff balance`;
   updateCashCountedSummary();
 }
 
@@ -701,6 +728,7 @@ async function deleteSelectedCashCount() {
   if (!canWrite || !selectedCashClientId) return;
   const row = cashCounts.find(item => item.clientId === selectedCashClientId);
   if (!row) return;
+  if (isRowLocked(row, 'count_date')) { warnLockedEdit('delete'); return; }
   if (!window.confirm(`Delete the cash count for ${formatDateLabel(row.count_date)}? This cannot be undone.`)) return;
   cashDeleteButton.disabled = true;
   if (row.id) {
@@ -719,27 +747,62 @@ async function deleteSelectedCashCount() {
   await refreshCashSummary();
 }
 
+// ---------------------------------------------------------------------------
+// Staff Balance panel (list → add amount / add new → history)
+// ---------------------------------------------------------------------------
+const staffState = { view: 'list', mode: 'add', person: null, returnView: 'list', formBalance: 0 };
+
+function showStaffView(view) {
+  staffState.view = view;
+  [['list', 'staffViewList'], ['form', 'staffViewForm'], ['history', 'staffViewHistory']].forEach(([name, id]) => {
+    el(id).classList.toggle('hidden', name !== view);
+  });
+  el('cashPeopleDialog').querySelector('.sp-body').scrollTop = 0;
+}
+
+function staffInitials(name) {
+  const parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] || '?') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
+function staffAmountClass(value) {
+  return value > 0.0001 ? 'person-positive' : value < -0.0001 ? 'person-negative' : 'person-zero';
+}
+
+function staffAmountHtml(value) {
+  const n = Number(value || 0);
+  return `${escapeHtml(formatSignedCashAdjustment(n))}<small>AED</small>`;
+}
+
 function renderCashPeopleData() {
-  el('cashPeopleCount').textContent = `${cashPeople.length} ${cashPeople.length === 1 ? 'person' : 'people'}`;
-  el('cashPeopleListCaption').textContent = `Balances in force on ${formatDateLabel(cashPeopleViewDate)}`;
-  const balanceList = el('cashPeopleBalanceList');
-  if (!cashPeople.length) {
-    balanceList.innerHTML = `<p class="muted">No balances on or before ${escapeHtml(formatDateLabel(cashPeopleViewDate))}.</p>`;
-  } else {
-    balanceList.innerHTML = cashPeople.map(person => {
-      const balance = Number(person.amount || 0);
-      const amountClass = balance > 0.0001 ? 'person-positive' : balance < -0.0001 ? 'person-negative' : 'person-zero';
-      const entryNote = person.effective_date === cashPeopleViewDate
-        ? 'Entered on this date'
-        : `Carried forward from ${formatDateLabel(person.effective_date)}`;
-      return `<article class="cash-person-balance-item" data-person-id="${escapeHtml(person.person_id)}">
-        <div class="cash-person-balance-main"><strong>${escapeHtml(person.person_name)}</strong><span class="cash-person-balance-date">${escapeHtml(entryNote)}</span></div>
-        <strong class="cash-person-balance-amount ${amountClass}">${formatSignedCashAdjustment(balance)}</strong>
-        ${canWrite ? `<button class="cash-person-edit-button" type="button" data-person-action="edit" data-person-id="${escapeHtml(person.person_id)}">Edit</button>` : ''}
-      </article>`;
-    }).join('');
+  const count = cashPeople.length;
+  const net = cashPeople.reduce((sum, person) => sum + Number(person.amount || 0), 0);
+  el('cashPeopleCount').textContent = `${count} staff`;
+  const chip = el('staffNetChip');
+  chip.textContent = `Net ${formatSignedCashAdjustment(net)} AED`;
+  chip.className = `sp-chip ${net > 0.0001 ? 'sp-chip-red' : net < -0.0001 ? 'sp-chip-green' : 'sp-chip-grey'}`;
+  el('staffPanelSubtitle').textContent = `Balances as of ${formatDmy(cashPeopleViewDate)}`;
+  el('cashPeopleListCaption').textContent = `STAFF · ${count}`;
+  el('staffAddNewButton').classList.toggle('hidden', !canWrite);
+
+  const list = el('cashPeopleBalanceList');
+  if (!count) {
+    list.innerHTML = `<p class="muted sp-empty">No staff balances on or before ${escapeHtml(formatDmy(cashPeopleViewDate))}.${canWrite ? ' Use “Add New” to add a staff member.' : ''}</p>`;
+    return;
   }
-  updateCashPersonBalancePermission();
+  list.innerHTML = cashPeople.map(person => {
+    const balance = Number(person.amount || 0);
+    const id = escapeHtml(person.person_id);
+    return `<article class="sp-item">
+      <button class="sp-item-main" type="button" data-staff-action="history" data-person-id="${id}" title="View history">
+        <span class="sp-item-icon">${escapeHtml(staffInitials(person.person_name))}</span>
+        <span class="sp-item-text"><strong>${escapeHtml(person.person_name)}</strong><small>Last entry ${escapeHtml(formatDmy(person.effective_date))}</small></span>
+        <span class="sp-item-amount ${staffAmountClass(balance)}">${staffAmountHtml(balance)}</span>
+        <span class="sp-chevron" aria-hidden="true">›</span>
+      </button>
+      ${canWrite ? `<button class="sp-btn sp-btn-small" type="button" data-staff-action="add" data-person-id="${id}">+ Add</button>` : ''}
+    </article>`;
+  }).join('');
 }
 
 async function loadCashPeopleData({ force = false } = {}) {
@@ -751,7 +814,7 @@ async function loadCashPeopleData({ force = false } = {}) {
 
   cashPeopleLoading = true;
   if (!cashPeopleViewDate) cashPeopleViewDate = el('cashAsOfDate').value || localDateString();
-  el('cashPeopleBalanceList').innerHTML = '<p class="muted">Loading people…</p>';
+  el('cashPeopleBalanceList').innerHTML = '<p class="muted sp-empty">Loading staff…</p>';
   cashPeopleLoadPromise = (async () => {
     try {
       const { data, error } = await supabase.rpc('get_person_balances_as_of', { p_as_of: cashPeopleViewDate });
@@ -759,8 +822,8 @@ async function loadCashPeopleData({ force = false } = {}) {
       cashPeople = (data || []).slice().sort((a, b) => String(a.person_name).localeCompare(String(b.person_name)));
       renderCashPeopleData();
     } catch (error) {
-      el('cashPeopleBalanceList').innerHTML = `<p class="form-message">${escapeHtml(error.message || 'Unable to load people.')}</p>`;
-      showToast(`Unable to load people balances: ${explainLedgerError(error)}. Confirm migration 010 has been applied.`, true);
+      el('cashPeopleBalanceList').innerHTML = `<p class="form-message">${escapeHtml(error.message || 'Unable to load staff balances.')}</p>`;
+      showToast(`Unable to load Staff Balance: ${explainLedgerError(error)}. Confirm migration 011 has been applied.`, true);
     }
   })();
 
@@ -775,14 +838,14 @@ async function loadCashPeopleData({ force = false } = {}) {
 function openCashPeoplePanel() {
   cashPeopleViewDate = el('cashAsOfDate').value || localDateString();
   el('cashPeopleViewDate').value = cashPeopleViewDate;
-  resetCashPersonBalanceForm();
+  showStaffView('list');
   el('cashPeopleDialog').showModal();
   loadCashPeopleData();
 }
 
 function parseSignedPersonAmount(rawValue) {
   const raw = String(rawValue ?? '').trim().replace(/[−–]/g, '-').replace(/,/g, '');
-  if (!raw) throw new Error('Enter an amount. Use + for a positive amount or - for a negative amount.');
+  if (!raw) throw new Error('Enter an amount. Use + to add or - to subtract.');
   if (!/^[+-]?(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(raw)) {
     throw new Error('Enter a valid amount with no more than two decimal places.');
   }
@@ -793,93 +856,185 @@ function parseSignedPersonAmount(rawValue) {
   return Number(amount.toFixed(2));
 }
 
-async function saveCashPersonBalance(event) {
+function setStaffFormMessage(text, ok = false) {
+  const node = el('staffFormMessage');
+  node.textContent = text;
+  node.classList.toggle('ok', ok);
+}
+
+function updateStaffPreview() {
+  const preview = el('staffPreview');
+  const raw = el('staffAmount').value.trim();
+  let amount = null;
+  try { amount = raw ? parseSignedPersonAmount(raw) : null; } catch { amount = null; }
+  if (amount === null || staffState.mode !== 'add') { preview.classList.add('hidden'); return; }
+  const next = Number(staffState.formBalance || 0) + amount;
+  preview.classList.remove('hidden');
+  preview.innerHTML = `New balance on ${escapeHtml(formatDmy(el('staffDate').value))} <strong class="${staffAmountClass(next)}">${staffAmountHtml(next)}</strong>`;
+}
+
+async function refreshStaffFormBalance() {
+  if (staffState.mode !== 'add' || !staffState.person) return;
+  const date = el('staffDate').value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  const personId = staffState.person.person_id;
+  const { data, error } = await supabase.rpc('get_person_balances_as_of', { p_as_of: date });
+  if (error || staffState.person?.person_id !== personId || el('staffDate').value !== date) return;
+  const match = (data || []).find(item => item.person_id === personId);
+  staffState.formBalance = Number(match?.amount || 0);
+  const node = el('staffCurrentBalance');
+  node.innerHTML = staffAmountHtml(staffState.formBalance);
+  node.className = staffAmountClass(staffState.formBalance);
+  updateStaffPreview();
+}
+
+function openStaffForm(mode, person = null, returnView = 'list') {
+  if (!canWrite) { showToast('This access key is view-only. Staff Balance cannot be changed.', true); return; }
+  staffState.mode = mode;
+  staffState.person = person;
+  staffState.returnView = returnView;
+  staffState.formBalance = Number(person?.amount || 0);
+  const isNew = mode === 'new';
+  el('staffForm').reset();
+  el('staffNameField').classList.toggle('hidden', !isNew);
+  el('staffCurrentBalanceRow').classList.toggle('hidden', isNew);
+  el('staffFormTitle').textContent = isNew ? 'Add new staff' : `Add amount`;
+  el('staffFormSubtitle').textContent = isNew
+    ? 'Create a staff member. An opening amount is optional.'
+    : person.person_name;
+  el('staffAmountLabel').textContent = isNew ? 'Opening amount (AED, optional)' : 'Amount (AED)';
+  el('staffSaveButton').textContent = isNew ? 'Add staff' : 'Save';
+  const today = localDateString();
+  const dateInput = el('staffDate');
+  dateInput.min = editCutoffDate();
+  dateInput.max = today;
+  dateInput.value = today;
+  const balanceNode = el('staffCurrentBalance');
+  balanceNode.innerHTML = staffAmountHtml(staffState.formBalance);
+  balanceNode.className = staffAmountClass(staffState.formBalance);
+  el('staffPreview').classList.add('hidden');
+  setStaffFormMessage('');
+  showStaffView('form');
+  (isNew ? el('staffName') : el('staffAmount')).focus();
+  if (!isNew) refreshStaffFormBalance();
+}
+
+function closeStaffForm() {
+  if (staffState.returnView === 'history' && staffState.person) openStaffHistory(staffState.person.person_id);
+  else showStaffView('list');
+}
+
+async function submitStaffForm(event) {
   event.preventDefault();
   if (!canWrite) return;
+  const isNew = staffState.mode === 'new';
+  setStaffFormMessage('');
 
-  const name = el('cashPersonName').value.trim();
-  const message = el('cashPersonBalanceMessage');
-  message.textContent = '';
-  if (!name) {
-    message.textContent = 'Enter a person name.';
-    el('cashPersonName').focus();
-    return;
-  }
-  if (name.length > 100) {
-    message.textContent = 'Person name must be 100 characters or fewer.';
-    el('cashPersonName').focus();
-    return;
+  let name = '';
+  if (isNew) {
+    name = el('staffName').value.trim();
+    if (!name) { setStaffFormMessage('Enter the staff name.'); el('staffName').focus(); return; }
+    if (name.length > 100) { setStaffFormMessage('The name must be 100 characters or fewer.'); el('staffName').focus(); return; }
+  } else {
+    name = staffState.person?.person_name || '';
   }
 
-  let amount;
-  try {
-    amount = parseSignedPersonAmount(el('cashPersonAdjustment').value);
-  } catch (error) {
-    message.textContent = error.message;
-    el('cashPersonAdjustment').focus();
-    return;
+  let amount = 0;
+  const rawAmount = el('staffAmount').value.trim();
+  if (!(isNew && rawAmount === '')) {
+    try { amount = parseSignedPersonAmount(rawAmount); } catch (error) {
+      setStaffFormMessage(error.message); el('staffAmount').focus(); return;
+    }
+  }
+  if (!isNew && amount === 0) {
+    setStaffFormMessage('Enter an amount other than zero (use + to add, - to subtract).'); el('staffAmount').focus(); return;
   }
 
-  const balanceDate = el('cashPersonDate').value;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(balanceDate)) {
-    message.textContent = 'Choose the date this balance applies from.';
-    el('cashPersonDate').focus();
+  const txnDate = el('staffDate').value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(txnDate)) { setStaffFormMessage('Choose a valid date.'); return; }
+  if (!isDateEditable(txnDate)) {
+    setStaffFormMessage(`Editing is not allowed for older entries. Choose ${formatDmy(editCutoffDate())} or later (last ${EDIT_WINDOW_DAYS} days).`);
     return;
   }
+  if (txnDate > localDateString()) { setStaffFormMessage('The date cannot be in the future.'); return; }
 
-  const button = el('saveCashPersonBalance');
-  const wasEditing = Boolean(editingCashPersonId);
+  const note = el('staffNote').value.trim();
+  const button = el('staffSaveButton');
   button.disabled = true;
   try {
-    const { data, error } = await supabase.rpc('set_cash_person_balance', {
-      p_person_id: editingCashPersonId,
+    const { data, error } = await supabase.rpc('add_staff_transaction', {
+      p_person_id: isNew ? null : staffState.person.person_id,
       p_person_name: name,
-      p_cash_adjustment: amount,
-      p_balance_date: balanceDate
+      p_amount: amount,
+      p_note: note,
+      p_txn_date: txnDate
     });
     if (error) throw error;
-    if (!data) throw new Error('The person balance could not be saved.');
+    if (!data) throw new Error('The entry could not be saved.');
 
-    // Show the date that was just saved so the change is visible straight away.
-    cashPeopleViewDate = balanceDate;
-    el('cashPeopleViewDate').value = balanceDate;
-    resetCashPersonBalanceForm();
-    message.style.color = 'var(--accent)';
-    message.textContent = `Balance saved for ${formatDateLabel(balanceDate)}.`;
-    showToast(`${name}'s balance saved for ${formatDateLabel(balanceDate)}. Other dates are unchanged.`);
-
-    try {
-      await Promise.all([
-        refreshCashSummary(),
-        loadCashPeopleData({ force: true })
-      ]);
-      setCashVaultStatus('People balances saved · Available Cash refreshed · Cash Count unchanged');
-    } catch (refreshError) {
-      setCashVaultStatus('Person balance saved · refresh required', 'error');
-      showToast(`The balance was saved, but the screen could not refresh: ${refreshError.message || 'Refresh the page to view the updated balance.'}`, true);
+    if (txnDate > cashPeopleViewDate) {
+      cashPeopleViewDate = txnDate;
+      el('cashPeopleViewDate').value = txnDate;
     }
+    showToast(isNew ? `${name} added to Staff Balance.` : `${formatSignedCashAdjustment(amount)} AED saved for ${name} on ${formatDmy(txnDate)}.`);
+    try {
+      await Promise.all([refreshCashSummary(), loadCashPeopleData({ force: true })]);
+      setCashVaultStatus('Staff Balance saved · Available Cash refreshed · Cash Count unchanged');
+    } catch (refreshError) {
+      setCashVaultStatus('Staff Balance saved · refresh required', 'error');
+      showToast(`Saved, but the screen could not refresh: ${refreshError.message || 'Refresh the page.'}`, true);
+    }
+    if (!isNew && staffState.returnView === 'history') openStaffHistory(data);
+    else showStaffView('list');
   } catch (error) {
-    message.style.color = 'var(--danger)';
-    message.textContent = error.message || 'The person balance could not be saved.';
-    showToast(message.textContent, true);
+    const text = explainLedgerError(error) || error.message || 'The entry could not be saved.';
+    setStaffFormMessage(text);
+    showToast(text, true);
   } finally {
     button.disabled = !canWrite;
-    updateCashPersonBalancePermission();
   }
 }
 
-function beginEditCashPersonBalance(personId) {
-  const person = cashPeople.find(item => item.person_id === personId);
-  if (!person || !canWrite) return;
-  editingCashPersonId = person.person_id;
-  el('cashPersonName').value = person.person_name;
-  el('cashPersonDate').value = cashPeopleViewDate;
-  el('cashPersonAdjustment').value = Number(person.amount || 0).toFixed(2);
-  el('saveCashPersonBalance').textContent = 'Save changes';
-  el('cancelCashPersonEdit').classList.remove('hidden');
-  el('cashPersonBalanceMessage').textContent = '';
-  el('cashPersonName').focus();
-  el('cashPersonBalanceForm').scrollIntoView({ block: 'nearest' });
+async function openStaffHistory(personId) {
+  const person = cashPeople.find(item => item.person_id === personId) || staffState.person;
+  if (!person) return;
+  staffState.person = { ...person };
+  el('staffHistoryName').textContent = person.person_name;
+  el('staffHistorySub').textContent = 'Loading history…';
+  el('staffHistoryList').innerHTML = '';
+  el('staffHistoryAdd').classList.toggle('hidden', !canWrite);
+  showStaffView('history');
+
+  const { data, error } = await supabase
+    .from('staff_balance_transactions')
+    .select('id, txn_date, amount, note, created_at')
+    .eq('person_id', personId)
+    .order('txn_date', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (staffState.view !== 'history' || staffState.person?.person_id !== personId) return;
+  if (error) {
+    el('staffHistorySub').textContent = '';
+    el('staffHistoryList').innerHTML = `<p class="form-message">${escapeHtml(error.message || 'Unable to load history.')}</p>`;
+    return;
+  }
+
+  let running = 0;
+  const entries = (data || []).map(item => {
+    running = Math.round((running + Number(item.amount || 0)) * 100) / 100;
+    return { ...item, amount: Number(item.amount || 0), after: running };
+  });
+  staffState.person.amount = running;
+  el('staffHistorySub').innerHTML = `Total balance <strong class="${staffAmountClass(running)}">${staffAmountHtml(running)}</strong> · ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`;
+  el('staffHistoryList').innerHTML = entries.length
+    ? entries.slice().reverse().map(item => {
+        const plus = item.amount >= 0;
+        return `<article class="sp-item sp-history-item">
+          <span class="sp-item-icon ${plus ? 'sp-icon-up' : 'sp-icon-down'}">${plus ? '↑' : '↓'}</span>
+          <span class="sp-item-text"><strong>${escapeHtml(item.note || (plus ? 'Amount added' : 'Amount subtracted'))}</strong><small>${escapeHtml(formatDmy(item.txn_date))} · Balance after ${escapeHtml(formatSignedCashAdjustment(item.after))}</small></span>
+          <span class="sp-item-amount ${staffAmountClass(item.amount)}">${staffAmountHtml(item.amount)}</span>
+        </article>`;
+      }).join('')
+    : '<p class="muted sp-empty">No entries yet.</p>';
 }
 
 function onCashAsOfDateChange() {
@@ -912,6 +1067,7 @@ function renderTable() {
       tr.dataset.rowIndex = String(rowIndex);
       tr.classList.toggle('selected', row.clientId === selectedClientId);
       tr.classList.toggle('dirty-row', Boolean(row._dirty));
+      tr.classList.toggle('locked-row', isRowLocked(row, 'entry_date'));
       tr.innerHTML = COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCell(row, column)}</td>`).join('');
       tableBody.appendChild(tr);
     });
@@ -925,7 +1081,7 @@ function updateToolbar() {
   saveButton.disabled = !canWrite || !dirty;
   addButton.disabled = !canWrite;
   deleteButton.disabled = !canWrite || !selectedClientId;
-  el('permissionNote').textContent = currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access');
+  el('permissionNote').textContent = withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
 }
 
 function updateReceivedToolbar() {
@@ -933,7 +1089,7 @@ function updateReceivedToolbar() {
   receivedSaveButton.disabled = !canWrite || !dirty;
   receivedAddButton.disabled = !canWrite;
   receivedDeleteButton.disabled = !canWrite || !selectedReceivedClientId;
-  el('receivedPermissionNote').textContent = currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access');
+  el('receivedPermissionNote').textContent = withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
 }
 
 function selectRow(clientId) {
@@ -953,18 +1109,20 @@ function explainLedgerError(error) {
   const normalized = message.toLowerCase();
   const personCashError = normalized.includes('cash_people')
     || normalized.includes('cash_adjustment')
-    || normalized.includes('set_cash_person_balance');
+    || normalized.includes('staff_balance_transactions')
+    || normalized.includes('add_staff_transaction')
+    || normalized.includes('get_person_balances_as_of');
   const cashVaultError = normalized.includes('cash_vault_counts') || normalized.includes('get_cash_vault_summary');
   if (normalized.includes('permission denied for schema') || normalized.includes('permission denied for table') || normalized.includes('permission denied for function')) {
-    if (personCashError) return 'People balance permissions are configured by sql/migrations/009_signed_person_balances.sql. Confirm migration 009 has been applied, then refresh this page.';
-    if (normalized.includes('get_cash_vault_summary')) return 'The Cash Vault balance function needs migration 009. Run sql/migrations/010_dated_person_balances.sql, then refresh this page.';
+    if (personCashError) return 'Staff Balance permissions are configured by sql/migrations/011_staff_balance_transactions_and_edit_window.sql. Confirm migration 011 has been applied, then refresh this page.';
+    if (normalized.includes('get_cash_vault_summary')) return 'The Cash Vault balance function needs migration 009. Run sql/migrations/011_staff_balance_transactions_and_edit_window.sql, then refresh this page.';
     return cashVaultError
       ? 'Cash Vault permissions are configured by sql/migrations/005_cash_vault_counts_and_balance.sql. Confirm that migration 005 has been applied, then refresh this page.'
       : 'Database permissions need the ledger repair. In Supabase SQL Editor, run sql/migrations/004_fix_public_schema_access.sql, then refresh this page.';
   }
   if ((normalized.includes('relation') && normalized.includes('does not exist')) || normalized.includes('could not find the function')) {
-    if (personCashError) return 'The signed people-balance column or function is missing. Confirm sql/migrations/009_signed_person_balances.sql has been applied, then refresh this page.';
-    if (normalized.includes('get_cash_vault_summary')) return 'The updated Cash Vault summary is missing. Run sql/migrations/010_dated_person_balances.sql, then refresh this page.';
+    if (personCashError) return 'The Staff Balance table or function is missing. Run sql/migrations/011_staff_balance_transactions_and_edit_window.sql, then refresh this page.';
+    if (normalized.includes('get_cash_vault_summary')) return 'The updated Cash Vault summary is missing. Run sql/migrations/011_staff_balance_transactions_and_edit_window.sql, then refresh this page.';
     return cashVaultError
       ? 'The Cash Vault table is missing. Run sql/migrations/005_cash_vault_counts_and_balance.sql, then refresh this page.'
       : 'The ledger table is missing. Apply the numbered SQL migrations in order, then refresh this page.';
@@ -997,7 +1155,7 @@ async function loadWorkspace() {
   addButton.disabled = !canWrite;
   saveButton.disabled = true;
   deleteButton.disabled = true;
-  el('permissionNote').textContent = info.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access');
+  el('permissionNote').textContent = withEditWindow(info.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
   authScreen.classList.add('hidden');
   appScreen.classList.remove('hidden');
   rows = [];
@@ -1078,6 +1236,7 @@ function renderReceivedTable() {
       tr.dataset.rowIndex = String(rowIndex);
       tr.classList.toggle('selected', row.clientId === selectedReceivedClientId);
       tr.classList.toggle('dirty-row', Boolean(row._dirty));
+      tr.classList.toggle('locked-row', isRowLocked(row, 'entry_date'));
       tr.innerHTML = RECEIVING_COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCell(row, column, RECEIVING_AMOUNT_FIELDS)}</td>`).join('');
       const dateInput = tr.querySelector('input[data-field="entry_date"]');
       if (dateInput) dateInput.setAttribute('list', 'recentReceivedDates');
@@ -1128,6 +1287,12 @@ function handleReceivedInput(event) {
   if (!tr) return;
   const row = receivedRows.find(item => item.clientId === tr.dataset.clientId);
   if (!row) return;
+  if (isRowLocked(row, 'entry_date')) { fieldInput.value = row[fieldInput.dataset.field] ?? ''; warnLockedEdit(); return; }
+  if (fieldInput.dataset.field === 'entry_date' && fieldInput.value && !isDateEditable(fieldInput.value)) {
+    fieldInput.value = row.entry_date;
+    warnOldDate();
+    return;
+  }
   row[fieldInput.dataset.field] = fieldInput.value;
   row._dirty = true;
   receivedSheetStatus.textContent = 'Unsaved changes';
@@ -1194,6 +1359,7 @@ async function deleteSelectedReceivedRow() {
   if (!canWrite || !selectedReceivedClientId) return;
   const row = receivedRows.find(item => item.clientId === selectedReceivedClientId);
   if (!row) return;
+  if (isRowLocked(row, 'entry_date')) { warnLockedEdit('delete'); return; }
   if (!window.confirm('Delete the selected received row? This cannot be undone.')) return;
   receivedDeleteButton.disabled = true;
   if (row.id) {
@@ -1228,6 +1394,12 @@ function onTableInput(event) {
   const row = rows.find(item => item.clientId === tr.dataset.clientId);
   if (!row) return;
   const field = fieldInput.dataset.field;
+  if (isRowLocked(row, 'entry_date')) { fieldInput.value = row[field] ?? ''; warnLockedEdit(); return; }
+  if (field === 'entry_date' && fieldInput.value && !isDateEditable(fieldInput.value)) {
+    fieldInput.value = row.entry_date;
+    warnOldDate();
+    return;
+  }
   row[field] = fieldInput.value;
   markRowDirty(row);
   const totalInput = tr.querySelector('.total-cell');
@@ -1294,6 +1466,7 @@ async function deleteSelectedRow() {
   if (!canWrite || !selectedClientId) return;
   const row = rows.find(item => item.clientId === selectedClientId);
   if (!row) return;
+  if (isRowLocked(row, 'entry_date')) { warnLockedEdit('delete'); return; }
   if (!window.confirm('Delete the selected expense row? This cannot be undone.')) return;
   deleteButton.disabled = true;
   if (row.id) {
@@ -1390,6 +1563,7 @@ function applyGridPaste(config, payload) {
   const modelRows = config.getRows();
   let applied = 0;
   let skipped = 0;
+  let lockedSkipped = 0;
 
   matrix.forEach((values, rowOffset) => {
     const modelIndex = startRow + rowOffset;
@@ -1398,6 +1572,7 @@ function applyGridPaste(config, payload) {
       while (modelRows.length <= modelIndex) modelRows.push(config.makeRow());
     }
     const model = modelRows[modelIndex];
+    if (config.isLocked?.(model)) { lockedSkipped += values.length; return; }
     values.forEach((rawValue, colOffset) => {
       const column = config.columns[startCol + colOffset];
       if (!column || column.kind === 'total') { skipped++; return; }
@@ -1414,6 +1589,7 @@ function applyGridPaste(config, payload) {
       } else if (column.kind === 'date') {
         const parsedDate = normalizePastedDate(value);
         if (value && !parsedDate) { skipped++; return; }
+        if (parsedDate && !isDateEditable(parsedDate)) { lockedSkipped++; return; }
         model[field] = parsedDate;
       } else if (column.kind === 'amount') {
         const parsedAmount = normalizePastedAmount(value);
@@ -1430,8 +1606,9 @@ function applyGridPaste(config, payload) {
 
   config.render();
   config.setDirtyStatus();
-  if (applied) showToast(`Pasted ${applied} cell${applied === 1 ? '' : 's'}. Save changes to commit.${skipped ? ` ${skipped} cell${skipped === 1 ? '' : 's'} skipped (invalid or calculated cells).` : ''}`);
-  else showToast('No editable cells from the pasted range were applied.', true);
+  const lockedNote = lockedSkipped ? ` ${lockedSkipped} cell${lockedSkipped === 1 ? '' : 's'} not changed: editing is not allowed for entries older than ${EDIT_WINDOW_DAYS} days (before ${formatDmy(editCutoffDate())}).` : '';
+  if (applied) showToast(`Pasted ${applied} cell${applied === 1 ? '' : 's'}. Save changes to commit.${skipped ? ` ${skipped} cell${skipped === 1 ? '' : 's'} skipped (invalid or calculated cells).` : ''}${lockedNote}`, Boolean(lockedSkipped));
+  else showToast(lockedSkipped ? `Nothing pasted.${lockedNote}` : 'No editable cells from the pasted range were applied.', true);
 
   return {
     endRow: Math.max(0, Math.min(modelRows.length - 1, startRow + matrix.length - 1)),
@@ -1728,18 +1905,29 @@ el('closeCashPeoplePanel').addEventListener('click', () => el('cashPeopleDialog'
 el('cashPeopleDialog').addEventListener('click', event => {
   if (event.target === el('cashPeopleDialog')) el('cashPeopleDialog').close();
 });
-el('cashPersonBalanceForm').addEventListener('submit', saveCashPersonBalance);
-el('cancelCashPersonEdit').addEventListener('click', resetCashPersonBalanceForm);
+el('staffForm').addEventListener('submit', submitStaffForm);
+el('staffAmount').addEventListener('input', updateStaffPreview);
+el('staffDate').addEventListener('change', () => { refreshStaffFormBalance(); updateStaffPreview(); });
+el('staffAddNewButton').addEventListener('click', () => openStaffForm('new'));
+el('staffFormBack').addEventListener('click', closeStaffForm);
+el('staffFormCancel').addEventListener('click', closeStaffForm);
+el('staffHistoryBack').addEventListener('click', () => showStaffView('list'));
+el('staffHistoryAdd').addEventListener('click', () => {
+  if (staffState.person) openStaffForm('add', staffState.person, 'history');
+});
 el('cashPeopleViewDate').addEventListener('change', () => {
   const value = el('cashPeopleViewDate').value;
   if (!value) return;
   cashPeopleViewDate = value;
-  if (!editingCashPersonId) el('cashPersonDate').value = value;
   loadCashPeopleData({ force: true });
 });
 el('cashPeopleBalanceList').addEventListener('click', event => {
-  const button = event.target.closest('button[data-person-action="edit"]');
-  if (button) beginEditCashPersonBalance(button.dataset.personId);
+  const button = event.target.closest('[data-staff-action]');
+  if (!button) return;
+  const person = cashPeople.find(item => item.person_id === button.dataset.personId);
+  if (!person) return;
+  if (button.dataset.staffAction === 'history') openStaffHistory(person.person_id);
+  else openStaffForm('add', person, 'list');
 });
 
 /* ------------------------------------------------------------------ */
@@ -1838,7 +2026,11 @@ function registerSpreadsheet(tableElement, config) {
     columns: config.columns,
     getRowCount: () => config.getRows().length,
     onPaste: paste,
-    onCopy: showCopyToast
+    onCopy: showCopyToast,
+    onLockedEdit: rowIndex => {
+      const model = config.getRows()[rowIndex];
+      if (model && config.isLocked?.(model)) warnLockedEdit();
+    }
   }));
 }
 
@@ -1846,6 +2038,7 @@ registerSpreadsheet(table, {
   columns: COLUMNS,
   getRows: () => rows,
   makeRow: makeEmptyRow,
+  isLocked: row => isRowLocked(row, 'entry_date'),
   render: renderTable,
   setDirtyStatus: () => { setSheetStatus('Unsaved changes from paste', 'dirty'); updateToolbar(); }
 });
@@ -1853,6 +2046,7 @@ registerSpreadsheet(el('receivedTable'), {
   columns: RECEIVING_COLUMNS,
   getRows: () => receivedRows,
   makeRow: makeEmptyReceivedRow,
+  isLocked: row => isRowLocked(row, 'entry_date'),
   render: renderReceivedTable,
   setDirtyStatus: () => {
     receivedSheetStatus.textContent = 'Unsaved changes from paste';
@@ -1864,6 +2058,7 @@ registerSpreadsheet(el('receivedTable'), {
 registerSpreadsheet(el('cashCountTable'), {
   columns: CASH_COUNT_COLUMNS,
   getRows: () => cashCounts,
+  isLocked: row => isRowLocked(row, 'count_date'),
   render: renderCashCounts,
   setDirtyStatus: () => { setCashVaultStatus('Unsaved changes from paste', 'dirty'); updateCashCountToolbar(); }
 });

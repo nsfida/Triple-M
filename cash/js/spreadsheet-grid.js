@@ -330,7 +330,11 @@ function beginEdit(grid, row, col, { replace = false, picker = false } = {}) {
   const cell = findCell(grid, row, col);
   if (!cell) return false;
   const control = cell.querySelector(EDIT_CONTROL_SELECTOR);
-  if (!control || control.disabled) return false;
+  if (!control) return false;
+  if (control.disabled) {
+    grid.config.onLockedEdit?.(row);
+    return false;
+  }
 
   if (grid.editing) finishEdit(grid);
   activateGrid(grid);
@@ -402,7 +406,8 @@ function clearSelectedValues(grid) {
       const control = findCell(grid, row, col)?.querySelector(EDIT_CONTROL_SELECTOR);
       // Only free-entry cells are cleared. Dates and the Cash/Bank selector
       // always need a value, and calculated totals are read-only.
-      if (!control || control.disabled || control.tagName !== 'INPUT') continue;
+      if (control?.disabled) { grid.config.onLockedEdit?.(row); continue; }
+      if (!control || control.tagName !== 'INPUT') continue;
       if (control.type !== 'text' && control.type !== 'number') continue;
       if (control.value === '') continue;
       control.value = '';
