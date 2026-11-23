@@ -40,40 +40,18 @@ The listed vehicles and prices come from a JSON file instead of the database: SU
 - The booking form gets "Service", "Vehicle type", "Preferred model" and the listed price. The request is stored with those choices (database update 237) and waits for your confirmation.
 - Photos: `triplemdrive/catalog/photos/<file>`. One click on GitHub: Actions › **Triplem Drive catalogue photos** › Run workflow. It downloads the photos and commits them with `credits.json`. Or run `node scripts/fetch_drive_catalog_photos.js` on your computer. It downloads the Wikimedia Commons photos named in the JSON (free licences) and writes `credits.json` (authors and licences shown under "Photo credits" in the footer). Check each photo, then upload the folder. Until a photo file is uploaded, the page shows the same picture directly from Wikimedia Commons. To use your own photo, save it under the same file name (JPG, about 1600 px wide).
 
-## Public page
+## Public page (update 7)
 
-`/<address>/` (also `/triplemdrive/?b=<address>`; Triplem Drive: `/triplemdrive/`). It uses the Triplem VIP default look (light background, glass cards, Inter, small pill buttons, round icon buttons) with the Triplem Drive logo (`triplemdrive/assets/logo.svg`; a business's own logo replaces it).
+`/<address>/` (also `/triplemdrive/?b=<address>`; Triplem Drive: `/triplemdrive/`). A premium one-page site: dark hero with gold accents, warm light sections, white cards, Inter and Manrope fonts, and the Triplem Drive logo (a business's own logo replaces it).
 
-- **Header:** logo and name, Call, WhatsApp, Ask a question and **Book**.
-- **Tabs:** Vehicles (filter by type; each card opens the car), Prices (price list by group; Book on each row), Routes (when the business has public routes), FAQ (questions from `catalog.json`, the cancellation policy and terms of the business), Contact.
-- **Side panels** (same style as Triplem VIP; from the bottom on phones): car details (photos, details, prices, **Book this car**), booking, map picker, Ask a question, photo credits. Panels stack; Esc or × closes the top one.
-- **Booking panel:** service, vehicle type tiles with the price for the chosen service, model chips with photos (or Any model), pickup and drop-off, date and time, details and the questions of the Booking Form. The footer shows the listed price and **Send request**.
-- **Pickup and drop-off:** type the address as before, or tap **Map**: search a place, use your location or move the map under the pin, then **Use this place**. The address name is filled in and the point is saved with it (`address · lat,lng`); in Triplem Drive › Bookings it opens in Google Maps. Map: OpenStreetMap; address search: Nominatim (`https://nominatim.openstreetmap.org` is allowed in `_headers`).
-- Only published, enabled businesses and only public vehicles, routes and rates are shown. Registration numbers, internal notes, internal ids and customer data are never sent to the page.
-- Title, description, canonical address, Open Graph and structured data (AutoRental) come from the business. Unpublished or unknown addresses are `noindex`. The pages are not in the sitemap.
-- A request is shown as received only after the server stored it and returned its reference (TD-000123). Default status Pending. If **Confirm requests automatically** is on, a request for a specific, free vehicle is confirmed at once.
-- The server checks the business, the vehicle, every required field, the dates and the availability. Only **confirmed** bookings and blocks make a vehicle unavailable.
-- Spam protection: a hidden honeypot field, at most 6 requests per network per 10 minutes and 40 per day, and at most 4 per mobile number per hour for each business.
-
-## Notification centre and trip sheet
-
-- The bell in the Triplem Drive header shows the number of new booking requests and inquiries. It opens the **Notifications** side panel (All, Bookings, Inquiries; Mark all as read).
-- A booking notification (from the panel, the Triplem VIP bell or a push notification) opens the **trip sheet**: pickup date and time, pickup and drop-off with Google Maps links (exact point when the customer pinned it on the map), customer name, mobile (call, WhatsApp), email, vehicle, passengers, service and notes.
-- **Message for the driver**: a short ready-made text with the map links. **Copy for driver** copies it; **Send on WhatsApp** opens WhatsApp with the text, to the chosen driver (from Drivers) or to any contact. **Full booking** opens the complete booking.
-
-## Vehicle photos (update 242)
-
-- Up to **4 photos** per vehicle, also when adding a new vehicle (Fleet › Add vehicle › Photos).
-- Photos are made small in the browser before upload: at most 1280 px, WebP (JPEG where WebP is not available), about 100-250 KB, with a 360 px preview. The server refuses more than 4 photos and vehicle photos over 400 KB.
-- **Replace** overwrites the old photo in the database (same position); **Remove** deletes it. Nothing old is kept.
-
-## Listed cars in the fleet (update 240)
-
-The 9 cars of the price sheet are ordinary vehicles of the Triplem Drive fleet after database update 240 (keys `cat-<model>`, sections SUV, Sedan, Mini Van). The business manages them in Triplem Drive › Fleet like any other vehicle: edit, photos, hide from the public page, out of service, bookings.
-
-- **Photos:** the Fleet page shows "Add the listed photos" while listed cars have no photos. It takes each listed photo from `triplemdrive/catalog/photos/` (filled by the GitHub action) or, if missing, from Wikimedia Commons, and stores it as a normal vehicle photo (replace, reorder, remove). Until then the public page shows the listed photo.
-- **Public page:** the fleet cars are the models of each vehicle type in the booking panel and use the listed prices (catalog.json). A fleet car is in a type by its key or by its section name (SUV, Sedan, Mini Van), so new cars added to those sections appear as models too. A booking for a chosen model is linked to that car (availability and calendar apply); "Any model" is not linked to a car.
-- Prices and services stay in `catalog.json`. Before update 240 the public page shows the listed cars straight from `catalog.json`.
+- **No prices on the page.** The visitor first chooses what they need: **Within the city**, **Airport transfer** or **Outside the city** (hero, Services, Destinations, or **Book now**).
+- **Booking overlay** (full screen on phones), with slow, smooth steps: vehicle type (Sedan, SUV, Mini Van, drawn cars with seats and bags) → car (photo slider with thumbnails and swipe, or "Any SUV is fine") → trip (city and Transfer / Full day; airport and direction, airport filled in; or intercity route with swap; pickup and drop-off typed or picked on the map; date, time, passengers, flight number) → return trip (optional; skip = one way) → your details (and the business's custom questions) → **confirm with the price** → done (reference, "Send your location on WhatsApp").
+- **Price** is shown only at the confirm step: one way = listed price (catalog.json); return trip = 2 × listed price (Outbound, Return, Total). It is stored with the request ("Listed price") and in the notes. Businesses without a catalogue show "Confirmed by us".
+- Sections: how it works, services, fleet (vehicle types), fleet showcase, destinations (Makkah: the Kaaba; Madinah: the Green Dome; Riyadh: Kingdom Centre; Jeddah: Historic Jeddah, because Jeddah Tower is still under construction; Dammam & Al Khobar: Khobar Water Tower), FAQ, customer support.
+- **Customer support** for Triplem Drive (catalog.json `support`): +966596739938 (call and WhatsApp chat) and customersupport@triplem.vip. A WhatsApp chat button stays at the bottom right.
+- Pickup and drop-off on the map: search a place, use your location or move the map under the pin. The point is saved with the address (`address · lat,lng`) and opens in Google Maps in the trip sheet. Map: OpenStreetMap; search: Nominatim.
+- Photos: cars, hero and cities come from `triplemdrive/catalog/photos/` (filled by the GitHub action "Triplem Drive catalogue photos"), otherwise straight from Wikimedia Commons. Credits: footer › Photo credits. Change a city photo by changing its file name in `catalog.json` (`cities[].photo.commons`) and running the action again.
+- Only published businesses and only cars with status **Available** are offered. Registration numbers, internal notes and customer data are never sent to the page. A request is shown as received only after the server stored it and returned its reference.
 
 ## Notifications for the business (update 239)
 
