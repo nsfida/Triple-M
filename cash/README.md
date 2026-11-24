@@ -18,7 +18,16 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
-## Latest update (migration 012 required)
+## Latest update (no new migration)
+
+- **Selection sum:** select several cells (Expenses, Received or Cash Vault) and the footer line shows `Sum … · N values` for the numeric cells (amounts and totals; Cash Vault counts and totals).
+- **One working date:** the Date box in the top bar (today by default; change or type any date) controls Available Cash, the date of new Expenses / Received rows, new Cash Vault counts and new Staff Balance entries. Dates older than the 3-day edit window are refused with a warning. The Recent dates picker was removed.
+
+## Earlier update (migration 013)
+
+- **Staff Balance entries can be edited or deleted:** open a staff member's history and use the pencil / bin icons on an entry. Only entries from the last 3 days can be changed (older entries show a lock). **Run `sql/migrations/013_staff_entry_edit_delete.sql`.**
+
+## Earlier update (migration 012)
 
 - **Type-ahead:** in Expenses (Supplier, Name) and Received (Name, Merchant), typing completes the text from rows above. Enter/Tab accepts; keep typing or press Backspace to discard. Choosing a Supplier also fills TRN# and Name from its latest row if those cells are empty.
 - **Move rows:** press and hold a row (about half a second), then drag it up or down and release. Saved rows keep their new position. Locked (older than 3 days) rows cannot be moved.
@@ -62,7 +71,8 @@ expense_vault_project/
 │       ├── 009_signed_person_balances.sql
 │       ├── 010_dated_person_balances.sql
 │       ├── 011_staff_balance_transactions_and_edit_window.sql
-│       └── 012_row_order.sql
+│       ├── 012_row_order.sql
+│       └── 013_staff_entry_edit_delete.sql
 └── supabase/
     ├── config.toml
     └── functions/

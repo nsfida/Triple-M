@@ -8,7 +8,7 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js';
-import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=row-move-8';
+import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=work-date-10';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -282,13 +282,18 @@ function formatDateLabel(value) {
     : new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 }
 
+// The date box in the top bar is the working date for the whole app.
+function workDate() {
+  return el('cashAsOfDate').value || localDateString();
+}
+
+function warnOldWorkDate() {
+  showToast(`The selected date (${formatDmy(workDate())}) is older than the ${EDIT_WINDOW_DAYS}-day edit window, so new entries can't be added. Choose ${formatDmy(editCutoffDate())} or later in the Date box at the top.`, true);
+}
+
 function syncCashDateControls() {
-  const selectedDate = el('cashAsOfDate').value || localDateString();
-  const quickDate = el('cashQuickDate');
+  const selectedDate = workDate();
   const dates = recentDateOptions();
-  quickDate.innerHTML = dates.map(date => `<option value="${date}">${date === dates[0] ? 'Today' : date === dates[1] ? 'Yesterday' : date}</option>`).join('')
-    + '<option value="custom">Custom date…</option>';
-  quickDate.value = dates.includes(selectedDate) ? selectedDate : 'custom';
   el('cashRecentDates').innerHTML = dates.map(date => `<option value="${date}"></option>`).join('');
   el('cashCountDateLabel').textContent = `Selected date: ${formatDateLabel(selectedDate)}`;
 }
@@ -316,7 +321,7 @@ function makeEmptyRow() {
   const row = {
     clientId: crypto.randomUUID(),
     id: null,
-    entry_date: localDateString(),
+    entry_date: workDate(),
     supplier: '',
     trn_number: '---',
     spent_by: '',
@@ -333,7 +338,7 @@ function makeEmptyReceivedRow() {
   const row = {
     clientId: crypto.randomUUID(),
     id: null,
-    entry_date: localDateString(),
+    entry_date: workDate(),
     name: '',
     transaction_type: 'Cash',
     merchant: '',
@@ -895,27 +900,33 @@ async function refreshStaffFormBalance() {
   updateStaffPreview();
 }
 
-function openStaffForm(mode, person = null, returnView = 'list') {
+function openStaffForm(mode, person = null, returnView = 'list', entry = null) {
   if (!canWrite) { showToast('This access key is view-only. Staff Balance cannot be changed.', true); return; }
   staffState.mode = mode;
   staffState.person = person;
   staffState.returnView = returnView;
   staffState.formBalance = Number(person?.amount || 0);
+  staffState.entry = entry;
   const isNew = mode === 'new';
+  const isEdit = mode === 'edit';
   el('staffForm').reset();
   el('staffNameField').classList.toggle('hidden', !isNew);
-  el('staffCurrentBalanceRow').classList.toggle('hidden', isNew);
-  el('staffFormTitle').textContent = isNew ? 'Add new staff' : `Add amount`;
+  el('staffCurrentBalanceRow').classList.toggle('hidden', isNew || isEdit);
+  el('staffFormTitle').textContent = isNew ? 'Add new staff' : isEdit ? 'Edit entry' : 'Add amount';
   el('staffFormSubtitle').textContent = isNew
     ? 'Create a staff member. An opening amount is optional.'
     : person.person_name;
   el('staffAmountLabel').textContent = isNew ? 'Opening amount (AED, optional)' : 'Amount (AED)';
-  el('staffSaveButton').textContent = isNew ? 'Add staff' : 'Save';
+  el('staffSaveButton').textContent = isNew ? 'Add staff' : isEdit ? 'Save changes' : 'Save';
   const today = localDateString();
   const dateInput = el('staffDate');
   dateInput.min = editCutoffDate();
   dateInput.max = today;
-  dateInput.value = today;
+  dateInput.value = isEdit ? entry.txn_date : workDate();
+  if (isEdit) {
+    el('staffAmount').value = `${entry.amount > 0 ? '+' : ''}${Number(entry.amount).toFixed(2)}`;
+    el('staffNote').value = entry.note || '';
+  }
   const balanceNode = el('staffCurrentBalance');
   balanceNode.innerHTML = staffAmountHtml(staffState.formBalance);
   balanceNode.className = staffAmountClass(staffState.formBalance);
@@ -923,7 +934,7 @@ function openStaffForm(mode, person = null, returnView = 'list') {
   setStaffFormMessage('');
   showStaffView('form');
   (isNew ? el('staffName') : el('staffAmount')).focus();
-  if (!isNew) refreshStaffFormBalance();
+  if (!isNew && !isEdit) refreshStaffFormBalance();
 }
 
 function closeStaffForm() {
@@ -935,6 +946,7 @@ async function submitStaffForm(event) {
   event.preventDefault();
   if (!canWrite) return;
   const isNew = staffState.mode === 'new';
+  const isEdit = staffState.mode === 'edit';
   setStaffFormMessage('');
 
   let name = '';
@@ -953,7 +965,7 @@ async function submitStaffForm(event) {
       setStaffFormMessage(error.message); el('staffAmount').focus(); return;
     }
   }
-  if (!isNew && amount === 0) {
+  if (!isNew && !isEdit && amount === 0) {
     setStaffFormMessage('Enter an amount other than zero (use + to add, - to subtract).'); el('staffAmount').focus(); return;
   }
 
@@ -969,13 +981,20 @@ async function submitStaffForm(event) {
   const button = el('staffSaveButton');
   button.disabled = true;
   try {
-    const { data, error } = await supabase.rpc('add_staff_transaction', {
-      p_person_id: isNew ? null : staffState.person.person_id,
-      p_person_name: name,
-      p_amount: amount,
-      p_note: note,
-      p_txn_date: txnDate
-    });
+    const { data, error } = isEdit
+      ? await supabase.rpc('update_staff_transaction', {
+          p_id: staffState.entry.id,
+          p_amount: amount,
+          p_note: note,
+          p_txn_date: txnDate
+        })
+      : await supabase.rpc('add_staff_transaction', {
+          p_person_id: isNew ? null : staffState.person.person_id,
+          p_person_name: name,
+          p_amount: amount,
+          p_note: note,
+          p_txn_date: txnDate
+        });
     if (error) throw error;
     if (!data) throw new Error('The entry could not be saved.');
 
@@ -983,7 +1002,7 @@ async function submitStaffForm(event) {
       cashPeopleViewDate = txnDate;
       el('cashPeopleViewDate').value = txnDate;
     }
-    showToast(isNew ? `${name} added to Staff Balance.` : `${formatSignedCashAdjustment(amount)} AED saved for ${name} on ${formatDmy(txnDate)}.`);
+    showToast(isNew ? `${name} added to Staff Balance.` : isEdit ? `Entry updated for ${name}.` : `${formatSignedCashAdjustment(amount)} AED saved for ${name} on ${formatDmy(txnDate)}.`);
     try {
       await Promise.all([refreshCashSummary(), loadCashPeopleData({ force: true })]);
       setCashVaultStatus('Staff Balance saved · Available Cash refreshed · Cash Count unchanged');
@@ -991,7 +1010,7 @@ async function submitStaffForm(event) {
       setCashVaultStatus('Staff Balance saved · refresh required', 'error');
       showToast(`Saved, but the screen could not refresh: ${refreshError.message || 'Refresh the page.'}`, true);
     }
-    if (!isNew && staffState.returnView === 'history') openStaffHistory(data);
+    if (!isNew && (isEdit || staffState.returnView === 'history')) openStaffHistory(data);
     else showStaffView('list');
   } catch (error) {
     const text = explainLedgerError(error) || error.message || 'The entry could not be saved.';
@@ -1025,12 +1044,25 @@ async function openStaffHistory(personId) {
     return;
   }
 
+  const entryActions = item => {
+    if (!canWrite) return '';
+    if (!isDateEditable(item.txn_date)) {
+      return `<span class="sp-entry-actions"><span class="sp-lock" title="Locked: older than ${EDIT_WINDOW_DAYS} days">🔒</span></span>`;
+    }
+    const id = escapeHtml(item.id);
+    return `<span class="sp-entry-actions">
+      <button class="sp-icon-btn" type="button" data-entry-action="edit" data-entry-id="${id}" title="Edit entry" aria-label="Edit entry"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M13.5 7.5l3 3"/></svg></button>
+      <button class="sp-icon-btn sp-icon-btn-danger" type="button" data-entry-action="delete" data-entry-id="${id}" title="Delete entry" aria-label="Delete entry"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
+    </span>`;
+  };
+
   let running = 0;
   const entries = (data || []).map(item => {
     running = Math.round((running + Number(item.amount || 0)) * 100) / 100;
     return { ...item, amount: Number(item.amount || 0), after: running };
   });
   staffState.person.amount = running;
+  staffState.entries = entries;
   el('staffHistorySub').innerHTML = `Total balance <strong class="${staffAmountClass(running)}">${staffAmountHtml(running)}</strong> · ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`;
   el('staffHistoryList').innerHTML = entries.length
     ? entries.slice().reverse().map(item => {
@@ -1039,6 +1071,7 @@ async function openStaffHistory(personId) {
           <span class="sp-item-icon ${plus ? 'sp-icon-up' : 'sp-icon-down'}">${plus ? '↑' : '↓'}</span>
           <span class="sp-item-text"><strong>${escapeHtml(item.note || (plus ? 'Amount added' : 'Amount subtracted'))}</strong><small>${escapeHtml(formatDmy(item.txn_date))} · Balance after ${escapeHtml(formatSignedCashAdjustment(item.after))}</small></span>
           <span class="sp-item-amount ${staffAmountClass(item.amount)}">${staffAmountHtml(item.amount)}</span>
+          ${entryActions(item)}
         </article>`;
       }).join('')
     : '<p class="muted sp-empty">No entries yet.</p>';
@@ -1118,6 +1151,8 @@ function explainLedgerError(error) {
     || normalized.includes('cash_adjustment')
     || normalized.includes('staff_balance_transactions')
     || normalized.includes('add_staff_transaction')
+    || normalized.includes('update_staff_transaction')
+    || normalized.includes('delete_staff_transaction')
     || normalized.includes('get_person_balances_as_of');
   const cashVaultError = normalized.includes('cash_vault_counts') || normalized.includes('get_cash_vault_summary');
   if (normalized.includes('permission denied for schema') || normalized.includes('permission denied for table') || normalized.includes('permission denied for function')) {
@@ -1753,6 +1788,7 @@ loginForm.addEventListener('submit', async event => {
 
 addButton.addEventListener('click', () => {
   if (!canWrite) return;
+  if (!isDateEditable(workDate())) { warnOldWorkDate(); return; }
   const row = makeEmptyRow();
   rows.push(row);
   selectedClientId = row.clientId;
@@ -1773,7 +1809,8 @@ tableBody.addEventListener('click', event => {
 
 cashAddButton.addEventListener('click', () => {
   if (!canWrite) return;
-  const countDate = el('cashAsOfDate').value || localDateString();
+  if (!isDateEditable(workDate())) { warnOldWorkDate(); return; }
+  const countDate = workDate();
   const existing = cashCounts.find(row => row.count_date === countDate);
   if (existing) {
     selectCashCountRow(existing.clientId);
@@ -1799,17 +1836,14 @@ cashTableBody.addEventListener('click', event => {
   const tr = event.target.closest('tr[data-client-id]');
   if (tr) selectCashCountRow(tr.dataset.clientId);
 });
-el('cashAsOfDate').addEventListener('change', onCashAsOfDateChange);
-el('cashQuickDate').addEventListener('change', () => {
-  const selected = el('cashQuickDate').value;
-  if (selected && selected !== 'custom') {
-    el('cashAsOfDate').value = selected;
-    onCashAsOfDateChange();
-  }
+el('cashAsOfDate').addEventListener('change', () => {
+  if (!el('cashAsOfDate').value) el('cashAsOfDate').value = localDateString();
+  onCashAsOfDateChange();
 });
 
 receivedAddButton.addEventListener('click', () => {
   if (!canWrite) return;
+  if (!isDateEditable(workDate())) { warnOldWorkDate(); return; }
   const row = makeEmptyReceivedRow();
   receivedRows.push(row);
   selectedReceivedClientId = row.clientId;
@@ -1934,6 +1968,29 @@ el('cashPeopleViewDate').addEventListener('change', () => {
   if (!value) return;
   cashPeopleViewDate = value;
   loadCashPeopleData({ force: true });
+});
+el('staffHistoryList').addEventListener('click', async event => {
+  const button = event.target.closest('[data-entry-action]');
+  if (!button || !canWrite) return;
+  const entry = (staffState.entries || []).find(item => item.id === button.dataset.entryId);
+  if (!entry || !staffState.person) return;
+  if (!isDateEditable(entry.txn_date)) { warnLockedEdit(button.dataset.entryAction === 'delete' ? 'delete' : 'edit'); return; }
+  if (button.dataset.entryAction === 'edit') {
+    openStaffForm('edit', staffState.person, 'history', entry);
+    return;
+  }
+  if (!window.confirm(`Delete this entry?\n\n${formatDmy(entry.txn_date)} · ${formatSignedCashAdjustment(entry.amount)} AED${entry.note ? `\n${entry.note}` : ''}`)) return;
+  button.disabled = true;
+  try {
+    const { data, error } = await supabase.rpc('delete_staff_transaction', { p_id: entry.id });
+    if (error) throw error;
+    showToast('Entry deleted.');
+    await Promise.all([refreshCashSummary(), loadCashPeopleData({ force: true })]);
+    openStaffHistory(data || staffState.person.person_id);
+  } catch (error) {
+    button.disabled = false;
+    showToast(explainLedgerError(error) || 'The entry could not be deleted.', true);
+  }
 });
 el('cashPeopleBalanceList').addEventListener('click', event => {
   const button = event.target.closest('[data-staff-action]');
@@ -2258,13 +2315,52 @@ function enableRowReorder({ tableElement, tbody, getRows, render, tableName, dat
   });
 }
 
+function formatSelectionSum(value, auto) {
+  const rounded = Math.round(value * 100) / 100;
+  return rounded.toLocaleString('en-US', {
+    minimumFractionDigits: auto && Number.isInteger(rounded) ? 0 : 2,
+    maximumFractionDigits: 2
+  });
+}
+
+// Shows the sum of the numeric cells in a multi-cell selection in the footer line.
+function updateSelectionSum(config, tableElement, range) {
+  const node = el(config.sumElementId);
+  if (!node) return;
+  config.lastRange = range;
+  const hide = () => { node.textContent = ''; node.classList.add('hidden'); };
+  if (!range || (range.minRow === range.maxRow && range.minCol === range.maxCol)) { hide(); return; }
+  const bodyRows = tableElement.tBodies[0]?.rows;
+  if (!bodyRows) { hide(); return; }
+  let sum = 0;
+  let count = 0;
+  for (let r = range.minRow; r <= range.maxRow; r += 1) {
+    for (let c = range.minCol; c <= range.maxCol; c += 1) {
+      const column = config.columns[c];
+      if (!column || !config.sumKinds.includes(column.kind)) continue;
+      const control = bodyRows[r]?.cells[c]?.querySelector('input, select');
+      const raw = String(control ? control.value : '').replace(/,/g, '').trim();
+      if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw)) continue;
+      sum += Number(raw);
+      count += 1;
+    }
+  }
+  if (!count) { hide(); return; }
+  node.textContent = `Sum ${formatSelectionSum(sum, config.sumAuto)} · ${count} value${count === 1 ? '' : 's'}`;
+  node.classList.remove('hidden');
+}
+
 function registerSpreadsheet(tableElement, config) {
   const paste = payload => applyGridPaste(config, payload);
+  const refreshSum = () => updateSelectionSum(config, tableElement, config.lastRange);
+  tableElement.tBodies[0]?.addEventListener('input', refreshSum);
+  tableElement.tBodies[0]?.addEventListener('change', refreshSum);
   spreadsheetGrids.set(tableElement, createSpreadsheetGrid(tableElement, {
     columns: config.columns,
     getRowCount: () => config.getRows().length,
     onPaste: paste,
     onCopy: showCopyToast,
+    onSelectionChange: range => updateSelectionSum(config, tableElement, range),
     onLockedEdit: rowIndex => {
       const model = config.getRows()[rowIndex];
       if (model && config.isLocked?.(model)) warnLockedEdit();
@@ -2276,6 +2372,8 @@ registerSpreadsheet(table, {
   columns: COLUMNS,
   getRows: () => rows,
   makeRow: makeEmptyRow,
+  sumElementId: 'expensesSelectionSum',
+  sumKinds: ['amount', 'total'],
   isLocked: row => isRowLocked(row, 'entry_date'),
   render: renderTable,
   setDirtyStatus: () => { setSheetStatus('Unsaved changes from paste', 'dirty'); updateToolbar(); }
@@ -2284,6 +2382,8 @@ registerSpreadsheet(el('receivedTable'), {
   columns: RECEIVING_COLUMNS,
   getRows: () => receivedRows,
   makeRow: makeEmptyReceivedRow,
+  sumElementId: 'receivedSelectionSum',
+  sumKinds: ['amount', 'total'],
   isLocked: row => isRowLocked(row, 'entry_date'),
   render: renderReceivedTable,
   setDirtyStatus: () => {
@@ -2296,6 +2396,9 @@ registerSpreadsheet(el('receivedTable'), {
 registerSpreadsheet(el('cashCountTable'), {
   columns: CASH_COUNT_COLUMNS,
   getRows: () => cashCounts,
+  sumElementId: 'cashSelectionSum',
+  sumKinds: ['quantity', 'total'],
+  sumAuto: true,
   isLocked: row => isRowLocked(row, 'count_date'),
   render: renderCashCounts,
   setDirtyStatus: () => { setCashVaultStatus('Unsaved changes from paste', 'dirty'); updateCashCountToolbar(); }

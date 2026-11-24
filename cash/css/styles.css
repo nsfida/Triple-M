@@ -619,3 +619,21 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .expense-table tbody tr.drop-before td { box-shadow: inset 0 3px 0 #2b6fd6; }
 .expense-table tbody tr.drop-after td { box-shadow: inset 0 -3px 0 #2b6fd6; }
 body.reordering-rows, body.reordering-rows * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }
+
+/* Staff Balance: edit / delete icons on history entries */
+.sp-entry-actions { flex: none; display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; }
+.sp-icon-btn { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 1px solid #dfe5ef; border-radius: 50%; background: #fff; color: #51617d; cursor: pointer; }
+.sp-icon-btn:hover:not(:disabled) { background: #eef3fc; color: #2b6fd6; border-color: #c7d6f3; }
+.sp-icon-btn-danger:hover:not(:disabled) { background: #fdeceb; color: #b42318; border-color: #f3c6c2; }
+.sp-icon-btn:disabled { opacity: .5; cursor: wait; }
+.sp-lock { font-size: 11px; opacity: .6; padding: 0 5px; }
+
+/* Working date box (top bar) */
+.topbar-date { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 6px 0 11px; border: 1px solid #cfdcf6; border-radius: 999px; background: #f1f6ff; color: #2c5fc7; font: 700 11px 'DM Sans', sans-serif; }
+.topbar-date input { height: 26px; padding: 0 8px; border: 1px solid #d3dbea; border-radius: 999px; background: #fff; color: #172033; font: 600 11.5px 'DM Mono', monospace; }
+.topbar-date input:focus { outline: 3px solid rgba(43, 111, 214, .2); border-color: #2b6fd6; }
+
+/* Selection sum in the footer line */
+.sheet-footer-right { display: inline-flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.selection-sum { padding: 2px 9px; border-radius: 999px; background: #e3f6ee; color: #14724f; font: 700 10px 'DM Mono', monospace; white-space: nowrap; }
+.selection-sum.hidden { display: none; }

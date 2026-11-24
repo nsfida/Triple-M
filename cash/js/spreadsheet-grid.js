@@ -214,6 +214,7 @@ function paintSelection(grid) {
   (grid.markedNodes || []).forEach(node => node.classList.remove('col-active', 'row-active'));
   grid.markedNodes = [];
   const range = selectionRange(grid);
+  grid.config.onSelectionChange?.(range ? { ...range } : null);
   if (!range) return;
   const headerCells = grid.table.tHead?.rows[0]?.cells;
   for (let col = range.minCol; col <= range.maxCol; col += 1) {

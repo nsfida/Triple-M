@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f3f6fa">
   <meta name="description" content="Private expense register powered by Supabase.">
   <title>Expense Vault</title>
-  <link rel="stylesheet" href="css/styles.css?v=row-move-8">
+  <link rel="stylesheet" href="css/styles.css?v=work-date-10">
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -37,6 +37,10 @@
         </div>
       </div>
       <div class="topbar-actions">
+        <label class="topbar-date" title="Working date. New rows, cash counts and staff entries use this date; Available Cash is shown as of this date.">
+          <span>Date</span>
+          <input id="cashAsOfDate" type="date" aria-label="Working date">
+        </label>
         <span id="accessBadge" class="access-badge">Owner access</span>
         <button id="exportExcelButton" class="button button-excel" type="button" title="Download Cash Vault, Expenses and Received as one Excel file">⬇ Excel</button>
         <button id="accessKeysButton" class="button button-quiet" type="button">Access keys</button>
@@ -68,12 +72,6 @@
                 <p class="cash-balance-kicker">AVAILABLE CASH</p>
                 <div id="cashBalanceValue" class="cash-balance-value">—</div>
                 <p id="cashBalanceCaption" class="cash-balance-caption">Calculating your cash position…</p>
-              </div>
-              <div class="cash-date-controls">
-                <label for="cashQuickDate">Recent dates</label>
-                <select id="cashQuickDate" aria-label="Choose one of the recent dates"></select>
-                <label for="cashAsOfDate">Or choose any date</label>
-                <input id="cashAsOfDate" type="date" aria-label="Cash balance as of date">
               </div>
             </div>
             <div class="cash-balance-foot">Cash received − cash expenses − current staff balances. Positive amounts reduce Available Cash; negative amounts increase it.</div>
@@ -139,7 +137,7 @@
         <datalist id="cashRecentDates"></datalist>
         <div class="sheet-footer">
           <span>11 denominations · Cash Count is calculated only from the quantities entered here; Staff Balance movements never change it</span>
-          <span id="cashVaultPermissionNote">Write access enabled</span>
+          <span class="sheet-footer-right"><span id="cashSelectionSum" class="selection-sum hidden" aria-live="polite"></span><span id="cashVaultPermissionNote">Write access enabled</span></span>
         </div>
       </section>
 
@@ -174,7 +172,7 @@
         <datalist id="recentDates"></datalist>
         <div class="sheet-footer">
           <span>32 columns · Changes are saved to your Supabase database</span>
-          <span id="permissionNote">Write access enabled</span>
+          <span class="sheet-footer-right"><span id="expensesSelectionSum" class="selection-sum hidden" aria-live="polite"></span><span id="permissionNote">Write access enabled</span></span>
         </div>
       </section>
 
@@ -209,7 +207,7 @@
         <datalist id="recentReceivedDates"></datalist>
         <div class="sheet-footer">
           <span>23 columns · Changes are saved to your Supabase database</span>
-          <span id="receivedPermissionNote">Write access enabled</span>
+          <span class="sheet-footer-right"><span id="receivedSelectionSum" class="selection-sum hidden" aria-live="polite"></span><span id="receivedPermissionNote">Write access enabled</span></span>
         </div>
       </section>
     </div>
@@ -342,6 +340,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js?v=row-move-8"></script>
+  <script type="module" src="js/app.js?v=work-date-10"></script>
 </body>
 </html>
