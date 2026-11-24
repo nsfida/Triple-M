@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261123-ins244/);
+  assert.match(html, /01-insurance\.js\?v=20261124-ins244b/);
 });
 
 
@@ -1158,4 +1158,11 @@ test("Lowering commission below cancellation deductions works (migration 244): d
   assert.match(code, /revoke all on function public\.app_insurance__release_sale_commission/);
   assert.match(code, /revoke all on function public\.insurance__sale_outstanding/);
   assert.match(fs.readFileSync(path.join(projectRoot, "scripts/build_full_schema_sql.js"), "utf8"), /244_insurance_edit_commission_deductions\.sql/);
+});
+
+test("Editing commission below deductions explains a missing database update 244 instead of a database error", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  assert.match(source, /p\.deduction_released===undefined&&n\(p\.deducted\)>n\(p\.new_commission\)/);
+  assert.match(source, /needs database update 244/);
+  assert.match(source, /Nothing was changed\./);
 });

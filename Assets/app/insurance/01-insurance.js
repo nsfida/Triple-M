@@ -2242,6 +2242,9 @@
     const p=await rpc("app_insurance_sale_commission_change_preview",{p_sale_id:sale.id,p_gross_premium:args.p_gross_premium,p_purchase_price:args.p_purchase_price});
     if(!p||n(p.excess)<=0)return rpc("app_insurance_update_sale_with_referral",args);
     // Received cash and cancellation deductions are both released (deductions first, migration 244).
+    // Without 244 the database cannot release deductions, so say that instead of a database error.
+    if(p.deduction_released===undefined&&n(p.deducted)>n(p.new_commission)+0.004)
+      throw new Error(`This sale has ${moneyPlain(p.deducted,p.currency)} of cancellation deductions, more than the new commission (${moneyPlain(p.new_commission,p.currency)}). Editing it needs database update 244 (Insurance commission edit with deductions), which is not installed yet. Please ask your administrator to install it, then try again. Nothing was changed.`);
     const cur=p.currency,m=v=>moneyHtml(v,cur);
     const reduce=n(p.remainder)>0.004;
     const receipts=(p.receipts||[]).map(r=>esc(r.reference_no)).join(", ");
