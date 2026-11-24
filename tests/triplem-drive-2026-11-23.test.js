@@ -236,7 +236,14 @@ test("public page (update 7): no prices on the page, booking overlay, return = 2
   assert.match(read("scripts/fetch_drive_catalog_photos.js"), /gsrsearch=/, "city photos found on Commons by the GitHub action");
 });
 
-test("migration 243: cars stay available; no fixed trip length; only Available cars bookable", () => {
+test("cars stay available: no Default trip length setting, no 4-hour text", () => {
+  assert.doesNotMatch(read("Assets/app/drive/04-drive-setup.js"), /default_trip_hours/, "no Default trip length setting");
+  assert.doesNotMatch(read("Assets/app/drive/03-drive-ops.js"), /lasts \$\{/, "no 4-hour text");
+});
+
+// Checks of database and Edge Function files run only in the full source; those files are never uploaded to
+// GitHub, so the public test run there skips them.
+test("migration 243: cars stay available; no fixed trip length; only Available cars bookable", { skip: !exists("migrations/243_triplem_drive_cars_always_available.sql") }, () => {
   const code = read("migrations/243_triplem_drive_cars_always_available.sql").replace(/--.*$/gm, "");
   assert.doesNotMatch(code, /\b(alter|drop)\s+table\b|\btruncate\b|\bdrop\s+column\b/i);
   assert.doesNotMatch(code.replace(/delete from public\.app_drive_(public_hits|push_dispatches)\b/g, ""), /\bdelete\s+from\b/i, "only the rate-limit and push-token cleanup of the re-declared booking function");
@@ -245,8 +252,6 @@ test("migration 243: cars stay available; no fixed trip length; only Available c
   assert.match(code, /'bookable', v\.status = 'available'/);
   assert.match(code, /if v\.status <> 'available' then/);
   assert.match(read("scripts/build_full_schema_sql.js"), /243_triplem_drive_cars_always_available\.sql/);
-  assert.doesNotMatch(read("Assets/app/drive/04-drive-setup.js"), /default_trip_hours/, "no Default trip length setting");
-  assert.doesNotMatch(read("Assets/app/drive/03-drive-ops.js"), /lasts \$\{/, "no 4-hour text");
 });
 
 test("Triplem Drive manager: inquiries, ding and push for every booking and inquiry", () => {
@@ -259,10 +264,13 @@ test("Triplem Drive manager: inquiries, ding and push for every booking and inqu
   const ops = read("Assets/app/drive/03-drive-ops.js");
   assert.match(ops, /app_drive_inquiries_list/);
   assert.match(ops, /app_drive_inquiry_set/);
+  assert.match(read("index.html"), /00-drive-access\.js\?v=20261123-td8/);
+});
+
+test("push-notifications Edge Function sends Triplem Drive pushes", { skip: !exists("supabase/functions/push-notifications/index.ts") }, () => {
   const fn = read("supabase/functions/push-notifications/index.ts");
   assert.match(fn, /action === "drive_notify"/);
   assert.match(fn, /app_push_service_drive_dispatch/);
-  assert.match(read("index.html"), /00-drive-access\.js\?v=20261123-td8/);
 });
 
 test("migration 239 is additive: two new tables, no change to existing data", { skip: !exists("migrations/239_triplem_drive_inquiries_push.sql") }, () => {
@@ -276,13 +284,17 @@ test("migration 239 is additive: two new tables, no change to existing data", { 
   assert.match(code, /notify pgrst, 'reload schema'/);
 });
 
-test("migration 240: listed cars into the Triplem Drive fleet, inserts only, once", () => {
+test("migration 240: listed cars into the Triplem Drive fleet, inserts only, once", { skip: !exists("migrations/240_triplem_drive_listed_cars_to_fleet.sql") }, () => {
   const raw = read("migrations/240_triplem_drive_listed_cars_to_fleet.sql"), code = raw.replace(/--.*$/gm, "");
   assert.doesNotMatch(code, /\b(alter|drop)\s+table\b|\btruncate\b|\bdelete\s+from\b|\bupdate\s+public\./i);
   assert.match(code, /where lower\(slug\) = 'triplemdrive'/);
   assert.match(code, /if exists \(select 1 from public\.app_drive_vehicles where pkey = car\.pkey\) then continue; end if;/);
   const cat = JSON.parse(read("triplemdrive/catalog/catalog.json"));
   for (const v of cat.vehicles) assert.ok(code.includes(`'cat-${v.key}'`), v.key);
+});
+
+test("listed cars in the fleet: public page and Fleet page", () => {
+  const cat = JSON.parse(read("triplemdrive/catalog/catalog.json"));
   assert.equal(cat.vehicles_in_database, true);
   for (const v of cat.vehicles) for (const p of v.photos) assert.match(p.upload, /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/thumb\/[0-9a-f]\/[0-9a-f]{2}\//);
   const js = read("triplemdrive/site.js");
@@ -294,13 +306,16 @@ test("migration 240: listed cars into the Triplem Drive fleet, inserts only, onc
   assert.match(read("scripts/build_full_schema_sql.js"), /240_triplem_drive_listed_cars_to_fleet\.sql/);
 });
 
-test("migration 242: 4 photos per vehicle, smaller photos, replace in place; only re-declares media_add", () => {
+test("migration 242: 4 photos per vehicle, smaller photos, replace in place; only re-declares media_add", { skip: !exists("migrations/242_triplem_drive_photo_limits.sql") }, () => {
   const sql = read("migrations/242_triplem_drive_photo_limits.sql"), code = sql.replace(/--.*$/gm, "");
   assert.doesNotMatch(code, /\b(alter|drop)\s+table\b|\btruncate\b|\bdrop\s+column\b/i);
   assert.match(code, /kind = 'vehicle'\) >= 4 then/);
   assert.match(code, /p_kind = 'vehicle' and octet_length\(b\) > 400 \* 1024/);
   assert.match(code, /create or replace function public\.app_drive_media_replace\(/);
   assert.match(code, /where id = p_id and owner_id = o and kind = 'vehicle'/);
+});
+
+test("vehicle photos in the app: 4 per car, small, on Add vehicle, replace in place", () => {
   const app = read("Assets/app/drive/02-drive-app.js");
   assert.match(app, /const MAX_PHOTOS = 4;/);
   assert.match(app, /compressImage\(file, \{ max: 1280, thumb: 360, target: 230 \* 1024/);

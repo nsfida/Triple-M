@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261123-ins241/);
+  assert.match(html, /01-insurance\.js\?v=20261123-ins244/);
 });
 
 
@@ -1143,4 +1143,19 @@ test("Lowering commission after it was received: preview, confirm, one-transacti
   assert.match(code, /res := public\.app_insurance_update_sale_with_referral\(/);
   assert.match(code, /revoke all on function public\.app_insurance__release_sale_commission/);
   assert.match(code, /confirm reducing the receipt/);
+});
+
+test("Lowering commission below cancellation deductions works (migration 244): deductions move or stay pending", () => {
+  const src = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/244_insurance_edit_commission_deductions.sql"), "utf8");
+  const code = sql.replace(/--.*$/gm, "");
+  assert.doesNotMatch(src, /if\(p\.deductions_block\)throw/, "no longer refused when deductions are more than the new commission");
+  assert.match(src, /p\.deduction_pending/);
+  assert.doesNotMatch(code, /\b(alter|drop)\s+table\b|\btruncate\b/i);
+  assert.doesNotMatch(code, /update public\.insurance_commission_deductions\b/, "deduction amounts never change");
+  assert.match(code, /x\.company_id = s\.company_id and upper\(x\.currency\) = upper\(s\.currency\)/, "deductions only move to the same insurance company");
+  assert.match(code, /not exists \(select 1 from public\.insurance_policy_cancellations c where c\.owner_id = own and c\.sale_id = x\.id\)/);
+  assert.match(code, /revoke all on function public\.app_insurance__release_sale_commission/);
+  assert.match(code, /revoke all on function public\.insurance__sale_outstanding/);
+  assert.match(fs.readFileSync(path.join(projectRoot, "scripts/build_full_schema_sql.js"), "utf8"), /244_insurance_edit_commission_deductions\.sql/);
 });

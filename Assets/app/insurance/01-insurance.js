@@ -2241,26 +2241,29 @@
   async function saveSaleReleasingCommission(sale,args){
     const p=await rpc("app_insurance_sale_commission_change_preview",{p_sale_id:sale.id,p_gross_premium:args.p_gross_premium,p_purchase_price:args.p_purchase_price});
     if(!p||n(p.excess)<=0)return rpc("app_insurance_update_sale_with_referral",args);
+    // Received cash and cancellation deductions are both released (deductions first, migration 244).
     const cur=p.currency,m=v=>moneyHtml(v,cur);
-    if(p.deductions_block)throw new Error(`The new commission (${moneyPlain(p.new_commission,cur)}) is lower than the commission deductions already applied to this sale (${moneyPlain(p.deducted,cur)}).`);
     const reduce=n(p.remainder)>0.004;
     const receipts=(p.receipts||[]).map(r=>esc(r.reference_no)).join(", ");
     const ok=await new Promise(resolve=>{let done=false;const finish=v=>{if(!done){done=true;resolve(v);}};
-      openModal({id:"insuranceCommissionReleaseModal",title:"Commission already received",subtitle:`${p.reference_no} · ${cur}`,body:`<div class="insurance-release">
+      openModal({id:"insuranceCommissionReleaseModal",title:"Commission already settled",subtitle:`${p.reference_no} · ${cur}`,body:`<div class="insurance-release">
         <div class="insurance-release-rows">
-          <div><span>Commission received for this sale</span><b>${m(n(p.received)+n(p.deducted))}</b></div>
+          ${n(p.received)>0?`<div><span>Commission received for this sale</span><b>${m(p.received)}</b></div>`:""}
+          ${n(p.deducted)>0?`<div><span>Cancellation deductions applied to this sale</span><b>${m(p.deducted)}</b></div>`:""}
           <div><span>New commission (Gross Premium − Purchase Price)</span><b>${m(p.new_commission)}</b></div>
-          <div class="is-total"><span>Received more than the new commission</span><b>${m(p.excess)}</b></div>
+          <div class="is-total"><span>Settled more than the new commission</span><b>${m(p.excess)}</b></div>
         </div>
+        ${n(p.deduction_moved)>0?`<p><i class="fa-solid fa-scissors"></i> <b>${m(p.deduction_moved)}</b> of the deductions${(p.deductions||[]).length?` (${(p.deductions||[]).map(esc).join(", ")})`:""} will be applied to other outstanding commission of the same insurance company (oldest first).</p>`:""}
+        ${n(p.deduction_pending)>0?`<p><i class="fa-solid fa-hourglass-half"></i> <b>${m(p.deduction_pending)}</b> of the deductions will stay <b>pending</b> (nothing else of this insurance company is outstanding). You can apply it later or record it as paid back in Commission Deductions. The deduction total does not change.</p>`:""}
         ${n(p.movable)>0?`<p><i class="fa-solid fa-right-left"></i> <b>${m(p.movable)}</b> will be applied to other outstanding commission in ${esc(cur)} (oldest first), inside the same receipt${receipts?` (${receipts})`:""}. The receipt amount does not change.</p>`:""}
         ${reduce?`<p class="insurance-release-warn"><i class="fa-solid fa-triangle-exclamation"></i> No other commission is outstanding in ${esc(cur)} for <b>${m(p.remainder)}</b>. It will be removed from the received amount of the newest receipt${receipts?` (${receipts})`:""}, with a note. Use this only if the insurance company did not pay this amount, or will pay it back.</p>`:""}
         <p class="help">Nothing changes if you cancel.</p></div>`,
-        actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceReleaseSave"><i class="fa-solid fa-check"></i> ${reduce?"Reduce receipt and save":"Move and save"}</button>`,
+        actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceReleaseSave"><i class="fa-solid fa-check"></i> ${reduce?"Reduce receipt and save":"Confirm and save"}</button>`,
         onOpen(modal,close){$$('[data-insurance-close]',modal).forEach(el=>el.addEventListener("click",()=>finish(false)));$("#insuranceReleaseSave",modal).onclick=()=>{close();finish(true);};}});});
     if(!ok)return null;
     const res=await rpc("app_insurance_update_sale_releasing_commission",{...args,p_reduce_receipts:reduce});
     const r=res?.commission_release||{};
-    return {...res,release_message:`Insurance Sale updated. ${n(r.moved)>0?`${moneyPlain(r.moved,cur)} of received commission moved to other outstanding commission. `:""}${n(r.reduced)>0?`Receipt reduced by ${moneyPlain(r.reduced,cur)}.`:""}`.trim()};
+    return {...res,release_message:`Insurance Sale updated. ${n(r.deduction_moved)>0?`${moneyPlain(r.deduction_moved,cur)} of deductions applied to other commission. `:""}${n(r.deduction_pending)>0?`${moneyPlain(r.deduction_pending,cur)} of deductions now pending. `:""}${n(r.moved)>0?`${moneyPlain(r.moved,cur)} of received commission moved to other outstanding commission. `:""}${n(r.reduced)>0?`Receipt reduced by ${moneyPlain(r.reduced,cur)}.`:""}`.trim()};
   }
 
   async function openSaleEditor(id){
