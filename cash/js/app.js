@@ -8,7 +8,7 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js';
-import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=work-date-10';
+import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=autosave-11';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -108,20 +108,20 @@ const loginMessage = el('loginMessage');
 const tableBody = el('expenseTableBody');
 const headerRow = el('expenseHeaderRow');
 const table = el('expensesTable');
-const saveButton = el('saveRowsButton');
+const saveButton = { disabled: false }; // per-sheet Save buttons were replaced by autosave + the top Save button
 const addButton = el('addRowButton');
 const deleteButton = el('deleteRowButton');
 const sheetStatus = el('sheetStatus');
 const toast = el('toast');
 const receivedTableBody = el('receivedTableBody');
 const receivedHeaderRow = el('receivedHeaderRow');
-const receivedSaveButton = el('saveReceivedRowsButton');
+const receivedSaveButton = { disabled: false };
 const receivedAddButton = el('addReceivedRowButton');
 const receivedDeleteButton = el('deleteReceivedRowButton');
 const receivedSheetStatus = el('receivedSheetStatus');
 const cashTableBody = el('cashCountTableBody');
 const cashHeaderRow = el('cashCountHeaderRow');
-const cashSaveButton = el('saveCashCountsButton');
+const cashSaveButton = { disabled: false };
 const cashAddButton = el('addCashCountButton');
 const cashDeleteButton = el('deleteCashCountButton');
 const cashVaultStatus = el('cashVaultStatus');
@@ -287,6 +287,162 @@ function workDate() {
   return el('cashAsOfDate').value || localDateString();
 }
 
+// ---------------------------------------------------------------------------
+// Blank rows, automatic saving and the top Save button
+// ---------------------------------------------------------------------------
+const AUTOSAVE_DELAY_MS = 1000;
+const autosaveTimers = {};
+const saveState = { expenses: false, received: false, cash: false };
+
+function isBlankExpenseRow(row) {
+  return !row.id
+    && !String(row.supplier ?? '').trim()
+    && !String(row.spent_by ?? '').trim()
+    && !String(row.invoice_number ?? '').trim()
+    && (!row.trn_number || row.trn_number === '---')
+    && AMOUNT_FIELDS.every(field => !Number(row[field]));
+}
+
+function isBlankReceivedRow(row) {
+  return !row.id
+    && !String(row.name ?? '').trim()
+    && !String(row.merchant ?? '').trim()
+    && RECEIVING_AMOUNT_FIELDS.every(field => !Number(row[field]));
+}
+
+function recordCountText(list, isBlank) {
+  const count = list.filter(row => !isBlank(row)).length;
+  return `${count} ${count === 1 ? 'record' : 'records'}`;
+}
+
+function isBlankCashRow(row) {
+  return !row.id && CASH_QUANTITY_FIELDS.every(field => !Number(row[field]));
+}
+
+function pendingChangeCount() {
+  return rows.filter(row => row._dirty && !isBlankExpenseRow(row)).length
+    + receivedRows.filter(row => row._dirty && !isBlankReceivedRow(row)).length
+    + cashCounts.filter(row => row._dirty && !isBlankCashRow(row)).length;
+}
+
+function updateSaveAllButton() {
+  const button = document.getElementById('saveAllButton');
+  if (!button) return;
+  const pending = pendingChangeCount();
+  button.disabled = !canWrite;
+  button.classList.toggle('has-changes', pending > 0);
+  button.textContent = pending > 0 ? `Save (${pending})` : 'Save';
+}
+
+function scheduleAutosave(key) {
+  if (!canWrite || !key) return;
+  clearTimeout(autosaveTimers[key]);
+  autosaveTimers[key] = setTimeout(() => runAutosave(key), AUTOSAVE_DELAY_MS);
+  updateSaveAllButton();
+}
+
+async function runAutosave(key) {
+  if (saveState[key]) {
+    autosaveTimers[key] = setTimeout(() => runAutosave(key), 600);
+    return;
+  }
+  const saver = { expenses: saveChanges, received: saveReceivedChanges, cash: saveCashCountChanges }[key];
+  if (saver) await saver({ quiet: true });
+}
+
+async function saveAllChanges() {
+  if (!canWrite) return;
+  const button = document.getElementById('saveAllButton');
+  Object.values(autosaveTimers).forEach(timer => clearTimeout(timer));
+  button.disabled = true;
+  try {
+    for (let wait = 0; wait < 40 && (saveState.expenses || saveState.received || saveState.cash); wait += 1) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
+    const results = [await saveChanges(), await saveReceivedChanges(), await saveCashCountChanges({ quiet: false })];
+    const saved = results.reduce((sum, item) => sum + item.saved, 0);
+    const failed = results.reduce((sum, item) => sum + item.failures.length, 0);
+    if (!failed) showToast(saved ? `${saved} ${saved === 1 ? 'change' : 'changes'} saved.` : 'Everything is already saved.');
+  } finally {
+    updateSaveAllButton();
+  }
+}
+
+// One empty row is always kept at the bottom of Expenses and Received, dated with the
+// working date. Typing into it makes the next empty row appear.
+function addTrailingBlankExpenseRow() {
+  if (!canWrite || !isDateEditable(workDate())) return null;
+  const last = rows[rows.length - 1];
+  if (last && isBlankExpenseRow(last)) return null;
+  const row = makeEmptyRow();
+  row._dirty = false;
+  rows.push(row);
+  return row;
+}
+
+function addTrailingBlankReceivedRow() {
+  if (!canWrite || !isDateEditable(workDate())) return null;
+  const last = receivedRows[receivedRows.length - 1];
+  if (last && isBlankReceivedRow(last)) return null;
+  const row = makeEmptyReceivedRow();
+  row._dirty = false;
+  receivedRows.push(row);
+  return row;
+}
+
+function appendTrailingExpenseRow() {
+  const row = addTrailingBlankExpenseRow();
+  if (!row) return null;
+  tableBody.querySelector('td.empty-state')?.closest('tr')?.remove();
+  tableBody.appendChild(createExpenseRowElement(row, rows.length - 1));
+  el('recordCount').textContent = recordCountText(rows, isBlankExpenseRow);
+  return row;
+}
+
+function appendTrailingReceivedRow() {
+  const row = addTrailingBlankReceivedRow();
+  if (!row) return null;
+  receivedTableBody.querySelector('td.empty-state')?.closest('tr')?.remove();
+  receivedTableBody.appendChild(createReceivedRowElement(row, receivedRows.length - 1));
+  el('receivedRecordCount').textContent = recordCountText(receivedRows, isBlankReceivedRow);
+  return row;
+}
+
+// When the working date changes, the waiting empty rows take the new date.
+function syncTrailingBlankRows() {
+  const pairs = [
+    { list: rows, body: tableBody, blank: isBlankExpenseRow, loaded: expensesLoaded, append: appendTrailingExpenseRow, count: 'recordCount' },
+    { list: receivedRows, body: receivedTableBody, blank: isBlankReceivedRow, loaded: receivedLoaded, append: appendTrailingReceivedRow, count: 'receivedRecordCount' }
+  ];
+  pairs.forEach(({ list, body, blank, loaded, append, count }) => {
+    if (!loaded) return;
+    const last = list[list.length - 1];
+    if (last && blank(last)) {
+      if (isDateEditable(workDate())) {
+        last.entry_date = workDate();
+        const input = body.lastElementChild?.querySelector('input[data-field="entry_date"]');
+        if (input) input.value = last.entry_date;
+      } else {
+        list.pop();
+        body.lastElementChild?.remove();
+        el(count).textContent = recordCountText(list, blank);
+      }
+    } else {
+      append();
+    }
+  });
+}
+
+function focusTrailingRow(tableElement, list, selectSetter) {
+  const last = list[list.length - 1];
+  if (!last) return;
+  selectSetter(last.clientId);
+  tableElement.querySelectorAll('tbody tr.selected').forEach(tr => tr.classList.remove('selected'));
+  tableElement.querySelector(`tbody tr[data-client-id="${CSS.escape(last.clientId)}"]`)?.classList.add('selected');
+  scrollSheetToBottom(tableElement);
+  spreadsheetGrids.get(tableElement)?.startEditing(list.length - 1, 0);
+}
+
 function warnOldWorkDate() {
   showToast(`The selected date (${formatDmy(workDate())}) is older than the ${EDIT_WINDOW_DAYS}-day edit window, so new entries can't be added. Choose ${formatDmy(editCutoffDate())} or later in the Date box at the top.`, true);
 }
@@ -432,8 +588,7 @@ function renderCashCountCell(row, column) {
 }
 
 function updateCashCountToolbar() {
-  const dirty = cashCounts.some(row => row._dirty);
-  cashSaveButton.disabled = !canWrite || !dirty;
+  updateSaveAllButton();
   cashAddButton.disabled = !canWrite;
   cashDeleteButton.disabled = !canWrite || !selectedCashClientId;
   el('cashVaultPermissionNote').textContent = withEditWindow(currentUser?.role === 'owner'
@@ -580,6 +735,7 @@ function handleCashCountInput(event) {
   }
   tr.classList.toggle('cash-current-date', row.count_date === (el('cashAsOfDate').value || localDateString()));
   updateCashCountToolbar();
+  scheduleAutosave('cash');
 }
 
 function getCashCountPayload(row) {
@@ -679,23 +835,24 @@ async function loadCashVault() {
   }
 }
 
-async function saveCashCountChanges() {
-  if (!canWrite) return;
-  const dirtyRows = cashCounts.filter(row => row._dirty);
-  if (!dirtyRows.length) return;
-  cashSaveButton.disabled = true;
+async function saveCashCountChanges({ quiet = true } = {}) {
+  const none = { saved: 0, failures: [] };
+  if (!canWrite || saveState.cash) return none;
+  cashCounts.forEach(row => { if (row._dirty && isBlankCashRow(row)) row._wasBlank = true; });
+  const dirtyRows = cashCounts.filter(row => row._dirty && !isBlankCashRow(row));
+  if (!dirtyRows.length) { updateCashCountToolbar(); return none; }
+  saveState.cash = true;
   setCashVaultStatus('Saving cash counts…');
   let saved = 0;
   const failures = [];
 
   for (const row of dirtyRows) {
     try {
+      const before = JSON.stringify(getCashCountPayload(row));
       const payload = getCashCountPayload(row);
       let result;
       if (row.id) {
-        // Person movements also adjust this row. Use updated_at as an
-        // optimistic lock so a stale browser tab cannot overwrite a note/coin
-        // adjustment committed by another user or by a movement RPC.
+        // Optimistic lock: a stale browser tab cannot overwrite a newer change.
         result = await supabase.from('cash_vault_counts')
           .update(payload)
           .eq('id', row.id)
@@ -714,9 +871,11 @@ async function saveCashCountChanges() {
       if (!result.data) {
         throw new Error('This cash count was changed by another user or browser session after you opened it. Your changes were not saved. Refresh the page, load the latest count, and reapply your correction.');
       }
-      const savedRow = { ...result.data, clientId: result.data.id, _dirty: false, _isNew: false };
-      const index = cashCounts.findIndex(item => item.clientId === row.clientId);
-      if (index >= 0) cashCounts[index] = savedRow;
+      Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, _isNew: false });
+      let after = null;
+      try { after = JSON.stringify(getCashCountPayload(row)); } catch (_) { /* keep dirty */ }
+      row._dirty = after !== before;
+      cashTableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`)?.classList.toggle('dirty-row', row._dirty);
       saved++;
     } catch (error) {
       failures.push(error.message || 'Unknown save error');
@@ -724,16 +883,24 @@ async function saveCashCountChanges() {
     }
   }
 
-  cashCounts.sort((a, b) => String(a.count_date).localeCompare(String(b.count_date)));
-  renderCashCounts();
+  saveState.cash = false;
+  if (!quiet) {
+    cashCounts.sort((a, b) => String(a.count_date).localeCompare(String(b.count_date)));
+    renderCashCounts();
+  } else {
+    updateCashCountToolbar();
+  }
   if (failures.length) {
     setCashVaultStatus(`${saved} saved · ${failures.length} need attention`, 'error');
     showToast(`Some cash counts were not saved: ${failures[0]}`, true);
+  } else if (cashCounts.some(row => row._dirty && !isBlankCashRow(row))) {
+    setCashVaultStatus('Unsaved changes', 'dirty');
+    scheduleAutosave('cash');
   } else {
     setCashVaultStatus('All changes saved');
-    showToast(`${saved} ${saved === 1 ? 'daily count' : 'daily counts'} saved successfully.`);
   }
   await refreshCashSummary();
+  return { saved, failures };
 }
 
 async function deleteSelectedCashCount() {
@@ -1086,9 +1253,22 @@ function onCashAsOfDateChange() {
   });
   updateCashCountedSummary();
   refreshCashSummary();
+  syncTrailingBlankRows();
+}
+
+function createExpenseRowElement(row, rowIndex) {
+  const tr = document.createElement('tr');
+  tr.dataset.clientId = row.clientId;
+  tr.dataset.rowIndex = String(rowIndex);
+  tr.classList.toggle('selected', row.clientId === selectedClientId);
+  tr.classList.toggle('dirty-row', Boolean(row._dirty));
+  tr.classList.toggle('locked-row', isRowLocked(row, 'entry_date'));
+  tr.innerHTML = COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCell(row, column)}</td>`).join('');
+  return tr;
 }
 
 function renderTable() {
+  addTrailingBlankExpenseRow();
   resetSheetSelection(table);
   tableBody.innerHTML = '';
   if (rows.length === 0) {
@@ -1101,32 +1281,21 @@ function renderTable() {
     tableBody.appendChild(tr);
   } else {
     el('recentDates').innerHTML = recentDateOptions().map(date => `<option value="${date}"></option>`).join('');
-    rows.forEach((row, rowIndex) => {
-      const tr = document.createElement('tr');
-      tr.dataset.clientId = row.clientId;
-      tr.dataset.rowIndex = String(rowIndex);
-      tr.classList.toggle('selected', row.clientId === selectedClientId);
-      tr.classList.toggle('dirty-row', Boolean(row._dirty));
-      tr.classList.toggle('locked-row', isRowLocked(row, 'entry_date'));
-      tr.innerHTML = COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCell(row, column)}</td>`).join('');
-      tableBody.appendChild(tr);
-    });
+    rows.forEach((row, rowIndex) => tableBody.appendChild(createExpenseRowElement(row, rowIndex)));
   }
-  el('recordCount').textContent = `${rows.length} ${rows.length === 1 ? 'record' : 'records'}`;
+  el('recordCount').textContent = recordCountText(rows, isBlankExpenseRow);
   updateToolbar();
 }
 
 function updateToolbar() {
-  const dirty = rows.some(row => row._dirty);
-  saveButton.disabled = !canWrite || !dirty;
+  updateSaveAllButton();
   addButton.disabled = !canWrite;
   deleteButton.disabled = !canWrite || !selectedClientId;
   el('permissionNote').textContent = withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
 }
 
 function updateReceivedToolbar() {
-  const dirty = receivedRows.some(row => row._dirty);
-  receivedSaveButton.disabled = !canWrite || !dirty;
+  updateSaveAllButton();
   receivedAddButton.disabled = !canWrite;
   receivedDeleteButton.disabled = !canWrite || !selectedReceivedClientId;
   el('receivedPermissionNote').textContent = withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
@@ -1259,7 +1428,21 @@ async function loadExpenses() {
   setSheetStatus(hasDirty ? 'Unsaved changes' : 'All changes saved', hasDirty ? 'dirty' : 'normal');
 }
 
+function createReceivedRowElement(row, rowIndex) {
+  const tr = document.createElement('tr');
+  tr.dataset.clientId = row.clientId;
+  tr.dataset.rowIndex = String(rowIndex);
+  tr.classList.toggle('selected', row.clientId === selectedReceivedClientId);
+  tr.classList.toggle('dirty-row', Boolean(row._dirty));
+  tr.classList.toggle('locked-row', isRowLocked(row, 'entry_date'));
+  tr.innerHTML = RECEIVING_COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCell(row, column, RECEIVING_AMOUNT_FIELDS)}</td>`).join('');
+  const dateInput = tr.querySelector('input[data-field="entry_date"]');
+  if (dateInput) dateInput.setAttribute('list', 'recentReceivedDates');
+  return tr;
+}
+
 function renderReceivedTable() {
+  addTrailingBlankReceivedRow();
   resetSheetSelection(el('receivedTable'));
   receivedTableBody.innerHTML = '';
   if (receivedRows.length === 0) {
@@ -1272,20 +1455,9 @@ function renderReceivedTable() {
     receivedTableBody.appendChild(tr);
   } else {
     el('recentReceivedDates').innerHTML = recentDateOptions().map(date => `<option value="${date}"></option>`).join('');
-    receivedRows.forEach((row, rowIndex) => {
-      const tr = document.createElement('tr');
-      tr.dataset.clientId = row.clientId;
-      tr.dataset.rowIndex = String(rowIndex);
-      tr.classList.toggle('selected', row.clientId === selectedReceivedClientId);
-      tr.classList.toggle('dirty-row', Boolean(row._dirty));
-      tr.classList.toggle('locked-row', isRowLocked(row, 'entry_date'));
-      tr.innerHTML = RECEIVING_COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCell(row, column, RECEIVING_AMOUNT_FIELDS)}</td>`).join('');
-      const dateInput = tr.querySelector('input[data-field="entry_date"]');
-      if (dateInput) dateInput.setAttribute('list', 'recentReceivedDates');
-      receivedTableBody.appendChild(tr);
-    });
+    receivedRows.forEach((row, rowIndex) => receivedTableBody.appendChild(createReceivedRowElement(row, rowIndex)));
   }
-  el('receivedRecordCount').textContent = `${receivedRows.length} ${receivedRows.length === 1 ? 'record' : 'records'}`;
+  el('receivedRecordCount').textContent = recordCountText(receivedRows, isBlankReceivedRow);
   updateReceivedToolbar();
 }
 
@@ -1346,7 +1518,9 @@ function handleReceivedInput(event) {
   tr.classList.add('dirty-row');
   const totalInput = tr.querySelector('.total-cell');
   if (totalInput) totalInput.value = formatBlankIfZero(calculateTotal(row, RECEIVING_AMOUNT_FIELDS));
+  if (!isBlankReceivedRow(row) && row === receivedRows[receivedRows.length - 1]) appendTrailingReceivedRow();
   updateReceivedToolbar();
+  scheduleAutosave('received');
 }
 
 function getReceivedPayload(row) {
@@ -1365,40 +1539,50 @@ function getReceivedPayload(row) {
 }
 
 async function saveReceivedChanges() {
-  if (!canWrite) return;
+  const none = { saved: 0, failures: [] };
+  if (!canWrite || saveState.received) return none;
+  receivedRows.forEach(row => { if (row._dirty && isBlankReceivedRow(row)) row._dirty = false; });
   const dirtyRows = receivedRows.filter(row => row._dirty);
-  if (!dirtyRows.length) return;
-  receivedSaveButton.disabled = true;
-  receivedSheetStatus.textContent = 'Saving changes…';
+  if (!dirtyRows.length) { updateReceivedToolbar(); return none; }
+  saveState.received = true;
+  receivedSheetStatus.textContent = 'Saving…';
   let saved = 0;
   const failures = [];
   for (const row of dirtyRows) {
     try {
+      const before = JSON.stringify(getReceivedPayload(row));
       const payload = getReceivedPayload(row);
       applyMovedOrder(payload, row, receivedRows);
       const result = row.id
         ? await supabase.from('received_records').update(payload).eq('id', row.id).select('*').single()
         : await supabase.from('received_records').insert(payload).select('*').single();
       if (result.error) throw result.error;
-      const savedRow = { ...result.data, clientId: result.data.id, _dirty: false, _isNew: false };
-      const index = receivedRows.findIndex(item => item.clientId === row.clientId);
-      if (index >= 0) receivedRows[index] = savedRow;
+      Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, sort_order: result.data.sort_order, _isNew: false, _orderMoved: false });
+      let after = null;
+      try { after = JSON.stringify(getReceivedPayload(row)); } catch (_) { /* keep dirty */ }
+      row._dirty = after !== before;
+      receivedTableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`)?.classList.toggle('dirty-row', row._dirty);
       saved++;
     } catch (error) {
       failures.push(error.message || 'Unknown save error');
       row._dirty = true;
     }
   }
-  renderReceivedTable();
+  saveState.received = false;
+  updateReceivedToolbar();
   if (failures.length) {
     receivedSheetStatus.textContent = `${saved} saved · ${failures.length} need attention`;
     receivedSheetStatus.classList.add('error');
     showToast(`Some received rows were not saved: ${failures[0]}`, true);
+  } else if (receivedRows.some(row => row._dirty && !isBlankReceivedRow(row))) {
+    receivedSheetStatus.textContent = 'Unsaved changes';
+    receivedSheetStatus.classList.add('dirty');
+    scheduleAutosave('received');
   } else {
     receivedSheetStatus.textContent = 'All changes saved';
     receivedSheetStatus.classList.remove('dirty', 'error');
-    showToast(`${saved} ${saved === 1 ? 'row' : 'rows'} saved successfully.`);
   }
+  return { saved, failures };
 }
 
 async function deleteSelectedReceivedRow() {
@@ -1430,6 +1614,7 @@ function markRowDirty(row) {
   const tr = tableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`);
   if (tr) tr.classList.add('dirty-row');
   updateToolbar();
+  scheduleAutosave('expenses');
 }
 
 function onTableInput(event) {
@@ -1450,6 +1635,7 @@ function onTableInput(event) {
   row[field] = fieldInput.value;
   markRowDirty(row);
   if (field === 'supplier' && event.type === 'change') autofillFromSupplier(row, tr);
+  if (!isBlankExpenseRow(row) && row === rows[rows.length - 1]) appendTrailingExpenseRow();
   const totalInput = tr.querySelector('.total-cell');
   if (totalInput) totalInput.value = formatBlankIfZero(calculateTotal(row));
 }
@@ -1472,28 +1658,31 @@ function getPayload(row) {
 }
 
 async function saveChanges() {
-  if (!canWrite) return;
+  const none = { saved: 0, failures: [] };
+  if (!canWrite || saveState.expenses) return none;
+  rows.forEach(row => { if (row._dirty && isBlankExpenseRow(row)) row._dirty = false; });
   const dirtyRows = rows.filter(row => row._dirty);
-  if (!dirtyRows.length) return;
-  saveButton.disabled = true;
-  setSheetStatus('Saving changes…');
+  if (!dirtyRows.length) { updateToolbar(); return none; }
+  saveState.expenses = true;
+  setSheetStatus('Saving…');
   let saved = 0;
   const failures = [];
 
   for (const row of dirtyRows) {
     try {
+      const before = JSON.stringify(getPayload(row));
       const payload = getPayload(row);
       applyMovedOrder(payload, row, rows);
-      let result;
-      if (row.id) {
-        result = await supabase.from('expense_records').update(payload).eq('id', row.id).select('*').single();
-      } else {
-        result = await supabase.from('expense_records').insert(payload).select('*').single();
-      }
+      const result = row.id
+        ? await supabase.from('expense_records').update(payload).eq('id', row.id).select('*').single()
+        : await supabase.from('expense_records').insert(payload).select('*').single();
       if (result.error) throw result.error;
-      const savedRow = rowFromDatabase(result.data);
-      const index = rows.findIndex(item => item.clientId === row.clientId);
-      if (index >= 0) rows[index] = savedRow;
+      // Update the row in place so typing is never interrupted.
+      Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, sort_order: result.data.sort_order, _isNew: false, _orderMoved: false });
+      let after = null;
+      try { after = JSON.stringify(getPayload(row)); } catch (_) { /* keep dirty */ }
+      row._dirty = after !== before;
+      tableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`)?.classList.toggle('dirty-row', row._dirty);
       saved++;
     } catch (error) {
       failures.push(error.message || 'Unknown save error');
@@ -1501,14 +1690,18 @@ async function saveChanges() {
     }
   }
 
-  renderTable();
+  saveState.expenses = false;
+  updateToolbar();
   if (failures.length) {
     setSheetStatus(`${saved} saved · ${failures.length} need attention`, 'error');
     showToast(`Some rows were not saved: ${failures[0]}`, true);
+  } else if (rows.some(row => row._dirty && !isBlankExpenseRow(row))) {
+    setSheetStatus('Unsaved changes', 'dirty');
+    scheduleAutosave('expenses');
   } else {
     setSheetStatus('All changes saved');
-    showToast(`${saved} ${saved === 1 ? 'row' : 'rows'} saved successfully.`);
   }
+  return { saved, failures };
 }
 
 async function deleteSelectedRow() {
@@ -1655,6 +1848,7 @@ function applyGridPaste(config, payload) {
 
   config.render();
   config.setDirtyStatus();
+  scheduleAutosave(config.autosaveKey);
   const lockedNote = lockedSkipped ? ` ${lockedSkipped} cell${lockedSkipped === 1 ? '' : 's'} not changed: editing is not allowed for entries older than ${EDIT_WINDOW_DAYS} days (before ${formatDmy(editCutoffDate())}).` : '';
   if (applied) showToast(`Pasted ${applied} cell${applied === 1 ? '' : 's'}. Save changes to commit.${skipped ? ` ${skipped} cell${skipped === 1 ? '' : 's'} skipped (invalid or calculated cells).` : ''}${lockedNote}`, Boolean(lockedSkipped));
   else showToast(lockedSkipped ? `Nothing pasted.${lockedNote}` : 'No editable cells from the pasted range were applied.', true);
@@ -1789,16 +1983,11 @@ loginForm.addEventListener('submit', async event => {
 addButton.addEventListener('click', () => {
   if (!canWrite) return;
   if (!isDateEditable(workDate())) { warnOldWorkDate(); return; }
-  const row = makeEmptyRow();
-  rows.push(row);
-  selectedClientId = row.clientId;
-  renderTable();
-  scrollSheetToBottom(table);
-  spreadsheetGrids.get(table)?.startEditing(rows.length - 1, 0);
-  setSheetStatus('New row — remember to save', 'dirty');
+  appendTrailingExpenseRow();
+  focusTrailingRow(table, rows, id => { selectedClientId = id; });
+  updateToolbar();
 });
 
-saveButton.addEventListener('click', saveChanges);
 deleteButton.addEventListener('click', deleteSelectedRow);
 tableBody.addEventListener('input', onTableInput);
 tableBody.addEventListener('change', onTableInput);
@@ -1823,12 +2012,11 @@ cashAddButton.addEventListener('click', () => {
   cashCounts.push(row);
   selectedCashClientId = row.clientId;
   renderCashCounts();
-  setCashVaultStatus('New daily count — remember to save', 'dirty');
+  setCashVaultStatus('New daily count — type the quantities, it saves automatically', 'dirty');
   scrollSheetToBottom(el('cashCountTable'));
   spreadsheetGrids.get(el('cashCountTable'))?.startEditing(cashCounts.length - 1, 1);
 });
 
-cashSaveButton.addEventListener('click', saveCashCountChanges);
 cashDeleteButton.addEventListener('click', deleteSelectedCashCount);
 cashTableBody.addEventListener('input', handleCashCountInput);
 cashTableBody.addEventListener('change', handleCashCountInput);
@@ -1844,17 +2032,11 @@ el('cashAsOfDate').addEventListener('change', () => {
 receivedAddButton.addEventListener('click', () => {
   if (!canWrite) return;
   if (!isDateEditable(workDate())) { warnOldWorkDate(); return; }
-  const row = makeEmptyReceivedRow();
-  receivedRows.push(row);
-  selectedReceivedClientId = row.clientId;
-  renderReceivedTable();
-  scrollSheetToBottom(el('receivedTable'));
-  spreadsheetGrids.get(el('receivedTable'))?.startEditing(receivedRows.length - 1, 0);
-  receivedSheetStatus.textContent = 'New row — remember to save';
-  receivedSheetStatus.classList.add('dirty');
+  appendTrailingReceivedRow();
+  focusTrailingRow(el('receivedTable'), receivedRows, id => { selectedReceivedClientId = id; });
+  updateReceivedToolbar();
 });
 
-receivedSaveButton.addEventListener('click', saveReceivedChanges);
 receivedDeleteButton.addEventListener('click', deleteSelectedReceivedRow);
 receivedTableBody.addEventListener('input', handleReceivedInput);
 receivedTableBody.addEventListener('change', handleReceivedInput);
@@ -2077,7 +2259,7 @@ async function exportToExcel() {
     XLSX.utils.book_append_sheet(workbook, receivedSheet, 'Received');
     XLSX.writeFile(workbook, `Expense-Vault-${localDateString()}.xlsx`);
 
-    const unsaved = rows.some(row => row._dirty) || receivedRows.some(row => row._dirty) || cashCounts.some(row => row._dirty);
+    const unsaved = pendingChangeCount() > 0;
     showToast(unsaved
       ? 'Excel downloaded. It contains saved data only — save your pending changes and export again to include them.'
       : 'Excel file downloaded.');
@@ -2090,6 +2272,15 @@ async function exportToExcel() {
 }
 
 el('exportExcelButton').addEventListener('click', exportToExcel);
+el('saveAllButton').addEventListener('click', saveAllChanges);
+window.addEventListener('beforeunload', event => {
+  if (pendingChangeCount() > 0) { event.preventDefault(); event.returnValue = ''; }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && pendingChangeCount() > 0) {
+    ['expenses', 'received', 'cash'].forEach(key => runAutosave(key));
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Type-ahead: while typing a Supplier / Name / Merchant, complete it from the rows above
@@ -2168,7 +2359,7 @@ function applyMovedOrder(payload, row, list) {
   if (order !== null) payload.sort_order = order;
 }
 
-function enableRowReorder({ tableElement, tbody, getRows, render, tableName, dateField }) {
+function enableRowReorder({ tableElement, tbody, getRows, render, tableName, dateField, isBlank }) {
   const frame = tableElement.closest('.table-frame');
   const HOLD_MS = 450;
   let pending = null;
@@ -2220,7 +2411,7 @@ function enableRowReorder({ tableElement, tbody, getRows, render, tableName, dat
     if (!pending) return;
     const row = getRows().find(item => item.clientId === pending.tr.dataset.clientId);
     if (!row) { stop(); return; }
-    if (!canWrite) { stop(); return; }
+    if (!canWrite || isBlank?.(row)) { stop(); return; }
     if (isRowLocked(row, dateField)) { warnLockedEdit(); stop(); return; }
     drag = { row, tr: pending.tr, x: pending.x, y: pending.y, target: null, position: 'after' };
     pending = null;
@@ -2372,6 +2563,7 @@ registerSpreadsheet(table, {
   columns: COLUMNS,
   getRows: () => rows,
   makeRow: makeEmptyRow,
+  autosaveKey: 'expenses',
   sumElementId: 'expensesSelectionSum',
   sumKinds: ['amount', 'total'],
   isLocked: row => isRowLocked(row, 'entry_date'),
@@ -2382,6 +2574,7 @@ registerSpreadsheet(el('receivedTable'), {
   columns: RECEIVING_COLUMNS,
   getRows: () => receivedRows,
   makeRow: makeEmptyReceivedRow,
+  autosaveKey: 'received',
   sumElementId: 'receivedSelectionSum',
   sumKinds: ['amount', 'total'],
   isLocked: row => isRowLocked(row, 'entry_date'),
@@ -2396,6 +2589,7 @@ registerSpreadsheet(el('receivedTable'), {
 registerSpreadsheet(el('cashCountTable'), {
   columns: CASH_COUNT_COLUMNS,
   getRows: () => cashCounts,
+  autosaveKey: 'cash',
   sumElementId: 'cashSelectionSum',
   sumKinds: ['quantity', 'total'],
   sumAuto: true,
@@ -2404,8 +2598,8 @@ registerSpreadsheet(el('cashCountTable'), {
   setDirtyStatus: () => { setCashVaultStatus('Unsaved changes from paste', 'dirty'); updateCashCountToolbar(); }
 });
 
-enableRowReorder({ tableElement: table, tbody: tableBody, getRows: () => rows, render: renderTable, tableName: 'expense_records', dateField: 'entry_date' });
-enableRowReorder({ tableElement: el('receivedTable'), tbody: receivedTableBody, getRows: () => receivedRows, render: renderReceivedTable, tableName: 'received_records', dateField: 'entry_date' });
+enableRowReorder({ tableElement: table, tbody: tableBody, getRows: () => rows, render: renderTable, tableName: 'expense_records', dateField: 'entry_date', isBlank: isBlankExpenseRow });
+enableRowReorder({ tableElement: el('receivedTable'), tbody: receivedTableBody, getRows: () => receivedRows, render: renderReceivedTable, tableName: 'received_records', dateField: 'entry_date', isBlank: isBlankReceivedRow });
 
 el('cashAsOfDate').value = localDateString();
 syncCashDateControls();

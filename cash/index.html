@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f3f6fa">
   <meta name="description" content="Private expense register powered by Supabase.">
   <title>Expense Vault</title>
-  <link rel="stylesheet" href="css/styles.css?v=work-date-10">
+  <link rel="stylesheet" href="css/styles.css?v=autosave-11">
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -41,6 +41,7 @@
           <span>Date</span>
           <input id="cashAsOfDate" type="date" aria-label="Working date">
         </label>
+        <button id="saveAllButton" class="button button-primary" type="button" title="Changes are saved automatically. Click to save everything now.">Save</button>
         <span id="accessBadge" class="access-badge">Owner access</span>
         <button id="exportExcelButton" class="button button-excel" type="button" title="Download Cash Vault, Expenses and Received as one Excel file">⬇ Excel</button>
         <button id="accessKeysButton" class="button button-quiet" type="button">Access keys</button>
@@ -118,7 +119,6 @@
         <div class="sheet-toolbar">
           <div class="toolbar-left">
             <button id="addCashCountButton" class="button button-primary" type="button">＋ Add day</button>
-            <button id="saveCashCountsButton" class="button button-save" type="button" disabled>Save changes</button>
             <button id="deleteCashCountButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
             <button id="cashPeopleButton" class="button button-outline" type="button">Staff Balance</button>
           </div>
@@ -154,7 +154,6 @@
         <div class="sheet-toolbar">
           <div class="toolbar-left">
             <button id="addRowButton" class="button button-primary" type="button">＋ Add row</button>
-            <button id="saveRowsButton" class="button button-save" type="button" disabled>Save changes</button>
             <button id="deleteRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
           </div>
           <div class="toolbar-right">
@@ -189,7 +188,6 @@
         <div class="sheet-toolbar">
           <div class="toolbar-left">
             <button id="addReceivedRowButton" class="button button-primary" type="button">＋ Add row</button>
-            <button id="saveReceivedRowsButton" class="button button-save" type="button" disabled>Save changes</button>
             <button id="deleteReceivedRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
           </div>
           <div class="toolbar-right">
@@ -340,6 +338,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js?v=work-date-10"></script>
+  <script type="module" src="js/app.js?v=autosave-11"></script>
 </body>
 </html>

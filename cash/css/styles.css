@@ -637,3 +637,53 @@ body.reordering-rows, body.reordering-rows * { cursor: grabbing !important; user
 .sheet-footer-right { display: inline-flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
 .selection-sum { padding: 2px 9px; border-radius: 999px; background: #e3f6ee; color: #14724f; font: 700 10px 'DM Mono', monospace; white-space: nowrap; }
 .selection-sum.hidden { display: none; }
+
+/* ===================================================================== */
+/* One button style and one theme (green accent) across every page        */
+/* ===================================================================== */
+:root { --btn-h: 30px; --btn-radius: 999px; }
+
+.button, .sp-btn, .button.button-excel {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  height: var(--btn-h); min-height: var(--btn-h); padding: 0 13px;
+  border: 1px solid var(--line-strong); border-radius: var(--btn-radius);
+  background: #ffffff; color: #344054;
+  font: 600 11.5px/1 'DM Sans', system-ui, sans-serif; letter-spacing: 0; white-space: nowrap;
+  box-shadow: none; transform: none; cursor: pointer;
+}
+.button:hover:not(:disabled), .sp-btn:hover:not(:disabled), .button.button-excel:hover:not(:disabled) { background: #f3f6f9; transform: none; filter: none; }
+.button:disabled, .sp-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.button.button-primary, .sp-btn.sp-btn-primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+.button.button-primary:hover:not(:disabled), .sp-btn.sp-btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.button.button-danger-quiet { background: var(--danger-soft); border-color: #f5d0cc; color: var(--danger); }
+.button.button-danger-quiet:hover:not(:disabled) { background: #ffe4e1; }
+.button.button-wide { width: 100%; height: 38px; margin-top: 8px; font-size: 12.5px; }
+.sp-btn.sp-btn-ghost { border-color: transparent; background: transparent; color: var(--accent); padding: 0 8px; }
+.sp-btn.sp-btn-ghost:hover:not(:disabled) { background: var(--accent-soft); }
+.sp-btn.sp-btn-small { height: 26px; min-height: 26px; padding: 0 10px; font-size: 10.5px; color: var(--accent); border-color: #cde9dd; background: var(--accent-soft); }
+
+/* Top bar: every control is the same height, radius and type size. */
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.topbar-date { height: var(--btn-h); padding: 0 4px 0 12px; border: 1px solid var(--line-strong); border-radius: var(--btn-radius); background: #ffffff; color: #344054; font: 600 11.5px/1 'DM Sans', sans-serif; gap: 6px; }
+.topbar-date input { height: 22px; padding: 0 8px; border: 0; background: transparent; color: var(--text); font: 600 11.5px 'DM Mono', monospace; }
+.topbar-date:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(19, 120, 93, .15); }
+.topbar-date input:focus { outline: none; }
+.access-badge { display: inline-flex; align-items: center; height: var(--btn-h); padding: 0 12px; font: 700 10.5px/1 'DM Sans', sans-serif; }
+#saveAllButton:not(.has-changes) { background: #ffffff; border-color: var(--line-strong); color: #344054; }
+#saveAllButton.has-changes { box-shadow: 0 0 0 3px rgba(19, 120, 93, .16); }
+
+/* Round icon buttons share one size. */
+.icon-button, .sp-close { display: grid; place-items: center; width: var(--btn-h); height: var(--btn-h); padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: #ffffff; color: #344054; font-size: 18px; line-height: 1; cursor: pointer; }
+.icon-button:hover, .sp-close:hover { background: #f3f6f9; }
+
+/* Staff Balance panel follows the app's green accent instead of blue. */
+.sp-avatar, .sp-item-icon { background: var(--accent-soft); color: var(--accent); }
+.sp-icon-up { background: #fff1e0; color: #c4620c; }
+.sp-icon-down { background: var(--accent-soft); color: var(--accent); }
+.sp-chip-blue { background: #eef1f6; color: #475467; }
+.sp-datebar { border-color: #cde9dd; background: var(--accent-soft); color: var(--accent); }
+.sp-field input:focus { outline: 3px solid rgba(19, 120, 93, .16); border-color: var(--accent); }
+.sp-icon-btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); border-color: #cde9dd; }
+.sp-item-main:hover { background: var(--surface-soft); }
+.selection-sum { background: var(--accent-soft); color: var(--accent); }

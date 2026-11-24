@@ -20,6 +20,12 @@ A single-page, Excel-style expense register using Supabase. The project is split
 
 ## Latest update (no new migration)
 
+- **Always one empty row:** Expenses and Received keep one empty row at the bottom, dated with the working date. Start typing in it and the next empty row appears. Empty rows are never saved. "Add row" just jumps to the empty row.
+- **Automatic saving:** changes save about one second after you stop typing (no more Save buttons on each sheet). The **Save** button next to the date in the top bar saves everything immediately and shows how many changes are waiting. The browser also warns before closing the page with unsaved changes.
+- **One look for every button:** all buttons share the same compact, rounded style and the same green theme on every page, including the Staff Balance panel.
+
+## Earlier update (selection sum and working date)
+
 - **Selection sum:** select several cells (Expenses, Received or Cash Vault) and the footer line shows `Sum … · N values` for the numeric cells (amounts and totals; Cash Vault counts and totals).
 - **One working date:** the Date box in the top bar (today by default; change or type any date) controls Available Cash, the date of new Expenses / Received rows, new Cash Vault counts and new Staff Balance entries. Dates older than the 3-day edit window are refused with a warning. The Recent dates picker was removed.
 
