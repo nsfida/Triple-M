@@ -8,7 +8,7 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js';
-import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=autosave-11';
+import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=local-sync-12';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -290,8 +290,17 @@ function workDate() {
 // ---------------------------------------------------------------------------
 // Blank rows, automatic saving and the top Save button
 // ---------------------------------------------------------------------------
-const AUTOSAVE_DELAY_MS = 1000;
-const autosaveTimers = {};
+// Changes are kept in this browser's local storage straight away (instant, no network)
+// and are synced to the database every 5 minutes, only when something is waiting,
+// or immediately when you press Save.
+const SYNC_INTERVAL_MS = 5 * 60 * 1000;
+const LOCAL_PERSIST_DELAY_MS = 400;
+const UNSYNCED_TEXT = 'Not synced yet · saved on this device';
+let syncTimer = null;
+let nextSyncAt = 0;
+let persistTimer = null;
+let saveButtonFrame = 0;
+let restoredCount = 0;
 const saveState = { expenses: false, received: false, cash: false };
 
 function isBlankExpenseRow(row) {
@@ -332,37 +341,139 @@ function updateSaveAllButton() {
   button.disabled = !canWrite;
   button.classList.toggle('has-changes', pending > 0);
   button.textContent = pending > 0 ? `Save (${pending})` : 'Save';
+  if (pending > 0) {
+    const minutes = Math.max(1, Math.ceil((nextSyncAt - Date.now()) / 60000));
+    button.title = `${pending} ${pending === 1 ? 'change is' : 'changes are'} saved on this device and will sync to the database in about ${minutes} min. Click to sync now.`;
+  } else {
+    button.title = 'Everything is synced. Changes are synced to the database automatically every 5 minutes.';
+  }
 }
 
+// Coalesces many rapid updates (every keystroke) into one cheap update per frame.
+function updateSaveAllButtonSoon() {
+  if (saveButtonFrame) return;
+  saveButtonFrame = requestAnimationFrame(() => { saveButtonFrame = 0; updateSaveAllButton(); });
+}
+
+// ---- Local storage (outbox) -------------------------------------------------
+function pendingStorageKey() {
+  const id = currentUser?.id ?? currentUser?.key_id ?? currentUser?.user_id ?? currentUser?.role ?? 'user';
+  return `expense-vault:pending:v1:${id}`;
+}
+
+function readPendingStore() {
+  try {
+    const raw = localStorage.getItem(pendingStorageKey());
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Writes only the rows that still need syncing. A sheet that has not been loaded yet
+// keeps whatever was stored for it, so nothing is lost before it is merged back in.
+function persistPendingLocally() {
+  clearTimeout(persistTimer);
+  persistTimer = null;
+  if (!currentUser) return;
+  const previous = readPendingStore() || {};
+  const pick = (loaded, list, isBlank, fallback) => (loaded ? list.filter(row => row._dirty && !isBlank(row)) : (fallback || []));
+  const data = {
+    expenses: pick(expensesLoaded, rows, isBlankExpenseRow, previous.expenses),
+    received: pick(receivedLoaded, receivedRows, isBlankReceivedRow, previous.received),
+    cash: pick(cashVaultLoaded, cashCounts, isBlankCashRow, previous.cash)
+  };
+  try {
+    if (!data.expenses.length && !data.received.length && !data.cash.length) {
+      localStorage.removeItem(pendingStorageKey());
+    } else {
+      localStorage.setItem(pendingStorageKey(), JSON.stringify({ v: 1, savedAt: Date.now(), ...data }));
+    }
+  } catch (_) { /* storage full or blocked: the changes simply stay in memory */ }
+}
+
+function scheduleLocalPersist() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(persistPendingLocally, LOCAL_PERSIST_DELAY_MS);
+}
+
+// Puts unsynced rows kept on this device back into a freshly loaded sheet.
+function mergePendingFromStorage(kind, list) {
+  const stored = readPendingStore()?.[kind];
+  if (!Array.isArray(stored) || !stored.length) return 0;
+  let merged = 0;
+  stored.forEach(item => {
+    if (!item || typeof item !== 'object') return;
+    if (item.id) {
+      const index = list.findIndex(row => row.id === item.id);
+      if (index < 0) return; // deleted elsewhere
+      list[index] = { ...item, clientId: list[index].clientId, _dirty: true, _isNew: false };
+      merged += 1;
+    } else if (item.clientId && !list.some(row => row.clientId === item.clientId)) {
+      list.push({ ...item, id: null, _dirty: true, _isNew: true });
+      merged += 1;
+    }
+  });
+  restoredCount += merged;
+  return merged;
+}
+
+function announceRestoredChanges() {
+  if (!restoredCount) return;
+  const count = restoredCount;
+  restoredCount = 0;
+  showToast(`Restored ${count} unsynced ${count === 1 ? 'change' : 'changes'} from this device. Syncing now…`);
+  setTimeout(() => { syncAll(); }, 4000);
+}
+
+// ---- Syncing ----------------------------------------------------------------
+function armSyncTimer() {
+  if (syncTimer) return;
+  nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
+  syncTimer = setTimeout(runScheduledSync, SYNC_INTERVAL_MS);
+}
+
+// Called after every edit: instant local save + make sure a sync is on the way.
 function scheduleAutosave(key) {
   if (!canWrite || !key) return;
-  clearTimeout(autosaveTimers[key]);
-  autosaveTimers[key] = setTimeout(() => runAutosave(key), AUTOSAVE_DELAY_MS);
-  updateSaveAllButton();
+  scheduleLocalPersist();
+  armSyncTimer();
+  updateSaveAllButtonSoon();
 }
 
-async function runAutosave(key) {
-  if (saveState[key]) {
-    autosaveTimers[key] = setTimeout(() => runAutosave(key), 600);
-    return;
+async function runScheduledSync() {
+  syncTimer = null;
+  if (pendingChangeCount() === 0) return;
+  await syncAll();
+}
+
+async function syncAll({ manual = false } = {}) {
+  const none = { saved: 0, failures: [] };
+  if (!canWrite) return none;
+  clearTimeout(syncTimer);
+  syncTimer = null;
+  for (let wait = 0; wait < 40 && (saveState.expenses || saveState.received || saveState.cash); wait += 1) {
+    await new Promise(resolve => setTimeout(resolve, 150));
   }
-  const saver = { expenses: saveChanges, received: saveReceivedChanges, cash: saveCashCountChanges }[key];
-  if (saver) await saver({ quiet: true });
+  if (pendingChangeCount() === 0) { persistPendingLocally(); updateSaveAllButton(); return none; }
+  const results = [await saveChanges(), await saveReceivedChanges(), await saveCashCountChanges({ quiet: !manual })];
+  persistPendingLocally();
+  if (pendingChangeCount() > 0) armSyncTimer();
+  updateSaveAllButton();
+  return {
+    saved: results.reduce((sum, item) => sum + item.saved, 0),
+    failures: results.flatMap(item => item.failures)
+  };
 }
 
 async function saveAllChanges() {
   if (!canWrite) return;
   const button = document.getElementById('saveAllButton');
-  Object.values(autosaveTimers).forEach(timer => clearTimeout(timer));
   button.disabled = true;
   try {
-    for (let wait = 0; wait < 40 && (saveState.expenses || saveState.received || saveState.cash); wait += 1) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-    }
-    const results = [await saveChanges(), await saveReceivedChanges(), await saveCashCountChanges({ quiet: false })];
-    const saved = results.reduce((sum, item) => sum + item.saved, 0);
-    const failed = results.reduce((sum, item) => sum + item.failures.length, 0);
-    if (!failed) showToast(saved ? `${saved} ${saved === 1 ? 'change' : 'changes'} saved.` : 'Everything is already saved.');
+    const { saved, failures } = await syncAll({ manual: true });
+    if (!failures.length) showToast(saved ? `${saved} ${saved === 1 ? 'change' : 'changes'} saved to the database.` : 'Everything is already synced.');
   } finally {
     updateSaveAllButton();
   }
@@ -588,7 +699,7 @@ function renderCashCountCell(row, column) {
 }
 
 function updateCashCountToolbar() {
-  updateSaveAllButton();
+  updateSaveAllButtonSoon();
   cashAddButton.disabled = !canWrite;
   cashDeleteButton.disabled = !canWrite || !selectedCashClientId;
   el('cashVaultPermissionNote').textContent = withEditWindow(currentUser?.role === 'owner'
@@ -652,6 +763,7 @@ function updateCashReconciliation(row, countedAmount) {
 }
 
 function renderCashCounts() {
+  scheduleLocalPersist();
   resetSheetSelection(el('cashCountTable'));
   cashTableBody.innerHTML = '';
   const selectedDate = el('cashAsOfDate').value || localDateString();
@@ -723,7 +835,7 @@ function handleCashCountInput(event) {
   row[field] = nextValue;
   row._dirty = true;
   tr.classList.add('dirty-row');
-  setCashVaultStatus('Unsaved changes', 'dirty');
+  setCashVaultStatus(UNSYNCED_TEXT, 'dirty');
   const totalInput = tr.querySelector('.cash-row-total');
   if (totalInput) totalInput.value = formatCashMoney(calculateCashCountCents(row) / 100);
   if (field === 'count_date' && row.clientId === selectedCashClientId && row.count_date) {
@@ -799,12 +911,16 @@ async function reloadCashCountRows() {
     .order('count_date', { ascending: true });
   if (error) throw error;
 
+  persistPendingLocally();
   cashCounts = (data || []).map(record => ({
     ...record,
     clientId: record.id,
     _dirty: false,
     _isNew: false
   }));
+  if (mergePendingFromStorage('cash', cashCounts)) {
+    cashCounts.sort((a, b) => String(a.count_date).localeCompare(String(b.count_date)));
+  }
   if (!cashCounts.some(row => row.clientId === selectedCashClientId)) selectedCashClientId = null;
   buildCashTableHeader();
   renderCashCounts();
@@ -823,6 +939,7 @@ async function loadCashVault() {
     await reloadCashCountRows();
     scrollSheetToBottom(el('cashCountTable'));
     cashVaultLoaded = true;
+    announceRestoredChanges();
     cashVaultLoading = false;
     cashAddButton.disabled = !canWrite;
     setCashVaultStatus('All changes saved');
@@ -894,7 +1011,7 @@ async function saveCashCountChanges({ quiet = true } = {}) {
     setCashVaultStatus(`${saved} saved · ${failures.length} need attention`, 'error');
     showToast(`Some cash counts were not saved: ${failures[0]}`, true);
   } else if (cashCounts.some(row => row._dirty && !isBlankCashRow(row))) {
-    setCashVaultStatus('Unsaved changes', 'dirty');
+    setCashVaultStatus(UNSYNCED_TEXT, 'dirty');
     scheduleAutosave('cash');
   } else {
     setCashVaultStatus('All changes saved');
@@ -1268,6 +1385,7 @@ function createExpenseRowElement(row, rowIndex) {
 }
 
 function renderTable() {
+  scheduleLocalPersist();
   addTrailingBlankExpenseRow();
   resetSheetSelection(table);
   tableBody.innerHTML = '';
@@ -1288,14 +1406,14 @@ function renderTable() {
 }
 
 function updateToolbar() {
-  updateSaveAllButton();
+  updateSaveAllButtonSoon();
   addButton.disabled = !canWrite;
   deleteButton.disabled = !canWrite || !selectedClientId;
   el('permissionNote').textContent = withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
 }
 
 function updateReceivedToolbar() {
-  updateSaveAllButton();
+  updateSaveAllButtonSoon();
   receivedAddButton.disabled = !canWrite;
   receivedDeleteButton.disabled = !canWrite || !selectedReceivedClientId;
   el('receivedPermissionNote').textContent = withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
@@ -1415,17 +1533,20 @@ async function loadExpenses() {
     showToast(`Unable to load expenses: ${explainLedgerError(error)}`, true);
     return;
   }
-  const localUnsaved = rows.filter(row => row._isNew && row._dirty);
+  persistPendingLocally();
+  const localUnsaved = rows.filter(row => row._isNew && row._dirty && !isBlankExpenseRow(row));
   rows = (data || []).map(rowFromDatabase);
-  rows.push(...localUnsaved);
+  mergePendingFromStorage('expenses', rows);
+  localUnsaved.forEach(row => { if (!rows.some(item => item.clientId === row.clientId)) rows.push(row); });
   if (!rows.some(row => row.clientId === selectedClientId)) selectedClientId = null;
   renderTable();
   scrollSheetToBottom(table);
   expensesLoaded = true;
   expensesLoading = false;
+  announceRestoredChanges();
   addButton.disabled = !canWrite;
   const hasDirty = rows.some(row => row._dirty);
-  setSheetStatus(hasDirty ? 'Unsaved changes' : 'All changes saved', hasDirty ? 'dirty' : 'normal');
+  setSheetStatus(hasDirty ? UNSYNCED_TEXT : 'All changes saved', hasDirty ? 'dirty' : 'normal');
 }
 
 function createReceivedRowElement(row, rowIndex) {
@@ -1442,6 +1563,7 @@ function createReceivedRowElement(row, rowIndex) {
 }
 
 function renderReceivedTable() {
+  scheduleLocalPersist();
   addTrailingBlankReceivedRow();
   resetSheetSelection(el('receivedTable'));
   receivedTableBody.innerHTML = '';
@@ -1479,17 +1601,20 @@ async function loadReceived() {
     showToast(`Unable to load received records: ${explainLedgerError(error)}`, true);
     return;
   }
-  const localUnsaved = receivedRows.filter(row => row._isNew && row._dirty);
+  persistPendingLocally();
+  const localUnsaved = receivedRows.filter(row => row._isNew && row._dirty && !isBlankReceivedRow(row));
   receivedRows = (data || []).map(record => ({ ...record, clientId: record.id, _dirty: false, _isNew: false }));
-  receivedRows.push(...localUnsaved);
+  mergePendingFromStorage('received', receivedRows);
+  localUnsaved.forEach(row => { if (!receivedRows.some(item => item.clientId === row.clientId)) receivedRows.push(row); });
   if (!receivedRows.some(row => row.clientId === selectedReceivedClientId)) selectedReceivedClientId = null;
   renderReceivedTable();
   scrollSheetToBottom(el('receivedTable'));
   receivedLoaded = true;
   receivedLoading = false;
+  announceRestoredChanges();
   receivedAddButton.disabled = !canWrite;
   const hasDirty = receivedRows.some(row => row._dirty);
-  receivedSheetStatus.textContent = hasDirty ? 'Unsaved changes' : 'All changes saved';
+  receivedSheetStatus.textContent = hasDirty ? UNSYNCED_TEXT : 'All changes saved';
   receivedSheetStatus.classList.toggle('dirty', hasDirty);
   receivedSheetStatus.classList.remove('error');
 }
@@ -1512,7 +1637,7 @@ function handleReceivedInput(event) {
   }
   row[fieldInput.dataset.field] = fieldInput.value;
   row._dirty = true;
-  receivedSheetStatus.textContent = 'Unsaved changes';
+  receivedSheetStatus.textContent = UNSYNCED_TEXT;
   receivedSheetStatus.classList.add('dirty');
   receivedSheetStatus.classList.remove('error');
   tr.classList.add('dirty-row');
@@ -1575,7 +1700,7 @@ async function saveReceivedChanges() {
     receivedSheetStatus.classList.add('error');
     showToast(`Some received rows were not saved: ${failures[0]}`, true);
   } else if (receivedRows.some(row => row._dirty && !isBlankReceivedRow(row))) {
-    receivedSheetStatus.textContent = 'Unsaved changes';
+    receivedSheetStatus.textContent = UNSYNCED_TEXT;
     receivedSheetStatus.classList.add('dirty');
     scheduleAutosave('received');
   } else {
@@ -1610,7 +1735,7 @@ async function deleteSelectedReceivedRow() {
 
 function markRowDirty(row) {
   row._dirty = true;
-  setSheetStatus('Unsaved changes', 'dirty');
+  setSheetStatus(UNSYNCED_TEXT, 'dirty');
   const tr = tableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`);
   if (tr) tr.classList.add('dirty-row');
   updateToolbar();
@@ -1696,7 +1821,7 @@ async function saveChanges() {
     setSheetStatus(`${saved} saved · ${failures.length} need attention`, 'error');
     showToast(`Some rows were not saved: ${failures[0]}`, true);
   } else if (rows.some(row => row._dirty && !isBlankExpenseRow(row))) {
-    setSheetStatus('Unsaved changes', 'dirty');
+    setSheetStatus(UNSYNCED_TEXT, 'dirty');
     scheduleAutosave('expenses');
   } else {
     setSheetStatus('All changes saved');
@@ -1865,6 +1990,8 @@ function showCopyToast({ rows, columns, cut }) {
 }
 
 function signOutToLogin() {
+  clearTimeout(syncTimer);
+  syncTimer = null;
   clearAllSpreadsheetSelections();
   // Explicit sign-out is the only normal way to end the saved session: remove
   // the encrypted session and the browser-session marker, then sign out locally.
@@ -2054,7 +2181,16 @@ document.querySelectorAll('.tab-button').forEach(button => {
   button.addEventListener('click', () => setActiveTab(button.dataset.tab));
 });
 
-el('signOutButton').addEventListener('click', signOutToLogin);
+el('signOutButton').addEventListener('click', async () => {
+  persistPendingLocally();
+  if (pendingChangeCount() > 0) {
+    el('signOutButton').disabled = true;
+    try { await syncAll({ manual: true }); } catch (_) { /* unsynced rows stay on this device */ }
+    el('signOutButton').disabled = false;
+    if (pendingChangeCount() > 0 && !window.confirm('Some changes could not be synced yet. They stay saved on this device and will sync the next time you sign in. Sign out anyway?')) return;
+  }
+  signOutToLogin();
+});
 el('accessKeysButton').addEventListener('click', openKeyDialog);
 el('closeAccessKeys').addEventListener('click', () => el('accessKeysDialog').close());
 el('refreshKeysButton').addEventListener('click', loadAlternateKeys);
@@ -2274,12 +2410,14 @@ async function exportToExcel() {
 el('exportExcelButton').addEventListener('click', exportToExcel);
 el('saveAllButton').addEventListener('click', saveAllChanges);
 window.addEventListener('beforeunload', event => {
+  persistPendingLocally();
   if (pendingChangeCount() > 0) { event.preventDefault(); event.returnValue = ''; }
 });
+window.addEventListener('pagehide', () => persistPendingLocally());
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden' && pendingChangeCount() > 0) {
-    ['expenses', 'received', 'cash'].forEach(key => runAutosave(key));
-  }
+  if (document.visibilityState !== 'hidden') return;
+  persistPendingLocally();
+  if (pendingChangeCount() > 0) syncAll(); // best effort when the tab is hidden or closed
 });
 
 // ---------------------------------------------------------------------------

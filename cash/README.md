@@ -20,6 +20,11 @@ A single-page, Excel-style expense register using Supabase. The project is split
 
 ## Latest update (no new migration)
 
+- **Faster, lighter saving:** edits are written to this browser's local storage instantly (no network) and synced to the database every 5 minutes, only when something is waiting. The top **Save** button syncs immediately and shows how many changes are waiting. A sync also runs when the tab is hidden or you sign out. Unsynced changes survive a refresh or closed tab and are restored and synced next time.
+- **Smoother cell movement:** selection painting and scrolling are done once per frame instead of on every key event.
+
+## Earlier update (blank rows and autosave)
+
 - **Always one empty row:** Expenses and Received keep one empty row at the bottom, dated with the working date. Start typing in it and the next empty row appears. Empty rows are never saved. "Add row" just jumps to the empty row.
 - **Automatic saving:** changes save about one second after you stop typing (no more Save buttons on each sheet). The **Save** button next to the date in the top bar saves everything immediately and shows how many changes are waiting. The browser also warns before closing the page with unsaved changes.
 - **One look for every button:** all buttons share the same compact, rounded style and the same green theme on every page, including the Staff Balance panel.

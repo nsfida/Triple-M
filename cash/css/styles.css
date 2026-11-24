@@ -687,3 +687,7 @@ body.reordering-rows, body.reordering-rows * { cursor: grabbing !important; user
 .sp-icon-btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); border-color: #cde9dd; }
 .sp-item-main:hover { background: var(--surface-soft); }
 .selection-sum { background: var(--accent-soft); color: var(--accent); }
+
+/* Performance: keep the big sheets from re-laying-out the rest of the page. */
+.table-frame { contain: layout style; }
+.expense-table td, .expense-table th { transition: none; }

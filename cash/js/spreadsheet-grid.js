@@ -266,9 +266,20 @@ function setSelection(grid, anchor, head, { sync = true, scroll = true } = {}) {
   activateGrid(grid);
   grid.anchor = { ...anchor };
   grid.head = { ...head };
-  paintSelection(grid);
-  if (scroll) ensureCellVisible(grid, grid.head);
   if (sync) syncClipboardProxy(grid);
+  // Painting and scrolling are done once per animation frame, so holding an arrow key
+  // or dragging a selection never forces the browser to re-lay-out the table per event.
+  grid.pendingScroll = grid.pendingScroll || scroll;
+  if (grid.paintQueued) return;
+  grid.paintQueued = true;
+  requestAnimationFrame(() => {
+    grid.paintQueued = false;
+    const wantsScroll = grid.pendingScroll;
+    grid.pendingScroll = false;
+    if (!grid.anchor) return;
+    paintSelection(grid);
+    if (wantsScroll && grid.head) ensureCellVisible(grid, grid.head);
+  });
 }
 
 function clearSelection(grid) {
