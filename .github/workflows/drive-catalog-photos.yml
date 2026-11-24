@@ -1,0 +1,38 @@
+name: Triplem Drive catalogue photos
+
+# Downloads the real vehicle, hero and city photos named in triplemdrive/catalog/catalog.json from Wikimedia Commons
+# (free licences) into triplemdrive/catalog/photos/ and writes credits.json, then commits them.
+# Run it from GitHub: Actions > "Triplem Drive catalogue photos" > Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Download every photo again (replaces existing files)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: drive-catalog-photos
+  cancel-in-progress: false
+
+jobs:
+  photos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          check-latest: false
+      - name: Download the catalogue photos
+        run: node scripts/fetch_drive_catalog_photos.js ${{ inputs.force && '--force' || '' }}
+      - name: Commit the photos and credits
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add triplemdrive/catalog/photos triplemdrive/catalog/credits.json
+          if git diff --cached --quiet; then echo "Nothing new to commit."; else git commit -m "Triplem Drive: catalogue vehicle photos"; git push; fi
