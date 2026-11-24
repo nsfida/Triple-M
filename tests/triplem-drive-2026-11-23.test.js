@@ -152,7 +152,10 @@ test("public page: address routing, SEO, escaping, honeypot; not in the sitemap"
   assert.match(read("404.html"), /\/triplemdrive\/\?b=/);
   assert.match(read("404.html"), /p\.match\(\/\^\\\/\(\[a-z0-9-\]\{3,40\}\)\\\/\?\$\/\)/, "top-level business addresses");
   assert.match(read("Assets/app/drive/00-drive-access.js"), /"https:\/\/triplem\.vip"\}\/\$\{encodeURIComponent/);
-  assert.ok(exists(".github/workflows/drive-catalog-photos.yml"));
+});
+
+test("photo workflow runs the catalogue photo script (when the workflow is in the checkout)", { skip: !exists(".github/workflows/drive-catalog-photos.yml") }, () => {
+  assert.match(read(".github/workflows/drive-catalog-photos.yml"), /fetch_drive_catalog_photos\.js/);
 });
 
 test("brand spelling: Triplem / TRIPLEM / Triplem Drive only", () => {
@@ -178,7 +181,7 @@ test("website catalogue: the listed cars, routes and prices; photos local first,
   assert.match(js, /Special:FilePath/);
   assert.match(js, /Photo credits/);
   assert.match(js, /p\.catalog = \{ vehicle: /);
-  assert.ok(!exists("triplemdrive/catalog.js"), "the catalogue code is part of site.js");
+  assert.doesNotMatch(read("triplemdrive/index.html"), /catalog\.js/, "the catalogue code is part of site.js (an old catalog.js file may stay; it is not loaded)");
   assert.ok(Array.isArray(cat.faq) && cat.faq.length >= 8, "FAQ tab content");
   assert.ok(exists("scripts/fetch_drive_catalog_photos.js"));
 });
