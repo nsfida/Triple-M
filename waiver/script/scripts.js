@@ -256,8 +256,11 @@ const REPORT_ORDER = ['waivers', 'contracts', 'payments', 'bookings', 'claims'];
 
 const DEFAULT_SETTINGS = {
   general: {
-    company_name: 'Caryaati', company_phone: '', currency: 'AED', min_outstanding: 5,
-    claim_after_days: 3, claim_after_reminders: 2, claim_deadline_days: 30, default_country_code: '971',
+    company_name: 'Premium Car Rentals', company_phone: '', currency: 'AED', min_outstanding: 5,
+    claim_after_days: 3, claim_after_reminders: 2, claim_deadline_days: 60, expiring_soon_days: 10, default_country_code: '971',
+    link_order_name: 'Outstanding Balance', link_message: 'Please pay the amount.', link_expiry_days: 5, link_expiry_time: '15:00:00',
+    link_language: 'en', link_invoice_type: 'Once',
+    remark_categories: ['Promised to pay', 'Disputes charges', 'No answer', 'Wrong number', 'Left the country', 'Partial payment', 'Paid - awaiting report', 'Legal / police', 'Other'],
     tags: ['Walk-in', 'Caryaati-Web', 'Caryaati-App', 'Vendor-Web', 'Vendor-App', 'Mobile-App', 'Website', 'Corporate', 'Referral', 'Broker']
   },
   templates: [
@@ -273,6 +276,7 @@ const STAGES = {
   contacted:       { label: 'Contacted',             tone: 'indigo', group: 'collect', order: 2, hint: 'Reminder sent, waiting for payment' },
   promised:        { label: 'Promised to pay',       tone: 'teal',   group: 'collect', order: 3, hint: 'Customer promised a payment date' },
   ready_to_claim:  { label: 'Ready to claim',        tone: 'amber',  group: 'claim',   order: 4, hint: 'Reminders exhausted — submit claim to Cardoo' },
+  claim_expired:   { label: 'Claim window expired',  tone: 'rose',   group: 'collect', order: 4.5, hint: 'Closed longer than the claim window — Cardoo will not accept a claim, collect directly' },
   not_covered:     { label: 'Not covered',           tone: 'rose',   group: 'collect', order: 5, hint: 'No active Cardoo booking — collect directly' },
   claim_rejected:  { label: 'Claim rejected',        tone: 'rose',   group: 'collect', order: 6, hint: 'Cardoo claim cancelled/declined — collect directly' },
   need_update:     { label: 'Claim · need update',   tone: 'orange', group: 'claim',   order: 7, hint: 'Cardoo requested more information' },
@@ -564,30 +568,93 @@ const Engine = {
     return { rows: out, stats, issues };
   },
 
-  /** Combine the five normalised reports into DB-ready tables (contracts & payments trimmed to linked contracts) */
-  prepareSync(norm) {
+  /** Prepare uploaded reports (any subset) for a merge sync. Contracts & payments are trimmed to linked contracts. */
+  prepareSync(norm, existing) {
+    existing = existing || {};
+    const has = t => !!(norm[t] && norm[t].rows);
     const linked = new Set();
-    norm.waivers.rows.forEach(r => linked.add(r.contract_no));
-    norm.bookings.rows.forEach(r => linked.add(r.contract_no));
-    norm.claims.rows.forEach(r => linked.add(r.contract_no));
-    const contracts = norm.contracts.rows.filter(r => linked.has(r.contract_no));
-    const payments = norm.payments.rows.filter(r => linked.has(r.contract_no));
-    const cset = new Set(norm.contracts.rows.map(r => r.contract_no));
-    const missingContracts = [...linked].filter(n => !cset.has(n));
-    // cross-check cleaned waiver names against the contracts report (the correct source)
-    const cmap = new Map(contracts.map(c => [c.contract_no, c]));
+    ['waivers', 'bookings', 'claims'].forEach(t => {
+      (has(t) ? norm[t].rows : []).forEach(r => linked.add(+r.contract_no));
+      (existing[t] || []).forEach(r => linked.add(+r.contract_no));
+    });
+    const tables = {};
+    if (has('waivers')) tables.waivers = norm.waivers.rows;
+    if (has('bookings')) tables.bookings = norm.bookings.rows;
+    if (has('claims')) tables.claims = norm.claims.rows;
+    if (has('contracts')) tables.contracts = norm.contracts.rows.filter(r => linked.has(r.contract_no));
+    if (has('payments')) tables.payments = norm.payments.rows.filter(r => linked.has(r.contract_no));
+    const allContracts = new Map((existing.contracts || []).map(c => [+c.contract_no, c]));
+    (tables.contracts || []).forEach(c => allContracts.set(c.contract_no, c));
+    const missingContracts = [...linked].filter(n => !allContracts.has(n)).sort((a, b) => a - b);
     const nameMismatch = [];
-    for (const w of norm.waivers.rows) {
-      const c = cmap.get(w.contract_no);
+    const waivers = tables.waivers || existing.waivers || [];
+    for (const w of waivers) {
+      const c = allContracts.get(+w.contract_no);
       if (c && Engine.nameKey(c.customer_name) !== Engine.nameKey(w.customer_name)) nameMismatch.push({ contract_no: w.contract_no, waiver: w.customer_name, contract: c.customer_name });
     }
     return {
-      tables: { waivers: norm.waivers.rows, contracts, payments, bookings: norm.bookings.rows, claims: norm.claims.rows },
+      tables,
+      diff: Engine.diff(tables, existing),
       summary: {
-        linkedContracts: linked.size, contractsKept: contracts.length, contractsTotal: norm.contracts.rows.length,
-        paymentsKept: payments.length, paymentsTotal: norm.payments.rows.length, missingContracts, nameMismatch
+        linkedContracts: linked.size,
+        contractsKept: tables.contracts ? tables.contracts.length : null, contractsTotal: has('contracts') ? norm.contracts.rows.length : null,
+        paymentsKept: tables.payments ? tables.payments.length : null, paymentsTotal: has('payments') ? norm.payments.rows.length : null,
+        missingContracts, nameMismatch
       }
     };
+  },
+  KEYS: { waivers: 'contract_no', contracts: 'contract_no', payments: 'row_key', bookings: 'row_key', claims: 'row_key' },
+  /** comparable value: DB returns '2026-11-24T18:37:00', normalised rows use '2026-11-24 18:37:00' */
+  cmpVal(v) {
+    if (v == null || v === '') return null;
+    if (typeof v === 'number' || typeof v === 'boolean') return v;
+    const s = String(v);
+    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(s)) return s.replace('T', ' ').slice(0, 19);
+    if (/^-?\d+(\.\d+)?$/.test(s)) return +s;
+    return s;
+  },
+  /** Same rules as the database merge: new rows, changed fields (non-empty new values only), unchanged */
+  diff(tables, existing) {
+    const out = {};
+    for (const [t, rows] of Object.entries(tables)) {
+      const key = Engine.KEYS[t];
+      const old = new Map((existing[t] || []).map(r => [String(r[key]), r]));
+      const seen = new Set();
+      const res = { received: 0, inserted: 0, updated: 0, unchanged: 0, changes: [] };
+      for (const r of rows) {
+        const k = String(r[key]);
+        if (seen.has(k)) continue; seen.add(k);
+        res.received++;
+        const o = old.get(k);
+        if (!o) { res.inserted++; continue; }
+        let changed = false;
+        for (const [f, v] of Object.entries(r)) {
+          const nv = Engine.cmpVal(v);
+          if (nv === null) continue;
+          const ov = Engine.cmpVal(o[f]);
+          if (ov !== nv) { changed = true; if (res.changes.length < 3000) res.changes.push({ tbl: t, row_key: k, contract_no: r.contract_no, field: f, old_value: o[f] == null ? null : o[f], new_value: v }); }
+        }
+        changed ? res.updated++ : res.unchanged++;
+      }
+      out[t] = res;
+    }
+    return out;
+  },
+  /** Apply a merge locally (for "preview without saving") */
+  mergeLocal(existing, tables) {
+    const ds = Object.assign({}, existing);
+    for (const [t, rows] of Object.entries(tables)) {
+      const key = Engine.KEYS[t];
+      const map = new Map((existing[t] || []).map(r => [String(r[key]), Object.assign({}, r)]));
+      for (const r of rows) {
+        const k = String(r[key]), o = map.get(k) || {};
+        const n = Object.assign({}, o);
+        for (const [f, v] of Object.entries(r)) if (v != null && v !== '') n[f] = v; else if (!(f in n)) n[f] = v;
+        map.set(k, n);
+      }
+      ds[t] = [...map.values()];
+    }
+    return ds;
   },
 
   /* ---------- unification: DB dataset → working model ---------- */
@@ -647,6 +714,14 @@ const Engine = {
         active.some(b => !b.close_at && (U.dayFrac(b.end_at) || 0) > closeF + 1);
       r.booking_close = active.length ? active.map(b => b.close_at).filter(Boolean).sort().pop() || null : null;
       r.cardoo_fee = U.sum(active, b => Engine.bookingFee(b));
+      // Caryaati vs Cardoo closing
+      r.caryaati_close_at = w.status === 'Closed' ? ((c && c.dropoff_at && U.isoDate(c.dropoff_at) === w.close_date) ? c.dropoff_at : w.close_date) : null;
+      r.cardoo_status = !active.length ? 'none' : r.booking_closed ? 'closed' : 'open';
+      r.cardoo_close_at = r.cardoo_status === 'closed' ? r.booking_close : null;
+      r.close_sync = !active.length ? 'no_booking'
+        : w.status === 'Closed' ? (r.cardoo_status === 'closed' ? 'both_closed' : 'caryaati_only')
+        : (r.cardoo_status === 'closed' ? 'cardoo_only' : 'both_open');
+      r.close_diff_days = r.close_sync === 'both_closed' && w.close_date ? U.dayNum(r.cardoo_close_at) - U.dayNum(w.close_date) : null;
       // Claims summary
       const live = claims.filter(x => !/cancel|declin|reject/i.test(x.status));
       const primary = live[0] || claims[0] || null;
@@ -657,14 +732,21 @@ const Engine = {
       r.claim_approved = U.sum(live, x => x.approved_amount);
       // Dates & money
       r.days_since_close = r.close_date ? today - U.dayNum(r.close_date) : null;
-      r.claim_deadline = r.close_date ? U.addDaysISO(r.close_date, +g.claim_deadline_days || 30) : null;
+      r.claim_deadline = r.close_date ? U.addDaysISO(r.close_date, +g.claim_deadline_days || 60) : null;
       r.days_to_deadline = r.claim_deadline ? U.dayNum(r.claim_deadline) - today : null;
+      // claim window state — only meaningful for closed, covered, owing contracts with no live claim
+      r.claim_window = (w.status === 'Closed' && r.booking_state === 'active' && !r.claim_live && (+w.ledger_balance || 0) > minOut && r.days_to_deadline != null)
+        ? (r.days_to_deadline < 0 ? 'expired' : r.days_to_deadline <= (+g.expiring_soon_days || 10) ? 'soon' : 'open') : null;
       r.claimable = r.outstanding > 0 ? U.r2(Math.min(r.outstanding, r.coverage || 0)) : 0;
       r.uncovered = r.outstanding > 0 ? U.r2(Math.max(0, r.outstanding - (r.coverage || 0))) : 0;
       r.payment_link = k.payment_link || '';
       r.contact_count = +k.contact_count || 0;
       r.days_since_contact = k.first_contact_at ? today - U.dayNum(new Date(k.first_contact_at)) : null;
       r.last_contact_at = k.last_contact_at || null;
+      r.remark = k.last_remark || '';
+      r.remark_cat = k.last_remark_category || '';
+      r.remark_at = k.last_remark_at || null;
+      r.link_batch_at = k.link_batch_at || null;
       Engine.assignStage(r, g, today, minOut);
       r.flags = Engine.flags(r, today);
       r.search = [no, r.name, r.name_waiver, r.phone, c && c.mobile_raw, r.email, r.vehicle, r.plate].filter(Boolean).join(' ').toLowerCase();
@@ -687,7 +769,21 @@ const Engine = {
     const paymentRows = (ds.payments || []).map(p => Object.assign({}, p, { _rec: byNo.get(+p.contract_no) || null }))
       .sort((a, b) => (U.dayNum(b.invoice_date) || 0) - (U.dayNum(a.invoice_date) || 0));
 
-    const model = { records, byNo, settings, orphanBookings, claimRows, bookingRows, paymentRows, contracts, lastBatch: ds.last_batch || null, user: ds.user || null };
+    // Cardoo bookings whose contract is not a waiver contract, grouped per contract
+    const byC = U.groupBy(bookingRows.filter(b => !b._inWaivers), b => +b.contract_no);
+    const cardooOnly = [...byC.entries()].map(([no, bs]) => {
+      const c = contracts.get(no) || null, act = bs.filter(b => !b.cancelled);
+      return { contract_no: no, row_key: 'c' + no, contract_raw: bs.map(b => b.contract_raw).join(', '), bookings: bs, contract: c,
+        name: c ? c.customer_name : '', in_caryaati: !!c, caryaati_status: c ? c.status : null, pickup_at: c ? c.pickup_at : null, dropoff_at: c ? c.dropoff_at : null,
+        booking_type: [...new Set(bs.map(b => b.booking_type))].join(' / '), start_at: bs[0].start_at, end_at: bs.map(b => b.end_at).sort().pop(),
+        close_at: act.length && act.every(b => b.close_at) ? act.map(b => b.close_at).sort().pop() : null,
+        cover: act.length ? Math.max(...act.map(b => +b.deposit_covered || 0)) : 0, fee: U.sum(act, b => Engine.bookingFee(b)),
+        cancelled: !act.length, booked_at: bs[0].booked_at,
+        search: [no, c && c.customer_name, c && c.mobile].filter(Boolean).join(' ').toLowerCase() };
+    }).sort((a, b) => b.contract_no - a.contract_no);
+    const model = { records, byNo, settings, orphanBookings, claimRows, bookingRows, paymentRows, contracts, cardooOnly,
+      missingInCaryaati: cardooOnly.filter(x => !x.in_caryaati), bookedNoWaiver: cardooOnly.filter(x => x.in_caryaati),
+      lastBatch: ds.last_batch || null, user: ds.user || null };
     model.checks = Engine.reconcile(model, ds);
     model.kpi = Engine.kpis(model);
     return model;
@@ -717,6 +813,7 @@ const Engine = {
     else if (k.on_hold) s = 'on_hold';
     else if (r.claims.length && !r.claim_live) s = 'claim_rejected';
     else if (r.booking_state !== 'active') s = 'not_covered';
+    else if (r.days_to_deadline != null && r.days_to_deadline < 0) s = 'claim_expired';
     else if (k.promise_date && U.dayNum(k.promise_date) >= today) s = 'promised';
     else if (!r.contact_count) s = 'to_contact';
     else if (r.contact_count >= (+g.claim_after_reminders || 2) || (r.days_since_contact != null && r.days_since_contact >= (+g.claim_after_days || 3))) s = 'ready_to_claim';
@@ -733,10 +830,11 @@ const Engine = {
       if (r.booking_state === 'cancelled') f.push({ t: 'Booking cancelled', tone: 'rose' });
       if (r.booking_state === 'active' && r.dropoff_at && r.booking_end && U.dayFrac(r.booking_end) + 0.04 < U.dayFrac(r.dropoff_at)) f.push({ t: 'Extend booking', tone: 'amber' });
       if (r.booking_state === 'active' && r.booking_end && U.dayFrac(r.booking_end) < today) f.push({ t: 'Booking period ended', tone: 'amber' });
+      if (r.close_sync === 'cardoo_only') f.push({ t: 'Closed in Cardoo only', tone: 'rose' });
     } else {
-      if (r.outstanding > 0 && r.booking_state === 'active' && !r.claims.length && r.days_to_deadline != null && r.days_to_deadline <= 7 && !['settled', 'paid_marked', 'claim_submitted'].includes(r.stage))
-        f.push({ t: r.days_to_deadline < 0 ? `Claim window passed ${-r.days_to_deadline}d` : `Claim due in ${r.days_to_deadline}d`, tone: r.days_to_deadline < 0 ? 'rose' : 'amber' });
-      if (r.booking_running_after_close) f.push({ t: 'Close booking in Cardoo', tone: 'slate' });
+      if (r.claim_window === 'soon' && !['settled', 'paid_marked', 'claim_submitted'].includes(r.stage)) f.push({ t: `Claim in ${r.days_to_deadline}d`, tone: 'amber' });
+      if (r.close_sync === 'caryaati_only') f.push({ t: 'Close in Cardoo', tone: 'slate' });
+      if (r.close_diff_days) f.push({ t: `Cardoo close ${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days}d`, tone: 'slate' });
     }
     if (k.promise_date && U.dayNum(k.promise_date) < today && r.stage !== 'settled' && r.status === 'Closed') f.push({ t: 'Promise missed', tone: 'rose' });
     if (r.status === 'Closed' && r.outstanding > 0 && !r.phone_valid) f.push({ t: 'Check phone', tone: 'amber' });
@@ -758,15 +856,28 @@ const Engine = {
     add('extend', 'Open contracts that need a Cardoo booking extension', 'high',
       'Contract drop-off is later than the Cardoo booking end — extend the booking so the deposit stays covered.',
       R.filter(r => r.status === 'Open' && r.booking_state === 'active' && r.dropoff_at && r.booking_end && U.dayFrac(r.booking_end) + 0.04 < U.dayFrac(r.dropoff_at)));
-    add('deadline', 'Covered contracts close to / past the claim window', 'high',
-      'Closed, outstanding, covered by Cardoo and no claim yet. Window = close date + configured days.',
-      R.filter(r => r.status === 'Closed' && r.outstanding > 0 && r.booking_state === 'active' && !r.claims.length && !['settled', 'paid_marked', 'claim_submitted'].includes(r.stage) && r.days_to_deadline != null && r.days_to_deadline <= 7));
-    add('close_booking', 'Closed contracts whose Cardoo booking is still running', 'medium',
-      'The Cardoo booking has no close date and ends more than a day after the contract closed — close it in Cardoo (monthly bookings keep accruing fees).',
-      R.filter(r => r.booking_running_after_close));
-    add('orphan_booking', 'Cardoo bookings with no matching waiver contract', 'medium',
-      'Booked in Cardoo but not in the Caryaati Deposit Waivers report — check whether a waiver fee was charged.',
-      model.orphanBookings, 'bookings');
+    const gg = model.settings.general;
+    add('deadline', `Claim window closing within ${gg.expiring_soon_days || 10} days`, 'critical',
+      `Closed, outstanding, covered by Cardoo, no claim yet — submit before the ${gg.claim_deadline_days || 60}-day window ends.`,
+      R.filter(r => r.claim_window === 'soon' && !['settled', 'paid_marked', 'claim_submitted'].includes(r.stage)));
+    add('expired', 'Claim window expired — cannot claim from Cardoo', 'high',
+      `Closed more than ${gg.claim_deadline_days || 60} days ago with an outstanding balance and no claim — collect directly from the customer.`,
+      R.filter(r => r.stage === 'claim_expired'));
+    add('close_booking', 'Closed in Caryaati but still open in Cardoo', 'medium',
+      'Close the booking in Cardoo too (monthly bookings keep accruing fees).',
+      R.filter(r => r.close_sync === 'caryaati_only'));
+    add('close_mismatch', 'Closing date differs between Caryaati and Cardoo', 'low',
+      'Both are closed but on different dates.',
+      R.filter(r => r.close_diff_days));
+    add('cardoo_only_closed', 'Closed in Cardoo but still open in Caryaati', 'high',
+      'The deposit is no longer covered while the rental is still running.',
+      R.filter(r => r.close_sync === 'cardoo_only'));
+    add('missing_caryaati', 'Cardoo bookings whose contract is missing in Caryaati', 'high',
+      'Booked in Cardoo but the contract number is not in the Caryaati Rental Contracts data — check the contract number in Cardoo.',
+      model.missingInCaryaati, 'cardoo');
+    add('orphan_booking', 'Booked in Cardoo but no waiver fee in Caryaati', 'medium',
+      'The contract exists in Caryaati but is not in the Deposit Waivers report — check whether a waiver fee was charged.',
+      model.bookedNoWaiver, 'cardoo');
     add('orphan_claim', 'Cardoo claims for contracts not in the waiver report', 'low',
       'Claims exist in Cardoo for contracts missing from the waiver report.',
       model.claimRows.filter(x => !x._inWaivers), 'claims');
@@ -809,6 +920,10 @@ const Engine = {
       needUpdate: model.claimRows.filter(x => /update/i.test(x.status)).length,
       coveredExposure: U.sum(open, r => r.coverage),
       noBookingOpen: open.filter(r => r.booking_state !== 'active').length,
+      expiredCount: owing.filter(r => r.stage === 'claim_expired').length, expiredAmount: U.sum(owing.filter(r => r.stage === 'claim_expired'), r => r.outstanding),
+      soonCount: owing.filter(r => r.claim_window === 'soon').length,
+      closeInCardoo: R.filter(r => r.close_sync === 'caryaati_only').length,
+      missingInCaryaati: model.missingInCaryaati.length,
       openOutstanding: U.sum(open.filter(r => r.outstanding > 0), r => r.outstanding),
       stageCounts,
       criticalChecks: model.checks.filter(c => (c.severity === 'critical' || c.severity === 'high') && c.rows.length).reduce((a, c) => a + c.rows.length, 0)
@@ -828,6 +943,138 @@ const Engine = {
     return String(body || '').replace(/\{(\w+)\}/g, (m, k) => (k in map ? String(map[k]) : m));
   },
   waLink(phone, text) { return `https://wa.me/${String(phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(text)}`; }
+};
+
+/* ---------- Profitability analysis ---------- */
+Engine.profit = function (model, opt) {
+  opt = opt || {};
+  const a = opt.from ? U.dayNum(opt.from) : null, b = opt.to ? U.dayNum(opt.to) : null;
+  const inRange = d => { const n = U.dayNum(d); if (n == null) return !a && !b; return (a == null || n >= a) && (b == null || n <= b); };
+  const g = model.settings.general, minOut = +g.min_outstanding || 0;
+  const R = model.records.filter(r => inRange(r.open_date));
+  const recSet = new Set(R.map(r => r.contract_no));
+  const B = model.bookingRows.filter(x => !x.cancelled && inRange(x.start_at));
+  const Bc = model.bookingRows.filter(x => x.cancelled && inRange(x.start_at));
+  const C = model.claimRows.filter(x => x._rec ? recSet.has(+x.contract_no) : inRange(x.claim_date));
+  const P = model.paymentRows.filter(p => p._rec && recSet.has(+p.contract_no));
+  const isRec = x => /recover/i.test(x.status), isRej = x => /cancel|declin|reject/i.test(x.status);
+
+  const fees = U.sum(R, r => r.waiver_amount);
+  const cost = U.sum(B, x => x._fee);
+  const costLinked = U.sum(B.filter(x => x._inWaivers), x => x._fee);
+  const costNoWaiver = U.sum(B.filter(x => !x._inWaivers), x => x._fee);
+  const costShort = U.sum(B.filter(x => /short/i.test(x.booking_type)), x => x._fee);
+  const costLong = U.sum(B.filter(x => /long/i.test(x.booking_type)), x => x._fee);
+  const approved = U.sum(C.filter(isRec), x => x.approved_amount);
+  const claimedExcess = U.sum(C.filter(x => !isRej(x)), x => x.excess_sum);
+  const rejectedExcess = U.sum(C.filter(isRej), x => x.excess_sum);
+  const needUpd = C.filter(x => /update/i.test(x.status));
+  const rentCollected = U.sum(P, p => p.net_amount);
+  const rentVat = U.sum(P, p => p.vat);
+  const rentBilled = U.sum(R.filter(r => r.contract), r => r.contract.total_amount);
+  const closed = R.filter(r => r.status === 'Closed');
+  const owing = closed.filter(r => r.outstanding > minOut);
+  const pendingClaim = owing.filter(r => r.claim_window === 'open' || r.claim_window === 'soon');
+  const expired = owing.filter(r => r.stage === 'claim_expired');
+  const notCovered = owing.filter(r => r.booking_state !== 'active');
+  const margin = U.r2(fees - cost);
+  const net = U.r2(margin + approved);
+  const potential = U.r2(net + U.sum(pendingClaim, r => r.claimable));
+
+  // monthly series (open month for fees, booking start month for cost, claim month for recoveries, invoice month for rent)
+  const months = new Map();
+  const M = k => { if (!k) return null; if (!months.has(k)) months.set(k, { month: k, contracts: 0, fees: 0, cost: 0, approved: 0, rent: 0, claims: 0 }); return months.get(k); };
+  R.forEach(r => { const m = M(U.monthKey(r.open_date)); if (m) { m.contracts++; m.fees += r.waiver_amount; } });
+  B.forEach(x => { const m = M(U.monthKey(x.start_at)); if (m) m.cost += x._fee; });
+  C.forEach(x => { const m = M(U.monthKey(x.claim_date)); if (m) { m.claims++; if (isRec(x)) m.approved += +x.approved_amount || 0; } });
+  P.forEach(p => { const m = M(U.monthKey(p.invoice_date)); if (m) m.rent += +p.net_amount || 0; });
+  const monthly = [...months.values()].sort((x, y) => x.month.localeCompare(y.month)).map(m => Object.assign(m, {
+    fees: U.r2(m.fees), cost: U.r2(m.cost), approved: U.r2(m.approved), rent: U.r2(m.rent), margin: U.r2(m.fees - m.cost), net: U.r2(m.fees - m.cost + m.approved) }));
+
+  // by booking type & cover level (per waiver contract)
+  const group = (keyFn) => {
+    const mp = new Map();
+    R.forEach(r => {
+      const k = keyFn(r); if (!mp.has(k)) mp.set(k, { key: k, contracts: 0, fees: 0, cost: 0, approved: 0, owing: 0, claims: 0 });
+      const o = mp.get(k); o.contracts++; o.fees += r.waiver_amount; o.cost += r.cardoo_fee; o.approved += r.claim_approved || 0;
+      if (r.status === 'Closed' && r.outstanding > minOut) o.owing += r.outstanding;
+      if (r.claims.length) o.claims++;
+    });
+    return [...mp.values()].map(o => Object.assign(o, { fees: U.r2(o.fees), cost: U.r2(o.cost), approved: U.r2(o.approved), owing: U.r2(o.owing),
+      margin: U.r2(o.fees - o.cost), net: U.r2(o.fees - o.cost + o.approved), avgFee: o.contracts ? U.r2(o.fees / o.contracts) : 0, avgCost: o.contracts ? U.r2(o.cost / o.contracts) : 0 }));
+  };
+  const primaryType = r => { const act = r.bookings.filter(x => !x.cancelled); if (!act.length) return 'No Cardoo booking'; return act.some(x => /long/i.test(x.booking_type)) ? 'Long term' : 'Short term'; };
+  const byType = group(primaryType).sort((x, y) => y.contracts - x.contracts);
+  const byCover = group(r => r.booking_state === 'active' ? `AED ${U.int(r.coverage)}` : 'Not covered').sort((x, y) => (parseInt(x.key.replace(/\D/g, '')) || 0) - (parseInt(y.key.replace(/\D/g, '')) || 0));
+  const byRental = group(r => r.rental_type || 'Unknown').sort((x, y) => y.contracts - x.contracts);
+
+  return {
+    range: { from: opt.from || null, to: opt.to || null }, contracts: R.length, open: R.length - closed.length, closed: closed.length,
+    bookings: B.length, bookingsCancelled: Bc.length, bookingsNoWaiver: B.filter(x => !x._inWaivers).length,
+    fees, cost, costLinked, costNoWaiver, costShort, costLong, margin, marginPct: fees ? U.r2(margin / fees * 100) : 0,
+    feeCoverage: cost ? U.r2(fees / cost) : null, avgFee: R.length ? U.r2(fees / R.length) : 0, avgCost: B.length ? U.r2(cost / B.length) : 0,
+    approved, claimedExcess, rejectedExcess, claims: C.length, claimsRecovery: C.filter(isRec).length, claimsRejected: C.filter(isRej).length, claimsNeedUpdate: needUpd.length,
+    recoveryRate: claimedExcess ? U.r2(approved / claimedExcess * 100) : 0,
+    claimRate: closed.length ? U.r2(new Set(C.map(x => +x.contract_no)).size / closed.length * 100) : 0,
+    rentCollected, rentVat, rentBilled,
+    owingAmount: U.sum(owing, r => r.outstanding), owingCount: owing.length,
+    pendingClaimAmount: U.sum(pendingClaim, r => r.claimable), pendingClaimCount: pendingClaim.length,
+    expiredAmount: U.sum(expired, r => r.outstanding), expiredCount: expired.length,
+    notCoveredAmount: U.sum(notCovered, r => r.outstanding), notCoveredCount: notCovered.length,
+    uncoveredAbove: U.sum(owing.filter(r => r.booking_state === 'active'), r => r.uncovered),
+    net, potential, profitable: net > 0,
+    monthly, byType, byCover, byRental
+  };
+};
+
+/* ---------- Payment-link batch CSV (provider eInvoice batch upload format) ---------- */
+Engine.LINK_COLUMNS = ['OrderID', 'OrderName', 'OrderInfo', 'Amount', 'Currency', 'EffectiveStartDate', 'ExpiryDate', 'CardHolderName', 'CardHolderEmail', 'CardHolderMobile', 'Language', 'InvoiceType', 'Message'];
+Engine.orderInfo = function (r) {
+  const c = r.contract;
+  if (!c) return 'Outstanding balance';
+  const parts = [];
+  if (+c.rent > 0) parts.push('rent');
+  if (+c.salik > 0) parts.push('salik');
+  if (+c.fine > 0) parts.push('fines');
+  if (+c.other_charges > 0) parts.push('other charges');
+  if (!parts.length) return 'Outstanding balance';
+  const s = parts.join(' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+Engine.linkMobile = function (r) {
+  if (!r.phone) return '';
+  if (r.phone_kind === 'uae' && r.phone.startsWith('971')) return r.phone.slice(3);   // 501695692 as in the provider sample
+  return r.phone;
+};
+Engine.linkExpiry = function (g, base) {
+  const days = +g.link_expiry_days || 5, t = String(g.link_expiry_time || '15:00:00');
+  const d = base ? new Date(base) : new Date();
+  d.setDate(d.getDate() + days);
+  const tt = /^\d{1,2}:\d{2}(:\d{2})?$/.test(t) ? (t.length <= 5 ? t + ':00' : t).padStart(8, '0') : '15:00:00';
+  return `${U.pad(d.getMonth() + 1)}-${U.pad(d.getDate())}-${d.getFullYear()} ${tt}`;
+};
+Engine.linkRow = function (r, g, o) {
+  o = o || {};
+  const amount = o.amount != null ? +o.amount : r.outstanding;
+  return {
+    OrderID: 'Cno' + r.contract_no,
+    OrderName: o.orderName != null ? o.orderName : (g.link_order_name || 'Outstanding Balance'),
+    OrderInfo: o.orderInfo != null ? o.orderInfo : Engine.orderInfo(r),
+    Amount: String(U.r2(amount)),
+    Currency: g.currency || 'AED',
+    EffectiveStartDate: '',
+    ExpiryDate: o.expiry || Engine.linkExpiry(g),
+    CardHolderName: U.clean(r.name),
+    CardHolderEmail: r.email || '',
+    CardHolderMobile: Engine.linkMobile(r),
+    Language: g.link_language || 'en',
+    InvoiceType: g.link_invoice_type || 'Once',
+    Message: o.message != null ? o.message : (g.link_message || 'Please pay the amount.')
+  };
+};
+Engine.csv = function (rows, cols) {
+  const esc = v => { const s = v == null ? '' : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  return [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\r\n') + '\r\n';
 };
 
 /* =====================================================================
@@ -962,6 +1209,19 @@ const R = {
   },
   cno(no) { return `<span class="cno">#${no}</span>`; },
   date(v, sub) { return v ? `<span class="nowrap">${U.fmtDate(v)}</span>${sub ? `<span class="cell-sub">${sub}</span>` : ''}` : '<span class="zero">—</span>'; },
+  window(r) {
+    if (!r.claim_deadline) return '<span class="zero">—</span>';
+    if (r.claim_live) return `<span class="cell-sub">claimed</span>`;
+    if (r.claims.length) return `<span class="cell-sub">claim rejected</span>`;
+    if (r.booking_state !== 'active') return `<span class="cell-sub">not covered</span>`;
+    const d = r.days_to_deadline, tone = d < 0 ? 'rose' : d <= (+App.model.settings.general.expiring_soon_days || 10) ? 'amber' : 'muted';
+    return `<span class="nowrap">${U.fmtDate(r.claim_deadline)}</span><span class="cell-sub" style="color:var(--${tone})">${d < 0 ? `expired ${-d}d ago` : `${d}d left`}</span>`;
+  },
+  remark(r) {
+    const add = `<button class="remark-add" data-act="remark" data-no="${r.contract_no}" title="Add remark">+ remark</button>`;
+    if (!r.remark && !r.remark_cat) return add;
+    return `<span class="remark" title="${U.esc((r.remark_cat ? r.remark_cat + ': ' : '') + (r.remark || ''))}">${r.remark_cat ? `<span class="tag">${U.esc(r.remark_cat)}</span> ` : ''}${U.esc(r.remark || '')}</span><span class="cell-sub">${r.remark_at ? U.esc(R.ago(U.todayNum() - U.dayNum(new Date(r.remark_at)))) : ''} · <a href="#" data-act="remark" data-no="${r.contract_no}">add</a></span>`;
+  },
   ago(days) { if (days == null) return ''; if (days === 0) return 'today'; if (days < 0) return `in ${-days}d`; return `${days}d ago`; }
 };
 
@@ -1203,7 +1463,9 @@ const VIEW_META = {
   dashboard:   ['Dashboard', 'Live overview of waivers, collections and Cardoo claims'],
   import:      ['Import & Sync', 'Attach the 5 reports, review the clean-up, sync to the database'],
   collections: ['Collections', 'Closed waiver contracts with an outstanding balance'],
-  claims:      ['Cardoo Claims', 'Claim-ready contracts and the status of submitted claims'],
+  claims:      ['Cardoo Claims', '60-day claim window, claim-ready contracts and submitted claims'],
+  matching:    ['Cardoo Matching', 'Caryaati ↔ Cardoo: missing bookings, missing contracts and closing dates'],
+  profit:      ['Profitability', 'Is the Cardoo deposit-waiver program paying off?'],
   checks:      ['Reconciliation', 'Cross-report checks that need attention'],
   contracts:   ['Waiver Contracts', 'Every deposit-waiver contract, unified across all reports'],
   bookings:    ['Cardoo Bookings', 'Deposit-free bookings registered with Cardoo'],
@@ -1393,6 +1655,7 @@ const App = {
     setB('collections', k.collectCount);
     setB('claims', k.readyCount + k.needUpdate);
     setB('checks', k.criticalChecks);
+    setB('matching', k.noBookingOpen + k.missingInCaryaati + (App.model.checks.find(c => c.id === 'cardoo_only_closed') || { rows: [] }).rows.length);
     const pill = $('#syncPill'), txt = $('#syncText');
     pill.className = 'sync-pill';
     if (State.source === 'local') { pill.classList.add('local'); txt.textContent = 'Local preview · not saved'; }
@@ -1436,7 +1699,7 @@ const Views = {
   render(v, dataChanged) {
     const el = $('#view-' + v);
     if (!el || !App.model) return;
-    const always = ['dashboard', 'checks'];               // cheap, always fresh
+    const always = ['dashboard', 'checks', 'profit'];               // cheap, always fresh
     const onNavigate = ['settings', 'import', 'activity']; // rebuilt when opened, not on data refresh
     if (always.includes(v) || !State.built[v] || (onNavigate.includes(v) && !dataChanged)) {
       Views[v].build(el);
@@ -1481,10 +1744,10 @@ Views.dashboard = {
         ${this.kpi('t-teal', 'wallet', 'Waiver fees charged', `<small>${cur}</small>${U.compact(k.waiverFees)}`, `Cardoo fees est. ${cur} ${U.compact(k.cardooFees)} · margin ${cur} ${U.compact(k.waiverFees - k.cardooFees)}`)}
         ${this.kpi('t-rose', 'alert', 'Outstanding · closed', `<small>${cur}</small>${U.compact(k.owingAmount)}`, `${U.plural(k.owingCount, 'contract')} above ${cur} ${g.min_outstanding}`, '#/collections')}
         ${this.kpi('t-blue', 'whatsapp', 'In collection queue', `<small>${cur}</small>${U.compact(k.collectAmount)}`, `${U.int(k.collectCount)} customers to remind / collect`, '#/collections')}
-        ${this.kpi('t-amber', 'file-check', 'Ready to claim', `<small>${cur}</small>${U.compact(k.readyAmount)}`, `${U.plural(k.readyCount, 'contract')} · ${U.plural(k.needUpdate, 'claim')} need update`, '#/claims')}
+        ${this.kpi('t-amber', 'file-check', 'Ready to claim', `<small>${cur}</small>${U.compact(k.readyAmount)}`, `${U.plural(k.readyCount, 'contract')} · ${k.soonCount ? `<span class="chip sm t-amber">${k.soonCount} window closing</span>` : `${U.plural(k.needUpdate, 'claim')} need update`}`, '#/claims')}
         ${this.kpi('t-green', 'shield', 'Cardoo in recovery', `<small>${cur}</small>${U.compact(k.recoveryApproved)}`, `${U.int(k.recoveryCount)} approved claims`, '#/claims')}
         ${this.kpi('t-violet', 'car', 'Open-contract cover', `<small>${cur}</small>${U.compact(k.coveredExposure)}`, `${k.noBookingOpen ? `<span class="chip sm t-rose">${k.noBookingOpen} without booking</span>` : 'All open contracts booked'}`)}
-        ${this.kpi('t-orange', 'radar', 'Needs attention', U.int(k.criticalChecks), 'High-priority reconciliation items', '#/checks')}
+        ${this.kpi('t-rose', 'clock', 'Claim window expired', `<small>${cur}</small>${U.compact(k.expiredAmount)}`, `${U.plural(k.expiredCount, 'contract')} past ${g.claim_deadline_days} days · collect directly`, '#/claims')}
       </div>
       <div class="grid g-12">
         <div class="card"><div class="card-head"><div><h3>Waiver fees by month</h3><p>Fee charged (bars) and number of contracts (line), by contract open month</p></div></div>
@@ -1599,6 +1862,7 @@ Views.collections = {
     ['contacted', 'Contacted', 'indigo', r => r.stage === 'contacted'],
     ['promised', 'Promised', 'teal', r => r.stage === 'promised'],
     ['ready_to_claim', 'Ready to claim', 'amber', r => r.stage === 'ready_to_claim'],
+    ['claim_expired', 'Window expired', 'rose', r => r.stage === 'claim_expired'],
     ['not_covered', 'Not covered', 'rose', r => r.stage === 'not_covered'],
     ['claim_rejected', 'Claim rejected', 'rose', r => r.stage === 'claim_rejected'],
     ['on_hold', 'On hold', 'slate', r => r.stage === 'on_hold'],
@@ -1610,36 +1874,41 @@ Views.collections = {
   build(el) {
     if (!App.model.records.length) { State.built.collections = false; return Views.emptyData(el); }
     const f = State.ui.collections;
+    const g0 = App.model.settings.general;
     el.innerHTML = `<div class="filter-chips" id="colChips"></div>
       <div class="filters">
         <label>${icon('filter')}Amount</label><input class="input input-sm" type="number" id="cMin" placeholder="Min" value="${f.min}"><input class="input input-sm" type="number" id="cMax" placeholder="Max" value="${f.max}">
         <label>Closed</label><input class="input input-sm" type="date" id="cFrom" value="${f.from}"><span class="muted">→</span><input class="input input-sm" type="date" id="cTo" value="${f.to}">
         <select class="select input-sm" id="cLink"><option value="">Payment link: any</option><option value="has">Has payment link</option><option value="none">Missing payment link</option></select>
         <select class="select input-sm" id="cPhone"><option value="">Phone: any</option><option value="ok">Valid WhatsApp number</option><option value="bad">Needs checking</option></select>
+        <select class="select input-sm" id="cWin"><option value="">Claim window: any</option><option value="open">Within ${g0.claim_deadline_days} days</option><option value="soon">Closing in ≤ ${g0.expiring_soon_days} days</option><option value="expired">Expired</option></select>
+        <select class="select input-sm" id="cRem"><option value="">Remarks: any</option><option value="has">Has remark</option><option value="none">No remark</option>${(g0.remark_categories || []).map(c => `<option value="cat:${U.esc(c)}">${U.esc(c)}</option>`).join('')}</select>
         <button class="btn btn-sm btn-ghost" id="cReset">Reset</button>
       </div>
       <div id="colTable"></div>`;
-    $('#cLink', el).value = f.link; $('#cPhone', el).value = f.phone;
-    const upd = () => { Object.assign(f, { min: $('#cMin', el).value, max: $('#cMax', el).value, from: $('#cFrom', el).value, to: $('#cTo', el).value, link: $('#cLink', el).value, phone: $('#cPhone', el).value }); this.update(el); };
-    ['#cMin', '#cMax', '#cFrom', '#cTo', '#cLink', '#cPhone'].forEach(s => $(s, el).addEventListener('change', upd));
+    $('#cLink', el).value = f.link; $('#cPhone', el).value = f.phone; $('#cWin', el).value = f.win || ''; $('#cRem', el).value = f.rem || '';
+    const upd = () => { Object.assign(f, { min: $('#cMin', el).value, max: $('#cMax', el).value, from: $('#cFrom', el).value, to: $('#cTo', el).value, link: $('#cLink', el).value, phone: $('#cPhone', el).value, win: $('#cWin', el).value, rem: $('#cRem', el).value }); this.update(el); };
+    ['#cMin', '#cMax', '#cFrom', '#cTo', '#cLink', '#cPhone', '#cWin', '#cRem'].forEach(s => $(s, el).addEventListener('change', upd));
     ['#cMin', '#cMax'].forEach(s => $(s, el).addEventListener('input', U.debounce(upd, 300)));
-    $('#cReset', el).addEventListener('click', () => { Object.assign(f, { min: '', max: '', from: '', to: '', link: '', phone: '' }); State.built.collections = false; Views.render('collections'); });
+    $('#cReset', el).addEventListener('click', () => { Object.assign(f, { min: '', max: '', from: '', to: '', link: '', phone: '', win: '', rem: '' }); State.built.collections = false; Views.render('collections'); });
     $('#colChips', el).addEventListener('click', e => { const c = e.target.closest('[data-chip]'); if (c) { f.chip = c.dataset.chip; this.update(el); } });
 
     const cur = App.model.settings.general.currency;
     const t = State.tables.collections = new DataTable($('#colTable', el), {
       selectable: true, title: 'Collections', exportName: 'collections', sort: { key: 'outstanding', dir: 'desc' },
-      bulk: `<button class="btn btn-xs btn-wa" data-bulk="wa">${icon('whatsapp')}WhatsApp queue</button><button class="btn btn-xs" data-bulk="copy">${icon('copy')}Copy messages</button><button class="btn btn-xs" data-bulk="hold">${icon('pause')}Hold</button>`,
-      toolbar: `<button class="btn btn-sm" id="pasteLinks">${icon('link')}Paste payment links</button>`,
+      bulk: `<button class="btn btn-xs btn-wa" data-bulk="wa">${icon('whatsapp')}WhatsApp queue</button><button class="btn btn-xs btn-primary" data-bulk="batch">${icon('download')}Link batch CSV</button><button class="btn btn-xs" data-bulk="copy">${icon('copy')}Copy messages</button><button class="btn btn-xs" data-bulk="hold">${icon('pause')}Hold</button>`,
+      toolbar: `<button class="btn btn-sm" id="linkBatch" title="Download the provider batch CSV to generate payment links">${icon('download')}Link batch CSV</button><button class="btn btn-sm" id="pasteLinks">${icon('link')}Import payment links</button>`,
       columns: [
         ...Views.recordColumns(),
         { key: 'vehicle', label: 'Vehicle', get: r => r.vehicle, hidden: true },
         { key: 'close_date', label: 'Closed', type: 'date', get: r => r.close_date, sortGet: r => U.dayNum(r.close_date), html: r => R.date(r.close_date, R.ago(r.days_since_close)) },
-        { key: 'outstanding', label: `Outstanding`, plain: `Outstanding (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.outstanding, html: r => R.owe(r.outstanding) },
-        { key: 'coverage', label: 'Cardoo', plain: 'Cardoo cover', get: r => r.coverage, exp: r => r.booking_state === 'active' ? r.coverage : 0, type: 'num', html: R.booking, numeric: true },
-        { key: 'stage', label: 'Stage', get: r => STAGES[r.stage].label, sortGet: r => STAGES[r.stage].order, html: r => `${R.stage(r.stage)}${R.flags(r.flags.filter(x => !/Close booking/.test(x.t)))}` },
-        { key: 'contacts', label: 'Contacts', get: r => r.contact_count, numeric: true, html: r => r.contact_count ? `<b>${r.contact_count}×</b><span class="cell-sub">${r.last_contact_at ? U.esc(R.ago(U.todayNum() - U.dayNum(new Date(r.last_contact_at)))) : ''}</span>` : '<span class="zero">0</span>' },
-        { key: 'payment_link', label: 'Payment link', get: r => r.payment_link, sortable: true, html: r => `<input class="link-input ${r.payment_link ? 'has' : ''}" data-link="${r.contract_no}" value="${U.esc(r.payment_link)}" placeholder="Paste link…" title="${U.esc(r.payment_link || 'Paste the payment link for this customer')}">` },
+        { key: 'outstanding', label: `Outstanding`, plain: `Outstanding (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.outstanding, html: r => `${R.owe(r.outstanding)}<span class="cell-sub" style="color:var(--${r.booking_state === 'active' ? 'teal' : 'rose'})">${r.booking_state === 'active' ? 'cover ' + U.compact(r.coverage) : r.booking_state === 'cancelled' ? 'booking cancelled' : 'no Cardoo booking'}</span>` },
+        { key: 'coverage', label: 'Cardoo cover', get: r => r.booking_state === 'active' ? r.coverage : 0, type: 'num', hidden: true },
+        { key: 'stage', label: 'Stage', get: r => STAGES[r.stage].label, sortGet: r => STAGES[r.stage].order, html: r => `${R.stage(r.stage)}${R.flags(r.flags.filter(x => !/Close in Cardoo|Cardoo close|Claim in/.test(x.t)))}` },
+        { key: 'deadline', label: 'Claim window', type: 'date', get: r => r.claim_deadline, sortGet: r => r.days_to_deadline, html: r => R.window(r) },
+        { key: 'contacts', label: 'Contacts', get: r => r.contact_count, numeric: true, html: r => r.contact_count ? `${r.contact_count}×<span class="cell-sub">${r.last_contact_at ? U.esc(R.ago(U.todayNum() - U.dayNum(new Date(r.last_contact_at)))) : ''}</span>` : '<span class="zero">0</span>' },
+        { key: 'remark', label: 'Remarks', get: r => [r.remark_cat, r.remark].filter(Boolean).join(': '), html: R.remark },
+        { key: 'payment_link', label: 'Payment link', get: r => r.payment_link, sortable: true, html: r => `<input class="link-input ${r.payment_link ? 'has' : ''}" data-link="${r.contract_no}" value="${U.esc(r.payment_link)}" placeholder="${r.link_batch_at ? 'Requested ' + U.fmtDate(new Date(r.link_batch_at)) : 'Paste link…'}" title="${U.esc(r.payment_link || (r.link_batch_at ? 'In a link batch CSV on ' + U.fmtTS(r.link_batch_at) : 'Paste the payment link for this customer'))}">` },
         { key: 'actions', label: '', sortable: false, export: false, html: r => `<div class="row-actions">
           <button class="icon-btn sm wa" data-act="wa" data-no="${r.contract_no}" title="WhatsApp">${icon('whatsapp')}</button>
           <button class="icon-btn sm" data-act="copy" data-no="${r.contract_no}" title="Copy message">${icon('copy')}</button>
@@ -1653,9 +1922,17 @@ Views.collections = {
       const rows = t.selectedRows(); if (!rows.length) return;
       if (b.dataset.bulk === 'wa') Actions.queue(rows);
       if (b.dataset.bulk === 'copy') Actions.copyMany(rows);
+      if (b.dataset.bulk === 'batch') Actions.linkBatch(rows);
       if (b.dataset.bulk === 'hold') { for (const r of rows) await App.saveCase(r.contract_no, { on_hold: true }); Toast.ok(`${rows.length} put on hold`); t.clearSel(); }
     });
     $('#pasteLinks', el).addEventListener('click', () => Actions.pasteLinks());
+    $('#linkBatch', el).addEventListener('click', () => {
+      const sel = t.selectedRows();
+      if (sel.length) return Actions.linkBatch(sel);
+      const pool = t.view.filter(r => !r.payment_link);
+      if (!pool.length) return Toast.warn('Select customers first', 'Everyone in the current list already has a payment link.');
+      Actions.linkBatch(pool, true);
+    });
   },
   update(el) {
     if (!App.model.records.length) return;
@@ -1669,6 +1946,10 @@ Views.collections = {
       if (f.link === 'none' && r.payment_link) return false;
       if (f.phone === 'ok' && !r.phone_valid) return false;
       if (f.phone === 'bad' && r.phone_valid) return false;
+      if (f.win && r.claim_window !== f.win && !(f.win === 'open' && r.claim_window === 'soon')) return false;
+      if (f.rem === 'has' && !r.remark && !r.remark_cat) return false;
+      if (f.rem === 'none' && (r.remark || r.remark_cat)) return false;
+      if (f.rem && f.rem.startsWith('cat:') && r.remark_cat !== f.rem.slice(4)) return false;
       return true;
     });
     $('#colChips', el).innerHTML = this.chips.map(([id, label, tone, fn]) => {
@@ -1693,6 +1974,7 @@ Views.bindRowActions = function (root) {
     if (a === 'pack') Actions.claimPack(r);
     if (a === 'claimtxt') Actions.copyClaim(r);
     if (a === 'submit') Actions.markSubmitted([r]);
+    if (a === 'remark') { e.preventDefault(); Actions.remark(r); }
   });
   root.addEventListener('keydown', e => { if (e.target.matches('.link-input') && e.key === 'Enter') e.target.blur(); });
   root.addEventListener('change', async e => {
@@ -1706,13 +1988,14 @@ Views.bindRowActions = function (root) {
 /* ------------------------------ Claims ------------------------------ */
 Views.claims = {
   tabs: [
-    ['ready', 'Ready to claim', 'amber'], ['need_update', 'Need update', 'orange'], ['submitted', 'Submitted (awaiting report)', 'violet'],
+    ['ready', 'Ready to claim', 'amber'], ['soon', 'Window closing soon', 'orange'], ['window', 'Within claim window', 'teal'], ['expired', 'Window expired', 'rose'],
+    ['need_update', 'Need update', 'orange'], ['submitted', 'Submitted (awaiting report)', 'violet'],
     ['recovery', 'In recovery', 'green'], ['rejected', 'Cancelled / declined', 'rose'], ['all', 'All Cardoo claims', 'slate']
   ],
   build(el) {
     if (!App.model.records.length && !App.model.claimRows.length) { State.built.claims = false; return Views.emptyData(el); }
     const g = App.model.settings.general, cur = g.currency;
-    el.innerHTML = `<div class="notice" style="margin-bottom:14px">${icon('info')}<span>A contract becomes <b>Ready to claim</b> after ${g.claim_after_reminders} WhatsApp reminders or ${g.claim_after_days} days since the first reminder without payment — only for closed contracts with an active Cardoo booking. Claimable = lower of outstanding and the Cardoo deposit cover. Rules can be changed in Settings.</span></div>
+    el.innerHTML = `<div class="notice" style="margin-bottom:14px">${icon('info')}<span>Claims must reach Cardoo within <b>${g.claim_deadline_days} days</b> of the contract closing. A contract is <b>Ready to claim</b> after ${g.claim_after_reminders} reminders or ${g.claim_after_days} days without payment. <b>Window closing soon</b> = ${g.expiring_soon_days} days or less left; <b>Window expired</b> contracts can no longer be claimed and must be collected directly. Claimable = lower of outstanding and Cardoo cover.</span></div>
       <div class="filter-chips" id="clTabs"></div><div id="clRec"></div><div id="clRows"></div>`;
     $('#clTabs', el).addEventListener('click', e => { const c = e.target.closest('[data-tab]'); if (c) { State.ui.claims.tab = c.dataset.tab; this.update(el); } });
     const rec = State.tables.claimsRec = new DataTable($('#clRec', el), {
@@ -1724,13 +2007,14 @@ Views.claims = {
         { key: 'outstanding', label: 'Outstanding', plain: `Outstanding (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.outstanding, html: r => R.owe(r.outstanding) },
         { key: 'coverage', label: 'Cover', plain: `Cardoo cover (${cur})`, align: 'right', type: 'num', numeric: true, get: r => r.coverage, html: r => R.amt(r.coverage) },
         { key: 'claimable', label: 'Claimable', plain: `Claimable (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.claimable, html: r => `<span class="amt big" style="color:var(--amber)">${U.money(r.claimable)}</span>` },
-        { key: 'deadline', label: 'Claim window', type: 'date', get: r => r.claim_deadline, sortGet: r => r.days_to_deadline, html: r => r.claim_deadline ? `<span class="nowrap">${U.fmtDate(r.claim_deadline)}</span><span class="cell-sub" style="color:var(--${r.days_to_deadline < 0 ? 'rose' : r.days_to_deadline <= 7 ? 'amber' : 'muted'})">${r.days_to_deadline < 0 ? `passed ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`}</span>` : '—' },
+        { key: 'deadline', label: 'Claim window', type: 'date', get: r => r.claim_deadline, sortGet: r => r.days_to_deadline, html: r => R.window(r) },
+        { key: 'remark', label: 'Remarks', get: r => [r.remark_cat, r.remark].filter(Boolean).join(': '), html: R.remark },
         { key: 'contacts', label: 'Reminders', numeric: true, get: r => r.contact_count, html: r => `${r.contact_count}×` },
         { key: 'stage', label: 'Stage', get: r => STAGES[r.stage].label, html: r => R.stage(r.stage) },
         { key: 'act', label: '', sortable: false, export: false, html: r => `<div class="row-actions">
           <button class="btn btn-xs" data-act="pack" data-no="${r.contract_no}">${icon('pdf')}Pack</button>
           <button class="icon-btn sm" data-act="claimtxt" data-no="${r.contract_no}" title="Copy claim details">${icon('copy')}</button>
-          ${r.stage === 'ready_to_claim' ? `<button class="btn btn-xs btn-soft" data-act="submit" data-no="${r.contract_no}">${icon('check')}Submitted</button>` : ''}</div>` }
+          ${r.claim_window && r.claim_window !== 'expired' && !['claim_submitted'].includes(r.stage) ? `<button class="btn btn-xs btn-soft" data-act="submit" data-no="${r.contract_no}">${icon('check')}Submitted</button>` : ''}</div>` }
       ],
       onRowClick: r => Drawer.open(r.contract_no)
     });
@@ -1763,6 +2047,9 @@ Views.claims = {
     const min = +m.settings.general.min_outstanding || 0;
     const sets = {
       ready: m.records.filter(r => r.stage === 'ready_to_claim'),
+      soon: m.records.filter(r => r.claim_window === 'soon' && !['claim_submitted', 'paid_marked', 'on_hold'].includes(r.stage)),
+      window: m.records.filter(r => (r.claim_window === 'open' || r.claim_window === 'soon') && !['claim_submitted', 'paid_marked'].includes(r.stage)),
+      expired: m.records.filter(r => r.stage === 'claim_expired'),
       submitted: m.records.filter(r => r.stage === 'claim_submitted'),
       need_update: m.claimRows.filter(x => /update/i.test(x.status)),
       recovery: m.claimRows.filter(x => /recover/i.test(x.status)),
@@ -1770,9 +2057,9 @@ Views.claims = {
       all: m.claimRows
     };
     $('#clTabs', el).innerHTML = this.tabs.map(([id, l, tone]) => `<button class="fchip t-${tone} ${tab === id ? 'active' : ''}" data-tab="${id}"><span class="dot"></span>${l}<i>${sets[id].length}</i></button>`).join('');
-    const recTab = tab === 'ready' || tab === 'submitted';
+    const recTab = ['ready', 'soon', 'window', 'expired', 'submitted'].includes(tab);
     $('#clRec', el).hidden = !recTab; $('#clRows', el).hidden = recTab;
-    if (recTab) { State.tables.claimsRec.o.title = tab === 'ready' ? 'Claims - ready to claim' : 'Claims - submitted'; State.tables.claimsRec.setRows(sets[tab]); }
+    if (recTab) { State.tables.claimsRec.o.title = 'Claims - ' + this.tabs.find(t => t[0] === tab)[1]; State.tables.claimsRec.o.exportName = 'claims_' + tab; State.tables.claimsRec.setRows(sets[tab]); }
     else { State.tables.claimsRows.o.title = 'Cardoo claims - ' + this.tabs.find(t => t[0] === tab)[1]; State.tables.claimsRows.setRows(sets[tab]); }
     void min;
   }
@@ -1807,6 +2094,7 @@ Views.checks = {
     const div = document.createElement('div'); body.appendChild(div);
     let cols;
     if (c.kind === 'bookings') cols = Views.bookings.cols();
+    else if (c.kind === 'cardoo') cols = Views.matching.cardooCols();
     else if (c.kind === 'claims') cols = Views.claims && State.tables.claimsRows ? State.tables.claimsRows.cols : [
       { key: 'claim_date', label: 'Claim date', type: 'date', get: r => r.claim_date, html: r => R.date(r.claim_date) },
       { key: 'contract_no', label: 'Contract', get: r => r.contract_raw, html: r => R.cno(r.contract_raw) },
@@ -1946,7 +2234,7 @@ Views.payments = {
 
 /* ------------------------------ Activity ------------------------------ */
 Views.activity = {
-  labels: { whatsapp: ['WhatsApp sent', 'green'], call: ['Call logged', 'teal'], case_update: ['Case updated', 'indigo'], sync: ['Reports synced', 'violet'], login: ['Signed in', 'slate'], settings: ['Settings changed', 'amber'], note: ['Note', 'sky'], claim_pack: ['Claim pack', 'orange'], statement: ['Statement PDF', 'sky'] },
+  labels: { whatsapp: ['WhatsApp sent', 'green'], call: ['Call logged', 'teal'], case_update: ['Case updated', 'indigo'], sync: ['Reports synced', 'violet'], login: ['Signed in', 'slate'], settings: ['Settings changed', 'amber'], note: ['Note', 'sky'], claim_pack: ['Claim pack', 'orange'], statement: ['Statement PDF', 'sky'], remark: ['Remark', 'teal'], link_batch: ['Link batch CSV', 'violet'] },
   build(el) {
     el.innerHTML = `<div class="filters"><label>${icon('filter')}Show</label><select class="select input-sm" id="acAction"><option value="">All actions</option>${Object.entries(this.labels).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('')}</select>
       <button class="btn btn-sm" id="acReload">${icon('refresh')}Reload</button></div><div id="acTable"></div>`;
@@ -1973,6 +2261,9 @@ Views.activity = {
     if (a.action === 'case_update') return Object.entries(d).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v === null || v === '' ? '(cleared)' : v}`).join(' · ');
     if (a.action === 'sync') return d.stored ? Object.entries(d.stored).map(([k, v]) => `${k} ${v}`).join(' · ') : '';
     if (a.action === 'call') return d.note || '';
+    if (a.action === 'remark') return [d.category, d.text].filter(Boolean).join(': ');
+    if (a.action === 'link_batch') return `${d.order_id || ''} · ${d.amount != null ? U.money(d.amount) : ''}`;
+    if (a.action === 'sync' && d.merge) return Object.entries(d.merge).map(([k, v]) => `${k}: +${v.inserted} new, ${v.updated} updated`).join(' · ');
     if (a.action === 'settings') return d.key || '';
     return Object.keys(d).length ? JSON.stringify(d) : '';
   },
@@ -2005,15 +2296,18 @@ const Drawer = {
   },
   async loadActivity() {
     const no = this.no;
-    try { const a = await API.call('dw_get_activity', { p_contract: no, p_limit: 200 }); if (no === this.no) { this.activity = a || []; if (this.tab === 'timeline' || this.tab === 'overview') this.render(); } }
-    catch (e) { this.activity = []; }
+    try {
+      const [a, ch] = await Promise.all([API.call('dw_get_activity', { p_contract: no, p_limit: 300 }), API.call('dw_get_changes', { p_batch: null, p_contract: no, p_limit: 300 }).catch(() => [])]);
+      if (no === this.no) { this.activity = a || []; this.changes = ch || []; this.render(); }
+    } catch (e) { this.activity = []; this.changes = []; }
   },
   render() {
     const r = App.model.byNo.get(this.no);
     if (!r) return this.close();
     const g = App.model.settings.general, cur = g.currency, k = r.case || {};
     const d = $('#drawer');
-    const tabs = [['overview', 'Overview'], ['cardoo', 'Cardoo', r.bookings.length + r.claims.length], ['payments', 'Payments', r.payments.length], ['timeline', 'Timeline', this.activity ? this.activity.length : '']];
+    const nRem = (this.activity || []).filter(a => a.action === 'remark').length || (k.remark_count || 0);
+    const tabs = [['overview', 'Overview'], ['remarks', 'Remarks', nRem], ['cardoo', 'Cardoo', r.bookings.length + r.claims.length], ['payments', 'Payments', r.payments.length], ['timeline', 'Timeline', this.activity ? this.activity.length : '']];
     d.innerHTML = `
       <div class="dr-head">
         <button class="icon-btn ghost close" id="drClose">${icon('x')}</button>
@@ -2023,6 +2317,7 @@ const Drawer = {
         <div class="dr-actions">
           <button class="btn btn-sm btn-wa" id="drWa" ${r.phone ? '' : 'disabled'}>${icon('whatsapp')}WhatsApp</button>
           <button class="btn btn-sm" id="drCopy">${icon('copy')}Copy message</button>
+          <button class="btn btn-sm" id="drRemark">${icon('note')}Remark</button>
           ${r.phone ? `<a class="btn btn-sm" href="tel:+${r.phone}" id="drCall">${icon('phone')}Call</a>` : ''}
           ${r.email ? `<a class="btn btn-sm" href="mailto:${U.esc(r.email)}?subject=${encodeURIComponent(`Outstanding balance - rental agreement #${r.contract_no}`)}&body=${encodeURIComponent(Engine.fillTemplate((App.model.settings.templates[0] || {}).body || '', r, App.model.settings).replace(/\*/g, ''))}">${icon('mail')}Email</a>` : ''}
           <div class="dd" data-dd><button class="btn btn-sm">${icon('pdf')}PDF</button><div class="dd-menu">
@@ -2035,6 +2330,7 @@ const Drawer = {
     $$('.dr-tabs button', d).forEach(b => b.addEventListener('click', () => { this.tab = b.dataset.tab; this.render(); }));
     $('#drWa').addEventListener('click', () => Actions.compose(r));
     $('#drCopy').addEventListener('click', () => Actions.copyMessage(r));
+    $('#drRemark').addEventListener('click', () => { this.tab = 'remarks'; this.render(); setTimeout(() => { const t = $('#rmText'); if (t) t.focus(); }, 30); });
     $('#drStmt').addEventListener('click', () => Actions.statement(r));
     $('#drPack').addEventListener('click', () => Actions.claimPack(r));
     const call = $('#drCall'); if (call) call.addEventListener('click', () => Actions.logCall(r));
@@ -2053,6 +2349,7 @@ const Drawer = {
         <div class="money"><small>Contract balance</small><b>${r.contract_balance == null ? '—' : U.money(r.contract_balance)}</b></div>
       </div>
       ${r.status === 'Closed' && r.outstanding > 0 ? `<div class="notice ${r.stage === 'ready_to_claim' ? 'amber' : r.booking_state !== 'active' ? 'rose' : ''}">${icon('info')}<span><b>${STAGES[r.stage].label}:</b> ${STAGES[r.stage].hint}.${r.uncovered > 0 && r.booking_state === 'active' ? ` ${cur} ${U.money(r.uncovered)} is above the Cardoo cover and must be collected directly.` : ''}</span></div>` : ''}
+      ${r.remark || r.remark_cat ? `<div class="rm-item"><div class="meta">${r.remark_cat ? `<span class="tag">${U.esc(r.remark_cat)}</span>` : ''}<span>Last remark · ${U.esc(k.last_remark_by || '')} · ${U.fmtTS(r.remark_at)}</span></div>${U.esc(r.remark || '')}</div>` : ''}
       <div class="panel">
         <h4>${icon('wallet')}Collection workflow<span class="spacer"></span>${k.updated_by ? `<span class="small muted" style="text-transform:none;letter-spacing:0;font-weight:600">updated by ${U.esc(k.updated_by)} · ${U.fmtTS(k.updated_at)}</span>` : ''}</h4>
         <div class="grid" style="gap:12px">
@@ -2091,8 +2388,30 @@ const Drawer = {
           ${r.claim_deadline && r.status === 'Closed' ? `<dt>Claim window</dt><dd>${U.fmtDate(r.claim_deadline)} <span class="muted">(${r.days_to_deadline < 0 ? `passed ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`})</span></dd>` : ''}
         </dl></div>`;
   },
+  tab_remarks(r, g) {
+    const cats = g.remark_categories || [];
+    const list = (this.activity || []).filter(a => a.action === 'remark' || a.action === 'call');
+    return `<div class="panel"><h4>${icon('note')}Add remark</h4>
+        <div class="grid" style="gap:10px">
+          <div class="tpl-tabs" id="rmCats">${cats.map(c => `<button data-c="${U.esc(c)}">${U.esc(c)}</button>`).join('')}</div>
+          <textarea class="input" id="rmText" placeholder="Write a remark about this customer…" style="min-height:80px"></textarea>
+          <div><button class="btn btn-primary btn-sm" id="rmSave">${icon('check')}Save remark</button></div>
+        </div></div>
+      <div class="panel"><h4>${icon('clock')}Remarks &amp; call notes</h4>
+        ${this.activity === null ? '<div class="skeleton" style="height:50px"></div>' : list.length ? `<div class="grid" style="gap:8px">${list.map(a => { const d = a.details || {}; return `<div class="rm-item"><div class="meta">${d.category ? `<span class="tag">${U.esc(d.category)}</span>` : a.action === 'call' ? '<span class="tag">Call</span>' : ''}<span>${U.esc(a.username)} · ${U.fmtTS(a.created_at)}</span></div>${U.esc(d.text || d.note || '')}</div>`; }).join('')}</div>` : '<p class="muted small">No remarks yet.</p>'}
+        ${r.case && r.case.notes ? `<div class="rm-item mt-sm"><div class="meta"><span class="tag">Notes</span></div>${U.esc(r.case.notes)}</div>` : ''}</div>`;
+  },
   tab_cardoo(r, g, cur) {
-    return `<div class="panel"><h4>${icon('shield')}Cardoo bookings</h4>${r.bookings.length ? `<div class="mini-list">${r.bookings.map(b => `<div class="mini-item">
+    const syncTxt = { both_closed: 'Closed in both', caryaati_only: 'Closed in Caryaati · still open in Cardoo', cardoo_only: 'Closed in Cardoo · still open in Caryaati', both_open: 'Open in both', no_booking: 'No Cardoo booking' }[r.close_sync];
+    const syncTone = { both_closed: r.close_diff_days ? 'amber' : 'green', caryaati_only: 'amber', cardoo_only: 'rose', both_open: 'sky', no_booking: 'rose' }[r.close_sync];
+    const cmp = `<div class="panel"><h4>${icon('swap')}Caryaati vs Cardoo<span class="spacer"></span><span class="chip t-${syncTone}" style="text-transform:none;letter-spacing:0">${syncTxt}</span></h4>
+      <table class="ledger"><tr><td>Caryaati status</td><td>${r.status}</td></tr>
+      <tr><td>Caryaati closed</td><td>${r.close_date ? (String(r.caryaati_close_at).length > 10 ? U.fmtDT(r.caryaati_close_at) : U.fmtDate(r.close_date)) : '—'}</td></tr>
+      <tr><td>Cardoo booking period</td><td>${r.booking_start ? `${U.fmtDate(r.booking_start)} → ${U.fmtDate(r.booking_end)}` : '—'}</td></tr>
+      <tr><td>Cardoo closed</td><td>${r.cardoo_close_at ? U.fmtDT(r.cardoo_close_at) : r.cardoo_status === 'open' ? 'not closed' : '—'}</td></tr>
+      ${r.close_diff_days ? `<tr><td>Difference</td><td class="${r.close_diff_days > 0 ? 'diff-pos' : 'diff-neg'}">${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days} days</td></tr>` : ''}
+      ${r.claim_deadline ? `<tr><td>Claim window (${g.claim_deadline_days} days)</td><td>${U.fmtDate(r.claim_deadline)} · ${r.days_to_deadline < 0 ? `expired ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`}</td></tr>` : ''}</table></div>`;
+    return cmp + `<div class="panel"><h4>${icon('shield')}Cardoo bookings</h4>${r.bookings.length ? `<div class="mini-list">${r.bookings.map(b => `<div class="mini-item">
         <div class="grow"><b>${U.esc(b.booking_type || 'Booking')} ${b.contract_variant ? `<span class="tag">${U.esc(b.contract_variant)}</span>` : ''}</b>
         <div class="small muted">${U.fmtDT(b.start_at)} → ${U.fmtDT(b.end_at)}${b.close_at ? ` · closed ${U.fmtDT(b.close_at)}` : ' · not closed'}</div>
         <div class="small muted">Booked ${U.fmtDT(b.booked_at)} by ${U.esc(b.user_label || '')}${b.comment ? ` · ${U.esc(b.comment)}` : ''}</div></div>
@@ -2120,6 +2439,7 @@ const Drawer = {
     if (r.close_date) ev.push({ at: r.dropoff_at || r.close_date, t: 'Contract closed', s: `Outstanding ${U.money(r.outstanding)}`, tone: '--slate' });
     r.claims.forEach(c => ev.push({ at: c.claim_date, t: `Claim · ${c.status}`, s: `Excess ${U.money(c.excess_sum)}${c.approved_amount != null ? ` · approved ${U.money(c.approved_amount)}` : ''}`, tone: '--amber' }));
     (this.activity || []).filter(a => a.action !== 'login').forEach(a => ev.push({ at: a.created_at, ts: true, t: (Views.activity.labels[a.action] || [a.action])[0] + ` · ${a.username}`, s: Views.activity.describe(a), msg: a.details && a.details.message, tone: a.action === 'whatsapp' ? '--wa' : '--indigo' }));
+    (this.changes || []).forEach(c => ev.push({ at: c.created_at, ts: true, t: `Report update · ${c.tbl} · ${c.field.replace(/_/g, ' ')}`, s: `${Views.import.fmtVal(c.old_value)} → ${Views.import.fmtVal(c.new_value)}`, tone: '--amber' }));
     const key = e => e.ts ? new Date(e.at).getTime() / 86400000 : (U.dayFrac(e.at) || 0) - 4 / 24;
     ev.sort((a, b) => key(b) - key(a));
     return `<div class="panel"><h4>${icon('clock')}Timeline</h4>${this.activity === null ? '<div class="skeleton" style="height:60px"></div>' : ''}
@@ -2143,6 +2463,9 @@ const Drawer = {
     on('#drPack2', () => Actions.claimPack(r));
     on('#drClaimTxt', () => Actions.copyClaim(r));
     on('#drSubmitted', () => Actions.markSubmitted([r]));
+    let cat = '';
+    $$('#rmCats button', d).forEach(b => b.addEventListener('click', () => { cat = cat === b.dataset.c ? '' : b.dataset.c; $$('#rmCats button', d).forEach(x => x.classList.toggle('on', x.dataset.c === cat)); }));
+    on('#rmSave', async () => { const t = $('#rmText', d).value.trim(); if (!t && !cat) return Toast.warn('Write a remark or pick a category'); await Actions.saveRemark(no, t, cat); });
   }
 };
 
@@ -2151,6 +2474,97 @@ const Drawer = {
    ===================================================================== */
 const Actions = {
   tplId: null,
+  async saveRemark(no, text, cat) {
+    try {
+      const k = await API.call('dw_add_remark', { p_contract: no, p_text: text, p_category: cat || null });
+      App.patchCase(k); Toast.ok('Remark saved');
+      if (Drawer.no === no) Drawer.loadActivity();
+      return k;
+    } catch (e) { Toast.err('Could not save remark', e.message); }
+  },
+  remark(r) {
+    const cats = App.model.settings.general.remark_categories || [];
+    let cat = '';
+    Modal.open({ title: 'Add remark', sub: `#${r.contract_no} · ${U.esc(r.name)}`, size: 'narrow',
+      body: `<div class="tpl-tabs" id="qrCats">${cats.map(c => `<button data-c="${U.esc(c)}">${U.esc(c)}</button>`).join('')}</div>
+        <textarea class="input" id="qrText" placeholder="Remark…" style="min-height:90px"></textarea>
+        ${r.remark ? `<div class="rm-item"><div class="meta">Previous · ${U.fmtTS(r.remark_at)}</div>${U.esc(r.remark)}</div>` : ''}`,
+      foot: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="qrSave">${icon('check')}Save</button>`,
+      onOpen: m => {
+        $$('#qrCats button', m).forEach(b => b.addEventListener('click', () => { cat = cat === b.dataset.c ? '' : b.dataset.c; $$('#qrCats button', m).forEach(x => x.classList.toggle('on', x.dataset.c === cat)); }));
+        $('#qrSave', m).addEventListener('click', async () => {
+          const t = $('#qrText', m).value.trim(); if (!t && !cat) return Toast.warn('Write a remark or pick a category');
+          Modal.close(); await this.saveRemark(r.contract_no, t, cat);
+        });
+      } });
+  },
+
+  /** Provider batch CSV (eInvoice batch upload) for selected customers */
+  linkBatch(rows, auto) {
+    const g = App.model.settings.general, cur = g.currency;
+    rows = rows.filter(r => r && r.outstanding > 0);
+    if (!rows.length) return Toast.warn('No customers with an outstanding balance in the selection');
+    const st = { orderName: g.link_order_name || 'Outstanding Balance', message: g.link_message || 'Please pay the amount.', days: +g.link_expiry_days || 5, time: g.link_expiry_time || '15:00:00', skipLinked: true, amounts: {}, infos: {}, excl: new Set() };
+    Modal.open({
+      title: `${icon('download')} Payment-link batch CSV`, size: 'wide',
+      sub: `${rows.length} customer(s)${auto ? ' — all customers in the current list without a payment link' : ' selected'} · upload the file to your payment-link provider, then import the generated links back`,
+      body: `<div class="form-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+          <label class="field"><span>OrderName</span><input class="input" id="lbName" value="${U.esc(st.orderName)}"></label>
+          <label class="field"><span>Message</span><input class="input" id="lbMsg" value="${U.esc(st.message)}"></label>
+          <label class="field"><span>Link expires after (days)</span><input class="input" type="number" min="1" id="lbDays" value="${st.days}"></label>
+          <label class="field"><span>Expiry time</span><input class="input" id="lbTime" value="${U.esc(st.time)}" placeholder="15:00:00"></label>
+        </div>
+        <div class="toolbar"><label class="check"><input type="checkbox" id="lbSkip" checked><span></span>Skip customers who already have a payment link</label><span class="spacer"></span><span class="small muted" id="lbSum"></span></div>
+        <div class="dt-scroll card" style="max-height:340px"><table class="tbl"><thead><tr><th class="cb"></th><th>OrderID</th><th>Customer</th><th>Mobile</th><th>Email</th><th>OrderInfo</th><th class="right">Amount (${cur})</th><th>Expiry</th></tr></thead><tbody id="lbBody"></tbody></table></div>
+        <div id="lbWarn"></div>`,
+      foot: `<span class="small muted">Format: OrderID, OrderName, OrderInfo, Amount, Currency, EffectiveStartDate, ExpiryDate, CardHolderName, CardHolderEmail, CardHolderMobile, Language, InvoiceType, Message</span><span class="spacer"></span>
+        <button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="lbGo">${icon('download')}Download CSV</button>`,
+      onOpen: m => {
+        const list = () => rows.filter(r => !(st.skipLinked && r.payment_link));
+        const exp = () => Engine.linkExpiry(Object.assign({}, g, { link_expiry_days: st.days, link_expiry_time: st.time }));
+        const build = () => list().filter(r => !st.excl.has(r.contract_no)).map(r => ({ r, row: Engine.linkRow(r, g, { orderName: st.orderName, message: st.message, expiry: exp(), amount: st.amounts[r.contract_no], orderInfo: st.infos[r.contract_no] }) }));
+        const draw = () => {
+          const L = list(), ex = exp();
+          $('#lbBody', m).innerHTML = L.map(r => { const row = Engine.linkRow(r, g, { expiry: ex, amount: st.amounts[r.contract_no], orderInfo: st.infos[r.contract_no] }); const off = st.excl.has(r.contract_no);
+            return `<tr style="${off ? 'opacity:.45' : ''}"><td class="cb"><label class="check"><input type="checkbox" data-inc="${r.contract_no}" ${off ? '' : 'checked'}><span></span></label></td>
+              <td class="mono small">${row.OrderID}</td><td><span class="cell-main">${U.esc(row.CardHolderName)}</span>${r.payment_link ? '<span class="cell-sub" style="color:var(--green)">has link</span>' : r.link_batch_at ? `<span class="cell-sub">requested ${U.fmtDate(new Date(r.link_batch_at))}</span>` : ''}</td>
+              <td class="mono small">${row.CardHolderMobile || '<span class="pos">missing</span>'}</td><td class="small">${U.esc(row.CardHolderEmail) || '<span class="pos">missing</span>'}</td>
+              <td><input class="link-input" style="width:150px" data-info="${r.contract_no}" value="${U.esc(row.OrderInfo)}"></td>
+              <td class="right"><input class="link-input mono" style="width:90px;text-align:right" type="number" step="0.01" data-amt="${r.contract_no}" value="${row.Amount}"></td><td class="mono small nowrap">${row.ExpiryDate}</td></tr>`; }).join('') || '<tr><td colspan="8" class="muted" style="padding:20px;text-align:center">Nothing to include.</td></tr>';
+          const B = build();
+          $('#lbSum', m).textContent = `${B.length} rows · total ${cur} ${U.money(U.sum(B, x => +x.row.Amount))}`;
+          const noMob = B.filter(x => !x.row.CardHolderMobile).length, noMail = B.filter(x => !x.row.CardHolderEmail).length;
+          $('#lbWarn', m).innerHTML = noMob || noMail ? `<div class="notice amber">${icon('alert')}<span>${noMob ? `${noMob} without mobile` : ''}${noMob && noMail ? ' · ' : ''}${noMail ? `${noMail} without email` : ''} — the provider may reject those rows.</span></div>` : '';
+          $('#lbGo', m).disabled = !B.length;
+        };
+        $('#lbName', m).addEventListener('input', e => { st.orderName = e.target.value; });
+        $('#lbMsg', m).addEventListener('input', e => { st.message = e.target.value; });
+        $('#lbDays', m).addEventListener('input', e => { st.days = Math.max(1, +e.target.value || 1); draw(); });
+        $('#lbTime', m).addEventListener('change', e => { st.time = e.target.value.trim(); draw(); });
+        $('#lbSkip', m).addEventListener('change', e => { st.skipLinked = e.target.checked; draw(); });
+        $('#lbBody', m).addEventListener('change', e => {
+          const t = e.target;
+          if (t.dataset.inc) { t.checked ? st.excl.delete(+t.dataset.inc) : st.excl.add(+t.dataset.inc); draw(); }
+          if (t.dataset.amt) { st.amounts[+t.dataset.amt] = +t.value; draw(); }
+          if (t.dataset.info) { st.infos[+t.dataset.info] = t.value; }
+        });
+        draw();
+        $('#lbGo', m).addEventListener('click', async () => {
+          const B = build(); if (!B.length) return;
+          const csv = Engine.csv(B.map(x => x.row), Engine.LINK_COLUMNS);
+          const d = new Date(), stamp = `${U.pad(d.getMonth() + 1)}-${U.pad(d.getDate())}-${d.getFullYear()}`;
+          Exporter.download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `eInvoice_Batch_Upload-${stamp}.csv`);
+          Modal.close();
+          Toast.ok(`Batch CSV with ${B.length} customers downloaded`, 'Upload it to the payment-link provider');
+          try {
+            const ks = await API.call('dw_mark_link_batch', { p_items: B.map(x => ({ contract_no: x.r.contract_no, amount: +x.row.Amount, order_id: x.row.OrderID })) });
+            (ks || []).forEach(k => { const list2 = State.ds.cases || (State.ds.cases = []); const i = list2.findIndex(y => +y.contract_no === +k.contract_no); if (i >= 0) list2[i] = k; else list2.push(k); });
+            App.rebuild(true);
+          } catch (e) { Toast.warn('CSV downloaded, but could not record the batch', e.message); }
+        });
+      }
+    });
+  },
   templates() { return App.model.settings.templates; },
   pickTemplate(r) {
     const t = this.templates();
@@ -2295,14 +2709,17 @@ const Actions = {
   },
 
   pasteLinks() {
-    Modal.open({ title: 'Paste payment links', sub: 'One per line: <b>contract number</b>, then the link (comma, tab or space separated). Copy two columns straight from Excel.', size: 'wide',
-      body: `<textarea class="input mono" id="plText" style="min-height:220px" placeholder="19025, https://pay.example.com/abc123&#10;18920	https://pay.example.com/xyz789"></textarea><div id="plPrev"></div>`,
+    Modal.open({ title: 'Import payment links', sub: 'Upload the file returned by the payment-link provider (CSV / Excel with OrderID like <b>Cno19254</b> and the link), or paste lines of contract number + link.', size: 'wide',
+      body: `<div class="toolbar"><button class="btn btn-sm" id="plFile">${icon('upload')}Choose provider file…</button><span class="small muted" id="plFileName"></span></div>
+        <textarea class="input mono" id="plText" style="min-height:200px" placeholder="Cno19254, https://pay.example.com/abc123&#10;18920	https://pay.example.com/xyz789"></textarea><div id="plPrev"></div>`,
       foot: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="plSave" disabled>${icon('check')}Save links</button>`,
       onOpen: m => {
         let parsed = [];
         const parse = () => {
           parsed = $('#plText', m).value.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
-            const mm = l.match(/#?(\d{3,})\D+?(https?:\/\/\S+)/i) || l.match(/(https?:\/\/\S+)\D+?#?(\d{3,})/i);
+            const cn = l.match(/cno\s*(\d{3,})/i), ur = l.match(/https?:\/\/[^\s,;"]+/i);
+            if (cn && ur) { const rec0 = App.model.byNo.get(+cn[1]); return { no: +cn[1], url: ur[0], line: l, ok: !!rec0, rec: rec0 }; }
+            const mm = l.match(/(?:cno|#)?\s*(\d{3,})\D+?(https?:\/\/[^\s,;]+)/i) || l.match(/(https?:\/\/[^\s,;]+)\D+?(?:cno|#)?(\d{3,})/i);
             if (!mm) return { line: l, ok: false };
             const a = /^https?:/i.test(mm[1]) ? { no: +mm[2], url: mm[1] } : { no: +mm[1], url: mm[2] };
             const rec = App.model.byNo.get(a.no);
@@ -2313,6 +2730,25 @@ const Actions = {
           $('#plSave', m).disabled = !good.length;
         };
         $('#plText', m).addEventListener('input', U.debounce(parse, 200));
+        $('#plFile', m).addEventListener('click', () => {
+          const i = document.createElement('input'); i.type = 'file'; i.accept = '.csv,.xlsx,.xls,.txt';
+          i.onchange = async () => {
+            const f = i.files[0]; if (!f) return;
+            try {
+              const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', raw: true });
+              const rowsX = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+              const lines = [];
+              rowsX.forEach(rw => {
+                const cells = rw.map(x => String(x || '').trim());
+                const url = cells.find(x => /^https?:\/\//i.test(x));
+                const id = cells.find(x => /^cno\s*\d{3,}$/i.test(x)) || cells.find(x => /^\d{4,6}$/.test(x));
+                if (url && id) lines.push(`${id.replace(/\D/g, '')}, ${url}`);
+              });
+              $('#plText', m).value = lines.join('\n'); $('#plFileName', m).textContent = `${f.name} · ${lines.length} links found`; parse();
+            } catch (e) { Toast.err('Could not read file', e.message); }
+          };
+          i.click();
+        });
         $('#plSave', m).addEventListener('click', async () => {
           const good = parsed.filter(p => p.ok); const b = $('#plSave', m); b.classList.add('loading'); b.disabled = true;
           let n = 0; for (const p of good) { try { await API.call('dw_save_case', { p_contract: p.no, p_patch: { payment_link: p.url } }).then(k => { const list = State.ds.cases || (State.ds.cases = []); const i = list.findIndex(x => +x.contract_no === p.no); if (i >= 0) list[i] = k; else list.push(k); }); n++; } catch (e) { Toast.err(`#${p.no}: ${e.message}`); } }
@@ -2434,17 +2870,26 @@ const Actions = {
    Import & Sync view
    ===================================================================== */
 Views.import = {
+  fmtVal(v) {
+    if (v == null || v === '') return '—';
+    if (typeof v === 'number') return Number.isInteger(v) ? String(v) : U.money(v);
+    if (typeof v === 'boolean') return v ? 'yes' : 'no';
+    const s = String(v);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return U.fmtDate(s);
+    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(s)) return U.fmtDT(s);
+    return s.length > 70 ? s.slice(0, 67) + '…' : s;
+  },
   build(el) {
     const imp = State.imports;
     const n = REPORT_ORDER.filter(t => imp[t] && imp[t].norm).length;
     el.innerHTML = `
-      <div class="section-head"><div><h2>Import reports</h2><p>Drop all five Excel files at once — file names don't matter. Each report is recognised by its columns, then cleaned and linked.</p></div>
+      <div class="section-head"><div><h2>Import reports</h2><p>Attach one or more of the five reports — file names don't matter. New records are added, changed records are updated, and records missing from a file are left as they are.</p></div>
         <span class="spacer"></span>${n ? `<button class="btn btn-ghost" id="impClear">${icon('trash')}Clear files</button>` : ''}</div>
       <label class="dropzone" id="dz"><input type="file" id="dzInput" multiple accept=".xlsx,.xls,.xlsm,.csv">
-        <div class="dz-ico">${icon('upload')}</div><h3>Drop the 5 reports here, or click to browse</h3><p>.xlsx · .xls · .csv — any order, any file names</p></label>
+        <div class="dz-ico">${icon('upload')}</div><h3>Drop reports here, or click to browse</h3><p>.xlsx · .xls · .csv — any order, any file names, 1 to 5 files</p></label>
       <div class="slots">${REPORT_ORDER.map((t, i) => this.slot(t, i)).join('')}</div>
       <div id="impQuality"></div>
-      <div class="card mt"><div class="card-head"><div><h3>Sync history</h3><p>Every import replaces the report data; your notes, payment links and contact history are kept.</p></div></div><div class="card-body" id="impHist"><div class="skeleton" style="height:40px"></div></div></div>`;
+      <div class="card mt"><div class="card-head"><div><h3>Sync history</h3><p>Every sync merges into the database. Notes, remarks, payment links and contact history are never touched.</p></div></div><div class="card-body" id="impHist"><div class="skeleton" style="height:40px"></div></div></div>`;
     const dz = $('#dz', el), inp = $('#dzInput', el);
     inp.addEventListener('change', () => { this.files(inp.files); inp.value = ''; });
     ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
@@ -2453,7 +2898,7 @@ Views.import = {
     $$('[data-pick]', el).forEach(b => b.addEventListener('click', e => { e.preventDefault(); const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xls,.xlsm,.csv'; i.onchange = () => this.files(i.files, b.dataset.pick); i.click(); }));
     $$('[data-rm]', el).forEach(b => b.addEventListener('click', () => { delete State.imports[b.dataset.rm]; State.prepared = null; this.build(el); }));
     const clr = $('#impClear', el); if (clr) clr.addEventListener('click', () => { State.imports = {}; State.prepared = null; this.build(el); });
-    if (n === 5) this.quality(el);
+    if (n) this.quality(el);
     this.history();
   },
   slot(t, i) {
@@ -2462,7 +2907,7 @@ Views.import = {
     let meta = '';
     if (ok) {
       const st = s.norm.stats;
-      meta = `<div class="file" title="${U.esc(s.file.name)}">${icon('xls')} ${U.esc(s.file.name)}</div><div class="meta"><span><b>${U.int(s.norm.rows.length)}</b> rows</span><span>sheet “${U.esc(s.det.sheet)}”</span>${st.skipped ? `<span>${st.skipped} skipped</span>` : ''}</div>`;
+      meta = `<div class="file" title="${U.esc(s.file.name)}">${icon('xls')} ${U.esc(s.file.name)}</div><div class="meta"><span>${U.int(s.norm.rows.length)} rows</span><span>sheet “${U.esc(s.det.sheet)}”</span>${st.skipped ? `<span>${st.skipped} skipped</span>` : ''}</div>`;
     } else if (err) meta = `<div class="notice rose small">${icon('alert')}<span>${U.esc(err)}</span></div>`;
     return `<div class="slot ${ok ? 'ok' : err ? 'err' : ''}"><div class="slot-top"><span class="slot-num">${ok ? icon('check') : i + 1}</span><div><span class="src">${spec.source}</span><h4>${spec.label}</h4></div></div>
       ${meta || `<p class="desc">${spec.desc}</p>`}
@@ -2477,97 +2922,108 @@ Views.import = {
     for (const f of files) {
       try {
         await U.sleep(20);
-        const buf = await f.arrayBuffer();
-        const wb = XLSX.read(buf, { type: 'array', cellDates: false, dense: false });
+        const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: false, dense: false });
         const det = Engine.detectWorkbook(wb, XLSX);
         if (!det) { Toast.err(`Not recognised: ${f.name}`, 'None of the 5 report layouts matched its column headers.'); if (forced) State.imports[forced] = { file: f, error: 'Columns do not match this report.' }; continue; }
         if (forced && det.type !== forced) Toast.warn(`${f.name} looks like “${REPORTS[det.type].label}”`, 'It was placed in the matching slot.');
         const norm = Engine.normalize(det.type, det, App.model ? App.model.settings : {});
-        if (State.imports[det.type] && State.imports[det.type].norm && State.imports[det.type].file.name !== f.name) Toast.warn(`Replaced ${REPORTS[det.type].label}`, `${State.imports[det.type].file.name} → ${f.name}`);
-        det.rows = null; // free memory
+        det.rows = null;
         State.imports[det.type] = { file: f, det, norm };
-      } catch (e) {
-        console.error(e);
-        Toast.err(`Could not read ${f.name}`, e.message);
-      }
+      } catch (e) { console.error(e); Toast.err(`Could not read ${f.name}`, e.message); }
     }
     State.prepared = null;
     this.build(el);
-    const n = REPORT_ORDER.filter(t => State.imports[t] && State.imports[t].norm).length;
-    if (n === 5) { Toast.ok('All 5 reports recognised', 'Review the clean-up summary, then sync.'); setTimeout(() => { const q = $('#impQuality'); if (q) q.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120); }
-    else Toast.show(`${n} of 5 reports ready`, 'info', `Still missing: ${REPORT_ORDER.filter(t => !(State.imports[t] && State.imports[t].norm)).map(t => REPORTS[t].label).join(', ')}`);
+    const ready = REPORT_ORDER.filter(t => State.imports[t] && State.imports[t].norm);
+    if (ready.length) { Toast.ok(`${ready.length} report(s) ready`, 'Review the changes, then sync.'); setTimeout(() => { const q = $('#impQuality'); if (q) q.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120); }
   },
   quality(el) {
-    const norm = {}; REPORT_ORDER.forEach(t => { norm[t] = State.imports[t].norm; });
-    const prep = State.prepared = Engine.prepareSync(norm);
-    const s = prep.summary, w = norm.waivers.stats;
+    const types = REPORT_ORDER.filter(t => State.imports[t] && State.imports[t].norm);
+    const norm = {}; types.forEach(t => { norm[t] = State.imports[t].norm; });
+    const existing = (State.source === 'db' && State.ds) ? State.ds : (State.dbDs || State.ds || {});
+    const prep = State.prepared = Engine.prepareSync(norm, existing);
+    const s = prep.summary;
     const issues = [];
-    issues.push({ level: 'fix', text: `Removed source tags from ${U.int(w.tagsName)} customer names and ${U.int(w.tagsContract)} contract numbers (${Object.entries(w.tagCounts).map(([k, v]) => `${k}: ${v}`).join(', ') || '—'}).` });
-    if (w.textNumbers) issues.push({ level: 'fix', text: `${U.int(w.textNumbers)} waiver amounts / ledger balances were text with thousands separators — converted to numbers.` });
-    issues.push({ level: 'fix', text: `Dates unified to one format across all reports (dd-Mmm-yyyy text, Excel serials, dd.mm.yy titles, 12-hour times).` });
-    const ph = norm.contracts.stats.phones;
-    issues.push({ level: 'fix', text: `Phone numbers normalised to WhatsApp format: ${U.int(ph.uae)} UAE mobiles, ${U.int(ph.intl)} international, ${U.int(ph.landline || 0)} landlines, ${U.int(ph.check)} need checking, ${U.int(ph.missing)} missing (across the full contracts report).` });
-    REPORT_ORDER.forEach(t => norm[t].issues.forEach(i => issues.push(Object.assign({ src: REPORTS[t].label }, i))));
-    issues.push({ level: 'info', text: `Rental Contracts trimmed from ${U.int(s.contractsTotal)} to the ${U.int(s.contractsKept)} contracts linked to a waiver, Cardoo booking or claim. Rent payments: ${U.int(s.paymentsKept)} of ${U.int(s.paymentsTotal)} rows kept.` });
-    if (s.missingContracts.length) issues.push({ level: 'warn', text: `${s.missingContracts.length} linked contract(s) are missing from the Rental Contracts report (no phone/email): ${s.missingContracts.slice(0, 12).join(', ')}${s.missingContracts.length > 12 ? '…' : ''}` });
-    issues.push(s.nameMismatch.length ? { level: 'warn', text: `${s.nameMismatch.length} customer name(s) differ between the cleaned waiver report and the contracts report — the contracts name is used. e.g. ${s.nameMismatch.slice(0, 3).map(x => `#${x.contract_no}: “${x.waiver}” vs “${x.contract}”`).join('; ')}` }
-      : { level: 'fix', text: `All ${U.int(norm.waivers.rows.length)} cleaned waiver names match the Rental Contracts report exactly — tag removal verified.` });
-    const preview = Engine.buildModel(Object.assign({}, prep.tables, { cases: (State.ds && State.ds.cases) || [], settings: (State.ds && State.ds.settings) || {} }));
-    const k = preview.kpi;
+    if (norm.waivers) {
+      const w = norm.waivers.stats;
+      issues.push({ level: 'fix', src: 'Deposit Waivers', text: `Removed source tags from ${U.int(w.tagsName)} customer names and ${U.int(w.tagsContract)} contract numbers (${Object.entries(w.tagCounts).map(([k, v]) => `${k}: ${v}`).join(', ') || '—'}).` });
+      if (w.textNumbers) issues.push({ level: 'fix', src: 'Deposit Waivers', text: `${U.int(w.textNumbers)} amounts were text with thousands separators — converted to numbers.` });
+    }
+    if (norm.contracts) {
+      const ph = norm.contracts.stats.phones;
+      issues.push({ level: 'fix', src: 'Rental Contracts', text: `Phones normalised: ${U.int(ph.uae)} UAE mobiles, ${U.int(ph.intl)} international, ${U.int(ph.landline || 0)} landlines, ${U.int(ph.check)} need checking, ${U.int(ph.missing)} missing.` });
+      issues.push({ level: 'info', src: 'Rental Contracts', text: `${U.int(s.contractsKept)} of ${U.int(s.contractsTotal)} contracts are linked to a waiver, Cardoo booking or claim and will be stored.` });
+    }
+    if (norm.payments) issues.push({ level: 'info', src: 'Rental Payments', text: `${U.int(s.paymentsKept)} of ${U.int(s.paymentsTotal)} payment rows belong to linked contracts and will be stored.` });
+    types.forEach(t => norm[t].issues.forEach(i => issues.push(Object.assign({ src: REPORTS[t].label }, i))));
+    if (s.missingContracts.length) issues.push({ level: 'warn', text: `${s.missingContracts.length} linked contract(s) are not in any Rental Contracts report yet (no phone/email): ${s.missingContracts.slice(0, 12).join(', ')}${s.missingContracts.length > 12 ? '…' : ''}` });
+    if (s.nameMismatch.length) issues.push({ level: 'warn', text: `${s.nameMismatch.length} customer name(s) differ between the waiver report and the contracts report — the contracts name is used. e.g. ${s.nameMismatch.slice(0, 3).map(x => `#${x.contract_no}: “${x.waiver}” vs “${x.contract}”`).join('; ')}` });
+
+    const d = prep.diff;
+    const allChanges = Object.values(d).flatMap(x => x.changes);
+    const fieldCounts = {};
+    allChanges.forEach(c => { const k = `${c.tbl}.${c.field}`; fieldCounts[k] = (fieldCounts[k] || 0) + 1; });
     const canSync = App.canManage();
+    const totNew = U.sum(Object.values(d), x => x.inserted), totUpd = U.sum(Object.values(d), x => x.updated);
     $('#impQuality', el).innerHTML = `
-      <div class="card mt"><div class="card-head"><div><h3>Clean-up &amp; validation</h3><p>What was detected and fixed while unifying the five reports</p></div></div>
-        <div class="card-body grid" style="gap:16px">
-          <div class="stat-row">${REPORT_ORDER.map(t => `<div class="stat"><small>${REPORTS[t].label}</small><b>${U.int(prep.tables[t].length)}</b><span>${t === 'contracts' || t === 'payments' ? `of ${U.int(norm[t].rows.length)} rows` : 'rows'}</span></div>`).join('')}</div>
-          <div class="quality">${issues.map(i => `<div class="q-row"><span class="lvl ${i.level}">${i.level === 'fix' ? 'fixed' : i.level}</span><span>${i.src ? `<b>${U.esc(i.src)}:</b> ` : ''}${U.esc(i.text)}</span></div>`).join('')}</div>
-          <div class="stat-row">
-            <div class="stat"><small>Waiver contracts</small><b>${U.int(k.total)}</b><span>${k.open} open · ${k.closed} closed</span></div>
-            <div class="stat"><small>Outstanding · closed</small><b>${U.compact(k.owingAmount)}</b><span>${k.owingCount} contracts</span></div>
-            <div class="stat"><small>Collection queue</small><b>${U.int(k.collectCount)}</b><span>${U.compact(k.collectAmount)}</span></div>
-            <div class="stat"><small>Claims in recovery</small><b>${U.int(k.recoveryCount)}</b><span>approved ${U.compact(k.recoveryApproved)}</span></div>
-            <div class="stat"><small>Attention items</small><b>${U.int(k.criticalChecks)}</b><span>high priority</span></div>
-          </div>
-          <div class="sync-box"><div class="grow"><h3>${icon('database')} Ready to sync</h3><p class="muted">Replaces the report data in Supabase in one atomic step. Payment links, notes, promises and WhatsApp history are preserved.</p>
-            <div class="progress mt-sm" id="syncProg" hidden><span></span></div><small class="muted" id="syncMsg"></small></div>
-            <div class="btn-group"><button class="btn" id="impLocal">${icon('eye')}Preview without saving</button>
-            <button class="btn btn-primary btn-lg" id="impSync" ${canSync ? '' : 'disabled title="Only managers/admins can sync"'}><span class="btn-label">${icon('upload')} Sync to database</span><span class="spinner"></span></button></div></div>
-          ${canSync ? '' : `<div class="notice amber">${icon('alert')}<span>Your role (${U.esc(State.user.role)}) can preview but not sync. Ask a manager or admin.</span></div>`}
-        </div></div>`;
+      <div class="card mt"><div class="card-head"><div><h3>What will change</h3><p>Compared with the data already in the database</p></div></div>
+        <div class="card-body grid" style="gap:12px">
+          <div class="stat-row">${REPORT_ORDER.map(t => d[t] ? `<div class="stat"><small>${REPORTS[t].label}</small><b>${U.int(d[t].received)}</b>
+            <span><span style="color:var(--green)">+${U.int(d[t].inserted)} new</span> · <span style="color:var(--amber)">${U.int(d[t].updated)} updated</span> · ${U.int(d[t].unchanged)} same</span></div>`
+            : `<div class="stat" style="opacity:.55"><small>${REPORTS[t].label}</small><b>—</b><span>not attached · stays as is</span></div>`).join('')}</div>
+          ${allChanges.length ? `<div><div class="toolbar" style="margin-bottom:8px"><b class="small">Changed fields</b>${Object.entries(fieldCounts).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `<span class="tag">${U.esc(k.replace(/_/g, ' '))} · ${v}</span>`).join('')}</div>
+            <div class="dt-scroll card" style="max-height:260px"><table class="tbl"><thead><tr><th>Report</th><th>Contract</th><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>
+            ${allChanges.slice(0, 300).map(c => `<tr><td class="small">${REPORTS[c.tbl].label}</td><td>${R.cno(c.contract_no || c.row_key)}</td><td class="small">${U.esc(c.field.replace(/_/g, ' '))}</td><td><span class="chg-old">${U.esc(this.fmtVal(c.old_value))}</span></td><td><span class="chg-new">${U.esc(this.fmtVal(c.new_value))}</span></td></tr>`).join('')}
+            </tbody></table></div>${allChanges.length > 300 ? `<p class="small muted mt-sm">Showing 300 of ${U.int(allChanges.length)} field changes.</p>` : ''}</div>`
+            : `<div class="notice green">${icon('check')}<span>No existing record changed. ${totNew ? `${U.int(totNew)} new record(s) will be added.` : 'Everything is already up to date.'}</span></div>`}
+        </div></div>
+      <div class="card mt"><div class="card-head"><div><h3>Clean-up &amp; validation</h3><p>What was detected and fixed while reading the files</p></div></div>
+        <div class="card-body"><div class="quality">${issues.map(i => `<div class="q-row"><span class="lvl ${i.level}">${i.level === 'fix' ? 'fixed' : i.level}</span><span>${i.src ? `<b>${U.esc(i.src)}:</b> ` : ''}${U.esc(i.text)}</span></div>`).join('')}</div></div></div>
+      <div class="sync-box mt"><div class="grow"><h3>${icon('database')} Ready to merge · ${U.int(totNew)} new · ${U.int(totUpd)} updated</h3><p class="muted small">Only the attached report(s) are merged in one transaction. Records not in these files are kept unchanged.</p>
+          <div class="progress mt-sm" id="syncProg" hidden><span></span></div><small class="muted" id="syncMsg"></small></div>
+        <div class="btn-group"><button class="btn" id="impLocal">${icon('eye')}Preview without saving</button>
+        <button class="btn btn-primary btn-lg" id="impSync" ${canSync ? '' : 'disabled title="Only managers/admins can sync"'}><span class="btn-label">${icon('upload')} Sync to database</span><span class="spinner"></span></button></div></div>
+      ${canSync ? '' : `<div class="notice amber mt-sm">${icon('alert')}<span>Your role (${U.esc(State.user.role)}) can preview but not sync.</span></div>`}`;
     $('#impLocal', el).addEventListener('click', () => {
-      const ds = Object.assign({}, prep.tables, { cases: (State.ds && State.ds.cases) || [], settings: (State.ds && State.ds.settings) || {}, last_batch: null, user: State.user });
-      App.setData(JSON.parse(JSON.stringify(ds)), 'local', false);
+      if (State.source === 'db') State.dbDs = State.ds;
+      const merged = Engine.mergeLocal(JSON.parse(JSON.stringify(existing)), JSON.parse(JSON.stringify(prep.tables)));
+      merged.user = State.user;
+      App.setData(merged, 'local', false);
       State.built = { import: true };
-      Toast.ok('Previewing imported data', 'Not saved — click “Sync to database” to store it.');
+      Toast.ok('Previewing merged data', 'Not saved — sync to store it. Reload to discard.');
       location.hash = '#/dashboard';
     });
     $('#impSync', el).addEventListener('click', () => this.sync(el));
   },
   async sync(el) {
     const prep = State.prepared; if (!prep) return;
+    const types = Object.keys(prep.tables);
     const btn = $('#impSync', el), bar = $('#syncProg', el), msg = $('#syncMsg', el);
     btn.classList.add('loading'); btn.disabled = true; bar.hidden = false;
-    const files = REPORT_ORDER.map(t => ({ type: t, fileName: State.imports[t].file.name, size: State.imports[t].file.size, rows: State.imports[t].norm.rows.length, kept: prep.tables[t].length }));
-    const summary = { nameMismatch: prep.summary.nameMismatch.length, missingContracts: prep.summary.missingContracts.length, issues: REPORT_ORDER.flatMap(t => State.imports[t].norm.issues.map(i => `${t}: ${i.text}`)) };
+    const files = types.map(t => ({ type: t, fileName: State.imports[t].file.name, size: State.imports[t].file.size, rows: State.imports[t].norm.rows.length, kept: prep.tables[t].length }));
+    const summary = { mode: 'merge', preview: Object.fromEntries(Object.entries(prep.diff).map(([k, v]) => [k, { inserted: v.inserted, updated: v.updated, unchanged: v.unchanged }])),
+      issues: types.flatMap(t => State.imports[t].norm.issues.map(i => `${t}: ${i.text}`)) };
     let batch = null;
     try {
       msg.textContent = 'Starting import batch…';
       batch = await API.call('dw_sync_begin', { p_files: files, p_summary: summary });
       const chunks = [];
-      REPORT_ORDER.forEach(t => { const rows = prep.tables[t]; if (!rows.length) chunks.push([t, []]); for (let i = 0; i < rows.length; i += CONFIG.CHUNK_SIZE) chunks.push([t, rows.slice(i, i + CONFIG.CHUNK_SIZE)]); });
+      types.forEach(t => { const rows = prep.tables[t]; if (!rows.length) chunks.push([t, []]); for (let i = 0; i < rows.length; i += CONFIG.CHUNK_SIZE) chunks.push([t, rows.slice(i, i + CONFIG.CHUNK_SIZE)]); });
       for (let i = 0; i < chunks.length; i++) {
         const [t, rows] = chunks[i];
         msg.textContent = `Uploading ${REPORTS[t].label} (${i + 1}/${chunks.length})…`;
         await API.call('dw_sync_rows', { p_batch: batch, p_table: t, p_rows: rows });
         bar.firstElementChild.style.width = ((i + 1) / (chunks.length + 1) * 100) + '%';
       }
-      msg.textContent = 'Swapping data in one transaction…';
-      const stored = await API.call('dw_sync_finish', { p_batch: batch });
+      msg.textContent = 'Merging in one transaction…';
+      const res = await API.call('dw_sync_merge', { p_batch: batch });
       bar.firstElementChild.style.width = '100%';
-      msg.textContent = `Done — ${Object.entries(stored).map(([k, v]) => `${k} ${v}`).join(' · ')}`;
-      Toast.ok('Reports synced to database', Object.entries(stored).map(([k, v]) => `${k}: ${v}`).join(' · '));
-      State.imports = {}; State.prepared = null;
+      const line = Object.entries(res).map(([k, v]) => `${REPORTS[k].label}: +${v.inserted} new, ${v.updated} updated`).join(' · ');
+      msg.textContent = 'Done — ' + line;
+      Toast.ok('Reports merged into the database', line);
+      State.imports = {}; State.prepared = null; State.dbDs = null;
       await App.load(false);
       State.built = {};
+      this.showChanges(batch, res);
       location.hash = '#/dashboard';
     } catch (e) {
       Toast.err('Sync failed — nothing was changed', e.message);
@@ -2575,15 +3031,41 @@ Views.import = {
       if (batch) { try { await API.call('dw_sync_abort', { p_batch: batch }); } catch (x) { /* ignore */ } }
     } finally { btn.classList.remove('loading'); btn.disabled = false; }
   },
+  async showChanges(batch, res) {
+    let rows = [];
+    try { rows = await API.call('dw_get_changes', { p_batch: batch, p_contract: null, p_limit: 5000 }) || []; } catch (e) { /* older batch */ }
+    const sum = res ? Object.entries(res).map(([k, v]) => `<div class="stat"><small>${REPORTS[k] ? REPORTS[k].label : k}</small><b>${U.int(v.received)}</b><span><span style="color:var(--green)">+${v.inserted}</span> · <span style="color:var(--amber)">${v.updated} upd</span> · ${v.unchanged} same</span></div>`).join('') : '';
+    Modal.open({ title: `Sync #${batch} — changes`, sub: `${U.int(rows.length)} field change(s) to existing records`, size: 'wide',
+      body: `${sum ? `<div class="stat-row">${sum}</div>` : ''}<div id="chgTable"></div>`,
+      foot: `<button class="btn" data-close>Close</button>`,
+      onOpen: m => {
+        const t = new DataTable($('#chgTable', m), { title: `Sync ${batch} changes`, exportName: `sync_${batch}_changes`, rowKey: r => r.id, pageSize: 10,
+          emptyText: 'No existing record was changed in this sync.',
+          columns: [
+            { key: 'tbl', label: 'Report', get: r => (REPORTS[r.tbl] || {}).label || r.tbl },
+            { key: 'contract_no', label: 'Contract', get: r => r.contract_no || r.row_key, html: r => R.cno(r.contract_no || r.row_key) },
+            { key: 'customer', label: 'Customer', get: r => { const x = r.contract_no && App.model.byNo.get(+r.contract_no); return x ? x.name : ''; } },
+            { key: 'field', label: 'Field', get: r => r.field.replace(/_/g, ' ') },
+            { key: 'old_value', label: 'Before', get: r => this.fmtVal(r.old_value), html: r => `<span class="chg-old">${U.esc(this.fmtVal(r.old_value))}</span>` },
+            { key: 'new_value', label: 'After', get: r => this.fmtVal(r.new_value), html: r => `<span class="chg-new">${U.esc(this.fmtVal(r.new_value))}</span>` }
+          ] });
+        t.el.classList.remove('card'); t.el.style.border = '1px solid var(--border)'; t.el.style.borderRadius = '10px';
+        t.setRows(rows);
+      } });
+  },
   async history() {
     const box = $('#impHist'); if (!box) return;
     try {
-      const rows = await API.call('dw_list_batches', { p_limit: 12 }) || [];
-      box.innerHTML = rows.length ? `<table class="tbl"><thead><tr><th>#</th><th>When</th><th>By</th><th>Status</th><th>Files</th><th>Stored</th></tr></thead><tbody>${rows.map(b => `<tr>
-        <td class="mono">${b.id}</td><td class="nowrap">${U.fmtTS(b.completed_at || b.started_at)}</td><td>${U.esc(b.started_by_name || '')}</td>
-        <td><span class="chip t-${b.status === 'completed' ? 'green' : b.status === 'failed' ? 'rose' : 'amber'}">${b.status}</span></td>
-        <td class="small">${(b.files || []).map(f => `<span title="${U.esc(f.type)}">${U.esc(f.fileName)}</span>`).join('<br>')}</td>
-        <td class="small mono">${b.summary && b.summary.stored ? Object.entries(b.summary.stored).map(([k, v]) => `${k} ${v}`).join('<br>') : '—'}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No syncs yet.</p>';
+      const rows = await API.call('dw_list_batches', { p_limit: 15 }) || [];
+      box.innerHTML = rows.length ? `<table class="tbl"><thead><tr><th>#</th><th>When</th><th>By</th><th>Status</th><th>Files</th><th>Result</th><th></th></tr></thead><tbody>${rows.map(b => {
+        const sm = b.summary || {};
+        const res = sm.merge ? Object.entries(sm.merge).map(([k, v]) => `${(REPORTS[k] || {}).label || k}: +${v.inserted} / ${v.updated} upd`).join('<br>')
+          : sm.stored ? 'full replace<br>' + Object.entries(sm.stored).map(([k, v]) => `${k} ${v}`).join(' · ') : '—';
+        return `<tr><td class="mono">${b.id}</td><td class="nowrap">${U.fmtTS(b.completed_at || b.started_at)}</td><td>${U.esc(b.started_by_name || '')}</td>
+          <td><span class="chip t-${b.status === 'completed' ? 'green' : b.status === 'failed' ? 'rose' : 'amber'}">${b.status}</span></td>
+          <td class="small">${(b.files || []).map(f => U.esc(f.fileName)).join('<br>')}</td><td class="small">${res}</td>
+          <td>${sm.merge ? `<button class="btn btn-xs" data-chg="${b.id}">Changes</button>` : ''}</td></tr>`; }).join('')}</tbody></table>` : '<p class="muted">No syncs yet.</p>';
+      $$('[data-chg]', box).forEach(x => x.addEventListener('click', () => { const b = rows.find(y => String(y.id) === x.dataset.chg); this.showChanges(+x.dataset.chg, b && b.summary && b.summary.merge); }));
     } catch (e) { box.innerHTML = `<p class="muted">${U.esc(e.message)}</p>`; }
   }
 };
@@ -2596,6 +3078,7 @@ Views.settings = {
     const s = App.model.settings, g = s.general, canEdit = App.canManage();
     this.tpls = JSON.parse(JSON.stringify(s.templates));
     this.tags = [...(g.tags || [])];
+    this.cats = [...(g.remark_categories || DEFAULT_SETTINGS.general.remark_categories)];
     const ph = ['name', 'first_name', 'contract', 'amount', 'currency', 'vehicle', 'plate', 'open_date', 'close_date', 'payment_link', 'company', 'company_phone', 'waiver_amount', 'today'];
     el.innerHTML = `
       ${canEdit ? '' : `<div class="notice amber" style="margin-bottom:14px">${icon('lock')}<span>Settings are read-only for your role. Ask a manager or admin to make changes.</span></div>`}
@@ -2609,10 +3092,23 @@ Views.settings = {
             <label class="field"><span>Ignore balances up to</span><input class="input" type="number" step="0.01" id="sMin" value="${g.min_outstanding}"><small>Rounding dust is treated as settled</small></label>
             <label class="field"><span>Ready to claim after (reminders)</span><input class="input" type="number" min="1" id="sRem" value="${g.claim_after_reminders}"></label>
             <label class="field"><span>…or days after first reminder</span><input class="input" type="number" min="0" id="sDays" value="${g.claim_after_days}"></label>
-            <label class="field"><span>Claim window (days after close)</span><input class="input" type="number" min="1" id="sDead" value="${g.claim_deadline_days}"><small>Set to your Cardoo agreement</small></label>
+            <label class="field"><span>Claim window (days after close)</span><input class="input" type="number" min="1" id="sDead" value="${g.claim_deadline_days}"><small>Cardoo accepts claims up to this many days after close</small></label>
+            <label class="field"><span>“Closing soon” warning (days left)</span><input class="input" type="number" min="1" id="sSoon" value="${g.expiring_soon_days || 10}"></label>
           </div>
+          <label class="field"><span>Remark categories</span><div class="tag-editor" id="sCats"></div><small>Quick-pick categories when writing a remark.</small></label>
           <label class="field"><span>Source tags removed from names &amp; contract numbers</span><div class="tag-editor" id="sTags"></div><small>Press Enter to add. Tags with a hyphen match case-insensitively; others must match exactly. Unlisted glued tags (e.g. “NAMEPartner-App”) are still auto-detected and reported.</small></label>
           <div><button class="btn btn-primary" id="sSaveG" ${canEdit ? '' : 'disabled'}>${icon('check')}Save company &amp; rules</button></div>
+        </div></div>
+        <div class="card"><div class="card-head"><div><h3>Payment-link batch CSV</h3><p>Defaults for the provider upload file (OrderName, Message, expiry, language, invoice type)</p></div></div><div class="card-body grid" style="gap:12px">
+          <div class="form-grid">
+            <label class="field"><span>OrderName</span><input class="input" id="lOrder" value="${U.esc(g.link_order_name || 'Outstanding Balance')}"></label>
+            <label class="field"><span>Message</span><input class="input" id="lMsg" value="${U.esc(g.link_message || 'Please pay the amount.')}"></label>
+            <label class="field"><span>Expires after (days)</span><input class="input" type="number" min="1" id="lDays" value="${g.link_expiry_days || 5}"></label>
+            <label class="field"><span>Expiry time</span><input class="input" id="lTime" value="${U.esc(g.link_expiry_time || '15:00:00')}"></label>
+            <label class="field"><span>Language</span><input class="input" id="lLang" value="${U.esc(g.link_language || 'en')}"></label>
+            <label class="field"><span>InvoiceType</span><input class="input" id="lType" value="${U.esc(g.link_invoice_type || 'Once')}"></label>
+          </div>
+          <p class="small muted">Saved together with “Save company &amp; rules”.</p>
         </div></div>
 
         <div class="card"><div class="card-head"><div><h3>Account</h3><p>Signed in as <b>${U.esc(State.user.username)}</b> (${U.esc(State.user.role)})</p></div></div><div class="card-body grid" style="gap:14px">
@@ -2639,8 +3135,11 @@ Views.settings = {
     $('#sSaveG', el).addEventListener('click', async () => {
       const v = Object.assign({}, g, { company_name: $('#sCo', el).value.trim(), company_phone: $('#sCoPh', el).value.trim(), currency: $('#sCur', el).value.trim() || 'AED',
         default_country_code: $('#sCc', el).value.replace(/\D/g, '') || '971', min_outstanding: +$('#sMin', el).value || 0, claim_after_reminders: Math.max(1, +$('#sRem', el).value || 1),
-        claim_after_days: Math.max(0, +$('#sDays', el).value || 0), claim_deadline_days: Math.max(1, +$('#sDead', el).value || 30), tags: this.tags });
-      try { await API.call('dw_save_setting', { p_key: 'general', p_value: v }); State.ds.settings = Object.assign({}, State.ds.settings, { general: v }); App.rebuild(false); Toast.ok('Settings saved'); }
+        claim_after_days: Math.max(0, +$('#sDays', el).value || 0), claim_deadline_days: Math.max(1, +$('#sDead', el).value || 60), expiring_soon_days: Math.max(1, +$('#sSoon', el).value || 10),
+        tags: this.tags, remark_categories: this.cats,
+        link_order_name: $('#lOrder', el).value.trim() || 'Outstanding Balance', link_message: $('#lMsg', el).value.trim(), link_expiry_days: Math.max(1, +$('#lDays', el).value || 5),
+        link_expiry_time: $('#lTime', el).value.trim() || '15:00:00', link_language: $('#lLang', el).value.trim() || 'en', link_invoice_type: $('#lType', el).value.trim() || 'Once' });
+      try { await API.call('dw_save_setting', { p_key: 'general', p_value: v }); State.ds.settings = Object.assign({}, State.ds.settings, { general: v }); State.built = { settings: true }; App.rebuild(false); Toast.ok('Settings saved'); }
       catch (e) { Toast.err('Could not save', e.message); }
     });
     $('#tAdd', el).addEventListener('click', () => { this.tpls.push({ id: 't' + Date.now().toString(36), name: 'New template', body: 'Dear {name},\n\n…\n\n{payment_link}\n\n{company}' }); this.drawTpls(el); });
@@ -2658,12 +3157,13 @@ Views.settings = {
     });
     $('#sExportAll', el).addEventListener('click', () => this.exportAll());
   },
-  drawTags(el) {
-    const box = $('#sTags', el);
-    box.innerHTML = this.tags.map((t, i) => `<span class="t">${U.esc(t)}<button data-i="${i}" title="Remove">×</button></span>`).join('') + '<input placeholder="Add tag…">';
-    $$('button', box).forEach(b => b.addEventListener('click', () => { this.tags.splice(+b.dataset.i, 1); this.drawTags(el); }));
+  drawTags(el) { this.drawList(el, '#sTags', this.tags, 'Add tag…'); this.drawList(el, '#sCats', this.cats, 'Add category…'); },
+  drawList(el, sel, arr, ph) {
+    const box = $(sel, el); if (!box) return;
+    box.innerHTML = arr.map((t, i) => `<span class="t">${U.esc(t)}<button data-i="${i}" title="Remove">×</button></span>`).join('') + `<input placeholder="${ph}">`;
+    $$('button', box).forEach(b => b.addEventListener('click', () => { arr.splice(+b.dataset.i, 1); this.drawList(el, sel, arr, ph); }));
     const inp = $('input', box);
-    inp.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ',') && inp.value.trim()) { e.preventDefault(); const v = inp.value.trim().replace(/,$/, ''); if (!this.tags.includes(v)) this.tags.push(v); this.drawTags(el); $('#sTags input', el).focus(); } });
+    inp.addEventListener('keydown', e => { if ((e.key === 'Enter' || (e.key === ',' && sel === '#sTags')) && inp.value.trim()) { e.preventDefault(); const v = inp.value.trim().replace(/,$/, ''); if (!arr.includes(v)) arr.push(v); this.drawList(el, sel, arr, ph); $(sel + ' input', el).focus(); } });
   },
   drawTpls(el) {
     const sample = App.model.records.find(r => r.stage === 'to_contact') || App.model.records[0];
@@ -2684,13 +3184,272 @@ Views.settings = {
     add('Unified', m.records.map(r => ({ 'Contract': r.contract_no, 'Customer': r.name, 'Phone': r.phone ? '+' + r.phone : '', 'Phone valid': r.phone_valid ? 'yes' : 'check', 'Email': r.email || '', 'Vehicle': r.vehicle, 'Plate': r.plate,
       'Status': r.status, 'Opened': r.open_date, 'Closed': r.close_date || '', 'Waiver fee': r.waiver_amount, 'Ledger balance': r.outstanding, 'Contract balance': r.contract_balance, 'Rent paid': r.rent_paid,
       'Cardoo booking': r.booking_state, 'Cardoo cover': r.coverage, 'Cardoo fee est.': r.cardoo_fee, 'Claimable': r.claimable, 'Claim status': r.claim_state || '', 'Claim approved': r.claim_approved,
-      'Stage': STAGES[r.stage].label, 'Contacts': r.contact_count, 'Payment link': r.payment_link, 'Promise date': (r.case || {}).promise_date || '', 'Notes': (r.case || {}).notes || '', 'Flags': r.flags.map(f => f.t).join('; '), 'Source tag': r.source_tag || '' })));
+      'Caryaati closed': r.close_date || '', 'Cardoo closed': r.cardoo_close_at ? U.isoDate(r.cardoo_close_at) : '', 'Close sync': r.close_sync, 'Claim deadline': r.claim_deadline || '', 'Claim window': r.claim_window || '',
+      'Stage': STAGES[r.stage].label, 'Contacts': r.contact_count, 'Remark category': r.remark_cat, 'Last remark': r.remark, 'Payment link': r.payment_link, 'Promise date': (r.case || {}).promise_date || '', 'Notes': (r.case || {}).notes || '', 'Flags': r.flags.map(f => f.t).join('; '), 'Source tag': r.source_tag || '' })));
     add('Cardoo bookings', m.bookingRows.map(b => { const o = Object.assign({}, b); delete o._rec; return o; }));
     add('Cardoo claims', m.claimRows.map(c => { const o = Object.assign({}, c); delete o._rec; return o; }));
     add('Rent payments', m.paymentRows.map(p => { const o = Object.assign({}, p); delete o._rec; return o; }));
     add('Checks', m.checks.flatMap(c => c.rows.map(r => ({ check: c.title, severity: c.severity, contract: r.contract_no, customer: r.name || r._name || '' }))));
     XLSX.writeFile(wb, `deposit_waiver_unified_${U.todayISO()}.xlsx`, { compression: true });
     Toast.ok('Unified workbook downloaded');
+  }
+};
+
+/* =====================================================================
+   Cardoo ↔ Caryaati matching
+   ===================================================================== */
+Views.matching = {
+  tabs: [
+    ['missing_cardoo', 'Missing in Cardoo', 'rose', 'Waiver contracts in Caryaati with no active Cardoo booking — the deposit is not covered.'],
+    ['missing_caryaati', 'Missing in Caryaati', 'rose', 'Cardoo bookings whose contract number is not found in the Caryaati Rental Contracts data. Check the contract number used in Cardoo (re-import the Rental Contracts report if it is recent).'],
+    ['no_waiver', 'Booked, no waiver fee', 'amber', 'The contract exists in Caryaati and is booked in Cardoo, but it is not in the Deposit Waivers report — check whether the waiver fee was charged.'],
+    ['close_cardoo', 'Close in Cardoo', 'amber', 'Closed in Caryaati but the Cardoo booking is still open — close it in Cardoo with the same date.'],
+    ['close_mismatch', 'Closing date mismatch', 'orange', 'Closed in both systems but on different dates.'],
+    ['cardoo_only', 'Closed in Cardoo only', 'rose', 'Cardoo booking is closed while the Caryaati contract is still open — the deposit is no longer covered.'],
+    ['matched', 'Fully matched', 'green', 'Closed in both systems on the same date.']
+  ],
+  rows(tab) {
+    const m = App.model, R = m.records;
+    return {
+      missing_cardoo: () => R.filter(r => r.booking_state !== 'active' && (!State.ui.matchStatus || r.status === State.ui.matchStatus)),
+      missing_caryaati: () => m.missingInCaryaati,
+      no_waiver: () => m.bookedNoWaiver,
+      close_cardoo: () => R.filter(r => r.close_sync === 'caryaati_only'),
+      close_mismatch: () => R.filter(r => r.close_diff_days),
+      cardoo_only: () => R.filter(r => r.close_sync === 'cardoo_only'),
+      matched: () => R.filter(r => r.close_sync === 'both_closed' && !r.close_diff_days)
+    }[tab]();
+  },
+  cardooCols() {
+    const cur = App.model.settings.general.currency;
+    return [
+      { key: 'contract_no', label: 'Contract', numeric: true, get: r => r.contract_raw || r.contract_no, sortGet: r => r.contract_no, html: r => R.cno(r.contract_raw || r.contract_no) },
+      { key: 'name', label: 'Customer (Caryaati)', get: r => r.name || '', html: r => r.in_caryaati ? `<span class="cell-main">${U.esc(r.name)}</span><span class="cell-sub">${U.esc(r.caryaati_status || '')}${r.pickup_at ? ' · ' + U.fmtDate(r.pickup_at) + ' → ' + U.fmtDate(r.dropoff_at) : ''}</span>` : '<span class="chip t-rose">Not found in Caryaati</span>' },
+      { key: 'booking_type', label: 'Cardoo type', get: r => r.booking_type },
+      { key: 'booked_at', label: 'Booked', type: 'date', get: r => r.booked_at, sortGet: r => U.dayFrac(r.booked_at), html: r => R.date(r.booked_at) },
+      { key: 'start_at', label: 'Cardoo period', type: 'date', get: r => r.start_at, sortGet: r => U.dayFrac(r.start_at), html: r => `<div class="dates2">${U.fmtDate(r.start_at)}<span>→ ${U.fmtDate(r.end_at)}</span></div>` },
+      { key: 'close_at', label: 'Cardoo closed', type: 'date', get: r => r.close_at, sortGet: r => U.dayFrac(r.close_at), html: r => r.close_at ? R.date(r.close_at) : '<span class="zero">open</span>' },
+      { key: 'cover', label: 'Cover', plain: `Cover (${cur})`, align: 'right', type: 'num', numeric: true, get: r => r.cover, html: r => R.amt(r.cover) },
+      { key: 'fee', label: 'Cardoo fee', plain: `Cardoo fee est. (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.fee, html: r => R.amt(r.fee) },
+      { key: 'cancelled', label: 'Status', get: r => r.cancelled ? 'Cancelled' : 'Active', html: r => r.cancelled ? '<span class="chip t-rose">Cancelled</span>' : '<span class="chip t-teal">Active</span>' }
+    ];
+  },
+  recCols(tab) {
+    const cur = App.model.settings.general.currency;
+    const base = Views.recordColumns();
+    const car = { key: 'close_date', label: 'Caryaati closed', type: 'date', get: r => r.close_date, sortGet: r => U.dayNum(r.close_date), html: r => r.close_date ? `<div class="dates2">${String(r.caryaati_close_at).length > 10 ? U.fmtDT(r.caryaati_close_at) : U.fmtDate(r.close_date)}<span>${R.ago(r.days_since_close)}</span></div>` : '<span class="chip t-sky">open</span>' };
+    const per = { key: 'booking_end', label: 'Cardoo booking', get: r => r.booking_start ? `${U.fmtDate(r.booking_start)} - ${U.fmtDate(r.booking_end)}` : '', sortGet: r => U.dayFrac(r.booking_end), html: r => r.booking_start ? `<div class="dates2">${U.fmtDate(r.booking_start)}<span>→ ${U.fmtDate(r.booking_end)}</span></div>` : R.booking(r) };
+    const cdc = { key: 'cardoo_close_at', label: 'Cardoo closed', type: 'date', dt: true, get: r => r.cardoo_close_at, sortGet: r => U.dayFrac(r.cardoo_close_at), html: r => r.cardoo_close_at ? `<div class="dates2">${U.fmtDT(r.cardoo_close_at)}</div>` : '<span class="zero">not closed</span>' };
+    const diff = { key: 'close_diff_days', label: 'Difference', numeric: true, get: r => r.close_diff_days, html: r => r.close_diff_days ? `<span class="${r.close_diff_days > 0 ? 'diff-pos' : 'diff-neg'}">${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days} days</span><span class="cell-sub">${r.close_diff_days > 0 ? 'Cardoo later' : 'Cardoo earlier'}</span>` : '<span class="zero">same day</span>' };
+    const type = { key: 'btype', label: 'Type', get: r => [...new Set(r.bookings.filter(b => !b.cancelled).map(b => b.booking_type))].join(' / ') };
+    const out = { key: 'outstanding', label: 'Outstanding', plain: `Outstanding (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.outstanding, html: r => R.owe(r.outstanding) };
+    const fee = { key: 'cardoo_fee', label: 'Cardoo fee', plain: `Cardoo fee est. (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.cardoo_fee, html: r => R.amt(r.cardoo_fee) };
+    const status = { key: 'status', label: 'Caryaati', get: r => r.status, html: r => R.status(r.status) };
+    const opened = { key: 'open_date', label: 'Opened', type: 'date', get: r => r.open_date, sortGet: r => U.dayNum(r.open_date), html: r => R.date(r.open_date) };
+    const drop = { key: 'dropoff_at', label: 'Caryaati drop-off', type: 'date', dt: true, get: r => r.dropoff_at, sortGet: r => U.dayFrac(r.dropoff_at), html: r => r.dropoff_at ? `<div class="dates2">${U.fmtDT(r.dropoff_at)}<span>${r.status === 'Open' ? 'expected' : ''}</span></div>` : '—' };
+    const wf = { key: 'waiver_amount', label: 'Waiver fee', plain: `Waiver fee (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.waiver_amount, html: r => R.amt(r.waiver_amount) };
+    const stage = { key: 'stage', label: 'Stage', get: r => STAGES[r.stage].label, html: r => R.stage(r.stage) };
+    const bstate = { key: 'booking_state', label: 'Cardoo', get: r => r.booking_state, html: R.booking };
+    return {
+      missing_cardoo: [...base, status, opened, car, drop, wf, out, bstate, stage],
+      close_cardoo: [...base, type, car, per, fee, out, stage],
+      close_mismatch: [...base, type, car, cdc, diff, out],
+      cardoo_only: [...base, opened, drop, per, cdc, wf],
+      matched: [...base, car, cdc, out, stage]
+    }[tab];
+  },
+  build(el) {
+    if (!App.model.records.length && !App.model.bookingRows.length) { State.built.matching = false; return Views.emptyData(el); }
+    State.ui.matchTab = State.ui.matchTab || 'missing_cardoo';
+    el.innerHTML = `<div class="filter-chips" id="mtTabs"></div><div class="notice" id="mtDesc" style="margin-bottom:12px"></div>
+      <div class="filters" id="mtFilt" hidden><label>${icon('filter')}Caryaati status</label><select class="select input-sm" id="mtStatus"><option value="">Open &amp; closed</option><option>Open</option><option>Closed</option></select></div>
+      ${this.tabs.map(t => `<div id="mt_${t[0]}" hidden></div>`).join('')}`;
+    $('#mtTabs', el).addEventListener('click', e => { const c = e.target.closest('[data-tab]'); if (c) { State.ui.matchTab = c.dataset.tab; this.update(el); } });
+    $('#mtStatus', el).value = State.ui.matchStatus || '';
+    $('#mtStatus', el).addEventListener('change', e => { State.ui.matchStatus = e.target.value; this.update(el); });
+    this.tabs.forEach(([id, label]) => {
+      const cardoo = id === 'missing_caryaati' || id === 'no_waiver';
+      State.tables['mt_' + id] = new DataTable($('#mt_' + id, el), {
+        title: 'Cardoo matching - ' + label, exportName: 'cardoo_matching_' + id, rowKey: r => r.row_key || r.contract_no,
+        columns: cardoo ? this.cardooCols() : this.recCols(id), selectable: !cardoo,
+        bulk: cardoo ? '' : `<button class="btn btn-xs" data-bulk="remark">${icon('note')}Remark</button>`,
+        sort: id === 'close_mismatch' ? { key: 'close_diff_days', dir: 'desc' } : id === 'close_cardoo' ? { key: 'close_date', dir: 'asc' } : { key: 'contract_no', dir: 'desc' },
+        onRowClick: r => App.model.byNo.get(+r.contract_no) && Drawer.open(+r.contract_no)
+      });
+      Views.bindRowActions(State.tables['mt_' + id].el);
+    });
+  },
+  update(el) {
+    const tab = State.ui.matchTab;
+    if (!State.tables['mt_' + tab]) return;
+    $('#mtTabs', el).innerHTML = this.tabs.map(([id, l, tone]) => `<button class="fchip t-${tone} ${tab === id ? 'active' : ''}" data-tab="${id}"><span class="dot"></span>${l}<i>${this.rows(id).length}</i></button>`).join('');
+    const t = this.tabs.find(x => x[0] === tab);
+    $('#mtDesc', el).innerHTML = `${icon('info')}<span>${t[3]}</span>`;
+    $('#mtFilt', el).hidden = tab !== 'missing_cardoo';
+    this.tabs.forEach(([id]) => { $('#mt_' + id, el).hidden = id !== tab; });
+    State.tables['mt_' + tab].setRows(this.rows(tab));
+  }
+};
+
+/* =====================================================================
+   Profitability report
+   ===================================================================== */
+Views.profit = {
+  build(el) {
+    const m = App.model, g = m.settings.general, cur = g.currency;
+    if (!m.records.length) return Views.emptyData(el);
+    const f = State.ui.profit || (State.ui.profit = { from: '', to: '' });
+    const P = this.data = Engine.profit(m, f);
+    const M = v => `${cur} ${U.money(v)}`;
+    const verdictTone = P.net > 0 ? (P.margin > 0 ? 'green' : 'amber') : 'rose';
+    const verdict = P.net > 0
+      ? (P.margin > 0 ? `Profitable — the waiver fees alone cover Cardoo's cost (${P.feeCoverage}× coverage, ${P.marginPct}% margin), and Cardoo recoveries add ${M(P.approved)} on top.`
+        : `Profitable only because of claim recoveries — fees do not cover Cardoo's cost (margin ${M(P.margin)}), but approved recoveries of ${M(P.approved)} make the program net positive.`)
+      : `Not profitable in this period — Cardoo's cost exceeds waiver fees plus recoveries by ${M(-P.net)}.`;
+    const today = U.todayISO();
+    el.innerHTML = `
+      <div class="filters"><label>${icon('calendar')}Contracts opened</label><input class="input input-sm" type="date" id="pfFrom" value="${f.from}"><span class="muted">→</span><input class="input input-sm" type="date" id="pfTo" value="${f.to}">
+        <button class="btn btn-sm" data-pre="all">All time</button><button class="btn btn-sm" data-pre="ytd">This year</button><button class="btn btn-sm" data-pre="12m">Last 12 months</button><button class="btn btn-sm" data-pre="90d">Last 90 days</button>
+        <span class="spacer" style="flex:1"></span><button class="btn btn-sm" id="pfXls">${icon('xls')}Excel</button><button class="btn btn-sm btn-primary" id="pfPdf">${icon('pdf')}PDF report</button></div>
+      <div class="verdict t-${verdictTone}"><span class="big">${icon(P.net > 0 ? 'check' : 'alert')}</span><div><h3>${P.net > 0 ? 'Cardoo program is profitable' : 'Cardoo program is not profitable'} · net ${M(P.net)}</h3><p>${verdict}</p></div></div>
+      <div class="pf-grid">
+        ${Views.dashboard.kpi('t-teal', 'wallet', 'Waiver fees charged', `<small>${cur}</small>${U.compact(P.fees)}`, `${U.int(P.contracts)} contracts · avg ${U.money(P.avgFee)}`)}
+        ${Views.dashboard.kpi('t-rose', 'shield', 'Paid to Cardoo (est.)', `<small>${cur}</small>${U.compact(P.cost)}`, `${U.int(P.bookings)} bookings · avg ${U.money(P.avgCost)}`)}
+        ${Views.dashboard.kpi(P.margin >= 0 ? 't-green' : 't-rose', 'chart', 'Fee margin', `<small>${cur}</small>${U.compact(P.margin)}`, `${P.marginPct}% of fees · ${P.feeCoverage == null ? '—' : P.feeCoverage + '×'} cost coverage`)}
+        ${Views.dashboard.kpi('t-green', 'file-check', 'Cardoo recoveries', `<small>${cur}</small>${U.compact(P.approved)}`, `${P.claimsRecovery} approved claims · ${P.recoveryRate}% of excess claimed`)}
+        ${Views.dashboard.kpi(P.net >= 0 ? 't-indigo' : 't-rose', 'sparkle', 'Net program value', `<small>${cur}</small>${U.compact(P.net)}`, 'Fee margin + approved recoveries')}
+        ${Views.dashboard.kpi('t-sky', 'receipt', 'Rent collected', `<small>${cur}</small>${U.compact(P.rentCollected)}`, `from waiver customers · VAT ${U.compact(P.rentVat)}`)}
+        ${Views.dashboard.kpi('t-amber', 'clock', 'Still claimable', `<small>${cur}</small>${U.compact(P.pendingClaimAmount)}`, `${P.pendingClaimCount} contracts inside the ${g.claim_deadline_days}-day window`)}
+        ${Views.dashboard.kpi('t-orange', 'alert', 'Not recoverable via Cardoo', `<small>${cur}</small>${U.compact(P.expiredAmount + P.notCoveredAmount)}`, `${P.expiredCount} window expired · ${P.notCoveredCount} not covered`)}
+      </div>
+      <div class="grid g-12 mt">
+        <div class="card"><div class="card-head"><div><h3>Monthly performance</h3><p>Fees (by open month) vs Cardoo cost (by booking start) and net incl. recoveries (by claim month)</p></div></div><div class="card-body"><div class="chart-box"><canvas id="pfChart"></canvas></div></div></div>
+        <div class="card"><div class="card-head"><div><h3>Program P&amp;L</h3><p>${f.from || f.to ? `${f.from ? U.fmtDate(f.from) : 'start'} → ${f.to ? U.fmtDate(f.to) : 'today'}` : 'All time'}</p></div></div><div class="card-body">
+          <table class="ledger">
+            <tr><td>Waiver fees charged to customers</td><td>${U.money(P.fees)}</td></tr>
+            <tr><td>Cardoo fees — short-term bookings</td><td>−${U.money(P.costShort)}</td></tr>
+            <tr><td>Cardoo fees — long-term bookings</td><td>−${U.money(P.costLong)}</td></tr>
+            <tr class="sub"><td>of which bookings without a waiver fee (${P.bookingsNoWaiver})</td><td>${U.money(P.costNoWaiver)}</td></tr>
+            <tr class="total"><td>Fee margin</td><td>${U.money(P.margin)}</td></tr>
+            <tr><td>Cardoo claim recoveries (approved)</td><td>+${U.money(P.approved)}</td></tr>
+            <tr class="total"><td>Net program value</td><td>${U.money(P.net)}</td></tr>
+            <tr><td>Still claimable inside the window</td><td>+${U.money(P.pendingClaimAmount)}</td></tr>
+            <tr class="total"><td>Potential value</td><td>${U.money(P.potential)}</td></tr>
+          </table>
+          <div class="mt-sm">
+            <div class="ratio"><span>Fee coverage (fees ÷ Cardoo cost)</span><b>${P.feeCoverage == null ? '—' : P.feeCoverage + '×'}</b></div>
+            <div class="ratio"><span>Closed contracts with a claim</span><b>${P.claimRate}%</b></div>
+            <div class="ratio"><span>Recovery rate (approved ÷ excess claimed)</span><b>${P.recoveryRate}%</b></div>
+            <div class="ratio"><span>Claims: recovery / rejected / need update</span><b>${P.claimsRecovery} / ${P.claimsRejected} / ${P.claimsNeedUpdate}</b></div>
+            <div class="ratio"><span>Excess rejected by Cardoo</span><b>${U.money(P.rejectedExcess)}</b></div>
+            <div class="ratio"><span>Cancelled bookings</span><b>${P.bookingsCancelled}</b></div>
+          </div></div></div>
+      </div>
+      <div class="grid g-3 mt">
+        <div class="card"><div class="card-head"><div><h3>Customer exposure</h3><p>Closed waiver contracts still owing</p></div></div><div class="card-body"><table class="ledger">
+          <tr><td>Outstanding (${P.owingCount} contracts)</td><td>${U.money(P.owingAmount)}</td></tr>
+          <tr class="sub"><td>claimable within window</td><td>${U.money(P.pendingClaimAmount)}</td></tr>
+          <tr class="sub"><td>above Cardoo cover (collect directly)</td><td>${U.money(P.uncoveredAbove)}</td></tr>
+          <tr class="sub"><td>window expired (${P.expiredCount})</td><td>${U.money(P.expiredAmount)}</td></tr>
+          <tr class="sub"><td>never covered by Cardoo (${P.notCoveredCount})</td><td>${U.money(P.notCoveredAmount)}</td></tr>
+          <tr class="total"><td>Rent billed / collected</td><td>${U.compact(P.rentBilled)} / ${U.compact(P.rentCollected)}</td></tr></table></div></div>
+        <div class="card"><div class="card-head"><div><h3>By Cardoo booking type</h3></div></div><div class="card-body" id="pfType"></div></div>
+        <div class="card"><div class="card-head"><div><h3>By deposit cover</h3></div></div><div class="card-body" id="pfCover"></div></div>
+      </div>
+      <div class="card mt"><div class="card-head"><div><h3>Monthly breakdown</h3><p>Export for accounting</p></div></div><div class="card-body" style="padding:8px 0 0"><div id="pfMonthly"></div></div></div>
+      <div class="card mt"><div class="card-head"><div><h3>By rental type</h3></div></div><div class="card-body" style="padding:8px 0 0"><div id="pfRental"></div></div></div>
+      <div class="notice mt">${icon('info')}<span>How this is estimated: Cardoo fees use the short-term <i>Total price</i>, or the long-term <i>Monthly price</i> × months from start to close (or end). Recoveries are the approved amounts of claims <i>In Recovery</i>. Waiver fees and Cardoo fees are compared as reported (check whether both include VAT). Rent collected = rent receipts of waiver contracts. The date filter uses the contract open date (Cardoo cost by booking start).</span></div>`;
+    $$('[data-pre]', el).forEach(b => b.addEventListener('click', () => {
+      const p = b.dataset.pre;
+      f.to = p === 'all' ? '' : today;
+      f.from = p === 'all' ? '' : p === 'ytd' ? `${today.slice(0, 4)}-01-01` : U.addDaysISO(today, p === '12m' ? -365 : -90);
+      this.build(el);
+    }));
+    ['#pfFrom', '#pfTo'].forEach(s => $(s, el).addEventListener('change', () => { f.from = $('#pfFrom', el).value; f.to = $('#pfTo', el).value; this.build(el); }));
+    $('#pfPdf', el).addEventListener('click', () => this.pdf());
+    $('#pfXls', el).addEventListener('click', () => this.xlsx());
+    const grpTable = (rows) => `<table class="ledger"><tr style="color:var(--muted)"><td>Group</td><td>Fees / Cost / Net</td></tr>${rows.map(x => `<tr><td>${U.esc(x.key)}<span class="cell-sub">${x.contracts} contracts · ${x.claims} claimed</span></td><td>${U.compact(x.fees)} / ${U.compact(x.cost)} / <b style="color:var(--${x.net >= 0 ? 'green' : 'rose'})">${U.compact(x.net)}</b></td></tr>`).join('')}</table>`;
+    $('#pfType', el).innerHTML = grpTable(P.byType);
+    $('#pfCover', el).innerHTML = grpTable(P.byCover);
+    const mcols = [
+      { key: 'month', label: 'Month', get: r => U.monthLabel(r.month), sortGet: r => r.month },
+      { key: 'contracts', label: 'Contracts', align: 'right', numeric: true, get: r => r.contracts },
+      { key: 'fees', label: 'Waiver fees', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.fees, html: r => R.amt(r.fees) },
+      { key: 'cost', label: 'Cardoo cost', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.cost, html: r => R.amt(r.cost) },
+      { key: 'margin', label: 'Fee margin', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.margin, html: r => `<span class="amt" style="color:var(--${r.margin >= 0 ? 'green' : 'rose'})">${U.money(r.margin)}</span>` },
+      { key: 'claims', label: 'Claims', align: 'right', numeric: true, get: r => r.claims },
+      { key: 'approved', label: 'Recoveries', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.approved, html: r => R.amt(r.approved) },
+      { key: 'net', label: 'Net', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.net, html: r => `<span class="amt big" style="color:var(--${r.net >= 0 ? 'green' : 'rose'})">${U.money(r.net)}</span>` },
+      { key: 'rent', label: 'Rent collected', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.rent, html: r => R.amt(r.rent) }
+    ];
+    const mt = new DataTable($('#pfMonthly', el), { title: 'Profitability by month', exportName: 'profitability_monthly', rowKey: r => r.month, columns: mcols, search: false, pageSize: 100, sort: { key: 'month', dir: 'desc' } });
+    mt.el.classList.remove('card'); mt.el.style.boxShadow = 'none'; mt.setRows(P.monthly);
+    const gcols = [
+      { key: 'key', label: 'Rental type', get: r => r.key },
+      { key: 'contracts', label: 'Contracts', align: 'right', numeric: true, get: r => r.contracts },
+      { key: 'avgFee', label: 'Avg fee', align: 'right', type: 'num', numeric: true, get: r => r.avgFee, html: r => R.amt(r.avgFee) },
+      { key: 'avgCost', label: 'Avg Cardoo cost', align: 'right', type: 'num', numeric: true, get: r => r.avgCost, html: r => R.amt(r.avgCost) },
+      { key: 'fees', label: 'Fees', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.fees, html: r => R.amt(r.fees) },
+      { key: 'cost', label: 'Cardoo cost', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.cost, html: r => R.amt(r.cost) },
+      { key: 'approved', label: 'Recoveries', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.approved, html: r => R.amt(r.approved) },
+      { key: 'net', label: 'Net', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.net, html: r => `<span class="amt big" style="color:var(--${r.net >= 0 ? 'green' : 'rose'})">${U.money(r.net)}</span>` },
+      { key: 'owing', label: 'Still owing', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.owing, html: r => R.amt(r.owing) }
+    ];
+    const rt = new DataTable($('#pfRental', el), { title: 'Profitability by rental type', exportName: 'profitability_rental_type', rowKey: r => r.key, columns: gcols, search: false, pageSize: 50 });
+    rt.el.classList.remove('card'); rt.el.style.boxShadow = 'none'; rt.setRows(P.byRental);
+    this.chart(P);
+  },
+  chart(P) {
+    if (!global.Chart) return;
+    if (State.charts.profit) State.charts.profit.destroy();
+    const css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
+    const rows = P.monthly.slice(-15);
+    State.charts.profit = new Chart($('#pfChart'), {
+      data: { labels: rows.map(r => U.monthLabel(r.month)), datasets: [
+        { type: 'bar', label: 'Waiver fees', data: rows.map(r => r.fees), backgroundColor: 'rgba(20,184,166,.75)', borderRadius: 5, maxBarThickness: 22 },
+        { type: 'bar', label: 'Cardoo cost', data: rows.map(r => r.cost), backgroundColor: 'rgba(244,63,94,.65)', borderRadius: 5, maxBarThickness: 22 },
+        { type: 'line', label: 'Net incl. recoveries', data: rows.map(r => r.net), borderColor: '#6366f1', backgroundColor: '#6366f1', tension: .3, pointRadius: 2.5, borderWidth: 2 }
+      ] },
+      options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, font: { size: 11 } } }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${U.money(c.raw)}` } } },
+        scales: { y: { grid: { color: v('--border') }, ticks: { callback: x => U.compact(x), font: { size: 10.5 } } }, x: { grid: { display: false }, ticks: { font: { size: 10.5 } } } } }
+    });
+  },
+  xlsx() {
+    const P = this.data, wb = XLSX.utils.book_new();
+    const sum = [['Metric', 'Value'], ['Period', `${P.range.from || 'start'} to ${P.range.to || 'today'}`], ['Waiver contracts', P.contracts], ['Waiver fees charged', P.fees], ['Cardoo bookings', P.bookings],
+      ['Cardoo cost (est.)', P.cost], ['  short-term', P.costShort], ['  long-term', P.costLong], ['  bookings without waiver fee', P.costNoWaiver], ['Fee margin', P.margin], ['Fee margin %', P.marginPct],
+      ['Fee coverage (x)', P.feeCoverage], ['Cardoo recoveries approved', P.approved], ['Net program value', P.net], ['Still claimable', P.pendingClaimAmount], ['Potential value', P.potential],
+      ['Excess claimed', P.claimedExcess], ['Excess rejected', P.rejectedExcess], ['Recovery rate %', P.recoveryRate], ['Claim rate %', P.claimRate],
+      ['Rent collected', P.rentCollected], ['Rent VAT', P.rentVat], ['Outstanding (closed)', P.owingAmount], ['Window expired', P.expiredAmount], ['Not covered', P.notCoveredAmount], ['Profitable', P.profitable ? 'Yes' : 'No']];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), 'Summary');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(P.monthly), 'Monthly');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(P.byType), 'By booking type');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(P.byCover), 'By cover');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(P.byRental), 'By rental type');
+    XLSX.writeFile(wb, `cardoo_profitability_${U.todayISO()}.xlsx`, { compression: true });
+    Toast.ok('Profitability workbook downloaded');
+  },
+  pdf() {
+    const P = this.data, doc = Exporter.pdfDoc('portrait'); if (!doc) return;
+    const cur = App.model.settings.general.currency, A = Exporter.ascii;
+    let y = Exporter.pdfHeader(doc, 'Cardoo Deposit-Waiver Profitability', `${P.range.from || 'start'} to ${P.range.to || 'today'}`);
+    doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(P.net > 0 ? 5 : 225, P.net > 0 ? 150 : 29, P.net > 0 ? 105 : 72);
+    doc.text(A(P.net > 0 ? `PROFITABLE - net ${cur} ${U.money(P.net)}` : `NOT PROFITABLE - net ${cur} ${U.money(P.net)}`), 36, y + 4);
+    doc.setFont('helvetica', 'normal'); y += 16;
+    const tbl = (head, body, opts) => { doc.autoTable(Object.assign({ startY: y, head: [head], body, theme: 'grid', styles: { fontSize: 8.5, cellPadding: 4 }, headStyles: { fillColor: [241, 244, 249], textColor: [71, 85, 105] }, margin: { left: 36, right: 36 } }, opts || {})); y = doc.lastAutoTable.finalY + 12; };
+    tbl(['Program P&L', `Amount (${cur})`], [['Waiver fees charged', U.money(P.fees)], ['Cardoo fees - short-term', '-' + U.money(P.costShort)], ['Cardoo fees - long-term', '-' + U.money(P.costLong)],
+      [`  of which without waiver fee (${P.bookingsNoWaiver})`, U.money(P.costNoWaiver)], ['Fee margin', U.money(P.margin)], ['Cardoo recoveries (approved)', '+' + U.money(P.approved)], ['Net program value', U.money(P.net)],
+      ['Still claimable inside window', U.money(P.pendingClaimAmount)], ['Potential value', U.money(P.potential)]], { columnStyles: { 1: { halign: 'right' } } });
+    tbl(['Key ratios', 'Value'], [['Waiver contracts', U.int(P.contracts)], ['Avg waiver fee', U.money(P.avgFee)], ['Avg Cardoo cost per booking', U.money(P.avgCost)], ['Fee coverage', P.feeCoverage == null ? '-' : P.feeCoverage + 'x'],
+      ['Fee margin', P.marginPct + '%'], ['Closed contracts with a claim', P.claimRate + '%'], ['Recovery rate', P.recoveryRate + '%'], ['Rent collected (waiver customers)', U.money(P.rentCollected)],
+      ['Outstanding on closed contracts', U.money(P.owingAmount)], ['Window expired (not claimable)', U.money(P.expiredAmount)], ['Never covered by Cardoo', U.money(P.notCoveredAmount)]], { columnStyles: { 1: { halign: 'right' } } });
+    tbl(['Booking type', 'Contracts', 'Fees', 'Cardoo cost', 'Recoveries', 'Net'], P.byType.map(x => [x.key, x.contracts, U.money(x.fees), U.money(x.cost), U.money(x.approved), U.money(x.net)]), { columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } } });
+    tbl(['Month', 'Contracts', 'Fees', 'Cardoo cost', 'Margin', 'Recoveries', 'Net'], P.monthly.map(x => [U.monthLabel(x.month), x.contracts, U.money(x.fees), U.money(x.cost), U.money(x.margin), U.money(x.approved), U.money(x.net)]), { columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } } });
+    doc.setFontSize(7.5); doc.setTextColor(100, 116, 139);
+    doc.text(doc.splitTextToSize('Cardoo fees are estimated: short-term Total price; long-term Monthly price x months from start to close (or end). Recoveries = approved amounts of claims In Recovery.', doc.internal.pageSize.getWidth() - 72), 36, Math.min(y, doc.internal.pageSize.getHeight() - 50));
+    Exporter.pdfFooter(doc); doc.save(`cardoo_profitability_${U.todayISO()}.pdf`);
+    Toast.ok('Profitability PDF downloaded');
   }
 };
 
