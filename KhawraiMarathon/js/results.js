@@ -8,9 +8,8 @@
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
-  // Race postponed (DSO Nowshera notice, 13 Nov 2026): no fixed race date, so the
-  // public pre-race countdown has been removed. The new date will be announced.
-  const POSTPONED = !!(window.KMR && window.KMR.POSTPONEMENT && window.KMR.POSTPONEMENT.ENABLED !== false);
+  // Pre-race countdown: [data-kmr-countdown] in the hero is driven by js/site-state.js
+  // (race date from public.site_settings, default 04 Dec 2026 04:00 PM PKT).
   const TOP_LIMIT = 25;                       // rows shown before "Show all"
   const MOVE_MS = 8000;                       // how long a position-change marker stays visible
   const PRIZES = ['Rs. 15,000 + Winning Trophy', 'Rs. 10,000 + Trophy', 'Rs. 5,000 + Trophy'];
@@ -85,17 +84,16 @@
 
     // hero card (scheduled)
     const badge = $('raceStatusBadge');
-    const postponedNow = POSTPONED && status === 'scheduled';
     if (badge) {
-      badge.textContent = postponedNow ? 'Race Postponed' : statusLabel(status);
-      badge.className = 'results-status' + (postponedNow ? ' postponed' : status === 'in_progress' ? ' live' : status === 'completed' ? ' done' : '');
+      badge.textContent = status === 'scheduled' ? 'Scheduled' : statusLabel(status);
+      badge.className = 'results-status' + (status === 'scheduled' ? ' rescheduled' : status === 'in_progress' ? ' live' : status === 'completed' ? ' done' : '');
     }
     if ($('raceLiveNote')) {
-      const postponedNote = 'The race has been postponed due to unavoidable circumstances. The new date will be announced by District Sports Office Nowshera.';
-      // Ignore any stale organiser message that still mentions the original race date.
-      const organiserMessage = /15\s*nov/i.test(String(ctl.public_message || '')) ? '' : String(ctl.public_message || '').trim();
+      // Ignore stale organiser messages from the postponement period (old date / "postponed").
+      const raw = String(ctl.public_message || '').trim();
+      const organiserMessage = /15\s*nov|postpone/i.test(raw) ? '' : raw;
       $('raceLiveNote').textContent = status === 'scheduled'
-        ? (postponedNow ? postponedNote + (organiserMessage ? ' Organiser update: ' + organiserMessage : '') : safeText(organiserMessage, 'The official start will be announced by the organisers.'))
+        ? safeText(organiserMessage, 'Live positions and results will appear here as soon as the race starts.')
         : safeText(ctl.public_message, status === 'in_progress' ? 'The race is in progress.' : 'The race has been completed.');
     }
 

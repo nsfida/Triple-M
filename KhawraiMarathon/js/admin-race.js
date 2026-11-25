@@ -21,8 +21,8 @@
   }
   const participantRows = () => results.filter(r => r.current_position != null).sort((a, b) => a.current_position - b.current_position);
   const announcementPresets = Object.freeze({
-    race_postponed: 'The race has been postponed due to unavoidable circumstances. It will be rescheduled at the same venue, and the new date will be announced through an official notice.',
-    registration_reminder: 'Online registration remains open until the rescheduled race date. Runners who have already registered do not need to register again.',
+    race_rescheduled: 'New race date: Friday, 04 December 2026 at 04:00 PM (PKT), at the same venue. Registered runners keep their registration numbers.',
+    registration_closed: 'Online registration is closed. Runners who are already registered keep their entries and registration numbers.',
     race_day_arrival: 'Race-day reminder: all registered runners must report to Railway Phatak, Khawrai Road at least one hour before the official start. Please follow the organisers’ instructions.',
     race_starting_soon: 'The race will start shortly. Runners should move to the starting area and follow the organisers’ instructions.',
     race_started: 'The race has officially started. Best of luck to all runners!',

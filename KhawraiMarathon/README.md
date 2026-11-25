@@ -4,13 +4,13 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 
 | File | Purpose |
 |---|---|
-| `index.html` | Official home page with key race details, quick links, prize information, Season Two photos and the postponement notice (`/`) |
-| `notice/index.html` | Official postponement notice (13 Nov 2026) with print and PDF download (`/notice/`) |
+| `index.html` | Official home page with the race date and countdown, key race details, latest updates, prize information and Season Two photos (`/`) |
+| `updates/index.html` | Updates & notices: current announcements plus "Earlier notices" (the 13 Nov 2026 postponement notice, viewable and downloadable as PDF) (`/updates/`) |
 | `participants/index.html` | Public runner directory, clickable player detail overlay, and admin-only player-list PDF exports (`/participants/`) |
 | `results/index.html` | Public live race status, official leaderboard, podium prizes, and results PDF download (`/results/`) |
 | `about/index.html` | Detailed race story, Season One to Three timeline, invited communities, Season Two gallery and organiser contacts (`/about/`) |
 | `register/index.html` | Public registration page - the official Player Registration Form, with no fee or payment information (`/register/`) |
-| `admin/index.html` | Admin sign-in, registrations, cancellation, registration confirmation, owner-only project funds (receiving and expense ledgers), race control and PDF reports (`/admin/`) |
+| `admin/index.html` | Admin sign-in, registrations, cancellation, registration confirmation, owner-only project funds (receiving and expense ledgers), the nsfida-only **Site updates** section (`/admin/#updates`) and PDF reports (`/admin/`) |
 | `sql/schema.sql` | Tables, Row Level Security, storage buckets and policies |
 | `sql/verify_marathon_results.sql` | Verifies result tables, RLS, blocked direct writes, and Realtime publication |
 | `sql/migrations/` | **Safe, re-runnable migrations. Run new files here in date order.** Migrations are additive and avoid destructive data changes. |
@@ -20,7 +20,8 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | `sql/create_admin_users.sql` | Creates the two admin logins |
 | `assets/` | Shared styles, homepage styling, About/results page styling, logos and the original form artwork used for the PDFs |
 | `images/` | Season Two race photographs used in the About gallery (credited to Sagar Studio) |
-| `js/config.js` | Supabase URL / anon key, logo URL, admin usernames |
+| `js/config.js` | Supabase URL / anon key, default race date/venue, default registration state, logo URL, admin usernames |
+| `js/site-state.js`, `js/site-admin.js`, `assets/site-updates.css` | Live race schedule, registration state, countdowns, updates feed, archived notice viewer, and the nsfida Site updates section |
 
 ## Setup (about 5 minutes)
 1. Supabase dashboard > **SQL Editor**: run `sql/schema.sql`, then each forward migration in `sql/migrations/` in date order, then `sql/create_admin_users.sql` (delete that file afterwards because it holds passwords). Ensure `20261026_003_public_player_details.sql` follows `20261026_002_local_first_zero_payment.sql`, then run migrations `20261027_004_cancellations_expenses.sql`, `20261028_005_registration_deadline.sql`, `20261028_006_marathon_results.sql`, and `20261029_007_registration_number_only_results.sql`. Migration 005 enforces the 05 November 2026, 11:59 PM Pakistan Standard Time public registration cutoff. `sql/verify_migration_003.sql` checks the earlier public-details migration.
@@ -29,23 +30,23 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 3. Upload the whole folder to any static host (Netlify, Vercel, GitHub Pages, cPanel). Opening via `https://` is required for camera/photo upload on phones.
 4. Share `/register/` with participants; keep `/admin/` for the organisers. The root URL `/` serves the official home page directly, without redirecting visitors to the participants list.
 
-## Race postponement and reopened registration (13 November 2026)
-District Sports Office Nowshera postponed the race originally scheduled for 15 November 2026 "due to unavoidable circumstances". It will be rescheduled at the same venue (Khawrai, Tehsil Jehangira), and registration continues until the new date.
+## New race date, registration closed and Site updates (25 November 2026, migration 021)
+The race postponed on 13 November 2026 is rescheduled to **Friday, 04 December 2026 at 04:00 PM (PKT)**, at the same venue (start Railway Phatak, Khawrai Road; finish Government Boys School Khawrai). Public online registration is **closed**.
 
-**What changed on the website**
-- **Official notice everywhere.** `js/postponement-notice.js` + `assets/postponement.css` show a "paper" notice with both partner logos (District Administration Nowshera and Directorate General of Sports KP) as an overlay when a page loads (every load on public pages; once per browser session on `/admin/` and `/results/manage/`). A floating **Official notice** button and the scrolling top strip reopen it. Add `?notice=0` to a URL to suppress the automatic overlay (for screenshots).
-- **New page `/notice/`** with the full notice, Print and Download buttons.
-- **Downloadable PDF**: `assets/notice/KMR-S3-Postponement-Notice.pdf` (A4, both logos, signed "District Sports Officer, Nowshera").
-- **Race date removed** from Home, Event Info, Results, About, Participants, Register, Admin and Manage Results. Dates and times now read "Postponed / To be announced / To be confirmed". The notice itself still says the race was "previously scheduled for 15 November 2026".
-- **Results page timer removed.** The pre-race countdown is gone; the status card shows **Race Postponed** with links to the notice and the PDF. Live race mode, leaderboard and results PDF are unchanged (the results PDF header no longer prints a date).
-- **Manage Results** has a new announcement preset "Race postponed (official notice)"; the registration and arrival presets no longer mention the old date.
-- To retire the notice once the new date is published, set `POSTPONEMENT.ENABLED: false` in `js/config.js` and update page text with the new date.
+**Setup (one SQL step):** run `sql/migrations/20261125_021_reschedule_close_registration_site_updates.sql` in the Supabase SQL Editor (after migration 020), then `sql/verify_site_updates.sql` (every row `ok = true`). Upload the site files. No Edge Function change is needed. Until the migration runs, the website already shows the new date and the closed state from `js/config.js`, but the database would still accept public registrations and the Site updates section cannot save.
 
-**Registration reopened (needs one SQL step)**
-- `js/config.js` now has `REGISTRATION_CUTOFF: null`, meaning open until further notice: no countdown, and the header shows "OPEN TILL NEW RACE DATE".
-- **Run `sql/migrations/20261113_020_reopen_registration_postponement.sql` in the Supabase SQL Editor**, then `sql/verify_registration_reopen.sql` (all rows must show PASS). Until you run it, the database keeps rejecting public submissions and uploads with "Registration has closed", even though the form is visible.
-- The migration replaces the fixed 06 Nov 2026 cutoff with a one-row table `public.registration_window` (`closes_at` null = open). It does not modify existing registrations, results, funds or files; admin rights are unchanged.
-- To close registration later: `update public.registration_window set closes_at = '<PKT timestamp>' where id;` and set `REGISTRATION_CUTOFF` in `js/config.js` to the same moment, so the countdown and closed page return.
+**What visitors see**
+- Every page shows the new date. A green "UPDATE" strip at the top links to `/updates/`; Home, Event Info, Results and Updates show a live countdown to the start (Pakistan Time, whatever the visitor's device time zone).
+- **Registration closed:** public visitors see a **Registration Closed** tag in the header instead of the Register button; in-page register links are replaced by the same tag or hidden; `/register/` shows the closed card (the form is hidden before it can flash). Signed-in admins still see the Register button (marked "Admin access only") and can add runners. The database enforces this (`public.registration_window`).
+- **Notice page removed.** The old `/notice/` page and the pop-up overlay/floating button are gone. The 13 Nov notice is now an **Earlier notice** on `/updates/` with a "View original notice" viewer (marked superseded) and the original PDF (`assets/notice/KMR-S3-Postponement-Notice.pdf`). `.htaccess` redirects `/notice/` to `/updates/#postponement`, which opens it.
+- Results page: the hero shows *Scheduled* with the countdown; stale "postponed" organiser messages are ignored. Manage Results presets: "New race date (04 Dec 2026)" and "Registration closed" replace the postponement presets.
+
+**nsfida: Site updates section** (Admin > *Site updates* tab, or profile menu > *Site updates & race settings*; visible to nsfida only, enforced by the database)
+1. **Race schedule:** race date, start time (PKT), venue, reporting note and optional custom top-strip text (with preview). Saving updates every page and countdown, and moves the Results start time while the race is still Scheduled. The reporting time shown on Event Info is one hour before the start.
+2. **Public registration:** close now, or reopen until further notice / until a chosen PKT time.
+3. **Updates & notices:** publish, edit, pin, move to "Earlier", hide/publish or delete announcements (title, category, date, summary, details, optional button link and download link, live preview). Links must be a page of this site (e.g. `event-info/`) or `https://`.
+
+**Database objects added:** `site_settings` (public read), `site_updates` (public reads published rows; nsfida only writes), `public_site_state()`, `owner_save_site_settings()`, `owner_set_registration()`, `kmr_is_site_owner()`. Seeded updates: new race date (pinned), registration closed, and the postponement notice (earlier). No registrations, results, funds, expenses or files are changed.
 
 ## Who can do what (enforced by the database, not just the screens)
 | | Public | waseemfida | nsfida |
@@ -108,13 +109,13 @@ District Sports Office Nowshera postponed the race originally scheduled for 15 N
 - Display copies of player photos are optimized to a maximum 1600 px and high-quality JPEG; CNIC/document working copies use up to 2400 px. Upload size targets remain below the 3 MB bucket limit. Exact source files are preserved privately for admin retrieval; the public participant list uses only optimized player-photo copies and loads up to 1000 runners.
 
 ## About Khawrai Marathon Race
-- `/about/` is linked from the header on all public and admin pages. It describes the first two Khawrai Village editions, Season Three on **15 November 2026**, the expanded invitation to Dargai, Petao, Kati Miana, New Khawrai, Jehangira, Shaidu, Khairabad and surrounding villages, plus the Season Three management and organisation roles.
+- `/about/` is linked from the header on all public and admin pages. It describes the first two Khawrai Village editions, Season Three on **04 December 2026** (rescheduled from 15 November 2026), the expanded invitation to Dargai, Petao, Kati Miana, New Khawrai, Jehangira, Shaidu, Khairabad and surrounding villages, plus the Season Three management and organisation roles.
 - Season Three is managed by **Waseem Shahzad Fida** and organised by **District Sports Office Nowshera, Directorate General of Sports, Government of Khyber Pakhtunkhwa**. Contact: **+92 333 9095878**.
 - The Season Two photographs in `images/image1.jpg`, `images/image2.jpg` and `images/image3.jpg` are credited to **Sagar Studio**.
 
 
 ## Marathon results and race control (migrations 20261028_006 and 20261029_007)
-- Race date is fixed to **15 November 2026 at 04:00 PM Pakistan Time (UTC+05:00)**. Each runner is identified only by their official registration number. The later migration archives non-null historical bib values in a private table and removes the legacy column from the live results table and public view. The public `/results/` board shows scheduled/in-progress/completed state, a countdown, current leaderboard, podium and prize details, with branded PDF download.
+- Race date: originally 15 November 2026; since migration 021 it is **04 December 2026 at 04:00 PM Pakistan Time (UTC+05:00)** and is managed by nsfida in Admin > Site updates. Each runner is identified only by their official registration number. The later migration archives non-null historical bib values in a private table and removes the legacy column from the live results table and public view. The public `/results/` board shows scheduled/in-progress/completed state, a countdown, current leaderboard, podium and prize details, with branded PDF download.
 - Only the verified admin accounts can change race state, public announcements, runner status or finish times. Result writes use SECURITY DEFINER RPCs that check the authenticated JWT email; direct table writes are revoked for all client roles.
 - Public visitors can only read the public-safe race control and results fields; direct result writes are revoked from all client roles. The results view does not expose CNIC, phone, email, address or private documents. Only confirmed, non-cancelled runners may be saved to official results.
 - Positions are automatically recomputed from ascending finish times. First prize is **Rs. 15,000 + Winning Trophy**, second prize **Rs. 10,000 + Trophy**, and third prize **Rs. 5,000 + Trophy**. Finish times use `HH:MM:SS`.
@@ -123,7 +124,7 @@ District Sports Office Nowshera postponed the race originally scheduled for 15 N
 
 ### Pretty routes and race-roster controls
 
-- Public pages are served from `/`, `/participants/`, `/results/`, `/about/`, `/register/`, and `/admin/`. The root URL `/` serves the dedicated home page and does not redirect to the participants page. Route folders provide clean URLs such as `/results/` and `/about/`. `.htaccess` redirects legacy `.html` links and direct route-folder `index.html` requests on Apache-compatible hosting. Keep each route-folder `index.html` together with its assets when deploying.
+- Public pages are served from `/`, `/participants/`, `/results/`, `/about/`, `/event-info/`, `/updates/`, `/register/`, and `/admin/`. The root URL `/` serves the dedicated home page and does not redirect to the participants page. Route folders provide clean URLs such as `/results/` and `/about/`. `.htaccess` redirects legacy `.html` links and direct route-folder `index.html` requests on Apache-compatible hosting. Keep each route-folder `index.html` together with its assets when deploying.
 - The Race Results admin roster lists every confirmed, non-cancelled runner sorted by registration number by default. Search by player name or registration number, filter by result status, sort by name/finish time/current position/recent update, and jump to the next runner awaiting an entry. The old summary/count tiles and CSV export control have been removed from the workspace. Each runner row has an action dropdown for editing details, marking statuses, recording a finish time, or removing an existing result. All changes call authenticated database RPC functions; the public `/results/` page remains read-only.
 - Custom player/ledger kebab menus are rendered in a fixed body-level layer so table overflow and stacking contexts do not clip or cover their menu items. Primary navigation remains visible on mobile.
 

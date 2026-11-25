@@ -1,41 +1,46 @@
 (function () {
   const C = window.KMR;
 
-  // Display-only deadline helper. The same cutoff is also enforced by the Supabase
-  // submit_registration function and storage INSERT policies in migration 20261028_005.
+  // Display-only registration helper. The database is the security boundary:
+  // public.submit_registration and the Storage INSERT policies check
+  // public.registration_window (migrations 020 and 20261125_021) on every request.
   //
-  // IMPORTANT — time-zone safety:
-  //   • Date.now() always returns UTC milliseconds, unaffected by the device's local
-  //     timezone setting. The cutoff is stored as an ISO-8601 string with an explicit
-  //     +05:00 offset (PKT = Asia/Karachi, no DST), so Date.parse produces the
-  //     correct UTC epoch regardless of which timezone the visitor's device is set to.
-  //   • The countdown therefore always counts down to 11:59:59 PM Pakistan Standard
-  //     Time, even when the device is set to Dubai, UTC, or any other zone.
-  //   • REGISTRATION_CUTOFF null/empty means "open until further notice" (race
-  //     postponed, registration continues until the rescheduled date). In that case
-  //     there is no countdown and isOpen() is always true; the database registration
-  //     window (migration 20261113_020) remains the authoritative check.
-  const _rawCutoff = C.REGISTRATION_CUTOFF;
-  const _hasDeadline = !!_rawCutoff && !isNaN(Date.parse(_rawCutoff));
-  const _cutoffMs = _hasDeadline ? Date.parse(_rawCutoff) : Infinity;
+  //  - KMR.REGISTRATION_OPEN (config) is the default shown before live settings load.
+  //  - js/site-state.js reads public_site_state() and calls setRemote(); the last
+  //    known value is cached in localStorage so the next page load shows it at once.
+  //  - A cutoff is an ISO-8601 string with an explicit +05:00 offset, so the
+  //    countdown is correct whatever time zone the visitor's device uses.
+  const SITE_STATE_KEY = "kmr-site-state-v1";
+  const readCachedState = () => { try { return JSON.parse(localStorage.getItem(SITE_STATE_KEY) || "null"); } catch (_) { return null; } };
+  const parseCutoff = v => (v && !isNaN(Date.parse(v))) ? Date.parse(v) : Infinity;
+  const cachedState = readCachedState();
+  let _open = C.REGISTRATION_OPEN !== false;
+  let _cutoffMs = parseCutoff(C.REGISTRATION_CUTOFF);
+  if (cachedState && typeof cachedState.registration_open === "boolean") {
+    _open = cachedState.registration_open;
+    _cutoffMs = parseCutoff(cachedState.registration_closes_at);
+  }
   window.KMRRegistration = {
-    cutoffMs: _cutoffMs,
-    // False while registration is open until further notice (no fixed cutoff).
-    hasDeadline() { return _hasDeadline; },
-    // Returns true only while the PKT deadline has not passed (always true without one).
-    isOpen() { return Date.now() < _cutoffMs; },
-    // Milliseconds remaining until PKT deadline (Infinity without a deadline, 0 once passed).
-    remainingMs() { return _hasDeadline ? Math.max(0, _cutoffMs - Date.now()) : Infinity; },
-    // Human-readable PKT time string for display (e.g. "11:59 PM PKT").
+    get cutoffMs() { return _cutoffMs; },
+    // True when an automatic closing time is set while registration is open.
+    hasDeadline() { return _open && Number.isFinite(_cutoffMs); },
+    // Public registration open right now?
+    isOpen() { return _open && Date.now() < _cutoffMs; },
+    remainingMs() { return this.hasDeadline() ? Math.max(0, _cutoffMs - Date.now()) : (_open ? Infinity : 0); },
     cutoffPKT() {
-      if (!_hasDeadline) return '';
+      if (!this.hasDeadline()) return '';
       try {
-        return new Intl.DateTimeFormat('en-US', {
-          timeZone: 'Asia/Karachi',
-          day: '2-digit', month: 'long', year: 'numeric',
-          hour: '2-digit', minute: '2-digit', hour12: true
-        }).format(new Date(_cutoffMs)) + ' PKT';
+        return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(_cutoffMs)) + ' PKT';
       } catch (_) { return new Date(_cutoffMs).toUTCString(); }
+    },
+    // Called by js/site-state.js with the live database state. Returns true when it changed.
+    setRemote(open, closesAt) {
+      const nextOpen = open !== false;
+      const nextCutoff = nextOpen ? parseCutoff(closesAt) : Infinity;
+      const changed = nextOpen !== _open || nextCutoff !== _cutoffMs;
+      _open = nextOpen; _cutoffMs = nextCutoff;
+      if (changed) { try { window.dispatchEvent(new CustomEvent("kmr:registration-change", { detail: { open: this.isOpen() } })); } catch (_) {} }
+      return changed;
     }
   };
 
@@ -243,7 +248,7 @@
   let profileReady = false, profileUser = "", avatarDraft = null;
   function routeRootPath() {
     let path = window.location.pathname || "/";
-    const routed = path.replace(/\/(?:results\/manage|participants|results|about|register|admin)(?:\/index\.html)?\/?$/i, "/");
+    const routed = path.replace(/\/(?:results\/manage|participants|results|about|register|admin|event-info|updates)(?:\/index\.html)?\/?$/i, "/");
     if (routed !== path) path = routed;
     else path = path.replace(/\/index\.html$/i, "/");
     if (!path.endsWith("/")) path = path.slice(0, path.lastIndexOf("/") + 1);
@@ -268,6 +273,7 @@
       <a href="../admin/" class="profile-menu-item" data-profile-signin><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg></span><span><strong>Admin sign in</strong><small>Open organiser access</small></span></a>
       <button type="button" class="profile-menu-item" data-profile-settings hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.3"/><path d="M5 20c.4-3.5 2.8-5.5 7-5.5s6.6 2 7 5.5"/><path d="M19 3v4M17 5h4"/></svg></span><span><strong>Profile &amp; security</strong><small>Picture and password</small></span></button>
       <button type="button" class="profile-menu-item" data-profile-admin-accounts hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.8 20c.3-3.4 2.4-5.2 6.2-5.2 1.6 0 2.9.3 3.9 1"/><circle cx="17.5" cy="16.5" r="3.2"/><path d="M17.5 14.8v3.4M15.8 16.5h3.4"/></svg></span><span><strong>Admin accounts &amp; access</strong><small>Create admins and manage feature permissions</small></span></button>
+      <a href="../admin/#updates" class="profile-menu-item" data-profile-site-updates hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11v2a1 1 0 0 0 1 1h2l5 4V6L7 10H5a1 1 0 0 0-1 1z"/><path d="M16 9a3.5 3.5 0 0 1 0 6M18.5 6.5a7 7 0 0 1 0 11"/></svg></span><span><strong>Site updates &amp; race settings</strong><small>Announcements, race date and registration</small></span></a>
       <button type="button" class="profile-menu-item" data-profile-storage hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg></span><span><strong>Photo storage</strong><small>Compress photos and free storage space</small></span></button>
       <button type="button" class="profile-menu-item" data-profile-backup hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg></span><span><strong>Backup &amp; restore</strong><small>Download all data or restore missing data</small></span></button>
       <a href="../participants/" class="profile-menu-item" data-profile-public hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></svg></span><span><strong>Public participants</strong><small>View the runner directory</small></span></a>
@@ -289,6 +295,8 @@
       if (accountsEntry) accountsEntry.hidden = !canManageAdminAccounts;
       const storageEntry = mount.querySelector("[data-profile-storage]");
       if (storageEntry) storageEntry.hidden = !canManageAdminAccounts;
+      const siteEntry = mount.querySelector("[data-profile-site-updates]");
+      if (siteEntry) { siteEntry.hidden = !canManageAdminAccounts; siteEntry.href = routeHref("admin") + "#updates"; }
       const backupEntry = mount.querySelector("[data-profile-backup]");
       if (backupEntry) backupEntry.hidden = !canManageAdminAccounts;
       const signIn = mount.querySelector("[data-profile-signin]");
@@ -390,7 +398,7 @@
         mount.querySelector("[data-profile-signout]").addEventListener("click", async () => {
           menu.hidden = true; trigger.setAttribute("aria-expanded", "false"); await KMRAuth.signOut(); renderProfile("");
         });
-        mount.querySelectorAll("[data-profile-signin], [data-profile-public], [data-profile-register]").forEach(link => link.addEventListener("click", () => { menu.hidden = true; }));
+        mount.querySelectorAll("[data-profile-signin], [data-profile-public], [data-profile-register], [data-profile-site-updates]").forEach(link => link.addEventListener("click", () => { menu.hidden = true; }));
       });
       document.addEventListener("click", e => { if (e.target.closest(".profile-wrap")) return; document.querySelectorAll(".profile-menu").forEach(m => m.hidden = true); document.querySelectorAll(".profile-trigger").forEach(b => b.setAttribute("aria-expanded", "false")); });
       document.addEventListener("keydown", e => { if (e.key === "Escape") { document.querySelectorAll(".profile-menu").forEach(m => m.hidden = true); document.querySelectorAll(".profile-trigger").forEach(b => b.setAttribute("aria-expanded", "false")); } });
