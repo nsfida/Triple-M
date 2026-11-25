@@ -316,7 +316,7 @@ button { cursor: pointer; }
 .sync-pill.stale .dot { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, .2); }
 .sync-pill.local .dot { background: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, .2); }
 
-.views { padding: 18px 22px 50px; }
+.views { padding: 18px 22px 22px; }
 .view { display: none; animation: fade .35s var(--ease); }
 .view.active { display: block; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
@@ -737,3 +737,11 @@ b, strong { font-weight: 600; }
 @media (max-width: 1200px) { .pf-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .stat span span { display: inline; }
 .tbl td.right .cell-sub { text-align: right; }
+
+/* ---------- scroll fixes ---------- */
+.check { position: relative; }                 /* keep hidden checkbox inputs inside their row */
+.dt-scroll { position: relative; }
+.app, .main { min-height: 100vh; }
+html { overflow-x: hidden; }
+.view.active > :last-child { margin-bottom: 0; }
+@media (max-width: 960px) { .views { padding: 14px 12px 20px; } }

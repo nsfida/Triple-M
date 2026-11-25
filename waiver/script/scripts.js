@@ -748,6 +748,14 @@ const Engine = {
       r.remark_at = k.last_remark_at || null;
       r.link_batch_at = k.link_batch_at || null;
       Engine.assignStage(r, g, today, minOut);
+      if (r.stage === 'claim_submitted') {
+        r.claim_window = 'submitted';
+        r.submitted_days = today - U.dayNum(k.claim_submitted_at);
+        r.submitted_late = r.claim_deadline ? U.dayNum(k.claim_submitted_at) > U.dayNum(r.claim_deadline) : false;
+      }
+      r.followup_due = r.stage === 'contacted' && r.last_contact_at && (today - U.dayNum(new Date(r.last_contact_at))) >= 2;
+      r.link_overdue = !r.payment_link && r.link_batch_at && (today - U.dayNum(new Date(r.link_batch_at))) >= 2 && r.status === 'Closed' && r.outstanding > minOut;
+      r.promise_due = !!(k.promise_date && U.dayNum(k.promise_date) <= today && r.status === 'Closed' && r.outstanding > minOut && !['paid_marked', 'settled'].includes(r.stage));
       r.flags = Engine.flags(r, today);
       r.search = [no, r.name, r.name_waiver, r.phone, c && c.mobile_raw, r.email, r.vehicle, r.plate].filter(Boolean).join(' ').toLowerCase();
       records.push(r);
@@ -838,6 +846,10 @@ const Engine = {
     }
     if (k.promise_date && U.dayNum(k.promise_date) < today && r.stage !== 'settled' && r.status === 'Closed') f.push({ t: 'Promise missed', tone: 'rose' });
     if (r.status === 'Closed' && r.outstanding > 0 && !r.phone_valid) f.push({ t: 'Check phone', tone: 'amber' });
+    if (r.followup_due) f.push({ t: 'Follow-up due', tone: 'indigo' });
+    if (r.link_overdue) f.push({ t: 'Link not received', tone: 'violet' });
+    if (r.stage === 'claim_submitted' && r.submitted_days >= 7) f.push({ t: `Not in Cardoo report ${r.submitted_days}d`, tone: 'orange' });
+    if (r.submitted_late) f.push({ t: 'Submitted after window', tone: 'rose' });
     if (r.contract && r.contract.status && r.contract.status.toLowerCase() !== r.status.toLowerCase()) f.push({ t: 'Status mismatch', tone: 'slate' });
     return f;
   },
@@ -1077,6 +1089,17 @@ Engine.csv = function (rows, cols) {
   return [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\r\n') + '\r\n';
 };
 
+/* ---------- Today's tasks ---------- */
+Engine.TASKS = [
+  { id: 'promise', label: 'Payment promises due', hint: 'Promise date is today or has passed', tone: 'teal', icon: 'calendar', fn: r => r.promise_due },
+  { id: 'soon', label: 'Claim windows closing', hint: 'Submit to Cardoo before the window ends', tone: 'orange', icon: 'clock', fn: r => r.claim_window === 'soon' && !['paid_marked', 'on_hold'].includes(r.stage) },
+  { id: 'ready', label: 'Ready to claim', hint: 'Reminders done — submit the claim', tone: 'amber', icon: 'file-check', fn: r => r.stage === 'ready_to_claim' },
+  { id: 'followup', label: 'Follow-ups due', hint: 'Contacted 2+ days ago, still unpaid', tone: 'indigo', icon: 'whatsapp', fn: r => r.followup_due },
+  { id: 'contact', label: 'Customers to contact', hint: 'Outstanding, never contacted', tone: 'blue', icon: 'send', fn: r => r.stage === 'to_contact' },
+  { id: 'links', label: 'Payment links not received', hint: 'Batch CSV sent 2+ days ago, no link saved', tone: 'violet', icon: 'link', fn: r => r.link_overdue },
+  { id: 'claimwait', label: 'Submitted, not in Cardoo report', hint: 'Claim marked submitted 7+ days ago', tone: 'rose', icon: 'alert', fn: r => r.stage === 'claim_submitted' && r.submitted_days >= 7 }
+];
+
 /* =====================================================================
    3. API — Supabase RPC wrapper
    ===================================================================== */
@@ -1212,6 +1235,7 @@ const R = {
   window(r) {
     if (!r.claim_deadline) return '<span class="zero">—</span>';
     if (r.claim_live) return `<span class="cell-sub">claimed</span>`;
+    if (r.claim_window === 'submitted') return `<span class="nowrap">submitted</span><span class="cell-sub" style="color:var(--${r.submitted_late ? 'rose' : 'violet'})">${U.fmtDate(r.case.claim_submitted_at)}${r.submitted_late ? ' · late' : ''}</span>`;
     if (r.claims.length) return `<span class="cell-sub">claim rejected</span>`;
     if (r.booking_state !== 'active') return `<span class="cell-sub">not covered</span>`;
     const d = r.days_to_deadline, tone = d < 0 ? 'rose' : d <= (+App.model.settings.general.expiring_soon_days || 10) ? 'amber' : 'muted';
@@ -1544,6 +1568,8 @@ const App = {
 
   /* ---------- shell ---------- */
   async enterApp() {
+    try { const u = JSON.parse(localStorage.getItem('dw_ui') || 'null'); if (u) Object.keys(u).forEach(k => { if (u[k] && typeof u[k] === 'object' && typeof State.ui[k] === 'object') Object.assign(State.ui[k], u[k]); else State.ui[k] = u[k]; }); } catch (e) { /* */ }
+    State.ui.collections.task = '';
     $('#login').hidden = true; $('#app').hidden = false;
     const u = State.user || {};
     $('#userName').textContent = u.full_name || u.username;
@@ -1609,8 +1635,10 @@ const App = {
   },
 
   /* ---------- routing ---------- */
+  saveUI() { try { const u = Object.assign({}, State.ui); delete u.checksOpen; localStorage.setItem('dw_ui', JSON.stringify(u)); } catch (e) { /* */ } },
   route() {
     if ($('#app').hidden) return;
+    this.saveUI();
     let v = (location.hash.replace(/^#\/?/, '').split('?')[0] || 'dashboard');
     if (!VIEW_META[v]) v = 'dashboard';
     State.view = v;
@@ -1749,6 +1777,8 @@ Views.dashboard = {
         ${this.kpi('t-violet', 'car', 'Open-contract cover', `<small>${cur}</small>${U.compact(k.coveredExposure)}`, `${k.noBookingOpen ? `<span class="chip sm t-rose">${k.noBookingOpen} without booking</span>` : 'All open contracts booked'}`)}
         ${this.kpi('t-rose', 'clock', 'Claim window expired', `<small>${cur}</small>${U.compact(k.expiredAmount)}`, `${U.plural(k.expiredCount, 'contract')} past ${g.claim_deadline_days} days · collect directly`, '#/claims')}
       </div>
+      <div class="card" style="margin-bottom:14px"><div class="card-head"><div><h3>Today's tasks</h3><p>${U.fmtDate(U.todayISO())} · click a task to open the list</p></div></div>
+        <div class="card-body"><div class="pf-grid" id="tasks"></div></div></div>
       <div class="grid g-12">
         <div class="card"><div class="card-head"><div><h3>Waiver fees by month</h3><p>Fee charged (bars) and number of contracts (line), by contract open month</p></div></div>
           <div class="card-body"><div class="chart-box"><canvas id="chMonthly"></canvas></div></div></div>
@@ -1764,11 +1794,17 @@ Views.dashboard = {
         <div class="card-body" style="padding:10px 0 0"><div id="dbTop"></div></div></div>`;
     el.querySelectorAll('[data-href]').forEach(c => c.addEventListener('click', () => { location.hash = c.dataset.href; }));
     const rb = $('#dbRemind', el); if (rb) rb.addEventListener('click', () => { State.ui.collections.chip = 'to_contact'; location.hash = '#/collections'; });
-    this.pipeline(); this.attention(); this.top(); this.charts();
+    this.pipeline(); this.attention(); this.top(); this.charts(); this.tasks();
   },
   kpi(tone, ic, label, value, sub, href) {
     return `<div class="card kpi ${tone} ${href ? 'click' : ''}" ${href ? `data-href="${href}"` : ''}><div class="kpi-top"><span class="kpi-ico">${icon(ic)}</span><span class="kpi-label">${label}</span></div>
       <div class="kpi-value">${value}</div><div class="kpi-sub">${sub}</div></div>`;
+  },
+  tasks() {
+    const R = App.model.records;
+    $('#tasks').innerHTML = Engine.TASKS.map(t => { const rs = R.filter(t.fn); return `<div class="attn-item t-${t.tone}" data-task="${t.id}" style="${rs.length ? '' : 'opacity:.5'}"><span class="ico">${icon(t.icon)}</span>
+      <div class="grow"><b>${t.label}</b><small>${t.hint}${rs.length ? ' · ' + U.compact(U.sum(rs, r => r.outstanding)) : ''}</small></div><span class="count">${rs.length}</span></div>`; }).join('');
+    $$('#tasks [data-task]').forEach(a => a.addEventListener('click', () => { State.ui.collections.task = a.dataset.task; State.ui.collections.chip = 'all'; location.hash = '#/collections'; if (State.view === 'collections') Views.render('collections'); }));
   },
   pipeline() {
     const m = App.model, min = +m.settings.general.min_outstanding || 0;
@@ -1875,7 +1911,7 @@ Views.collections = {
     if (!App.model.records.length) { State.built.collections = false; return Views.emptyData(el); }
     const f = State.ui.collections;
     const g0 = App.model.settings.general;
-    el.innerHTML = `<div class="filter-chips" id="colChips"></div>
+    el.innerHTML = `<div id="colTask"></div><div class="filter-chips" id="colChips"></div>
       <div class="filters">
         <label>${icon('filter')}Amount</label><input class="input input-sm" type="number" id="cMin" placeholder="Min" value="${f.min}"><input class="input input-sm" type="number" id="cMax" placeholder="Max" value="${f.max}">
         <label>Closed</label><input class="input input-sm" type="date" id="cFrom" value="${f.from}"><span class="muted">→</span><input class="input input-sm" type="date" id="cTo" value="${f.to}">
@@ -1936,7 +1972,11 @@ Views.collections = {
   },
   update(el) {
     if (!App.model.records.length) return;
-    const f = State.ui.collections, base = this.base();
+    const f = State.ui.collections;
+    const task = f.task && Engine.TASKS.find(t => t.id === f.task);
+    $('#colTask', el).innerHTML = task ? `<div class="notice t-${task.tone}" style="margin-bottom:10px">${icon(task.icon)}<span style="flex:1">Task: <b>${task.label}</b> — ${task.hint}</span><button class="btn btn-xs" id="taskClear">${icon('x')}Show all</button></div>` : '';
+    const tc = $('#taskClear', el); if (tc) tc.addEventListener('click', () => { f.task = ''; this.update(el); App.saveUI(); });
+    const base = task ? App.model.records.filter(task.fn) : this.base();
     const fil = base.filter(r => {
       if (f.min !== '' && r.outstanding < +f.min) return false;
       if (f.max !== '' && r.outstanding > +f.max) return false;
@@ -1958,6 +1998,7 @@ Views.collections = {
     }).join('');
     const chip = this.chips.find(c => c[0] === f.chip) || this.chips[0];
     State.tables.collections.setRows(fil.filter(chip[3]));
+    App.saveUI();
   }
 };
 
@@ -1974,6 +2015,7 @@ Views.bindRowActions = function (root) {
     if (a === 'pack') Actions.claimPack(r);
     if (a === 'claimtxt') Actions.copyClaim(r);
     if (a === 'submit') Actions.markSubmitted([r]);
+    if (a === 'unsubmit') Actions.unsubmit(r);
     if (a === 'remark') { e.preventDefault(); Actions.remark(r); }
   });
   root.addEventListener('keydown', e => { if (e.target.matches('.link-input') && e.key === 'Enter') e.target.blur(); });
@@ -2000,7 +2042,7 @@ Views.claims = {
     $('#clTabs', el).addEventListener('click', e => { const c = e.target.closest('[data-tab]'); if (c) { State.ui.claims.tab = c.dataset.tab; this.update(el); } });
     const rec = State.tables.claimsRec = new DataTable($('#clRec', el), {
       selectable: true, title: 'Claims - ready to claim', exportName: 'cardoo_claims_ready', sort: { key: 'claimable', dir: 'desc' },
-      bulk: `<button class="btn btn-xs btn-primary" data-bulk="submit">${icon('check')}Mark submitted</button><button class="btn btn-xs" data-bulk="packs">${icon('pdf')}Claim packs</button>`,
+      bulk: `<button class="btn btn-xs btn-primary" data-bulk="submit">${icon('send')}Submit claims</button><button class="btn btn-xs" data-bulk="packs">${icon('pdf')}Claim packs</button>`,
       columns: [
         ...Views.recordColumns(),
         { key: 'period', label: 'Rental period', get: r => `${U.fmtDate(r.open_date)} - ${U.fmtDate(r.close_date)}`, html: r => `<span class="nowrap">${U.fmtDate(r.open_date)}</span><span class="cell-sub">→ ${U.fmtDate(r.close_date)}</span>` },
@@ -2009,12 +2051,14 @@ Views.claims = {
         { key: 'claimable', label: 'Claimable', plain: `Claimable (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.claimable, html: r => `<span class="amt big" style="color:var(--amber)">${U.money(r.claimable)}</span>` },
         { key: 'deadline', label: 'Claim window', type: 'date', get: r => r.claim_deadline, sortGet: r => r.days_to_deadline, html: r => R.window(r) },
         { key: 'remark', label: 'Remarks', get: r => [r.remark_cat, r.remark].filter(Boolean).join(': '), html: R.remark },
+        { key: 'submitted', label: 'Submitted', type: 'date', get: r => (r.case || {}).claim_submitted_at || '', sortGet: r => U.dayNum((r.case || {}).claim_submitted_at), html: r => r.case && r.case.claim_submitted_at ? `<span class="nowrap">${U.fmtDate(r.case.claim_submitted_at)}</span><span class="cell-sub">${U.money(r.case.claim_amount)} · ${r.submitted_days}d waiting</span>` : '<span class="zero">—</span>' },
         { key: 'contacts', label: 'Reminders', numeric: true, get: r => r.contact_count, html: r => `${r.contact_count}×` },
         { key: 'stage', label: 'Stage', get: r => STAGES[r.stage].label, html: r => R.stage(r.stage) },
         { key: 'act', label: '', sortable: false, export: false, html: r => `<div class="row-actions">
           <button class="btn btn-xs" data-act="pack" data-no="${r.contract_no}">${icon('pdf')}Pack</button>
           <button class="icon-btn sm" data-act="claimtxt" data-no="${r.contract_no}" title="Copy claim details">${icon('copy')}</button>
-          ${r.claim_window && r.claim_window !== 'expired' && !['claim_submitted'].includes(r.stage) ? `<button class="btn btn-xs btn-soft" data-act="submit" data-no="${r.contract_no}">${icon('check')}Submitted</button>` : ''}</div>` }
+          ${r.claim_window && r.claim_window !== 'expired' && !['claim_submitted'].includes(r.stage) ? `<button class="btn btn-xs btn-primary" data-act="submit" data-no="${r.contract_no}">${icon('send')}Submit</button>` : ''}
+          ${r.stage === 'claim_submitted' ? `<button class="btn btn-xs" data-act="submit" data-no="${r.contract_no}">Edit</button><button class="btn btn-xs btn-ghost" data-act="unsubmit" data-no="${r.contract_no}">Undo</button>` : ''}</div>` }
       ],
       onRowClick: r => Drawer.open(r.contract_no)
     });
@@ -2059,7 +2103,8 @@ Views.claims = {
     $('#clTabs', el).innerHTML = this.tabs.map(([id, l, tone]) => `<button class="fchip t-${tone} ${tab === id ? 'active' : ''}" data-tab="${id}"><span class="dot"></span>${l}<i>${sets[id].length}</i></button>`).join('');
     const recTab = ['ready', 'soon', 'window', 'expired', 'submitted'].includes(tab);
     $('#clRec', el).hidden = !recTab; $('#clRows', el).hidden = recTab;
-    if (recTab) { State.tables.claimsRec.o.title = 'Claims - ' + this.tabs.find(t => t[0] === tab)[1]; State.tables.claimsRec.o.exportName = 'claims_' + tab; State.tables.claimsRec.setRows(sets[tab]); }
+    if (recTab) { const tb = State.tables.claimsRec; tb.allCols.forEach(c => { if (c.key === 'submitted') c.hidden = tab !== 'submitted'; if (c.key === 'contacts' || c.key === 'coverage') c.hidden = tab === 'submitted'; if (c.key === 'phone') c.hidden = true; }); tb.cols = tb.allCols.filter(c => !c.hidden);
+      State.tables.claimsRec.o.title = 'Claims - ' + this.tabs.find(t => t[0] === tab)[1]; State.tables.claimsRec.o.exportName = 'claims_' + tab; State.tables.claimsRec.setRows(sets[tab]); }
     else { State.tables.claimsRows.o.title = 'Cardoo claims - ' + this.tabs.find(t => t[0] === tab)[1]; State.tables.claimsRows.setRows(sets[tab]); }
     void min;
   }
@@ -2363,7 +2408,7 @@ const Drawer = {
             <label class="field"><span>Promise to pay on</span><input class="input" type="date" id="fPromise" value="${k.promise_date || ''}" min="${today}"></label>
             <label class="field"><span>Claim submitted on</span><input class="input" type="date" id="fClaimed" value="${k.claim_submitted_at || ''}"></label>
           </div>
-          <label class="field"><span>Notes</span><textarea class="input" id="fNotes" placeholder="Conversation notes, disputes, agreements…">${U.esc(k.notes || '')}</textarea></label>
+          <label class="field"><span>Notes (general)</span><textarea class="input" id="fNotes" placeholder="Conversation notes, disputes, agreements…">${U.esc(k.notes || '')}</textarea></label>
           <div class="btn-group">
             <button class="btn btn-primary btn-sm" id="fSave">${icon('check')}Save changes</button>
             <button class="btn btn-sm" id="fCall">${icon('phone')}Log a call</button>
@@ -2423,7 +2468,8 @@ const Drawer = {
         <div class="right"><div class="mono"><b>${U.money(c.excess_sum)}</b></div>${c.approved_amount != null ? `<div class="small" style="color:var(--green)">approved ${U.money(c.approved_amount)}</div>` : ''}${R.claimChip(c.status)}</div></div>`).join('')}</div>`
       : `<p class="muted">No claim submitted yet.${r.stage === 'ready_to_claim' ? ' This contract is <b>ready to claim</b>.' : ''}</p>`}
       <div class="btn-group mt-sm"><button class="btn btn-sm" id="drPack2">${icon('pdf')}Claim pack PDF</button><button class="btn btn-sm" id="drClaimTxt">${icon('copy')}Copy claim details</button>
-      ${!r.claims.length || !r.claim_live ? `<button class="btn btn-sm btn-soft" id="drSubmitted">${icon('check')}Mark claim submitted</button>` : ''}</div></div>`;
+      ${(!r.claims.length || !r.claim_live) && r.status === 'Closed' ? `<button class="btn btn-sm btn-primary" id="drSubmitted">${icon('send')}${r.case && r.case.claim_submitted_at ? 'Edit submission' : 'Submit claim'}</button>` : ''}
+      ${r.case && r.case.claim_submitted_at ? `<p class="small muted mt-sm">Submitted ${U.fmtDate(r.case.claim_submitted_at)} · ${U.money(r.case.claim_amount)} · ${r.submitted_days != null ? r.submitted_days + 'd waiting for the Excess report' : ''}</p>` : ''}</div></div>`;
   },
   tab_payments(r, g, cur) {
     return `<div class="panel"><h4>${icon('receipt')}Rent payments received<span class="spacer"></span><span class="mono" style="text-transform:none">${cur} ${U.money(r.rent_paid)}</span></h4>
@@ -2759,16 +2805,47 @@ const Actions = {
 
   markSubmitted(rows) {
     const cur = App.model.settings.general.currency;
-    Modal.open({ title: 'Mark claim submitted to Cardoo', sub: `${rows.length} contract(s) · they move to “Claim submitted” until the next Excess report arrives`, size: 'narrow',
-      body: `<label class="field"><span>Submitted on</span><input class="input" type="date" id="msDate" value="${U.todayISO()}"></label>
-        <div class="mini-list">${rows.slice(0, 6).map(r => `<div class="mini-item"><div class="grow"><b>#${r.contract_no}</b> ${U.esc(r.name)}</div><span class="mono">${cur} ${U.money(r.claimable)}</span></div>`).join('')}${rows.length > 6 ? `<p class="small muted">+ ${rows.length - 6} more</p>` : ''}</div>`,
-      foot: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="msGo">${icon('check')}Confirm</button>`,
-      onOpen: m => $('#msGo', m).addEventListener('click', async () => {
-        const d = $('#msDate', m).value || U.todayISO(); const b = $('#msGo', m); b.classList.add('loading'); b.disabled = true;
-        for (const r of rows) { try { await App.saveCase(r.contract_no, { claim_submitted_at: d, claim_amount: r.claimable }); } catch (e) { /* toast shown */ } }
-        Modal.close(); Toast.ok(`${rows.length} claim(s) marked as submitted`);
-        if (State.tables.claimsRec) State.tables.claimsRec.clearSel();
-      }) });
+    const first = rows[0], k0 = (first && first.case) || {};
+    const editing = rows.length === 1 && k0.claim_submitted_at;
+    const amounts = {};
+    rows.forEach(r => { amounts[r.contract_no] = r.case && r.case.claim_amount != null && editing ? +r.case.claim_amount : r.claimable; });
+    Modal.open({ title: editing ? 'Edit claim submission' : 'Submit claim to Cardoo', size: '',
+      sub: `${rows.length} contract(s) · record the date you submitted in the Cardoo portal; the contract moves to “Claim submitted” until the next Excess report confirms it`,
+      body: `<div class="form-grid" style="grid-template-columns:1fr 2fr"><label class="field"><span>Submitted on</span><input class="input" type="date" id="msDate" value="${editing ? k0.claim_submitted_at : U.todayISO()}" max="${U.todayISO()}"></label>
+          <label class="field"><span>Note (optional, saved as a remark)</span><input class="input" id="msNote" placeholder="e.g. Claim ref, documents attached…"></label></div>
+        <div class="dt-scroll card" style="max-height:300px"><table class="tbl"><thead><tr><th>Contract</th><th>Customer</th><th>Window ends</th><th class="right">Outstanding</th><th class="right">Claim amount (${cur})</th></tr></thead><tbody>
+        ${rows.map(r => `<tr><td>${R.cno(r.contract_no)}</td><td><span class="cell-main">${U.esc(r.name)}</span></td><td class="small" data-dl="${r.contract_no}">${r.claim_deadline ? U.fmtDate(r.claim_deadline) : '—'}</td><td class="right amt">${U.money(r.outstanding)}</td>
+          <td class="right"><input class="link-input mono" style="width:100px;text-align:right" type="number" step="0.01" data-ma="${r.contract_no}" value="${U.r2(amounts[r.contract_no])}"></td></tr>`).join('')}</tbody></table></div>
+        <div id="msWarn"></div>`,
+      foot: `<span class="small muted" id="msTot"></span><span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="msGo">${icon('check')}${editing ? 'Save' : 'Confirm submission'}</button>`,
+      onOpen: m => {
+        const check = () => {
+          const d = U.dayNum($('#msDate', m).value);
+          const late = rows.filter(r => r.claim_deadline && d > U.dayNum(r.claim_deadline));
+          $('#msWarn', m).innerHTML = late.length ? `<div class="notice rose">${icon('alert')}<span>${late.length} contract(s) are past the claim window on this date: ${late.slice(0, 6).map(r => '#' + r.contract_no).join(', ')} — Cardoo may decline them.</span></div>` : '';
+          $('#msTot', m).textContent = `Total claimed ${cur} ${U.money(U.sum(Object.values(amounts)))}`;
+        };
+        $('#msDate', m).addEventListener('change', check);
+        m.addEventListener('input', e => { if (e.target.dataset.ma) { amounts[+e.target.dataset.ma] = +e.target.value || 0; check(); } });
+        check();
+        $('#msGo', m).addEventListener('click', async () => {
+          const d = $('#msDate', m).value || U.todayISO(), note = $('#msNote', m).value.trim();
+          const b = $('#msGo', m); b.classList.add('loading'); b.disabled = true;
+          const list = State.ds.cases || (State.ds.cases = []);
+          const put = k => { const i = list.findIndex(x => +x.contract_no === +k.contract_no); if (i >= 0) list[i] = k; else list.push(k); };
+          const saved = [];
+          await Promise.all(rows.map(r => API.call('dw_save_case', { p_contract: r.contract_no, p_patch: { claim_submitted_at: d, claim_amount: U.r2(amounts[r.contract_no]) } })
+            .then(k => { put(k); saved.push(r); }).catch(e => Toast.err(`#${r.contract_no}: ${e.message}`))));
+          App.rebuild(true); Modal.close();
+          if (note) Promise.all(saved.map(r => API.call('dw_add_remark', { p_contract: r.contract_no, p_text: note, p_category: 'Claim submitted' }).then(put).catch(() => null))).then(() => App.rebuild(true));
+          Toast.ok(editing ? 'Submission updated' : `${rows.length} claim(s) submitted`, `Date ${U.fmtDate(d)} — see the “Submitted” tab`);
+          if (State.tables.claimsRec) State.tables.claimsRec.clearSel();
+        });
+      } });
+  },
+  async unsubmit(r) {
+    if (!await Modal.confirm('Undo claim submission?', `#${r.contract_no} goes back to its previous stage.`, 'Undo')) return;
+    await App.saveCase(r.contract_no, { claim_submitted_at: '', claim_amount: '' }, 'Submission removed');
   },
 
   claimText(r) {
