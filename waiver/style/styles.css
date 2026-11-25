@@ -745,3 +745,6 @@ b, strong { font-weight: 600; }
 html { overflow-x: hidden; }
 .view.active > :last-child { margin-bottom: 0; }
 @media (max-width: 960px) { .views { padding: 14px 12px 20px; } }
+
+/* filter selects: never clip their text */
+.filters .select { width: auto; min-width: 150px; max-width: 260px; padding-right: 30px; text-overflow: ellipsis; }

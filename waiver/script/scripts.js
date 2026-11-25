@@ -18,6 +18,8 @@ const CONFIG = Object.assign({
   SUPABASE_URL: 'https://fplgpqalwhyhextdnaor.supabase.co',
   SUPABASE_KEY: 'sb_publishable_Zcrg6tey3ENeMplqxy0fzg_smZP57q6',
   CHUNK_SIZE: 400,
+  PDFJS: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+  PDFJS_WORKER: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
   APP_NAME: 'Deposit Waiver Control Center'
 }, (global && global.DW_CONFIG) || {});
 
@@ -238,7 +240,21 @@ const REPORTS = {
       deposit: ['deposit', 'depositamount'], total: ['totalprice'], monthly: ['monthlyprice'], currency: ['currency'],
       comment: ['comment', 'comments'], bookedAt: ['bookedatlocal', 'bookedat'], dfid: ['depositfreeid', 'id']
     },
-    required: ['contract', 'start']
+    required: ['contract', 'start'],
+    exclude: ['invoiceprice', 'invoicecurrency']
+  },
+  po_lines: {
+    key: 'po_lines', label: 'Cardoo PO lines', source: 'Cardoo', file: 'booking_details_PO_xxxxx',
+    desc: '15-day Cardoo invoice detail: every booking billed or credited in the period',
+    signature: [['invoiceprice'], ['depositfreeid', 'contractnumber']],
+    fields: {
+      partner: ['partner'], user: ['userlabel', 'user'], btype: ['bookingtype'], cancelled: ['cancelled'],
+      contract: ['contractnumber', 'contractno', 'contract'], booking: ['bookingnumber', 'bookingno'],
+      start: ['startlocal', 'start'], end: ['endlocal', 'end'], close: ['closelocal', 'close'],
+      deposit: ['deposit'], price: ['price'], currency: ['currency'], invPrice: ['invoiceprice'], invCurrency: ['invoicecurrency'],
+      comment: ['comment'], bookedAt: ['bookedatlocal', 'bookedat'], dfid: ['depositfreeid']
+    },
+    required: ['contract', 'price', 'invPrice']
   },
   claims: {
     key: 'claims', label: 'Cardoo Excess Claims', source: 'Cardoo', file: 'Cardoo Excess Report',
@@ -281,7 +297,8 @@ const STAGES = {
   claim_rejected:  { label: 'Claim rejected',        tone: 'rose',   group: 'collect', order: 6, hint: 'Cardoo claim cancelled/declined — collect directly' },
   need_update:     { label: 'Claim · need update',   tone: 'orange', group: 'claim',   order: 7, hint: 'Cardoo requested more information' },
   claim_submitted: { label: 'Claim submitted',       tone: 'violet', group: 'claim',   order: 8, hint: 'Marked as submitted — waiting for Excess report' },
-  recovery:        { label: 'In recovery',           tone: 'green',  group: 'claim',   order: 9, hint: 'Cardoo is recovering the amount' },
+  recovered_partial: { label: 'Cardoo paid · rest due', tone: 'teal', group: 'collect', order: 8.5, hint: 'Cardoo approved/paid its part — collect the remainder from the customer' },
+  recovery:        { label: 'Recovered by Cardoo',   tone: 'green',  group: 'done',    order: 9, hint: 'Claim approved or paid by Cardoo (In Recovery)' },
   on_hold:         { label: 'On hold',               tone: 'slate',  group: 'collect', order: 10, hint: 'Paused manually' },
   paid_marked:     { label: 'Marked paid',           tone: 'green',  group: 'done',    order: 11, hint: 'Marked paid — will clear when the next Waiver report shows zero' },
   settled:         { label: 'Settled',               tone: 'green',  group: 'done',    order: 12, hint: 'No outstanding balance' },
@@ -300,8 +317,9 @@ const Engine = {
       const row = rows[r] || [];
       const headers = row.map(U.norm);
       if (headers.filter(Boolean).length < 2) continue;
-      for (const key of REPORT_ORDER) {
+      for (const key of ['po_lines', ...REPORT_ORDER]) {
         const spec = REPORTS[key];
+        if (spec.exclude && spec.exclude.some(x => headers.includes(x))) continue;
         const sigOk = spec.signature.every(g => g.some(a => headers.includes(a)));
         if (!sigOk) continue;
         const colIndex = Engine.mapColumns(headers, spec.fields);
@@ -748,6 +766,9 @@ const Engine = {
       r.remark_at = k.last_remark_at || null;
       r.link_batch_at = k.link_batch_at || null;
       Engine.assignStage(r, g, today, minOut);
+      // what the customer still has to pay us
+      r.due = ['settled', 'paid_marked', 'recovery', 'active'].includes(r.stage) ? 0
+        : r.stage === 'recovered_partial' ? (g.claims_posted_in_ledger ? r.outstanding : U.r2(r.outstanding - (r.claim_approved || 0))) : r.outstanding;
       if (r.stage === 'claim_submitted') {
         r.claim_window = 'submitted';
         r.submitted_days = today - U.dayNum(k.claim_submitted_at);
@@ -814,7 +835,7 @@ const Engine = {
     if (r.status !== 'Closed') s = 'active';
     else if (r.outstanding <= minOut) s = 'settled';
     else if (k.paid_marked_at) s = 'paid_marked';
-    else if (r.claim_live && /recover|paid|approved|settled/i.test(r.claim_state)) s = 'recovery';
+    else if (r.claim_live && /recover|paid|approved|settled/i.test(r.claim_state)) s = ((g.claims_posted_in_ledger ? r.outstanding : r.outstanding - (r.claim_approved || 0)) > minOut) ? 'recovered_partial' : 'recovery';
     else if (r.claim_live && /update|info|pending|review/i.test(r.claim_state)) s = 'need_update';
     else if (r.claim_live) s = 'recovery';
     else if (k.claim_submitted_at && (!r.claims.length || U.dayNum(k.claim_submitted_at) >= Math.max(...r.claims.map(x => U.dayNum(x.claim_date) || 0)))) s = 'claim_submitted';
@@ -915,10 +936,11 @@ const Engine = {
     const R = model.records;
     const closed = R.filter(r => r.status === 'Closed'), open = R.filter(r => r.status === 'Open');
     const minOut = +model.settings.general.min_outstanding || 0;
-    const owing = closed.filter(r => r.outstanding > minOut);
+    const owing = closed.filter(r => r.outstanding > minOut && STAGES[r.stage].group !== 'done');
     const collect = owing.filter(r => STAGES[r.stage].group === 'collect');
     const ready = owing.filter(r => r.stage === 'ready_to_claim');
     const inRecovery = model.claimRows.filter(x => /recover/i.test(x.status));
+    const partial = R.filter(r => r.stage === 'recovered_partial');
     const stageCounts = {};
     for (const r of R) stageCounts[r.stage] = (stageCounts[r.stage] || 0) + 1;
     return {
@@ -926,9 +948,10 @@ const Engine = {
       waiverFees: U.sum(R, r => r.waiver_amount),
       cardooFees: U.sum(R, r => r.cardoo_fee),
       owingCount: owing.length, owingAmount: U.sum(owing, r => r.outstanding),
-      collectCount: collect.length, collectAmount: U.sum(collect, r => r.outstanding),
+      collectCount: collect.length, collectAmount: U.sum(collect, r => r.due),
       readyCount: ready.length, readyAmount: U.sum(ready, r => r.claimable),
       recoveryCount: inRecovery.length, recoveryApproved: U.sum(inRecovery, x => x.approved_amount),
+      partialCount: partial.length, partialDue: U.sum(partial, r => r.due),
       needUpdate: model.claimRows.filter(x => /update/i.test(x.status)).length,
       coveredExposure: U.sum(open, r => r.coverage),
       noBookingOpen: open.filter(r => r.booking_state !== 'active').length,
@@ -947,7 +970,7 @@ const Engine = {
     const g = settings.general;
     const map = {
       name: U.titleCase(r.name || ''), first_name: U.titleCase((r.name || '').split(' ')[0] || ''),
-      contract: r.contract_no, amount: U.money(r.outstanding), currency: g.currency || 'AED',
+      contract: r.contract_no, amount: U.money(r.due != null ? r.due : r.outstanding), currency: g.currency || 'AED', ledger_balance: U.money(r.outstanding),
       vehicle: r.vehicle || '', plate: r.plate || '', open_date: U.fmtDate(r.open_date), close_date: U.fmtDate(r.close_date),
       payment_link: r.payment_link || '[payment link]', company: g.company_name || '', company_phone: g.company_phone || '',
       waiver_amount: U.money(r.waiver_amount), today: U.fmtDate(U.todayISO())
@@ -1067,7 +1090,7 @@ Engine.linkExpiry = function (g, base) {
 };
 Engine.linkRow = function (r, g, o) {
   o = o || {};
-  const amount = o.amount != null ? +o.amount : r.outstanding;
+  const amount = o.amount != null ? +o.amount : (r.due != null ? r.due : r.outstanding);
   return {
     OrderID: 'Cno' + r.contract_no,
     OrderName: o.orderName != null ? o.orderName : (g.link_order_name || 'Outstanding Balance'),
@@ -1099,6 +1122,148 @@ Engine.TASKS = [
   { id: 'links', label: 'Payment links not received', hint: 'Batch CSV sent 2+ days ago, no link saved', tone: 'violet', icon: 'link', fn: r => r.link_overdue },
   { id: 'claimwait', label: 'Submitted, not in Cardoo report', hint: 'Claim marked submitted 7+ days ago', tone: 'rose', icon: 'alert', fn: r => r.stage === 'claim_submitted' && r.submitted_days >= 7 }
 ];
+
+/* ---------- Cardoo 15-day invoices (PO) ---------- */
+Engine.poFromName = function (name) {
+  const m = String(name || '').match(/PO[\s_-]?(\d{3,})/i);
+  return m ? 'PO_' + m[1] : null;
+};
+Engine._norm_po_lines = function (det) {
+  const { rows, headerRow, colIndex: ci } = det, C = Engine._cell;
+  const out = [], issues = [], keys = new Map();
+  const stats = { rows: 0, skipped: 0, credits: 0, variants: 0 };
+  for (let r = headerRow + 1; r < rows.length; r++) {
+    const row = rows[r]; if (!row) continue;
+    const rawC = C(row, ci, 'contract');
+    const pc = Engine.parseContract(rawC);
+    if (!pc) { if (row.some(v => !U.isBlank(v))) stats.skipped++; continue; }
+    stats.rows++;
+    if (pc.suffix) stats.variants++;
+    const price = U.num(C(row, ci, 'price')), inv = U.num(C(row, ci, 'invPrice'));
+    if ((price || 0) < 0) stats.credits++;
+    let key = U.clean(C(row, ci, 'dfid')) || `${U.clean(rawC)}|${U.isoDT(C(row, ci, 'start'))}`;
+    const c = keys.get(key) || 0; keys.set(key, c + 1); if (c) key = `${key}#${c + 1}`;
+    out.push({ row_key: key, contract_no: pc.no, contract_raw: U.clean(rawC), booking_no: U.clean(C(row, ci, 'booking')) || null,
+      booking_type: U.clean(C(row, ci, 'btype')) || null, cancelled: /^(yes|y|true|1)$/i.test(U.clean(C(row, ci, 'cancelled'))),
+      start_at: U.isoDT(C(row, ci, 'start')), end_at: U.isoDT(C(row, ci, 'end')), close_at: U.isoDT(C(row, ci, 'close')),
+      deposit: U.r2(U.num0(C(row, ci, 'deposit'))), price_aed: price == null ? 0 : Math.round(price * 10000) / 10000,
+      price_currency: U.clean(C(row, ci, 'currency')) || 'AED', invoice_price: inv == null ? 0 : Math.round(inv * 1e6) / 1e6,
+      invoice_currency: U.clean(C(row, ci, 'invCurrency')) || 'USD', comment: U.clean(C(row, ci, 'comment')) || null,
+      booked_at: U.isoDT(C(row, ci, 'bookedAt')), deposit_free_id: U.clean(C(row, ci, 'dfid')) || null,
+      user_label: U.clean(C(row, ci, 'user')) || null, partner: U.clean(C(row, ci, 'partner')) || null });
+  }
+  const tAed = out.reduce((a, x) => a + x.price_aed, 0), tUsd = out.reduce((a, x) => a + x.invoice_price, 0);
+  stats.total_aed = U.r2(tAed); stats.total_usd = U.r2(tUsd);
+  issues.push({ level: 'info', text: `${out.length} billed lines · AED ${U.money(tAed)} = USD ${U.money(tUsd)}${stats.credits ? ` · ${stats.credits} credit line(s) for early closures` : ''}.` });
+  return { rows: out, stats, issues };
+};
+/** Text of a Cardoo PO invoice PDF → header fields */
+Engine.parsePoText = function (t) {
+  t = String(t || '').replace(/\s+/g, ' ');
+  const num = s => s == null ? null : (s.trim() === '-' ? 0 : U.num(s));
+  const g = (re, i = 1) => { const m = t.match(re); return m ? m[i] : null; };
+  const po = g(/Invoice\s*No\.?\s*:?\s*(PO[\s_-]?\d+)/i);
+  const per = t.match(/(?:Suretyship|period)\s*for\s*(\d{4}-\d{2}-\d{2})\s*[—–-]+\s*(\d{4}-\d{2}-\d{2})/i);
+  const aed = g(/Total\s*AED\s*([\d,]+(?:\.\d+)?)/i);
+  const qtyUsd = t.match(/Total\s*AED\s*[\d,]+(?:\.\d+)?\s*\)\s*(\d+)\s+([\d,]+\.\d{2})/i);
+  const res = {
+    po_no: po ? 'PO_' + po.replace(/\D/g, '') : null,
+    issue_date: U.isoDate(g(/Issue\s*date\s*:?\s*(\d{4}-\d{2}-\d{2})/i)),
+    period_from: per ? per[1] : null, period_to: per ? per[2] : null,
+    total_aed: num(aed), qty: qtyUsd ? +qtyUsd[1] : null, total_usd: qtyUsd ? num(qtyUsd[2]) : null,
+    subtotal_usd: num(g(/SUBTOTAL\s*([\d,]+\.\d{2})/i)), vat_usd: num(g(/\bVAT\s+(-|[\d,]+\.\d{2})\s+BALANCE/i)),
+    balance_due_usd: num(g(/BALANCE\s*DUE\s*([\d,]+\.\d{2})/i)),
+    currency: /TOTAL,?\s*USD/i.test(t) ? 'USD' : (g(/TOTAL,?\s*([A-Z]{3})/) || 'USD'),
+    agreement_no: g(/agreement\s*No\.?\s*([\w-]+)/i),
+    payment_terms_days: +(g(/within\s*(\d+)\s*business\s*days/i) || 3),
+    raw_text: t.slice(0, 4000)
+  };
+  if (res.total_usd == null) res.total_usd = res.subtotal_usd != null ? res.subtotal_usd : res.balance_due_usd;
+  return res;
+};
+Engine.addBusinessDays = function (iso, n) {
+  if (!iso) return null;
+  let dn = U.dayNum(iso), added = 0;
+  while (added < n) { dn++; const wd = new Date(dn * 86400000).getUTCDay(); if (wd !== 0 && wd !== 6) added++; }
+  const d = new Date(dn * 86400000);
+  return `${d.getUTCFullYear()}-${U.pad(d.getUTCMonth() + 1)}-${U.pad(d.getUTCDate())}`;
+};
+Engine.DEFAULT_FX = 3.6725;
+
+/** Cardoo account: invoices, lines, settlements, claims receivable */
+Engine.cardoo = function (model, cd) {
+  cd = cd || { invoices: [], lines: [], settlements: [] };
+  const today = U.todayNum(), minOut = +model.settings.general.min_outstanding || 0;
+  const S = cd.settlements || [];
+  const byPo = U.groupBy(S.filter(s => s.po_no), s => s.po_no);
+  const linesByPo = U.groupBy(cd.lines || [], l => l.po_no);
+  const invoices = (cd.invoices || []).map(i => {
+    const st = byPo.get(i.po_no) || [];
+    const fx = i.total_aed && i.total_usd ? +i.total_aed / +i.total_usd : Engine.DEFAULT_FX;
+    const usd = x => x.amount_usd != null && x.amount_usd !== '' ? +x.amount_usd : (+x.amount_aed || 0) / fx;
+    const paid = U.r2(U.sum(st.filter(x => x.kind === 'payment'), usd));
+    const offset = U.r2(U.sum(st.filter(x => x.kind === 'offset'), usd));
+    const adj = U.r2(U.sum(st.filter(x => x.kind === 'adjustment'), usd));
+    const due = +(i.balance_due_usd != null ? i.balance_due_usd : i.total_usd != null ? i.total_usd : i.lines_total_usd || 0);
+    const balance = U.r2(due - paid - offset - adj);
+    const dueDate = Engine.addBusinessDays(i.issue_date, +i.payment_terms_days || 3);
+    const status = balance <= 0.01 ? (offset > 0 && paid > 0 ? 'Settled (paid + offset)' : offset > 0 ? 'Settled by offset' : 'Paid')
+      : (paid + offset + adj) > 0 ? 'Partly settled' : (dueDate && U.dayNum(dueDate) < today ? 'Overdue' : 'Unpaid');
+    const lines = linesByPo.get(i.po_no) || [];
+    const check = i.has_pdf && i.has_lines ? (Math.abs((+i.lines_total_aed || 0) - (+i.total_aed || 0)) < 0.05 && (!i.qty || i.qty === +i.lines_count) ? 'ok' : 'mismatch') : (i.has_pdf ? 'no_lines' : 'no_pdf');
+    return Object.assign({}, i, { fx: Math.round(fx * 10000) / 10000, paid, offset, adjustment: adj, due_usd: U.r2(due), balance, balance_aed: U.r2(balance * fx),
+      due_date: dueDate, overdue_days: status === 'Overdue' ? today - U.dayNum(dueDate) : 0, status, check, lines, settlements: st,
+      total_aed_v: i.total_aed != null ? +i.total_aed : +i.lines_total_aed || 0, search: [i.po_no, i.notes].filter(Boolean).join(' ').toLowerCase() });
+  });
+  const invByPo = new Map(invoices.map(i => [i.po_no, i]));
+  // lines enriched with checks
+  const lines = (cd.lines || []).map(l => {
+    const rec = model.byNo.get(+l.contract_no) || null, c = model.contracts.get(+l.contract_no) || null, inv = invByPo.get(l.po_no) || {};
+    const flags = [];
+    const carClose = rec && rec.status === 'Closed' ? rec.close_date : (c && /clos/i.test(c.status || '') ? U.isoDate(c.dropoff_at) : null);
+    let avoidable = 0;
+    if (!c && !rec) flags.push('Not in Caryaati');
+    else if (!rec) flags.push('No waiver fee');
+    if (+l.price_aed > 0 && carClose && inv.period_from && U.dayNum(carClose) < U.dayNum(inv.period_from) && !l.close_at) {
+      flags.push('Billed after Caryaati close'); avoidable = +l.price_aed;
+    }
+    if (+l.price_aed < 0) flags.push('Credit');
+    return Object.assign({}, l, { _rec: rec, _name: rec ? rec.name : c ? c.customer_name : '', _car_close: carClose, _flags: flags, _avoidable: avoidable,
+      _period: inv.period_from ? `${inv.period_from}|${inv.period_to}` : '', _issue: inv.issue_date || null,
+      search: [l.po_no, l.contract_no, rec ? rec.name : c ? c.customer_name : ''].join(' ').toLowerCase() });
+  });
+  // per-contract actual billing
+  const billed = new Map();
+  lines.forEach(l => { const k = +l.contract_no; const o = billed.get(k) || { aed: 0, usd: 0, n: 0 }; o.aed += +l.price_aed || 0; o.usd += +l.invoice_price || 0; o.n++; billed.set(k, o); });
+  model.records.forEach(r => { const b = billed.get(r.contract_no); r.cardoo_billed = b ? U.r2(b.aed) : 0; r.cardoo_billed_lines = b ? b.n : 0; });
+  // claims receivable (In Recovery = approved / paid by Cardoo)
+  const settledClaims = new Map();
+  S.filter(s => s.kind === 'offset' || s.kind === 'claim_payout').forEach(s => (Array.isArray(s.claim_keys) ? s.claim_keys : []).forEach(k => settledClaims.set(k, s)));
+  const claims = model.claimRows.filter(x => /recover/i.test(x.status)).map(x => {
+    const s = settledClaims.get(x.row_key);
+    return Object.assign({}, x, { _settled: s || null, _received: s ? (s.kind === 'offset' ? 'Offset vs ' + (s.po_no || 'invoice') : 'Paid to us') : null,
+      _settled_date: s ? s.entry_date : null, search: [x.contract_no, x._name, x.title].join(' ').toLowerCase() });
+  });
+  const fxAll = invoices.length ? U.sum(invoices, i => i.total_aed_v) / Math.max(0.01, U.sum(invoices, i => +i.total_usd || +i.lines_total_usd || 0)) : Engine.DEFAULT_FX;
+  const toAed = s => s.amount_aed != null && s.amount_aed !== '' ? +s.amount_aed : (+s.amount_usd || 0) * (s.fx ? +s.fx : fxAll);
+  const sumK = k => U.r2(U.sum(S.filter(s => s.kind === k), toAed));
+  const billedAed = U.sum(invoices, i => i.total_aed_v), billedUsd = U.sum(invoices, i => +i.due_usd || 0);
+  const approved = U.sum(claims, x => x.approved_amount);
+  const recvd = U.sum(claims.filter(x => x._settled), x => x.approved_amount);
+  const periods = invoices.filter(i => i.period_from).map(i => [i.period_from, i.period_to]);
+  const cover = periods.length ? { from: periods.map(p => p[0]).sort()[0], to: periods.map(p => p[1]).sort().pop() } : null;
+  const summary = {
+    invoices: invoices.length, billedAed, billedUsd, paidAed: sumK('payment'), offsetAed: sumK('offset'), payoutAed: sumK('claim_payout'), adjustAed: sumK('adjustment'),
+    paidUsd: U.sum(invoices, i => i.paid), offsetUsd: U.sum(invoices, i => i.offset),
+    balanceUsd: U.sum(invoices, i => Math.max(0, i.balance)), balanceAed: U.sum(invoices, i => Math.max(0, i.balance_aed)),
+    overdue: invoices.filter(i => i.status === 'Overdue'), unpaid: invoices.filter(i => i.balance > 0.01),
+    claimsApproved: approved, claimsReceived: recvd, claimsReceivable: U.r2(approved - recvd), claimsOpen: claims.filter(x => !x._settled).length,
+    avoidable: U.sum(lines, l => l._avoidable), avoidableLines: lines.filter(l => l._avoidable).length,
+    credits: U.sum(lines.filter(l => +l.price_aed < 0), l => l.price_aed), fx: Math.round(fxAll * 10000) / 10000, cover
+  };
+  summary.netPosition = U.r2(summary.claimsReceivable - summary.balanceAed);   // + Cardoo owes us, − we owe Cardoo
+  return { invoices, invByPo, lines, settlements: S, claims, summary };
+};
 
 /* =====================================================================
    3. API — Supabase RPC wrapper
@@ -1153,6 +1318,8 @@ const State = {
   source: 'db',        // 'db' | 'local'
   view: 'dashboard',
   imports: {},         // type → {file, det, norm, error}
+  poImports: {},       // PO_xxxxx → {pdf, lines}
+  cd: null,            // Cardoo invoices / lines / settlements
   prepared: null,
   charts: {},
   tables: {},
@@ -1361,6 +1528,7 @@ class DataTable {
     const box = this.el.querySelector('.dt-sel');
     box.classList.toggle('on', this.sel.size > 0);
     this.el.querySelector('.dt-sel-n').textContent = `${this.sel.size} selected`;
+    if (this.o.onSel) this.o.onSel(this.sel.size);
   }
   selectedRows() { return this.rows.filter(r => this.sel.has(String(this.o.rowKey(r)))); }
   clearSel() { this.sel.clear(); this.render(); }
@@ -1487,6 +1655,7 @@ const VIEW_META = {
   dashboard:   ['Dashboard', 'Live overview of waivers, collections and Cardoo claims'],
   import:      ['Import & Sync', 'Attach the 5 reports, review the clean-up, sync to the database'],
   collections: ['Collections', 'Closed waiver contracts with an outstanding balance'],
+  cardoo:      ['Cardoo Account', '15-day Cardoo invoices, payments, claim offsets and balance'],
   claims:      ['Cardoo Claims', '60-day claim window, claim-ready contracts and submitted claims'],
   matching:    ['Cardoo Matching', 'Caryaati ↔ Cardoo: missing bookings, missing contracts and closing dates'],
   profit:      ['Profitability', 'Is the Cardoo deposit-waiver program paying off?'],
@@ -1552,7 +1721,7 @@ const App = {
   },
   async logout() {
     try { if (API.token) await API.rpc('dw_logout', { p_token: API.token }); } catch (e) { /* ignore */ }
-    API.clearSession(); API.token = null; State.user = null; State.ds = null; this.model = null; State.model = null;
+    API.clearSession(); API.token = null; State.user = null; State.ds = null; this.model = null; State.model = null; State.cd = null; State.poImports = {};
     Object.values(State.charts).forEach(c => c && c.destroy && c.destroy()); State.charts = {};
     State.tables = {}; State.built = {};
     $$('.view').forEach(v => { v.innerHTML = ''; });
@@ -1655,8 +1824,9 @@ const App = {
     const btn = $('#refreshBtn');
     btn.disabled = true; btn.firstElementChild && (btn.firstElementChild.style.animation = 'spin .8s linear infinite');
     try {
-      const ds = await API.call('dw_get_dataset');
+      const [ds, cd] = await Promise.all([API.call('dw_get_dataset'), API.call('dw_get_cardoo').catch(e => { if (!/not set up/i.test(e.message)) Toast.warn('Cardoo invoices not loaded', e.message); return null; })]);
       State.user = ds.user || State.user;
+      State.cd = cd || { invoices: [], lines: [], settlements: [], missing: !cd };
       this.setData(ds, 'db', !initial);
       if (manual) Toast.ok('Data reloaded from database');
     } catch (e) {
@@ -1672,6 +1842,7 @@ const App = {
   rebuild(rerender = true) {
     const t0 = performance.now();
     this.model = State.model = Engine.buildModel(State.ds);
+    this.model.cardoo = Engine.cardoo(this.model, State.cd);
     this.chrome();
     if (rerender && !$('#app').hidden) Views.render(State.view, true);
     if (Drawer.no && $('#drawer').classList.contains('open')) Drawer.render();
@@ -1683,6 +1854,7 @@ const App = {
     setB('collections', k.collectCount);
     setB('claims', k.readyCount + k.needUpdate);
     setB('checks', k.criticalChecks);
+    setB('cardoo', this.model.cardoo.summary.overdue.length + this.model.cardoo.summary.unpaid.filter(i => i.status !== 'Overdue').length);
     setB('matching', k.noBookingOpen + k.missingInCaryaati + (App.model.checks.find(c => c.id === 'cardoo_only_closed') || { rows: [] }).rows.length);
     const pill = $('#syncPill'), txt = $('#syncText');
     pill.className = 'sync-pill';
@@ -1727,7 +1899,7 @@ const Views = {
   render(v, dataChanged) {
     const el = $('#view-' + v);
     if (!el || !App.model) return;
-    const always = ['dashboard', 'checks', 'profit'];               // cheap, always fresh
+    const always = ['dashboard', 'checks', 'profit', 'cardoo'];               // cheap, always fresh
     const onNavigate = ['settings', 'import', 'activity']; // rebuilt when opened, not on data refresh
     if (always.includes(v) || !State.built[v] || (onNavigate.includes(v) && !dataChanged)) {
       Views[v].build(el);
@@ -1773,7 +1945,7 @@ Views.dashboard = {
         ${this.kpi('t-rose', 'alert', 'Outstanding · closed', `<small>${cur}</small>${U.compact(k.owingAmount)}`, `${U.plural(k.owingCount, 'contract')} above ${cur} ${g.min_outstanding}`, '#/collections')}
         ${this.kpi('t-blue', 'whatsapp', 'In collection queue', `<small>${cur}</small>${U.compact(k.collectAmount)}`, `${U.int(k.collectCount)} customers to remind / collect`, '#/collections')}
         ${this.kpi('t-amber', 'file-check', 'Ready to claim', `<small>${cur}</small>${U.compact(k.readyAmount)}`, `${U.plural(k.readyCount, 'contract')} · ${k.soonCount ? `<span class="chip sm t-amber">${k.soonCount} window closing</span>` : `${U.plural(k.needUpdate, 'claim')} need update`}`, '#/claims')}
-        ${this.kpi('t-green', 'shield', 'Cardoo in recovery', `<small>${cur}</small>${U.compact(k.recoveryApproved)}`, `${U.int(k.recoveryCount)} approved claims`, '#/claims')}
+        ${this.kpi('t-green', 'shield', 'Recovered by Cardoo', `<small>${cur}</small>${U.compact(k.recoveryApproved)}`, `${U.int(k.recoveryCount)} approved / paid claims${App.model.cardoo && App.model.cardoo.summary.claimsReceivable > 0 ? ` · ${U.compact(App.model.cardoo.summary.claimsReceivable)} not received yet` : ''}`, '#/cardoo')}
         ${this.kpi('t-violet', 'car', 'Open-contract cover', `<small>${cur}</small>${U.compact(k.coveredExposure)}`, `${k.noBookingOpen ? `<span class="chip sm t-rose">${k.noBookingOpen} without booking</span>` : 'All open contracts booked'}`)}
         ${this.kpi('t-rose', 'clock', 'Claim window expired', `<small>${cur}</small>${U.compact(k.expiredAmount)}`, `${U.plural(k.expiredCount, 'contract')} past ${g.claim_deadline_days} days · collect directly`, '#/claims')}
       </div>
@@ -1804,6 +1976,10 @@ Views.dashboard = {
     const R = App.model.records;
     $('#tasks').innerHTML = Engine.TASKS.map(t => { const rs = R.filter(t.fn); return `<div class="attn-item t-${t.tone}" data-task="${t.id}" style="${rs.length ? '' : 'opacity:.5'}"><span class="ico">${icon(t.icon)}</span>
       <div class="grow"><b>${t.label}</b><small>${t.hint}${rs.length ? ' · ' + U.compact(U.sum(rs, r => r.outstanding)) : ''}</small></div><span class="count">${rs.length}</span></div>`; }).join('');
+    const cs = App.model.cardoo.summary;
+    $('#tasks').insertAdjacentHTML('beforeend', `<div class="attn-item t-rose" data-href="#/cardoo" style="${cs.unpaid.length ? '' : 'opacity:.5'}"><span class="ico">${icon('receipt')}</span><div class="grow"><b>Cardoo invoices to settle</b><small>${cs.overdue.length} overdue · USD ${U.money(cs.balanceUsd)} open</small></div><span class="count">${cs.unpaid.length}</span></div>
+      <div class="attn-item t-green" data-href="#/cardoo" style="${cs.claimsOpen ? '' : 'opacity:.5'}"><span class="ico">${icon('shield')}</span><div class="grow"><b>Approved claims not received</b><small>Record as offset or payout · ${U.compact(cs.claimsReceivable)}</small></div><span class="count">${cs.claimsOpen}</span></div>`);
+    $$('#tasks [data-href]').forEach(a => a.addEventListener('click', () => { State.ui.cardooTab = a.querySelector('b').textContent.startsWith('Approved') ? 'claims' : 'invoices'; location.hash = a.dataset.href; }));
     $$('#tasks [data-task]').forEach(a => a.addEventListener('click', () => { State.ui.collections.task = a.dataset.task; State.ui.collections.chip = 'all'; location.hash = '#/collections'; if (State.view === 'collections') Views.render('collections'); }));
   },
   pipeline() {
@@ -1902,6 +2078,7 @@ Views.collections = {
     ['not_covered', 'Not covered', 'rose', r => r.stage === 'not_covered'],
     ['claim_rejected', 'Claim rejected', 'rose', r => r.stage === 'claim_rejected'],
     ['on_hold', 'On hold', 'slate', r => r.stage === 'on_hold'],
+    ['recovered_partial', 'Cardoo paid · rest due', 'teal', r => r.stage === 'recovered_partial'],
     ['claims', 'With Cardoo', 'green', r => ['recovery', 'need_update', 'claim_submitted'].includes(r.stage)],
     ['paid_marked', 'Marked paid', 'green', r => r.stage === 'paid_marked'],
     ['all', 'All outstanding', 'slate', () => true]
@@ -1932,13 +2109,14 @@ Views.collections = {
     const cur = App.model.settings.general.currency;
     const t = State.tables.collections = new DataTable($('#colTable', el), {
       selectable: true, title: 'Collections', exportName: 'collections', sort: { key: 'outstanding', dir: 'desc' },
-      bulk: `<button class="btn btn-xs btn-wa" data-bulk="wa">${icon('whatsapp')}WhatsApp queue</button><button class="btn btn-xs btn-primary" data-bulk="batch">${icon('download')}Link batch CSV</button><button class="btn btn-xs" data-bulk="copy">${icon('copy')}Copy messages</button><button class="btn btn-xs" data-bulk="hold">${icon('pause')}Hold</button>`,
+      bulk: `<button class="btn btn-xs btn-wa" data-bulk="wa">${icon('whatsapp')}WhatsApp queue</button><button class="btn btn-xs" data-bulk="copy">${icon('copy')}Copy messages</button><button class="btn btn-xs" data-bulk="hold">${icon('pause')}Hold</button>`,
       toolbar: `<button class="btn btn-sm" id="linkBatch" title="Download the provider batch CSV to generate payment links">${icon('download')}Link batch CSV</button><button class="btn btn-sm" id="pasteLinks">${icon('link')}Import payment links</button>`,
       columns: [
         ...Views.recordColumns(),
         { key: 'vehicle', label: 'Vehicle', get: r => r.vehicle, hidden: true },
         { key: 'close_date', label: 'Closed', type: 'date', get: r => r.close_date, sortGet: r => U.dayNum(r.close_date), html: r => R.date(r.close_date, R.ago(r.days_since_close)) },
-        { key: 'outstanding', label: `Outstanding`, plain: `Outstanding (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.outstanding, html: r => `${R.owe(r.outstanding)}<span class="cell-sub" style="color:var(--${r.booking_state === 'active' ? 'teal' : 'rose'})">${r.booking_state === 'active' ? 'cover ' + U.compact(r.coverage) : r.booking_state === 'cancelled' ? 'booking cancelled' : 'no Cardoo booking'}</span>` },
+        { key: 'due', label: `Due`, plain: `Due from customer (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.due, html: r => `${R.owe(r.due)}<span class="cell-sub" style="color:var(--${r.stage === 'recovered_partial' ? 'teal' : r.booking_state === 'active' ? 'muted' : 'rose'})">${r.stage === 'recovered_partial' ? `ledger ${U.compact(r.outstanding)} − Cardoo ${U.compact(r.claim_approved)}` : r.booking_state === 'active' ? 'cover ' + U.compact(r.coverage) : r.booking_state === 'cancelled' ? 'booking cancelled' : 'no Cardoo booking'}</span>` },
+        { key: 'outstanding', label: 'Ledger balance', type: 'num', get: r => r.outstanding, hidden: true },
         { key: 'coverage', label: 'Cardoo cover', get: r => r.booking_state === 'active' ? r.coverage : 0, type: 'num', hidden: true },
         { key: 'stage', label: 'Stage', get: r => STAGES[r.stage].label, sortGet: r => STAGES[r.stage].order, html: r => `${R.stage(r.stage)}${R.flags(r.flags.filter(x => !/Close in Cardoo|Cardoo close|Claim in/.test(x.t)))}` },
         { key: 'deadline', label: 'Claim window', type: 'date', get: r => r.claim_deadline, sortGet: r => r.days_to_deadline, html: r => R.window(r) },
@@ -1953,6 +2131,7 @@ Views.collections = {
       onRowClick: r => Drawer.open(r.contract_no)
     });
     Views.bindRowActions(t.el);
+    t.o.onSel = n => { const lb = $('#linkBatch', el); if (lb) lb.innerHTML = `${icon('download')}Link batch CSV${n ? ` (${n} selected)` : ''}`; };
     t.el.addEventListener('click', async e => {
       const b = e.target.closest('[data-bulk]'); if (!b) return;
       const rows = t.selectedRows(); if (!rows.length) return;
@@ -1998,6 +2177,7 @@ Views.collections = {
     }).join('');
     const chip = this.chips.find(c => c[0] === f.chip) || this.chips[0];
     State.tables.collections.setRows(fil.filter(chip[3]));
+    const lb = $('#linkBatch', el); if (lb) lb.innerHTML = `${icon('download')}Link batch CSV${State.tables.collections.sel.size ? ` (${State.tables.collections.sel.size} selected)` : ''}`;
     App.saveUI();
   }
 };
@@ -2032,7 +2212,7 @@ Views.claims = {
   tabs: [
     ['ready', 'Ready to claim', 'amber'], ['soon', 'Window closing soon', 'orange'], ['window', 'Within claim window', 'teal'], ['expired', 'Window expired', 'rose'],
     ['need_update', 'Need update', 'orange'], ['submitted', 'Submitted (awaiting report)', 'violet'],
-    ['recovery', 'In recovery', 'green'], ['rejected', 'Cancelled / declined', 'rose'], ['all', 'All Cardoo claims', 'slate']
+    ['recovery', 'Approved / paid (In Recovery)', 'green'], ['rejected', 'Cancelled / declined', 'rose'], ['all', 'All Cardoo claims', 'slate']
   ],
   build(el) {
     if (!App.model.records.length && !App.model.claimRows.length) { State.built.claims = false; return Views.emptyData(el); }
@@ -2279,7 +2459,7 @@ Views.payments = {
 
 /* ------------------------------ Activity ------------------------------ */
 Views.activity = {
-  labels: { whatsapp: ['WhatsApp sent', 'green'], call: ['Call logged', 'teal'], case_update: ['Case updated', 'indigo'], sync: ['Reports synced', 'violet'], login: ['Signed in', 'slate'], settings: ['Settings changed', 'amber'], note: ['Note', 'sky'], claim_pack: ['Claim pack', 'orange'], statement: ['Statement PDF', 'sky'], remark: ['Remark', 'teal'], link_batch: ['Link batch CSV', 'violet'] },
+  labels: { whatsapp: ['WhatsApp sent', 'green'], call: ['Call logged', 'teal'], case_update: ['Case updated', 'indigo'], sync: ['Reports synced', 'violet'], login: ['Signed in', 'slate'], settings: ['Settings changed', 'amber'], note: ['Note', 'sky'], claim_pack: ['Claim pack', 'orange'], statement: ['Statement PDF', 'sky'], remark: ['Remark', 'teal'], link_batch: ['Link batch CSV', 'violet'], po_import: ['Cardoo invoice imported', 'violet'], cardoo_settlement: ['Cardoo settlement', 'green'], cardoo_settlement_deleted: ['Settlement deleted', 'rose'] },
   build(el) {
     el.innerHTML = `<div class="filters"><label>${icon('filter')}Show</label><select class="select input-sm" id="acAction"><option value="">All actions</option>${Object.entries(this.labels).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('')}</select>
       <button class="btn btn-sm" id="acReload">${icon('refresh')}Reload</button></div><div id="acTable"></div>`;
@@ -2306,6 +2486,8 @@ Views.activity = {
     if (a.action === 'case_update') return Object.entries(d).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v === null || v === '' ? '(cleared)' : v}`).join(' · ');
     if (a.action === 'sync') return d.stored ? Object.entries(d.stored).map(([k, v]) => `${k} ${v}`).join(' · ') : '';
     if (a.action === 'call') return d.note || '';
+    if (a.action === 'po_import') return `${d.po_no}${d.new ? ' (new)' : ' (updated)'}${d.lines != null ? ` · ${d.lines} lines` : ''}${d.pdf ? ' · PDF' : ''}`;
+    if (a.action === 'cardoo_settlement') return `${d.kind} · ${d.po_no || ''} · ${d.amount_usd != null ? 'USD ' + U.money(d.amount_usd) : ''} ${d.amount_aed != null ? 'AED ' + U.money(d.amount_aed) : ''}`;
     if (a.action === 'remark') return [d.category, d.text].filter(Boolean).join(': ');
     if (a.action === 'link_batch') return `${d.order_id || ''} · ${d.amount != null ? U.money(d.amount) : ''}`;
     if (a.action === 'sync' && d.merge) return Object.entries(d.merge).map(([k, v]) => `${k}: +${v.inserted} new, ${v.updated} updated`).join(' · ');
@@ -2456,7 +2638,11 @@ const Drawer = {
       <tr><td>Cardoo closed</td><td>${r.cardoo_close_at ? U.fmtDT(r.cardoo_close_at) : r.cardoo_status === 'open' ? 'not closed' : '—'}</td></tr>
       ${r.close_diff_days ? `<tr><td>Difference</td><td class="${r.close_diff_days > 0 ? 'diff-pos' : 'diff-neg'}">${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days} days</td></tr>` : ''}
       ${r.claim_deadline ? `<tr><td>Claim window (${g.claim_deadline_days} days)</td><td>${U.fmtDate(r.claim_deadline)} · ${r.days_to_deadline < 0 ? `expired ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`}</td></tr>` : ''}</table></div>`;
-    return cmp + `<div class="panel"><h4>${icon('shield')}Cardoo bookings</h4>${r.bookings.length ? `<div class="mini-list">${r.bookings.map(b => `<div class="mini-item">
+    const bl = (App.model.cardoo ? App.model.cardoo.lines : []).filter(l => +l.contract_no === r.contract_no).sort((a, b) => String(b.po_no).localeCompare(String(a.po_no)));
+    const billed = bl.length ? `<div class="panel"><h4>${icon('receipt')}Charged by Cardoo (invoices)<span class="spacer"></span><span class="mono" style="text-transform:none">AED ${U.money(U.sum(bl, l => l.price_aed))}</span></h4>
+      <table class="ledger">${bl.map(l => `<tr><td>${U.esc(l.po_no)} · ${U.esc(l.booking_type || '')}${l._flags.length ? ' ' + l._flags.map(f => `<span class="flag t-${/Credit/.test(f) ? 'green' : 'rose'}">${f}</span>`).join(' ') : ''}<span class="cell-sub">${(App.model.cardoo.invByPo.get(l.po_no) || {}).period_from ? U.fmtDate(App.model.cardoo.invByPo.get(l.po_no).period_from) + ' → ' + U.fmtDate(App.model.cardoo.invByPo.get(l.po_no).period_to) : ''}</span></td><td>${U.money(l.price_aed)}</td></tr>`).join('')}</table>
+      <p class="small muted mt-sm">Waiver fee charged to customer: AED ${U.money(r.waiver_amount)} · Cardoo charged so far: AED ${U.money(U.sum(bl, l => l.price_aed))}</p></div>` : '';
+    return cmp + billed + `<div class="panel"><h4>${icon('shield')}Cardoo bookings</h4>${r.bookings.length ? `<div class="mini-list">${r.bookings.map(b => `<div class="mini-item">
         <div class="grow"><b>${U.esc(b.booking_type || 'Booking')} ${b.contract_variant ? `<span class="tag">${U.esc(b.contract_variant)}</span>` : ''}</b>
         <div class="small muted">${U.fmtDT(b.start_at)} → ${U.fmtDT(b.end_at)}${b.close_at ? ` · closed ${U.fmtDT(b.close_at)}` : ' · not closed'}</div>
         <div class="small muted">Booked ${U.fmtDT(b.booked_at)} by ${U.esc(b.user_label || '')}${b.comment ? ` · ${U.esc(b.comment)}` : ''}</div></div>
@@ -2548,7 +2734,7 @@ const Actions = {
   /** Provider batch CSV (eInvoice batch upload) for selected customers */
   linkBatch(rows, auto) {
     const g = App.model.settings.general, cur = g.currency;
-    rows = rows.filter(r => r && r.outstanding > 0);
+    rows = rows.filter(r => r && r.due > 0);
     if (!rows.length) return Toast.warn('No customers with an outstanding balance in the selection');
     const st = { orderName: g.link_order_name || 'Outstanding Balance', message: g.link_message || 'Please pay the amount.', days: +g.link_expiry_days || 5, time: g.link_expiry_time || '15:00:00', skipLinked: true, amounts: {}, infos: {}, excl: new Set() };
     Modal.open({
@@ -2657,7 +2843,7 @@ const Actions = {
     let custom = null;
     const k = r.case || {};
     Modal.open({
-      title: `${icon('whatsapp')} WhatsApp · ${U.esc(r.name)}`, sub: `#${r.contract_no} · outstanding <b>${App.model.settings.general.currency} ${U.money(r.outstanding)}</b> · contacted ${r.contact_count}×`, size: 'wide',
+      title: `${icon('whatsapp')} WhatsApp · ${U.esc(r.name)}`, sub: `#${r.contract_no} · due <b>${App.model.settings.general.currency} ${U.money(r.due)}</b>${r.due !== r.outstanding ? ` (ledger ${U.money(r.outstanding)})` : ''} · contacted ${r.contact_count}×`, size: 'wide',
       body: `<div class="grid g-2" style="gap:18px;align-items:start">
         <div class="grid" style="gap:12px">
           <div class="tpl-tabs" id="waTpl">${tpls.map(t => `<button data-t="${t.id}" class="${t.id === tplId ? 'on' : ''}">${U.esc(t.name)}</button>`).join('')}</div>
@@ -2701,7 +2887,7 @@ const Actions = {
           Modal.close();
           if (Object.keys(patch).length) await App.saveCase(r.contract_no, patch);
           const t = this.templates().find(x => x.id === tplId);
-          await App.logActivity(r.contract_no, 'whatsapp', { template: tplId, template_name: t ? t.name : 'custom', phone: ph.digits, amount: U.money(r.outstanding), message: txt.value, edited: custom !== null });
+          await App.logActivity(r.contract_no, 'whatsapp', { template: tplId, template_name: t ? t.name : 'custom', phone: ph.digits, amount: U.money(r.due), message: txt.value, edited: custom !== null });
           Toast.ok(`WhatsApp opened for ${U.titleCase(r.name)}`, 'Logged as contact attempt');
           if (Drawer.no === r.contract_no) Drawer.loadActivity();
         });
@@ -2731,7 +2917,7 @@ const Actions = {
         const draw = () => {
           $('#qList', m).innerHTML = ok.map((r, idx) => `<div class="q-item ${done.has(r.contract_no) ? 'done' : ''} ${idx === i ? 'current' : ''}">
             <span class="avatar" style="width:34px;height:34px;font-size:12px">${done.has(r.contract_no) ? icon('check') : U.esc(U.initials(r.name))}</span>
-            <div class="grow"><b>${U.esc(r.name)}</b><div class="small muted">#${r.contract_no} · +${r.phone} · ${U.money(r.outstanding)} · ${U.esc((tpls.find(t => t.id === tplFor(r)) || {}).name || '')}</div></div>
+            <div class="grow"><b>${U.esc(r.name)}</b><div class="small muted">#${r.contract_no} · +${r.phone} · ${U.money(r.due)} · ${U.esc((tpls.find(t => t.id === tplFor(r)) || {}).name || '')}</div></div>
             ${r.payment_link ? '<span class="flag t-green">link</span>' : '<span class="flag t-amber">no link</span>'}<span class="chip sm t-slate plain">${r.contact_count}× sent</span></div>`).join('') || '<p class="muted">No customers with a phone number in the selection.</p>';
           $('#qProg', m).textContent = `${done.size} of ${ok.length} sent`;
           $('#qBar', m).style.width = (ok.length ? done.size / ok.length * 100 : 0) + '%';
@@ -2747,7 +2933,7 @@ const Actions = {
           window.open(Engine.waLink(r.phone, msg), '_blank', 'noopener');
           done.add(r.contract_no); i++; draw();
           const tt = tpls.find(x => x.id === t);
-          await App.logActivity(r.contract_no, 'whatsapp', { template: t, template_name: tt ? tt.name : t, phone: r.phone, amount: U.money(r.outstanding), message: msg, queue: true });
+          await App.logActivity(r.contract_no, 'whatsapp', { template: t, template_name: tt ? tt.name : t, phone: r.phone, amount: U.money(r.due), message: msg, queue: true });
         });
         draw();
       }
@@ -2962,9 +3148,10 @@ Views.import = {
     el.innerHTML = `
       <div class="section-head"><div><h2>Import reports</h2><p>Attach one or more of the five reports — file names don't matter. New records are added, changed records are updated, and records missing from a file are left as they are.</p></div>
         <span class="spacer"></span>${n ? `<button class="btn btn-ghost" id="impClear">${icon('trash')}Clear files</button>` : ''}</div>
-      <label class="dropzone" id="dz"><input type="file" id="dzInput" multiple accept=".xlsx,.xls,.xlsm,.csv">
-        <div class="dz-ico">${icon('upload')}</div><h3>Drop reports here, or click to browse</h3><p>.xlsx · .xls · .csv — any order, any file names, 1 to 5 files</p></label>
+      <label class="dropzone" id="dz"><input type="file" id="dzInput" multiple accept=".xlsx,.xls,.xlsm,.csv,.pdf">
+        <div class="dz-ico">${icon('upload')}</div><h3>Drop reports here, or click to browse</h3><p>The 5 reports (.xlsx · .xls · .csv) and Cardoo 15-day invoices (PO PDF + booking_details Excel) — any order, any file names</p></label>
       <div class="slots">${REPORT_ORDER.map((t, i) => this.slot(t, i)).join('')}</div>
+      <div id="poPanel"></div>
       <div id="impQuality"></div>
       <div class="card mt"><div class="card-head"><div><h3>Sync history</h3><p>Every sync merges into the database. Notes, remarks, payment links and contact history are never touched.</p></div></div><div class="card-body" id="impHist"><div class="skeleton" style="height:40px"></div></div></div>`;
     const dz = $('#dz', el), inp = $('#dzInput', el);
@@ -2976,6 +3163,7 @@ Views.import = {
     $$('[data-rm]', el).forEach(b => b.addEventListener('click', () => { delete State.imports[b.dataset.rm]; State.prepared = null; this.build(el); }));
     const clr = $('#impClear', el); if (clr) clr.addEventListener('click', () => { State.imports = {}; State.prepared = null; this.build(el); });
     if (n) this.quality(el);
+    PO.panel(el);
     this.history();
   },
   slot(t, i) {
@@ -2999,8 +3187,10 @@ Views.import = {
     for (const f of files) {
       try {
         await U.sleep(20);
+        if (/\.pdf$/i.test(f.name) || f.type === 'application/pdf') { const po = await PO.addPdf(f); Toast.ok(`Cardoo invoice ${po} read`, f.name); continue; }
         const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: false, dense: false });
         const det = Engine.detectWorkbook(wb, XLSX);
+        if (det && det.type === 'po_lines') { const po = PO.addLines(f, det); det.rows = null; Toast.ok(`Cardoo invoice lines ${po}`, f.name); continue; }
         if (!det) { Toast.err(`Not recognised: ${f.name}`, 'None of the 5 report layouts matched its column headers.'); if (forced) State.imports[forced] = { file: f, error: 'Columns do not match this report.' }; continue; }
         if (forced && det.type !== forced) Toast.warn(`${f.name} looks like “${REPORTS[det.type].label}”`, 'It was placed in the matching slot.');
         const norm = Engine.normalize(det.type, det, App.model ? App.model.settings : {});
@@ -3011,6 +3201,7 @@ Views.import = {
     State.prepared = null;
     this.build(el);
     const ready = REPORT_ORDER.filter(t => State.imports[t] && State.imports[t].norm);
+    if (!ready.length && Object.keys(State.poImports).length) setTimeout(() => { const q = $('#poPanel'); if (q) q.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120);
     if (ready.length) { Toast.ok(`${ready.length} report(s) ready`, 'Review the changes, then sync.'); setTimeout(() => { const q = $('#impQuality'); if (q) q.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120); }
   },
   quality(el) {
@@ -3172,6 +3363,8 @@ Views.settings = {
             <label class="field"><span>Claim window (days after close)</span><input class="input" type="number" min="1" id="sDead" value="${g.claim_deadline_days}"><small>Cardoo accepts claims up to this many days after close</small></label>
             <label class="field"><span>“Closing soon” warning (days left)</span><input class="input" type="number" min="1" id="sSoon" value="${g.expiring_soon_days || 10}"></label>
           </div>
+          <label class="check"><input type="checkbox" id="sPosted" ${g.claims_posted_in_ledger ? 'checked' : ''}><span></span>Cardoo claim payments are already posted in the Caryaati customer ledger</label>
+          <small class="muted" style="margin-top:-8px">Off (default): amount due from a customer = ledger balance − approved Cardoo claim. On: the ledger balance is already net of Cardoo payments.</small>
           <label class="field"><span>Remark categories</span><div class="tag-editor" id="sCats"></div><small>Quick-pick categories when writing a remark.</small></label>
           <label class="field"><span>Source tags removed from names &amp; contract numbers</span><div class="tag-editor" id="sTags"></div><small>Press Enter to add. Tags with a hyphen match case-insensitively; others must match exactly. Unlisted glued tags (e.g. “NAMEPartner-App”) are still auto-detected and reported.</small></label>
           <div><button class="btn btn-primary" id="sSaveG" ${canEdit ? '' : 'disabled'}>${icon('check')}Save company &amp; rules</button></div>
@@ -3213,7 +3406,7 @@ Views.settings = {
       const v = Object.assign({}, g, { company_name: $('#sCo', el).value.trim(), company_phone: $('#sCoPh', el).value.trim(), currency: $('#sCur', el).value.trim() || 'AED',
         default_country_code: $('#sCc', el).value.replace(/\D/g, '') || '971', min_outstanding: +$('#sMin', el).value || 0, claim_after_reminders: Math.max(1, +$('#sRem', el).value || 1),
         claim_after_days: Math.max(0, +$('#sDays', el).value || 0), claim_deadline_days: Math.max(1, +$('#sDead', el).value || 60), expiring_soon_days: Math.max(1, +$('#sSoon', el).value || 10),
-        tags: this.tags, remark_categories: this.cats,
+        tags: this.tags, remark_categories: this.cats, claims_posted_in_ledger: $('#sPosted', el).checked,
         link_order_name: $('#lOrder', el).value.trim() || 'Outstanding Balance', link_message: $('#lMsg', el).value.trim(), link_expiry_days: Math.max(1, +$('#lDays', el).value || 5),
         link_expiry_time: $('#lTime', el).value.trim() || '15:00:00', link_language: $('#lLang', el).value.trim() || 'en', link_invoice_type: $('#lType', el).value.trim() || 'Once' });
       try { await API.call('dw_save_setting', { p_key: 'general', p_value: v }); State.ds.settings = Object.assign({}, State.ds.settings, { general: v }); State.built = { settings: true }; App.rebuild(false); Toast.ok('Settings saved'); }
@@ -3422,6 +3615,7 @@ Views.profit = {
             <div class="ratio"><span>Cancelled bookings</span><b>${P.bookingsCancelled}</b></div>
           </div></div></div>
       </div>
+      ${this.actualCard()}
       <div class="grid g-3 mt">
         <div class="card"><div class="card-head"><div><h3>Customer exposure</h3><p>Closed waiver contracts still owing</p></div></div><div class="card-body"><table class="ledger">
           <tr><td>Outstanding (${P.owingCount} contracts)</td><td>${U.money(P.owingAmount)}</td></tr>
@@ -3476,6 +3670,29 @@ Views.profit = {
     rt.el.classList.remove('card'); rt.el.style.boxShadow = 'none'; rt.setRows(P.byRental);
     this.chart(P);
   },
+  /** Actual Cardoo invoices vs estimate, for the period the imported invoices cover */
+  actualCard() {
+    const C = App.model.cardoo; if (!C || !C.invoices.length) return `<div class="notice mt">${icon('info')}<span>Import Cardoo's 15-day invoices (PO PDF + booking_details Excel) to replace the estimated Cardoo cost with what Cardoo actually charged.</span></div>`;
+    const s = C.summary, cur = App.model.settings.general.currency, cv = s.cover;
+    const billed = new Map(); C.lines.forEach(l => billed.set(+l.contract_no, (billed.get(+l.contract_no) || 0) + (+l.price_aed || 0)));
+    const recs = App.model.records.filter(r => billed.has(r.contract_no));
+    const fees = U.sum(recs, r => r.waiver_amount), costW = U.sum(recs, r => billed.get(r.contract_no));
+    const costNo = U.r2(s.billedAed - costW);
+    const net = U.r2(fees - costW);
+    return `<div class="card mt"><div class="card-head"><div><h3>Actual Cardoo charges · invoices ${U.fmtDate(cv.from)} → ${U.fmtDate(cv.to)}</h3><p>Contracts Cardoo actually billed: waiver fee charged to the customer vs what Cardoo charged for them so far</p></div><span class="spacer"></span><a class="btn btn-sm" href="#/cardoo">Cardoo account ${icon('arrow-right')}</a></div>
+      <div class="card-body"><div class="grid g-2" style="gap:18px"><table class="ledger">
+        <tr><td>Waiver contracts billed by Cardoo</td><td>${recs.length}</td></tr>
+        <tr><td>Waiver fees charged on these contracts</td><td>${U.money(fees)}</td></tr>
+        <tr><td>Cardoo charges on these contracts (imported invoices)</td><td>−${U.money(costW)}</td></tr>
+        <tr class="total"><td>Margin on billed contracts so far</td><td style="color:var(--${net >= 0 ? 'green' : 'rose'})">${U.money(net)}</td></tr>
+        <tr><td>Billed for bookings without a waiver fee</td><td>−${U.money(costNo)}</td></tr>
+        <tr class="sub"><td>credits for early closures (included)</td><td>${U.money(s.credits)}</td></tr>
+        <tr class="sub"><td>avoidable (billed after Caryaati close)</td><td>${U.money(s.avoidable)}</td></tr></table>
+        <div><div class="ratio"><span>Paid to Cardoo (all invoices)</span><b>${cur} ${U.money(s.paidAed)}</b></div><div class="ratio"><span>Offset against claims</span><b>${cur} ${U.money(s.offsetAed)}</b></div>
+          <div class="ratio"><span>Still due to Cardoo</span><b>USD ${U.money(s.balanceUsd)}</b></div><div class="ratio"><span>Claims approved, not received</span><b>${cur} ${U.money(s.claimsReceivable)}</b></div>
+          <div class="ratio"><span>Net cash position with Cardoo</span><b style="color:var(--${s.netPosition >= 0 ? 'green' : 'rose'})">${cur} ${U.money(s.netPosition)}</b></div>
+          <p class="small muted mt-sm">Long-term bookings are billed every period, so this margin moves as more 15-day invoices are imported. Import older invoices to see the full actual cost.</p></div></div></div></div>`;
+  },
   chart(P) {
     if (!global.Chart) return;
     if (State.charts.profit) State.charts.profit.destroy();
@@ -3528,6 +3745,350 @@ Views.profit = {
     Exporter.pdfFooter(doc); doc.save(`cardoo_profitability_${U.todayISO()}.pdf`);
     Toast.ok('Profitability PDF downloaded');
   }
+};
+
+/* =====================================================================
+   Cardoo 15-day invoices (PO) — import helpers
+   ===================================================================== */
+const PO = {
+  pdfjs() {
+    if (global.pdfjsLib) return Promise.resolve(global.pdfjsLib);
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = CONFIG.PDFJS;
+      s.onload = () => { try { global.pdfjsLib.GlobalWorkerOptions.workerSrc = CONFIG.PDFJS_WORKER; } catch (e) { /* */ } res(global.pdfjsLib); };
+      s.onerror = () => rej(new Error('PDF reader could not be loaded (check internet connection).'));
+      document.head.appendChild(s);
+    });
+  },
+  async pdfText(file) {
+    const lib = await PO.pdfjs();
+    const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    let t = '';
+    for (let i = 1; i <= doc.numPages; i++) { const c = await (await doc.getPage(i)).getTextContent(); t += c.items.map(x => x.str + (x.hasEOL ? '\n' : ' ')).join('') + '\n'; }
+    return t;
+  },
+  slot(po) { return State.poImports[po] || (State.poImports[po] = { po_no: po, pdf: null, lines: null }); },
+  async addPdf(f) {
+    const h = Engine.parsePoText(await PO.pdfText(f));
+    if (!h.po_no) h.po_no = Engine.poFromName(f.name);
+    if (!h.po_no) throw new Error('No Cardoo invoice number (PO_xxxxx) found in this PDF.');
+    PO.slot(h.po_no).pdf = { file: f, header: h };
+    return h.po_no;
+  },
+  addLines(f, det) {
+    const norm = Engine._norm_po_lines(det);
+    let po = Engine.poFromName(f.name);
+    if (!po) {   // pair with a PDF that has no lines yet
+      const lonely = Object.values(State.poImports).filter(x => x.pdf && !x.lines);
+      if (lonely.length === 1) po = lonely[0].po_no;
+    }
+    if (!po) po = 'PO_?' + (Object.keys(State.poImports).length + 1);
+    PO.slot(po).lines = { file: f, norm };
+    return po;
+  },
+  /** compare a pending PO with what is already stored */
+  state(x) {
+    const inv = (State.cd && State.cd.invoices || []).find(i => i.po_no === x.po_no);
+    const h = x.pdf ? x.pdf.header : {};
+    const lt = x.lines ? x.lines.norm.stats : null;
+    const issues = [];
+    if (/\?/.test(x.po_no)) issues.push('PO number unknown — type it in');
+    if (h.total_aed != null && lt && Math.abs(h.total_aed - lt.total_aed) > 0.05) issues.push(`PDF total AED ${U.money(h.total_aed)} ≠ lines AED ${U.money(lt.total_aed)}`);
+    if (h.qty && x.lines && h.qty !== x.lines.norm.rows.length) issues.push(`PDF qty ${h.qty} ≠ ${x.lines.norm.rows.length} lines`);
+    if (h.total_usd != null && lt && Math.abs(h.total_usd - lt.total_usd) > 0.05) issues.push(`PDF USD ${U.money(h.total_usd)} ≠ lines USD ${U.money(lt.total_usd)}`);
+    let status = inv ? 'update' : 'new';
+    if (inv && (!x.pdf || inv.has_pdf) && (!x.lines || (inv.has_lines && +inv.lines_count === x.lines.norm.rows.length && Math.abs((+inv.lines_total_aed || 0) - lt.total_aed) < 0.01))) status = 'same';
+    return { inv, h, lt, issues, status };
+  },
+  async save(list) {
+    const out = [];
+    for (const x of list) {
+      const h = x.pdf ? Object.assign({}, x.pdf.header, { has_pdf: true, pdf_file: x.pdf.file.name }) : {};
+      const inv = Object.assign({ po_no: x.po_no }, h, x.lines ? { lines_file: x.lines.file.name } : {});
+      const lines = x.lines ? x.lines.norm.rows.map(l => Object.assign({}, l, { row_key: `${x.po_no}|${l.row_key}`, po_no: x.po_no })) : null;
+      out.push(await API.call('dw_import_po', { p_invoice: inv, p_lines: lines }));
+    }
+    return out;
+  },
+  panel(el) {
+    const box = $('#poPanel', el); if (!box) return;
+    const list = Object.values(State.poImports).sort((a, b) => a.po_no.localeCompare(b.po_no));
+    if (!list.length) { box.innerHTML = ''; return; }
+    const canSync = App.canManage();
+    box.innerHTML = `<div class="card mt"><div class="card-head"><div><h3>Cardoo 15-day invoices</h3><p>PDF invoice + booking_details Excel per PO. Old and new POs can be imported in any order; the same PO is updated, never duplicated.</p></div></div>
+      <div class="card-body" style="padding:0"><table class="tbl"><thead><tr><th>PO</th><th>Issue date</th><th>Period</th><th>PDF</th><th>Lines (Excel)</th><th class="right">Total AED</th><th class="right">Total USD</th><th>Check</th><th>Database</th><th></th></tr></thead><tbody>
+      ${list.map(x => { const s = PO.state(x); const h = s.h, lt = s.lt;
+        return `<tr><td>${/\?/.test(x.po_no) ? `<input class="link-input mono" style="width:110px" data-po-fix="${U.esc(x.po_no)}" placeholder="PO_27480">` : `<span class="mono">${U.esc(x.po_no)}</span>`}</td>
+          <td>${h.issue_date ? U.fmtDate(h.issue_date) : s.inv && s.inv.issue_date ? `<span class="muted">${U.fmtDate(s.inv.issue_date)}</span>` : '—'}</td>
+          <td class="nowrap">${h.period_from ? `${U.fmtDate(h.period_from)} → ${U.fmtDate(h.period_to)}` : s.inv && s.inv.period_from ? `<span class="muted">${U.fmtDate(s.inv.period_from)} → ${U.fmtDate(s.inv.period_to)}</span>` : '—'}</td>
+          <td class="small">${x.pdf ? `${icon('check')} ${U.esc(x.pdf.file.name)}` : s.inv && s.inv.has_pdf ? '<span class="muted">stored</span>' : '<span style="color:var(--amber)">missing</span>'}</td>
+          <td class="small">${x.lines ? `${icon('check')} ${x.lines.norm.rows.length} lines${x.lines.norm.stats.credits ? ` · ${x.lines.norm.stats.credits} credits` : ''}` : s.inv && s.inv.has_lines ? `<span class="muted">${s.inv.lines_count} stored</span>` : '<span style="color:var(--amber)">missing</span>'}</td>
+          <td class="right amt">${h.total_aed != null ? U.money(h.total_aed) : lt ? U.money(lt.total_aed) : '—'}</td>
+          <td class="right amt">${h.total_usd != null ? U.money(h.total_usd) : lt ? U.money(lt.total_usd) : '—'}</td>
+          <td>${s.issues.length ? `<span class="flag t-rose" title="${U.esc(s.issues.join('\n'))}">${s.issues.length} issue(s)</span>` : x.pdf && x.lines ? '<span class="flag t-green">PDF = lines</span>' : '<span class="flag t-slate">partial</span>'}</td>
+          <td>${s.status === 'new' ? '<span class="chip t-green">new</span>' : s.status === 'same' ? '<span class="chip t-slate">already stored</span>' : '<span class="chip t-amber">update</span>'}</td>
+          <td><button class="icon-btn sm ghost" data-po-rm="${U.esc(x.po_no)}" title="Remove">${icon('x')}</button></td></tr>
+          ${s.issues.length ? `<tr><td colspan="10" class="small" style="color:var(--rose);padding-top:0">${s.issues.map(U.esc).join(' · ')}</td></tr>` : ''}`; }).join('')}
+      </tbody></table>
+      <div class="toolbar" style="padding:10px 14px"><span class="small muted">Payments and claim offsets are recorded on the Cardoo Account page after import.</span><span class="spacer"></span>
+        <button class="btn btn-primary" id="poSave" ${canSync ? '' : 'disabled title="Only managers/admins can import"'}><span class="btn-label">${icon('database')} Save ${list.length} invoice(s)</span><span class="spinner"></span></button></div></div></div>`;
+    $$('[data-po-rm]', box).forEach(b => b.addEventListener('click', () => { delete State.poImports[b.dataset.poRm]; PO.panel(el); }));
+    $$('[data-po-fix]', box).forEach(inp => inp.addEventListener('change', () => {
+      const v = Engine.poFromName(inp.value) || (inp.value.replace(/\D/g, '') ? 'PO_' + inp.value.replace(/\D/g, '') : null);
+      if (!v) return Toast.warn('Enter a PO number like PO_27480');
+      const old = State.poImports[inp.dataset.poFix]; delete State.poImports[inp.dataset.poFix];
+      const t = PO.slot(v); t.lines = t.lines || old.lines; t.pdf = t.pdf || old.pdf; PO.panel(el);
+    }));
+    $('#poSave', box).addEventListener('click', async () => {
+      const bad = list.filter(x => /\?/.test(x.po_no));
+      if (bad.length) return Toast.warn('Type the missing PO number first');
+      const b = $('#poSave', box); b.classList.add('loading'); b.disabled = true;
+      try {
+        const res = await PO.save(list);
+        Toast.ok(`${res.length} Cardoo invoice(s) saved`, res.map(r => `${r.po_no}${r.new ? ' (new)' : ''}`).join(' · '));
+        State.poImports = {};
+        await App.load(false);
+        State.ui.cardooTab = 'invoices'; location.hash = '#/cardoo';
+      } catch (e) { Toast.err('Invoice import failed', e.message); }
+      finally { b.classList.remove('loading'); b.disabled = false; }
+    });
+  }
+};
+
+/* =====================================================================
+   Cardoo Account view
+   ===================================================================== */
+Views.cardoo = {
+  tabs: [['invoices', 'Invoices', 'indigo'], ['ledger', 'Payments & offsets', 'green'], ['claims', 'Approved claims', 'teal'], ['lines', 'Invoice lines', 'slate'], ['avoidable', 'Avoidable charges', 'rose']],
+  statusTone: s => /overdue/i.test(s) ? 'rose' : /unpaid/i.test(s) ? 'amber' : /partly/i.test(s) ? 'orange' : 'green',
+  build(el) {
+    const C = App.model.cardoo, s = C.summary, cur = App.model.settings.general.currency;
+    if (State.cd && State.cd.missing) { el.innerHTML = `<div class="card empty-state"><div class="dz-ico">${icon('database')}</div><h3>Run SQL_003.sql first</h3><p>The Cardoo invoice tables are not in the database yet. Run migrations/SQL_003.sql in the Supabase SQL Editor, then reload.</p></div>`; State.built.cardoo = false; return; }
+    if (!C.invoices.length && !C.claims.length) { el.innerHTML = `<div class="card empty-state"><div class="dz-ico">${icon('receipt')}</div><h3>No Cardoo invoices yet</h3><p>Import the 15-day Cardoo invoice PDF (PO_xxxxx) and its booking_details Excel on the Import page. Older invoices can be imported too.</p><a class="btn btn-primary" href="#/import">${icon('upload')}Import invoices</a></div>`; State.built.cardoo = false; return; }
+    State.ui.cardooTab = State.ui.cardooTab || 'invoices';
+    const net = s.netPosition;
+    el.innerHTML = `
+      <div class="verdict t-${net >= 0 ? 'green' : 'amber'}"><span class="big">${icon('swap')}</span><div style="flex:1"><h3>${net >= 0 ? `Cardoo owes you ${cur} ${U.money(net)}` : `You owe Cardoo ${cur} ${U.money(-net)}`} (net)</h3>
+        <p>Open invoices ${cur} ${U.money(s.balanceAed)} (USD ${U.money(s.balanceUsd)}) vs approved claims not yet received ${cur} ${U.money(s.claimsReceivable)}.${s.cover ? ` Invoices imported cover ${U.fmtDate(s.cover.from)} → ${U.fmtDate(s.cover.to)}.` : ''}</p></div>
+        <div class="btn-group"><button class="btn btn-primary btn-sm" id="cdPay">${icon('plus')}Record payment / offset</button>
+        <div class="dd" data-dd><button class="btn btn-sm">${icon('download')}Statement</button><div class="dd-menu"><button id="cdXls">${icon('xls')}Excel statement</button><button id="cdPdf">${icon('pdf')}PDF statement</button></div></div></div></div>
+      <div class="pf-grid">
+        ${Views.dashboard.kpi('t-indigo', 'receipt', 'Billed by Cardoo', `<small>${cur}</small>${U.compact(s.billedAed)}`, `${s.invoices} invoice(s) · USD ${U.money(s.billedUsd)} · fx ${s.fx}`)}
+        ${Views.dashboard.kpi('t-sky', 'send', 'Paid to Cardoo', `<small>${cur}</small>${U.compact(s.paidAed)}`, `USD ${U.money(s.paidUsd)} by bank transfer`)}
+        ${Views.dashboard.kpi('t-teal', 'swap', 'Offset against claims', `<small>${cur}</small>${U.compact(s.offsetAed)}`, `USD ${U.money(s.offsetUsd)} deducted from claim payouts`)}
+        ${Views.dashboard.kpi(s.overdue.length ? 't-rose' : 't-amber', 'clock', 'Balance due to Cardoo', `<small>USD</small>${U.money(s.balanceUsd)}`, `${cur} ${U.money(s.balanceAed)} · ${s.unpaid.length} open${s.overdue.length ? ` · <span class="chip sm t-rose">${s.overdue.length} overdue</span>` : ''}`)}
+        ${Views.dashboard.kpi('t-green', 'shield', 'Claims approved (In Recovery)', `<small>${cur}</small>${U.compact(s.claimsApproved)}`, `${C.claims.length} claims`)}
+        ${Views.dashboard.kpi('t-green', 'check', 'Claims received', `<small>${cur}</small>${U.compact(s.claimsReceived)}`, `offset ${U.compact(s.offsetAed)} · paid out ${U.compact(s.payoutAed)}`)}
+        ${Views.dashboard.kpi('t-amber', 'wallet', 'Claims receivable', `<small>${cur}</small>${U.compact(s.claimsReceivable)}`, `${s.claimsOpen} approved claims not yet received`)}
+        ${Views.dashboard.kpi('t-rose', 'alert', 'Avoidable charges', `<small>${cur}</small>${U.compact(s.avoidable)}`, `${s.avoidableLines} line(s) billed after the Caryaati contract closed`)}
+      </div>
+      <div class="filter-chips mt" id="cdTabs"></div>
+      ${this.tabs.map(t => `<div id="cd_${t[0]}" hidden></div>`).join('')}`;
+    $('#cdTabs', el).addEventListener('click', e => { const c = e.target.closest('[data-tab]'); if (c) { State.ui.cardooTab = c.dataset.tab; this.update(el); } });
+    $('#cdPay', el).addEventListener('click', () => Actions.settle({}));
+    $('#cdXls', el).addEventListener('click', () => this.xlsx());
+    $('#cdPdf', el).addEventListener('click', () => this.pdf());
+    el.querySelector('.verdict [data-dd] > .btn').addEventListener('click', e => { e.stopPropagation(); e.currentTarget.parentElement.classList.toggle('open'); });
+    const mk = (id, o) => { State.tables['cd_' + id] = new DataTable($('#cd_' + id, el), o); return State.tables['cd_' + id]; };
+    const inv = mk('invoices', { title: 'Cardoo invoices', exportName: 'cardoo_invoices', rowKey: r => r.po_no, sort: { key: 'period_from', dir: 'desc' },
+      columns: [
+        { key: 'po_no', label: 'PO', get: r => r.po_no, html: r => `<span class="mono">${U.esc(r.po_no)}</span>${r.disputed ? ' <span class="flag t-rose">disputed</span>' : ''}${r.notes ? `<span class="cell-sub" title="${U.esc(r.notes)}">${U.esc(r.notes.slice(0, 40))}</span>` : ''}` },
+        { key: 'issue_date', label: 'Issued', type: 'date', get: r => r.issue_date, sortGet: r => U.dayNum(r.issue_date), html: r => R.date(r.issue_date) },
+        { key: 'period_from', label: 'Period', get: r => r.period_from ? `${r.period_from} - ${r.period_to}` : '', sortGet: r => U.dayNum(r.period_from), html: r => r.period_from ? `<div class="dates2">${U.fmtDate(r.period_from)}<span>→ ${U.fmtDate(r.period_to)}</span></div>` : '—' },
+        { key: 'lines_count', label: 'Lines', align: 'right', numeric: true, get: r => r.lines_count || r.qty },
+        { key: 'total_aed_v', label: 'Total AED', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.total_aed_v, html: r => R.amt(r.total_aed_v) },
+        { key: 'due_usd', label: 'Total USD', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.due_usd, html: r => R.amt(r.due_usd, 'big') },
+        { key: 'check', label: 'Check', get: r => r.check, html: r => ({ ok: '<span class="flag t-green">PDF = lines</span>', mismatch: '<span class="flag t-rose">mismatch</span>', no_lines: '<span class="flag t-amber">no lines</span>', no_pdf: '<span class="flag t-amber">no PDF</span>' }[r.check]) },
+        { key: 'paid', label: 'Paid USD', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.paid, html: r => R.amt(r.paid) },
+        { key: 'offset', label: 'Offset USD', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.offset, html: r => R.amt(r.offset) },
+        { key: 'balance', label: 'Balance USD', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.balance, html: r => `<span class="amt big" style="color:var(--${r.balance > 0.01 ? 'rose' : 'green'})">${U.money(r.balance)}</span>` },
+        { key: 'due_date', label: 'Due', type: 'date', get: r => r.due_date, sortGet: r => U.dayNum(r.due_date), html: r => r.due_date ? `<span class="nowrap">${U.fmtDate(r.due_date)}</span>${r.overdue_days ? `<span class="cell-sub" style="color:var(--rose)">${r.overdue_days}d overdue</span>` : ''}` : '—' },
+        { key: 'status', label: 'Status', get: r => r.status, html: r => `<span class="chip t-${this.statusTone(r.status)}">${r.status}</span>` },
+        { key: 'act', label: '', sortable: false, export: false, html: r => `<div class="row-actions">${r.balance > 0.01 ? `<button class="btn btn-xs btn-primary" data-pay="${r.po_no}">Pay</button><button class="btn btn-xs" data-off="${r.po_no}">Offset</button>` : ''}<button class="icon-btn sm" data-lines="${r.po_no}" title="Lines">${icon('doc')}</button><button class="icon-btn sm" data-note="${r.po_no}" title="Notes / dispute">${icon('note')}</button></div>` }
+      ] });
+    inv.el.addEventListener('click', e => {
+      const t = e.target.closest('[data-pay],[data-off],[data-lines],[data-note]'); if (!t) return;
+      if (t.dataset.pay) Actions.settle({ kind: 'payment', po_no: t.dataset.pay });
+      if (t.dataset.off) Actions.settle({ kind: 'offset', po_no: t.dataset.off });
+      if (t.dataset.lines) { State.ui.cardooPo = t.dataset.lines; State.ui.cardooTab = 'lines'; this.update(el); }
+      if (t.dataset.note) Actions.invoiceNote(App.model.cardoo.invByPo.get(t.dataset.note));
+    });
+    const kinds = { payment: ['Payment to Cardoo', 'sky'], offset: ['Offset vs claims', 'teal'], claim_payout: ['Claim payout received', 'green'], adjustment: ['Adjustment', 'slate'] };
+    const led = mk('ledger', { title: 'Cardoo settlements', exportName: 'cardoo_settlements', rowKey: r => r.id, sort: { key: 'entry_date', dir: 'desc' },
+      columns: [
+        { key: 'entry_date', label: 'Date', type: 'date', get: r => r.entry_date, sortGet: r => U.dayNum(r.entry_date), html: r => R.date(r.entry_date) },
+        { key: 'kind', label: 'Type', get: r => (kinds[r.kind] || [r.kind])[0], html: r => `<span class="chip t-${(kinds[r.kind] || [0, 'slate'])[1]}">${(kinds[r.kind] || [r.kind])[0]}</span>` },
+        { key: 'po_no', label: 'Invoice', get: r => r.po_no || '', html: r => r.po_no ? `<span class="mono">${U.esc(r.po_no)}</span>` : '—' },
+        { key: 'amount_usd', label: 'USD', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.amount_usd, html: r => R.amt(r.amount_usd) },
+        { key: 'amount_aed', label: 'AED', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.amount_aed, html: r => R.amt(r.amount_aed) },
+        { key: 'claims', label: 'Claims', get: r => (r.claim_keys || []).length, html: r => (r.claim_keys || []).length ? `${(r.claim_keys || []).length} claim(s)<span class="cell-sub">${(r.claim_keys || []).slice(0, 4).map(k => '#' + String(k).split('|')[0]).join(', ')}</span>` : '—' },
+        { key: 'reference', label: 'Reference', get: r => r.reference || '' },
+        { key: 'note', label: 'Note', get: r => r.note || '', html: r => `<span class="cell-sub" style="white-space:normal;color:var(--text-2)">${U.esc(r.note || '')}</span>` },
+        { key: 'created_by', label: 'By', get: r => r.created_by || '' },
+        { key: 'act', label: '', sortable: false, export: false, html: r => `<div class="row-actions"><button class="btn btn-xs" data-edit="${r.id}">Edit</button><button class="icon-btn sm" data-del="${r.id}" title="Delete">${icon('trash')}</button></div>` }
+      ] });
+    led.el.addEventListener('click', async e => {
+      const ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]');
+      if (ed) Actions.settle(App.model.cardoo.settlements.find(x => String(x.id) === ed.dataset.edit));
+      if (dl && await Modal.confirm('Delete this settlement?', 'The invoice balance and claim status will be recalculated.', 'Delete', true)) {
+        try { await API.call('dw_delete_settlement', { p_id: +dl.dataset.del }); await App.reloadCardoo(); Toast.ok('Settlement deleted'); } catch (x) { Toast.err('Could not delete', x.message); }
+      }
+    });
+    const cl = mk('claims', { title: 'Approved claims (In Recovery)', exportName: 'cardoo_approved_claims', rowKey: r => r.row_key, selectable: true, sort: { key: 'claim_date', dir: 'asc' },
+      bulk: `<button class="btn btn-xs btn-primary" data-bulk="offset">${icon('swap')}Offset vs invoice</button><button class="btn btn-xs" data-bulk="payout">${icon('check')}Payout received</button>`,
+      columns: [
+        { key: 'claim_date', label: 'Claim date', type: 'date', get: r => r.claim_date, sortGet: r => U.dayNum(r.claim_date), html: r => R.date(r.claim_date) },
+        { key: 'contract_no', label: 'Contract', numeric: true, get: r => r.contract_raw || r.contract_no, html: r => R.cno(r.contract_raw || r.contract_no) },
+        { key: '_name', label: 'Customer', get: r => r._name, html: r => `<span class="cell-main">${U.esc(r._name || '—')}</span>` },
+        { key: 'excess_sum', label: 'Excess', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.excess_sum, html: r => R.amt(r.excess_sum) },
+        { key: 'approved_amount', label: 'Approved', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.approved_amount, html: r => `<span class="amt big" style="color:var(--green)">${U.money(r.approved_amount)}</span>` },
+        { key: '_received', label: 'Received', get: r => r._received || 'Not yet', html: r => r._settled ? `<span class="chip t-green">${U.esc(r._received)}</span><span class="cell-sub">${U.fmtDate(r._settled_date)}</span>` : '<span class="chip t-amber">Awaiting</span>' }
+      ],
+      onRowClick: r => r._rec && Drawer.open(+r.contract_no) });
+    cl.el.addEventListener('click', e => {
+      const b = e.target.closest('[data-bulk]'); if (!b) return;
+      const rows = cl.selectedRows().filter(x => !x._settled);
+      if (!rows.length) return Toast.warn('Select claims that are not received yet');
+      Actions.settle({ kind: b.dataset.bulk === 'offset' ? 'offset' : 'claim_payout', claim_keys: rows.map(x => x.row_key) });
+    });
+    const lineCols = [
+      { key: 'po_no', label: 'PO', get: r => r.po_no, html: r => `<span class="mono small">${U.esc(r.po_no)}</span>` },
+      { key: 'contract_no', label: 'Contract', numeric: true, get: r => r.contract_raw || r.contract_no, sortGet: r => +r.contract_no, html: r => R.cno(r.contract_raw || r.contract_no) },
+      { key: '_name', label: 'Customer', get: r => r._name, html: r => `<span class="cell-main">${U.esc(r._name || '—')}</span>` },
+      { key: 'booking_type', label: 'Type', get: r => r.booking_type || '' },
+      { key: 'start_at', label: 'Booking', get: r => r.start_at, sortGet: r => U.dayFrac(r.start_at), html: r => `<div class="dates2">${U.fmtDate(r.start_at)}<span>→ ${U.fmtDate(r.end_at)}</span></div>` },
+      { key: 'close_at', label: 'Cardoo closed', type: 'date', get: r => r.close_at, html: r => r.close_at ? R.date(r.close_at) : '<span class="zero">open</span>' },
+      { key: '_car_close', label: 'Caryaati closed', type: 'date', get: r => r._car_close, html: r => r._car_close ? R.date(r._car_close) : '<span class="zero">—</span>' },
+      { key: 'deposit', label: 'Cover', align: 'right', type: 'num', numeric: true, get: r => r.deposit, html: r => R.amt(r.deposit) },
+      { key: 'price_aed', label: 'Charged AED', align: 'right', type: 'num', sum: true, numeric: true, get: r => +r.price_aed, html: r => `<span class="amt" style="color:var(--${+r.price_aed < 0 ? 'green' : 'text'})">${U.money(r.price_aed)}</span>` },
+      { key: 'invoice_price', label: 'USD', align: 'right', type: 'num', sum: true, numeric: true, get: r => +r.invoice_price, html: r => R.amt(r.invoice_price) },
+      { key: '_flags', label: 'Checks', get: r => r._flags.join(', '), html: r => r._flags.map(f => `<span class="flag t-${/Credit/.test(f) ? 'green' : /after/.test(f) ? 'rose' : 'amber'}">${f}</span>`).join(' ') }
+    ];
+    mk('lines', { title: 'Cardoo invoice lines', exportName: 'cardoo_invoice_lines', rowKey: r => r.row_key, columns: lineCols, sort: { key: 'contract_no', dir: 'desc' },
+      toolbar: `<select class="select input-sm" id="cdPoSel" style="width:auto;min-width:150px"><option value="">All invoices</option>${C.invoices.map(i => `<option>${U.esc(i.po_no)}</option>`).join('')}</select>`,
+      onRowClick: r => r._rec && Drawer.open(+r.contract_no) });
+    $('#cdPoSel', el).addEventListener('change', e => { State.ui.cardooPo = e.target.value; this.update(el); });
+    mk('avoidable', { title: 'Avoidable Cardoo charges', exportName: 'cardoo_avoidable_charges', rowKey: r => r.row_key, columns: lineCols, sort: { key: 'price_aed', dir: 'desc' },
+      toolbar: `<button class="btn btn-sm" id="cdDispute">${icon('copy')}Copy dispute text</button>`,
+      onRowClick: r => r._rec && Drawer.open(+r.contract_no) });
+    $('#cdDispute', el).addEventListener('click', async () => {
+      const L = App.model.cardoo.lines.filter(l => l._avoidable);
+      const txt = `Dear Cardoo team,\n\nThe following bookings were charged although the rental contracts were already closed on our side before the billing period. Please close these bookings and credit the charges:\n\n${L.map(l => `- ${l.po_no} · contract ${l.contract_raw || l.contract_no} · closed ${U.fmtDate(l._car_close)} · charged AED ${U.money(l.price_aed)}`).join('\n')}\n\nTotal: AED ${U.money(U.sum(L, l => l.price_aed))}\n\nThank you,\n${App.model.settings.general.company_name}`;
+      if (await Actions.copy(txt)) Toast.ok('Dispute text copied');
+    });
+  },
+  update(el) {
+    const C = App.model.cardoo; if (!State.tables.cd_invoices) return;
+    const tab = State.ui.cardooTab;
+    const sets = { invoices: C.invoices, ledger: C.settlements, claims: C.claims, lines: C.lines.filter(l => !State.ui.cardooPo || l.po_no === State.ui.cardooPo), avoidable: C.lines.filter(l => l._avoidable) };
+    $('#cdTabs', el).innerHTML = this.tabs.map(([id, l, tone]) => `<button class="fchip t-${tone} ${tab === id ? 'active' : ''}" data-tab="${id}"><span class="dot"></span>${l}<i>${sets[id].length}</i></button>`).join('');
+    this.tabs.forEach(([id]) => { $('#cd_' + id, el).hidden = id !== tab; });
+    const ps = $('#cdPoSel', el); if (ps) ps.value = State.ui.cardooPo || '';
+    State.tables['cd_' + tab].setRows(sets[tab]);
+  },
+  xlsx() {
+    const C = App.model.cardoo, wb = XLSX.utils.book_new(), s = C.summary;
+    const strip = o => { const x = Object.assign({}, o); Object.keys(x).forEach(k => { if (k.startsWith('_') || k === 'lines' || k === 'settlements' || k === 'search') delete x[k]; }); return x; };
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Cardoo account statement', U.fmtDate(U.todayISO())], [], ['Billed AED', s.billedAed], ['Billed USD', s.billedUsd], ['Paid AED', s.paidAed], ['Offset AED', s.offsetAed],
+      ['Balance due USD', s.balanceUsd], ['Balance due AED', s.balanceAed], ['Claims approved AED', s.claimsApproved], ['Claims received AED', s.claimsReceived], ['Claims receivable AED', s.claimsReceivable],
+      ['Net position AED (+ Cardoo owes us)', s.netPosition], ['Avoidable charges AED', s.avoidable]]), 'Summary');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(C.invoices.map(strip)), 'Invoices');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(C.settlements.map(x => Object.assign(strip(x), { claim_keys: (x.claim_keys || []).join('; ') }))), 'Settlements');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(C.claims.map(x => ({ claim_date: x.claim_date, contract: x.contract_raw, customer: x._name, excess: x.excess_sum, approved: x.approved_amount, received: x._received || 'Awaiting', received_on: x._settled_date || '' }))), 'Approved claims');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(C.lines.map(l => Object.assign(strip(l), { customer: l._name, caryaati_closed: l._car_close || '', checks: l._flags.join(', ') }))), 'Invoice lines');
+    XLSX.writeFile(wb, `cardoo_statement_${U.todayISO()}.xlsx`, { compression: true });
+    Toast.ok('Cardoo statement downloaded');
+  },
+  pdf() {
+    const C = App.model.cardoo, s = C.summary, doc = Exporter.pdfDoc('portrait'); if (!doc) return;
+    let y = Exporter.pdfHeader(doc, 'Cardoo Account Statement', s.cover ? `${s.cover.from} to ${s.cover.to}` : '');
+    const tbl = (head, body, cs) => { doc.autoTable({ startY: y, head: [head], body, theme: 'grid', styles: { fontSize: 8, cellPadding: 3.5 }, headStyles: { fillColor: [241, 244, 249], textColor: [71, 85, 105] }, columnStyles: cs || {}, margin: { left: 32, right: 32 } }); y = doc.lastAutoTable.finalY + 12; };
+    tbl(['Summary', 'Amount'], [['Billed by Cardoo (AED / USD)', `${U.money(s.billedAed)} / ${U.money(s.billedUsd)}`], ['Paid to Cardoo (AED)', U.money(s.paidAed)], ['Offset against claims (AED)', U.money(s.offsetAed)],
+      ['Balance due to Cardoo (USD / AED)', `${U.money(s.balanceUsd)} / ${U.money(s.balanceAed)}`], ['Claims approved (AED)', U.money(s.claimsApproved)], ['Claims received (AED)', U.money(s.claimsReceived)],
+      ['Claims receivable (AED)', U.money(s.claimsReceivable)], ['Net position (AED, + Cardoo owes us)', U.money(s.netPosition)], ['Avoidable charges (AED)', U.money(s.avoidable)]], { 1: { halign: 'right' } });
+    tbl(['PO', 'Issued', 'Period', 'AED', 'USD', 'Paid', 'Offset', 'Balance', 'Status'], C.invoices.map(i => [i.po_no, U.fmtDate(i.issue_date), i.period_from ? `${U.fmtDate(i.period_from)} - ${U.fmtDate(i.period_to)}` : '', U.money(i.total_aed_v), U.money(i.due_usd), U.money(i.paid), U.money(i.offset), U.money(i.balance), i.status]),
+      { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' } });
+    if (C.settlements.length) tbl(['Date', 'Type', 'PO', 'USD', 'AED', 'Reference'], C.settlements.map(x => [U.fmtDate(x.entry_date), x.kind, x.po_no || '', U.money(x.amount_usd), U.money(x.amount_aed), Exporter.ascii(x.reference || '')]), { 3: { halign: 'right' }, 4: { halign: 'right' } });
+    Exporter.pdfFooter(doc); doc.save(`cardoo_statement_${U.todayISO()}.pdf`); Toast.ok('Cardoo statement PDF downloaded');
+  }
+};
+
+App.reloadCardoo = async function () {
+  try { State.cd = await API.call('dw_get_cardoo'); } catch (e) { Toast.err('Could not reload Cardoo data', e.message); }
+  App.rebuild(true);
+};
+
+/* ---------- settlement form ---------- */
+Actions.settle = function (pre) {
+  pre = pre || {};
+  const C = App.model.cardoo, editing = !!pre.id;
+  const open = C.invoices.filter(i => i.balance > 0.01 || i.po_no === pre.po_no);
+  let kind = pre.kind || 'payment';
+  const keys = new Set(pre.claim_keys || []);
+  const avail = C.claims.filter(x => !x._settled || keys.has(x.row_key));
+  Modal.open({ title: editing ? 'Edit settlement' : 'Record Cardoo settlement', size: 'wide',
+    sub: 'Payment we sent to Cardoo, invoice amount offset against approved claims, or a claim payout Cardoo sent to us',
+    body: `<div class="tpl-tabs" id="stKind">${[['payment', 'Payment to Cardoo'], ['offset', 'Offset invoice vs claims'], ['claim_payout', 'Claim payout received'], ['adjustment', 'Adjustment / credit']].map(([k, l]) => `<button data-k="${k}" class="${k === kind ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="form-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+        <label class="field" id="stPoF"><span>Invoice (PO)</span><select class="select" id="stPo"><option value="">— none —</option>${open.map(i => `<option value="${i.po_no}" ${i.po_no === pre.po_no ? 'selected' : ''}>${i.po_no} · USD ${U.money(i.balance)} open</option>`).join('')}</select></label>
+        <label class="field"><span>Date</span><input class="input" type="date" id="stDate" value="${pre.entry_date || U.todayISO()}"></label>
+        <label class="field"><span>Amount USD</span><input class="input mono" type="number" step="0.01" id="stUsd" value="${pre.amount_usd != null ? pre.amount_usd : ''}"></label>
+        <label class="field"><span>Amount AED</span><input class="input mono" type="number" step="0.01" id="stAed" value="${pre.amount_aed != null ? pre.amount_aed : ''}"></label>
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 2fr"><label class="field"><span>Reference</span><input class="input" id="stRef" value="${U.esc(pre.reference || '')}" placeholder="SWIFT ref / Cardoo statement no."></label>
+        <label class="field"><span>Note</span><input class="input" id="stNote" value="${U.esc(pre.note || '')}"></label></div>
+      <div id="stClaims"></div><div class="small muted" id="stFx"></div>`,
+    foot: `<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="stGo">${icon('check')}Save</button>`,
+    onOpen: m => {
+      const fxOf = () => { const i = C.invByPo.get($('#stPo', m).value); return i ? i.fx : C.summary.fx || Engine.DEFAULT_FX; };
+      let last = 'usd';
+      const sync = from => { const fx = fxOf(); if (from === 'usd' && $('#stUsd', m).value !== '') $('#stAed', m).value = U.r2(+$('#stUsd', m).value * fx); if (from === 'aed' && $('#stAed', m).value !== '') $('#stUsd', m).value = U.r2(+$('#stAed', m).value / fx); $('#stFx', m).textContent = `Exchange rate used: 1 USD = ${fx} AED (from the invoice).`; };
+      const drawClaims = () => {
+        const show = kind === 'offset' || kind === 'claim_payout';
+        $('#stClaims', m).innerHTML = show ? `<div class="field"><span>Approved claims covered (${keys.size} selected · AED ${U.money(U.sum(avail.filter(x => keys.has(x.row_key)), x => x.approved_amount))})</span></div>
+          <div class="dt-scroll card" style="max-height:220px"><table class="tbl"><thead><tr><th class="cb"></th><th>Contract</th><th>Customer</th><th>Claim date</th><th class="right">Approved AED</th></tr></thead><tbody>
+          ${avail.length ? avail.map(x => `<tr><td class="cb"><label class="check"><input type="checkbox" data-ck="${U.esc(x.row_key)}" ${keys.has(x.row_key) ? 'checked' : ''}><span></span></label></td><td>${R.cno(x.contract_raw)}</td><td><span class="cell-main">${U.esc(x._name || '')}</span></td><td>${U.fmtDate(x.claim_date)}</td><td class="right amt">${U.money(x.approved_amount)}</td></tr>`).join('') : '<tr><td colspan="5" class="muted" style="padding:16px;text-align:center">No approved claims awaiting payment.</td></tr>'}
+          </tbody></table></div>` : '';
+        $('#stPoF', m).style.opacity = kind === 'claim_payout' ? .5 : 1;
+      };
+      const fillFromClaims = () => { const t = U.sum(avail.filter(x => keys.has(x.row_key)), x => x.approved_amount); if (t) { $('#stAed', m).value = t; sync('aed'); } };
+      $('#stKind', m).addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (!b) return; kind = b.dataset.k; $$('#stKind button', m).forEach(x => x.classList.toggle('on', x === b)); drawClaims(); });
+      $('#stUsd', m).addEventListener('input', () => { last = 'usd'; sync('usd'); });
+      $('#stAed', m).addEventListener('input', () => { last = 'aed'; sync('aed'); });
+      $('#stPo', m).addEventListener('change', () => { const i = C.invByPo.get($('#stPo', m).value); if (i && !editing && kind === 'payment' && $('#stUsd', m).value === '') { $('#stUsd', m).value = i.balance; last = 'usd'; } sync(last); });
+      m.addEventListener('change', e => { if (e.target.dataset.ck) { e.target.checked ? keys.add(e.target.dataset.ck) : keys.delete(e.target.dataset.ck); drawClaims(); fillFromClaims(); } });
+      drawClaims();
+      if (!editing) {
+        const i = C.invByPo.get(pre.po_no);
+        if (keys.size) fillFromClaims();
+        else if (i && kind === 'payment') { $('#stUsd', m).value = i.balance; sync('usd'); }
+      }
+      sync(last);
+      $('#stGo', m).addEventListener('click', async () => {
+        const entry = { kind, po_no: kind === 'claim_payout' ? ($('#stPo', m).value || null) : $('#stPo', m).value || null, entry_date: $('#stDate', m).value || U.todayISO(),
+          amount_usd: $('#stUsd', m).value === '' ? null : +$('#stUsd', m).value, amount_aed: $('#stAed', m).value === '' ? null : +$('#stAed', m).value, fx: fxOf(),
+          reference: $('#stRef', m).value.trim() || null, note: $('#stNote', m).value.trim() || null, claim_keys: (kind === 'offset' || kind === 'claim_payout') ? [...keys] : [] };
+        if (pre.id) entry.id = pre.id;
+        if (!entry.amount_usd && !entry.amount_aed) return Toast.warn('Enter an amount');
+        if ((kind === 'payment' || kind === 'offset') && !entry.po_no) return Toast.warn('Choose the invoice (PO) this settles');
+        const b = $('#stGo', m); b.classList.add('loading'); b.disabled = true;
+        try { await API.call('dw_save_settlement', { p_entry: entry }); Modal.close(); await App.reloadCardoo(); Toast.ok('Settlement saved'); }
+        catch (e) { Toast.err('Could not save', e.message); b.classList.remove('loading'); b.disabled = false; }
+      });
+    } });
+};
+Actions.invoiceNote = function (i) {
+  if (!i) return;
+  Modal.open({ title: `${i.po_no} · notes`, size: 'narrow',
+    body: `<label class="field"><span>Notes</span><textarea class="input" id="inNote">${U.esc(i.notes || '')}</textarea></label>
+      <label class="check"><input type="checkbox" id="inDisp" ${i.disputed ? 'checked' : ''}><span></span>Disputed with Cardoo</label>
+      <label class="field"><span>Payment terms (business days)</span><input class="input" type="number" min="0" id="inTerms" value="${i.payment_terms_days || 3}"></label>`,
+    foot: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="inGo">${icon('check')}Save</button>`,
+    onOpen: m => $('#inGo', m).addEventListener('click', async () => {
+      try { await API.call('dw_update_invoice', { p_po: i.po_no, p_patch: { notes: $('#inNote', m).value, disputed: $('#inDisp', m).checked, payment_terms_days: +$('#inTerms', m).value || 3 } }); Modal.close(); await App.reloadCardoo(); Toast.ok('Invoice updated'); }
+      catch (e) { Toast.err('Could not save', e.message); }
+    }) });
 };
 
 /* =====================================================================
