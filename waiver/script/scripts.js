@@ -691,6 +691,7 @@ const Engine = {
     const clm = U.groupBy(ds.claims || [], c => +c.contract_no);
     const cases = new Map((ds.cases || []).map(k => [+k.contract_no, k]));
     const waiverSet = new Set((ds.waivers || []).map(w => +w.contract_no));
+    const cidx = Engine.customerIndex ? Engine.customerIndex(ds.customers || []) : null;
 
     const records = [];
     for (const w of ds.waivers || []) {
@@ -701,7 +702,15 @@ const Engine = {
       const bookings = (book.get(no) || []).slice().sort((a, b) => (U.dayFrac(a.start_at) || 0) - (U.dayFrac(b.start_at) || 0));
       const active = bookings.filter(b => !b.cancelled);
       const claims = (clm.get(no) || []).slice().sort((a, b) => (U.dayNum(b.claim_date) || 0) - (U.dayNum(a.claim_date) || 0));
-      const ph = U.phone(k.phone_override || (c && (c.mobile_raw || c.mobile)), g.default_country_code, { email: c && c.email });
+      const cust = cidx ? Engine.matchCustomer(cidx, c) : null;
+      const natC = cust && U.countryOfNationality(cust.nationality);
+      let phSrc = 'contracts';
+      const cph = cust ? U.phoneFull(cust.mobile_raw) : null;
+      const phD = cph && cph.valid ? cph
+        : U.phone(c && (c.mobile_raw || c.mobile), g.default_country_code, { email: c && c.email, nationality: natC && natC.iso });
+      if (cph && cph.valid) phSrc = 'customers';
+      let ph = phD;
+      if (k.phone_override) { ph = U.phone(k.phone_override, g.default_country_code); phSrc = 'manual'; }
 
       const r = {
         contract_no: no, waiver: w, contract: c, case: k, payments, bookings, claims,
@@ -709,7 +718,7 @@ const Engine = {
         name_waiver: w.customer_name,
         email: c ? c.email : null,
         phone: ph.digits, phone_display: ph.display, phone_valid: ph.valid, phone_kind: ph.kind, phone_overridden: !!k.phone_override,
-        phone_auto: !!ph.auto, phone_auto_reason: ph.auto_reason || '', phone_suggest: ph.suggest || [], phone_raw: ph.raw_digits || (c && c.mobile_raw) || '', phone_country: ph.country || '',
+        phone_src: phSrc, phone_derived: phD.valid ? phD.digits : '', phone_from_customers: !!(cph && cph.valid), customer: cust, nationality: cust ? cust.nationality : null, phone_auto: !!ph.auto, phone_auto_reason: ph.auto_reason || '', phone_suggest: ph.suggest || [], phone_raw: ph.raw_digits || (c && c.mobile_raw) || '', phone_country: ph.country || '',
         vehicle: w.vehicle || (c && c.vehicle) || '', plate: w.plate || (c && c.plate) || '',
         status: w.status, open_date: w.open_date, close_date: w.close_date,
         pickup_at: c ? c.pickup_at : null, dropoff_at: c ? c.dropoff_at : null,
@@ -933,8 +942,11 @@ const Engine = {
       'Usually a short-term booking converted to long-term — make sure only the right one is billed.',
       R.filter(r => r.bookings.filter(b => !b.cancelled).length > 1));
     add('phone', 'Outstanding customers with a phone that needs checking', 'medium',
-      'Caryaati exports mobiles without the country code. UAE mobiles are fixed automatically; foreign numbers need the country confirmed — use “Fix country codes” (suggestions from number pattern and e-mail domain).',
+      'Import the Caryaati Customers report to get every mobile with its country code. Numbers still missing it (customer not in that report, or the number there is damaged) can be fixed with “Fix country codes”.',
       R.filter(r => r.status === 'Closed' && r.outstanding > 0 && !r.phone_valid));
+    add('phone_conflict', 'Corrected phone differs from the Customers report', 'low',
+      'A number was corrected by hand but the Customers report has a different one — open the contract and choose which to keep (“Use report number”).',
+      R.filter(r => r.phone_overridden && r.phone_src === 'manual' && r.phone_from_customers && r.phone_derived !== r.phone));
     add('status_mismatch', 'Status differs between Waiver report and Contracts report', 'low',
       'One report says Open and the other Closed — usually fixed by the next export.',
       R.filter(r => r.contract && r.contract.status && r.contract.status.toLowerCase() !== r.status.toLowerCase()));
@@ -1097,14 +1109,14 @@ Object.assign(U, {
     return s.country ? `+${s.country.cc} ${s.national}` : '+' + d;
   },
   /** ranked country suggestions for a number that has no country code */
-  phoneSuggest(d, email) {
+  phoneSuggest(d, email, natIso) {
     const tld = U.emailTld(email);
     const nat = d.replace(/^0+/, '');
     const out = [];
     for (const c of PHONE_COUNTRIES) {
-      const tldHit = tld && c.tlds.includes(tld);
+      const tldHit = (tld && c.tlds.includes(tld)) || (natIso && natIso === c.iso);
       // a) number is national (no code)
-      if (c.lens.includes(nat.length) && c.re.test(nat)) out.push({ iso: c.iso, name: c.name, cc: c.cc, national: nat, digits: c.cc + nat, tld: !!tldHit, score: 10 + c.prior + (tldHit ? 30 : 0), reason: tldHit ? `e-mail ends .${tld}` : 'number pattern' });
+      if (c.lens.includes(nat.length) && c.re.test(nat)) out.push({ iso: c.iso, name: c.name, cc: c.cc, national: nat, digits: c.cc + nat, tld: !!tldHit, score: 10 + c.prior + (tldHit ? 30 : 0), reason: tldHit ? (natIso === c.iso ? 'nationality' : `e-mail ends .${tld}`) : 'number pattern' });
       // b) number already carries the code (no + sign in the report)
       if (d.startsWith(c.cc) && c.iso !== 'AE') {
         const n = d.slice(c.cc.length);
@@ -1154,13 +1166,162 @@ Object.assign(U, {
     if (/^971[234679]\d{7}$/.test(d)) return res(d, 'landline');
     if (/^0[234679]\d{7}$/.test(d)) return res('971' + d.slice(1), 'landline');
     // foreign number without its country code
-    const sug = U.phoneSuggest(d, opts.email);
+    const sug = U.phoneSuggest(d, opts.email, opts.nationality);
     const top = sug[0];
     const sure = top && top.tld && top.score >= 40 && !(sug[1] && sug[1].tld && sug[1].score >= 40 && sug[1].iso !== top.iso);
     if (sure) return res(top.digits, 'intl', { auto: true, auto_reason: top.reason, suggest: sug, raw_digits: d });
     return { digits: '', valid: false, kind: 'nocc', display: d, raw_digits: d, suggest: sug, country: '', iso: '', national: d };
   }
 });
+
+/* =====================================================================
+   1e. CARYAATI CUSTOMERS REPORT – mobile numbers WITH country code
+   The Rental Contracts report drops the country code; the Customers
+   report keeps it. Customers are linked to contracts by the mobile
+   number (contract number = last digits of the full number), then by
+   e-mail, then by name. Only linked customers are stored.
+   ===================================================================== */
+REPORTS.customers = {
+  key: 'customers', label: 'Customers', source: 'Caryaati', file: 'Caryaati Customers Report',
+  desc: 'Customer master: mobile WITH country code, nationality, e-mail',
+  signature: [['customerid', 'customerno', 'customercode'], ['nationality'], ['mobile', 'mobileno', 'mobilenumber', 'phone']],
+  fields: {
+    id: ['customerid', 'customerno', 'customercode'], name: ['name', 'customername', 'customer'],
+    nationality: ['nationality'], residence: ['residance', 'residence', 'countryofresidence', 'resident'],
+    email: ['email', 'emailaddress', 'emailid'], mobile: ['mobile', 'mobileno', 'mobilenumber', 'phone']
+  },
+  required: ['id', 'mobile']
+};
+REPORT_ORDER.push('customers');
+Engine.KEYS.customers = 'customer_id';
+
+const NATIONALITY_ALIASES = { 'unitedarabemirates': 'AE', 'emirati': 'AE', 'uae': 'AE', 'indian': 'IN', 'pakistani': 'PK', 'unitedkingdom': 'GB', 'uk': 'GB', 'british': 'GB', 'england': 'GB', 'greatbritain': 'GB',
+  'russianfederation': 'RU', 'russian': 'RU', 'phillipines': 'PH', 'filipino': 'PH', 'unitedstates': 'US', 'unitedstatesofamerica': 'US', 'usa': 'US', 'canada': 'US', 'german': 'DE', 'italian': 'IT', 'french': 'FR',
+  'saudi': 'SA', 'ksa': 'SA', 'egyptian': 'EG', 'turkiye': 'TR', 'lebanese': 'LB', 'jordanian': 'JO', 'syrian': 'SY', 'syrianarabrepublic': 'SY', 'iranislamicrepublicof': 'IR', 'korea': 'KR' };
+
+Object.assign(U, {
+  /** nationality text → phone country (or null) */
+  countryOfNationality(s) {
+    const k = String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (!k) return null;
+    const iso = NATIONALITY_ALIASES[k];
+    if (iso) return U.phoneCountry(iso);
+    return PHONE_COUNTRIES.find(c => c.name.toLowerCase().replace(/[^a-z]/g, '') === k) || null;
+  },
+  /** a number that already carries its country code (Customers report) → full digits */
+  phoneFull(raw) {
+    if (raw == null || raw === '') return { digits: '', valid: false, kind: 'missing' };
+    const s = String(raw).trim();
+    // Excel turned some numbers into 9.72E+11 → the real digits are lost
+    if (/e\+/i.test(s) || (/^\d{11,}$/.test(s) && /0000$/.test(s))) return { digits: '', valid: false, kind: 'corrupt' };
+    let d = s.replace(/\D/g, '');
+    if (!d) return { digits: '', valid: false, kind: 'missing' };
+    if (d.startsWith('00')) d = d.slice(2);
+    if (/^0971/.test(d)) d = d.slice(1);
+    while (d.startsWith('971971')) d = d.slice(3);
+    if (/^9710\d{7,9}$/.test(d)) d = '971' + d.slice(4);
+    if (/^0?5\d{8}$/.test(d)) d = '971' + d.slice(-9);
+    else if (/^0?[2-79]\d{7}$/.test(d)) d = '971' + d.replace(/^0/, '');
+    if (/^971[234679]\d{7}$/.test(d)) return Object.assign(U.phone('+' + d), { kind: 'landline', valid: false });
+    // "971" put in front of a number that is not a UAE number (e.g. 971 + a Turkish 508…) → country unknown
+    if (d.startsWith('971') && !/^9715\d{8}$/.test(d)) return { digits: '', valid: false, kind: 'check', national: d.slice(3) };
+    return U.phone('+' + d);
+  }
+});
+
+Object.assign(Engine, {
+  _norm_customers(det, g) {
+    const { rows, headerRow, colIndex: ci } = det, C = Engine._cell;
+    const out = [], issues = [], seen = new Map();
+    const stats = { rows: 0, skipped: 0, valid: 0, corrupt: 0, landline: 0, missing: 0, check: 0, duplicates: 0 };
+    for (let r = headerRow + 1; r < rows.length; r++) {
+      const row = rows[r]; if (!row) continue;
+      const id = parseInt(String(C(row, ci, 'id') == null ? '' : C(row, ci, 'id')).replace(/\D/g, ''), 10);
+      if (!id) { if (row.some(v => !U.isBlank(v))) stats.skipped++; continue; }
+      stats.rows++;
+      const rawM = C(row, ci, 'mobile');
+      const ph = U.phoneFull(rawM);
+      if (ph.valid) stats.valid++; else if (ph.kind === 'corrupt') stats.corrupt++; else if (ph.kind === 'landline') stats.landline++; else if (ph.kind === 'missing') stats.missing++; else stats.check++;
+      const rec = {
+        customer_id: id, name: U.clean(C(row, ci, 'name')) || null,
+        nationality: U.clean(C(row, ci, 'nationality')) || null, residence: U.clean(C(row, ci, 'residence')) || null,
+        email: U.clean(C(row, ci, 'email')) || null,
+        mobile_raw: rawM == null || rawM === '' ? null : String(rawM).trim(),
+        mobile: ph.digits || null, mobile_valid: !!ph.valid,
+        mobile_key: ph.digits ? ph.digits.slice(-7) : null
+      };
+      if (seen.has(id)) { stats.duplicates++; out[seen.get(id)] = rec; continue; }
+      seen.set(id, out.length); out.push(rec);
+    }
+    issues.push({ level: 'fix', text: `Mobiles with country code: ${U.int(stats.valid)} usable, ${U.int(stats.landline)} landlines, ${U.int(stats.corrupt)} damaged by Excel (e.g. 9.72E+11 — fix in Caryaati), ${U.int(stats.check)} unusual, ${U.int(stats.missing)} empty.` });
+    issues.push({ level: 'info', text: 'Only customers that match a stored contract (by mobile, e-mail or name) are kept. ID documents and dates of birth are not stored.' });
+    return { rows: out, stats, issues };
+  },
+
+  /** contract national digits (as exported by Caryaati) */
+  contractPhoneDigits(c) { return String((c && c.mobile_raw) || '').replace(/\D/g, '').replace(/^0+/, ''); },
+
+  /** index of customers for linking */
+  customerIndex(customers) {
+    const byKey = new Map(), byEmail = new Map(), byName = new Map();
+    const push = (m, k, v) => { if (!k) return; const a = m.get(k); if (a) a.push(v); else m.set(k, [v]); };
+    for (const x of customers || []) {
+      push(byKey, x.mobile_key, x);
+      push(byEmail, String(x.email || '').trim().toLowerCase().replace(/\d+$/, ''), x);
+      push(byName, Engine.nameKey(x.name), x);
+    }
+    return { byKey, byEmail, byName, size: (customers || []).length };
+  },
+  /** best customer record for a contract (or null) */
+  matchCustomer(idx, c) {
+    if (!idx || !idx.size || !c) return null;
+    const nk = Engine.nameKey(c.customer_name);
+    const pick = list => {
+      if (!list || !list.length) return null;
+      const good = list.filter(x => U.phoneFull(x.mobile_raw).valid);
+      const pool = good.length ? good : list;
+      const byName = pool.filter(x => Engine.nameKey(x.name) === nk);
+      const p = byName.length ? byName : pool;
+      const nums = new Set(p.map(x => x.mobile || ''));
+      return nums.size === 1 ? p.sort((a, b) => b.customer_id - a.customer_id)[0] : (byName.length ? byName.sort((a, b) => b.customer_id - a.customer_id)[0] : null);
+    };
+    const d = Engine.contractPhoneDigits(c);
+    if (d.length >= 7) {
+      const hit = pick((idx.byKey.get(d.slice(-7)) || []).filter(x => x.mobile && x.mobile.endsWith(d)));
+      if (hit) return Object.assign({ _by: 'mobile' }, hit);
+    }
+    const em = String(c.email || '').trim().toLowerCase().replace(/\d+$/, '');
+    if (em) { const hit = pick(idx.byEmail.get(em)); if (hit) return Object.assign({ _by: 'e-mail' }, hit); }
+    if (nk) { const list = idx.byName.get(nk); if (list && new Set(list.map(x => x.mobile)).size === 1) return Object.assign({ _by: 'name' }, list[0]); }
+    return null;
+  }
+});
+
+/* keep only customers that belong to a stored / uploaded contract */
+(function () {
+  const base = Engine.prepareSync;
+  Engine.prepareSync = function (norm, existing) {
+    const res = base.call(Engine, norm, existing);
+    if (norm.customers && norm.customers.rows) {
+      const contracts = new Map((existing && existing.contracts || []).map(c => [+c.contract_no, c]));
+      (res.tables.contracts || []).forEach(c => contracts.set(+c.contract_no, c));
+      const idx = Engine.customerIndex(norm.customers.rows);
+      const keep = new Map();
+      let linked = 0;
+      for (const c of contracts.values()) {
+        const m = Engine.matchCustomer(idx, c);
+        if (m) { linked++; const o = norm.customers.rows.find(x => x.customer_id === m.customer_id); if (o) keep.set(o.customer_id, o); }
+        // also keep every customer sharing the contract's number (other records of the same person)
+        const d = Engine.contractPhoneDigits(c);
+        if (d.length >= 7) (idx.byKey.get(d.slice(-7)) || []).filter(x => x.mobile && x.mobile.endsWith(d)).forEach(x => keep.set(x.customer_id, x));
+      }
+      res.tables.customers = [...keep.values()];
+      res.diff = Engine.diff(res.tables, existing || {});
+      Object.assign(res.summary, { customersKept: res.tables.customers.length, customersTotal: norm.customers.rows.length, customersLinked: linked, contractsForCustomers: contracts.size });
+    }
+    return res;
+  };
+})();
 
 /* ---------- Profitability analysis ---------- */
 Engine.profit = function (model, opt) {
@@ -2133,7 +2294,7 @@ const Exporter = {
    ===================================================================== */
 const VIEW_META = {
   dashboard:   ['Dashboard', 'Live overview of waivers, collections and Cardoo claims'],
-  import:      ['Import & Sync', 'Attach the 5 reports, review the clean-up, sync to the database'],
+  import:      ['Import & Sync', 'Attach the reports, review the clean-up, sync to the database'],
   collections: ['Collections', 'Closed waiver contracts with an outstanding balance'],
   cardoo:      ['Cardoo Account', '15-day Cardoo invoices, payments, claim offsets and balance'],
   claims:      ['Cardoo Claims', '60-day claim window, claim-ready contracts and submitted claims'],
@@ -2408,7 +2569,7 @@ const Views = {
   },
   emptyData(el) {
     el.innerHTML = `<div class="card empty-state"><div class="dz-ico">${icon('upload')}</div><h3>No report data yet</h3>
-      <p>Attach the five reports (Deposit Waivers, Rental Contracts, Rental Payments, Cardoo Booking, Cardoo Excess) to build the unified workspace.</p>
+      <p>Attach the reports (Deposit Waivers, Rental Contracts, Rental Payments, Cardoo Booking, Cardoo Excess, and Customers for mobile numbers with country code) to build the unified workspace.</p>
       <a class="btn btn-primary" href="#/import">${icon('upload')}Import reports</a></div>`;
   },
   recordColumns(extra) {
@@ -3083,6 +3244,24 @@ const Drawer = {
       </div>
       ${r.status === 'Closed' && r.outstanding > 0 ? `<div class="notice ${r.stage === 'ready_to_claim' ? 'amber' : r.booking_state !== 'active' ? 'rose' : ''}">${icon('info')}<span><b>${STAGES[r.stage].label}:</b> ${STAGES[r.stage].hint}.${r.uncovered > 0 && r.booking_state === 'active' ? ` ${cur} ${U.money(r.uncovered)} is above the Cardoo cover and must be collected directly.` : ''}</span></div>` : ''}
       ${r.remark || r.remark_cat ? `<div class="rm-item"><div class="meta">${r.remark_cat ? `<span class="tag">${U.esc(r.remark_cat)}</span>` : ''}<span>Last remark · ${U.esc(k.last_remark_by || '')} · ${U.fmtTS(r.remark_at)}</span></div>${U.esc(r.remark || '')}</div>` : ''}
+      <div class="panel"><h4>${icon('doc')}Contract</h4>
+        <dl class="kv">
+          <dt>Customer</dt><dd>${U.esc(r.name)}${r.name_waiver && Engine.nameKey(r.name_waiver) !== Engine.nameKey(r.name) ? `<br><small class="muted">Waiver report: ${U.esc(r.name_waiver)}</small>` : ''}</dd>
+          <dt>Original (waiver)</dt><dd class="mono small">${U.esc(r.waiver.raw_customer || '')} · ${U.esc(r.waiver.raw_contract || '')}</dd>
+          <dt>Email</dt><dd>${r.email ? `<span class="copy-line"><a href="mailto:${U.esc(r.email)}">${U.esc(r.email)}</a><button type="button" class="icon-btn ghost copy-btn" data-copy="${U.esc(r.email)}" data-copy-what="Email" title="Copy email">${icon('copy')}</button></span>` : '—'}</dd>
+          <dt>Mobile</dt><dd>${r.phone ? `<span class="copy-line"><span class="mono">${U.esc(r.phone_display)}</span><button type="button" class="icon-btn ghost copy-btn" data-copy="+${U.esc(r.phone)}" data-copy-what="Mobile" title="Copy mobile">${icon('copy')}</button>${r.phone_country ? `<small class="muted">${U.esc(r.phone_country)}</small>` : ''}</span>` : (r.phone_raw ? `<span class="copy-line"><span class="mono">${U.esc(r.phone_raw)}</span><button type="button" class="icon-btn ghost copy-btn" data-copy="${U.esc(r.phone_raw)}" data-copy-what="Mobile" title="Copy mobile">${icon('copy')}</button><small style="color:var(--amber)">no country code</small></span>` : '—')}</dd>
+          <dt>Vehicle / plate</dt><dd>${U.esc(r.vehicle)} ${r.plate ? `<span class="tag">${U.esc(r.plate)}</span>` : ''}</dd>
+          <dt>Pick-up</dt><dd>${U.fmtDT(r.pickup_at) || U.fmtDate(r.open_date)}</dd>
+          <dt>Drop-off</dt><dd>${U.fmtDT(r.dropoff_at) || '—'}</dd>
+          <dt>Caryaati open / close</dt><dd>${U.fmtDate(r.open_date)} → ${r.close_date ? U.fmtDate(r.close_date) : '<span class="chip t-sky">open</span>'}</dd>
+          <dt>Waiver cover (Cardoo)</dt><dd>${r.booking_state === 'active'
+            ? `${U.fmtDT(r.booking_start)} → ${U.fmtDT(r.cover_end_at || r.booking_close || r.booking_end)}${r.days_since_close != null && r.cover_end_src === 'cardoo' ? ` <span class="muted">(${R.ago(r.days_since_close)})</span>` : ''}${r.cover_end_diff != null && r.cover_end_diff !== 0 ? ` <span class="tag" title="Cardoo booking end vs Caryaati close">${r.cover_end_diff > 0 ? '+' : ''}${r.cover_end_diff}d vs Caryaati</span>` : ''}${r.cover_end_src === 'caryaati' && r.cover_end_diff != null ? `<br><small class="muted">Booking runs ${r.cover_end_diff}d past the Caryaati close — claim window counted from the Caryaati close; close the booking in Cardoo.</small>` : ''}`
+            : R.booking(r)}</dd>
+          <dt>Rental type</dt><dd>${U.esc(r.rental_type || '—')}${r.days ? ` · ${r.days} days` : ''}</dd>
+          ${r.contract ? `<dt>Charges</dt><dd class="mono small">Rent ${U.money(r.contract.rent)} · Salik ${U.money(r.contract.salik)} · Fines ${U.money(r.contract.fine)} · Other ${U.money(r.contract.other_charges)} · VAT ${U.money(r.contract.vat)}</dd>
+          <dt>Total / paid</dt><dd class="mono small">${U.money(r.contract.total_amount)} / ${U.money(r.contract.paid_amount)} → balance ${U.money(r.contract.balance)}</dd>` : '<dt>Contracts report</dt><dd class="pos">Not found in Rental Contracts report</dd>'}
+          ${r.claim_deadline && r.status === 'Closed' ? `<dt>Claim window</dt><dd>${U.fmtDate(r.claim_deadline)} <span class="muted">(${r.days_to_deadline < 0 ? `passed ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`} · ${g.claim_deadline_days || 60} days from ${r.cover_end_src === 'cardoo' ? 'Cardoo booking end' : 'Caryaati close'})</span></dd>` : ''}
+        </dl></div>
       <div class="panel">
         <h4>${icon('wallet')}Collection workflow<span class="spacer"></span>${k.updated_by ? `<span class="small muted" style="text-transform:none;letter-spacing:0;font-weight:600">updated by ${U.esc(k.updated_by)} · ${U.fmtTS(k.updated_at)}</span>` : ''}</h4>
         <div class="grid" style="gap:12px">
@@ -3102,24 +3281,7 @@ const Drawer = {
           </div>
           <p class="small muted">Contacted <b>${r.contact_count}×</b>${k.first_contact_at ? ` · first ${U.fmtTS(k.first_contact_at)}` : ''}${k.last_contact_at ? ` · last ${U.fmtTS(k.last_contact_at)}` : ''}</p>
         </div>
-      </div>
-      <div class="panel"><h4>${icon('doc')}Contract</h4>
-        <dl class="kv">
-          <dt>Customer</dt><dd>${U.esc(r.name)}${r.name_waiver && Engine.nameKey(r.name_waiver) !== Engine.nameKey(r.name) ? `<br><small class="muted">Waiver report: ${U.esc(r.name_waiver)}</small>` : ''}</dd>
-          <dt>Original (waiver)</dt><dd class="mono small">${U.esc(r.waiver.raw_customer || '')} · ${U.esc(r.waiver.raw_contract || '')}</dd>
-          <dt>Email</dt><dd>${r.email ? `<a href="mailto:${U.esc(r.email)}">${U.esc(r.email)}</a>` : '—'}</dd>
-          <dt>Vehicle / plate</dt><dd>${U.esc(r.vehicle)} ${r.plate ? `<span class="tag">${U.esc(r.plate)}</span>` : ''}</dd>
-          <dt>Pick-up</dt><dd>${U.fmtDT(r.pickup_at) || U.fmtDate(r.open_date)}</dd>
-          <dt>Drop-off</dt><dd>${U.fmtDT(r.dropoff_at) || '—'}</dd>
-          <dt>Caryaati open / close</dt><dd>${U.fmtDate(r.open_date)} → ${r.close_date ? U.fmtDate(r.close_date) : '<span class="chip t-sky">open</span>'}</dd>
-          <dt>Waiver cover (Cardoo)</dt><dd>${r.booking_state === 'active'
-            ? `${U.fmtDT(r.booking_start)} → ${U.fmtDT(r.cover_end_at || r.booking_close || r.booking_end)}${r.days_since_close != null && r.cover_end_src === 'cardoo' ? ` <span class="muted">(${R.ago(r.days_since_close)})</span>` : ''}${r.cover_end_diff != null && r.cover_end_diff !== 0 ? ` <span class="tag" title="Cardoo booking end vs Caryaati close">${r.cover_end_diff > 0 ? '+' : ''}${r.cover_end_diff}d vs Caryaati</span>` : ''}${r.cover_end_src === 'caryaati' && r.cover_end_diff != null ? `<br><small class="muted">Booking runs ${r.cover_end_diff}d past the Caryaati close — claim window counted from the Caryaati close; close the booking in Cardoo.</small>` : ''}`
-            : R.booking(r)}</dd>
-          <dt>Rental type</dt><dd>${U.esc(r.rental_type || '—')}${r.days ? ` · ${r.days} days` : ''}</dd>
-          ${r.contract ? `<dt>Charges</dt><dd class="mono small">Rent ${U.money(r.contract.rent)} · Salik ${U.money(r.contract.salik)} · Fines ${U.money(r.contract.fine)} · Other ${U.money(r.contract.other_charges)} · VAT ${U.money(r.contract.vat)}</dd>
-          <dt>Total / paid</dt><dd class="mono small">${U.money(r.contract.total_amount)} / ${U.money(r.contract.paid_amount)} → balance ${U.money(r.contract.balance)}</dd>` : '<dt>Contracts report</dt><dd class="pos">Not found in Rental Contracts report</dd>'}
-          ${r.claim_deadline && r.status === 'Closed' ? `<dt>Claim window</dt><dd>${U.fmtDate(r.claim_deadline)} <span class="muted">(${r.days_to_deadline < 0 ? `passed ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`} · ${g.claim_deadline_days || 60} days from ${r.cover_end_src === 'cardoo' ? 'Cardoo booking end' : 'Caryaati close'})</span></dd>` : ''}
-        </dl></div>`;
+      </div>`;
   },
   tab_remarks(r, g) {
     const cats = g.remark_categories || [];
@@ -3185,6 +3347,7 @@ const Drawer = {
   },
   bind(r, d) {
     const no = r.contract_no;
+    $$('[data-copy]', d).forEach(b => b.addEventListener('click', async e => { e.preventDefault(); if (await Actions.copy(b.dataset.copy)) Toast.ok(`${b.dataset.copyWhat || 'Text'} copied`, b.dataset.copy); else Toast.err('Copy failed'); }));
     const on = (id, fn) => { const el = $(id, d); if (el) el.addEventListener('click', fn); };
     on('#fLinkSave', () => { const v = $('#fLink', d).value.trim(); if (v && !/^https?:\/\//i.test(v)) Toast.warn('Payment link should start with https://'); App.saveCase(no, { payment_link: v }, 'Payment link saved'); });
     R.phoneBind(d, r);
@@ -3647,10 +3810,10 @@ Views.import = {
     const imp = State.imports;
     const n = REPORT_ORDER.filter(t => imp[t] && imp[t].norm).length;
     el.innerHTML = `
-      <div class="section-head"><div><h2>Import reports</h2><p>Attach one or more of the five reports — file names don't matter. New records are added, changed records are updated, and records missing from a file are left as they are.</p></div>
+      <div class="section-head"><div><h2>Import reports</h2><p>Attach one or more of the six reports — file names don't matter. New records are added, changed records are updated, and records missing from a file are left as they are.</p></div>
         <span class="spacer"></span>${n ? `<button class="btn btn-ghost" id="impClear">${icon('trash')}Clear files</button>` : ''}</div>
       <label class="dropzone" id="dz"><input type="file" id="dzInput" multiple accept=".xlsx,.xls,.xlsm,.csv,.pdf">
-        <div class="dz-ico">${icon('upload')}</div><h3>Drop reports here, or click to browse</h3><p>The 5 reports, Cardoo 15-day invoices (PO PDF + booking_details Excel) and the Cardoo balance statement — any order, any file names</p></label>
+        <div class="dz-ico">${icon('upload')}</div><h3>Drop reports here, or click to browse</h3><p>The 6 reports (incl. Caryaati Customers), Cardoo 15-day invoices (PO PDF + booking_details Excel) and the Cardoo balance statement — any order, any file names</p></label>
       <div id="freshness"></div>
       <div class="slots">${REPORT_ORDER.map((t, i) => this.slot(t, i)).join('')}</div>
       <div id="stPanel"></div>
@@ -3727,6 +3890,10 @@ Views.import = {
       issues.push({ level: 'fix', src: 'Rental Contracts', text: `Phones normalised: ${U.int(ph.uae)} UAE mobiles, ${U.int(ph.intl)} international (country from e-mail domain), ${U.int(ph.landline || 0)} landlines, ${U.int(ph.nocc || 0)} foreign numbers without country code (confirm in Reconciliation → Fix country codes), ${U.int(ph.check || 0)} need checking, ${U.int(ph.missing)} missing.` });
       issues.push({ level: 'info', src: 'Rental Contracts', text: `${U.int(s.contractsKept)} of ${U.int(s.contractsTotal)} contracts are linked to a waiver, Cardoo booking or claim and will be stored.` });
     }
+    if (norm.customers) {
+      issues.push({ level: 'info', src: 'Customers', text: `${U.int(s.customersKept)} of ${U.int(s.customersTotal)} customers belong to the ${U.int(s.contractsForCustomers)} stored contracts and will be stored (${U.int(s.customersLinked)} contracts matched). Their mobile numbers with country code replace the numbers from the Rental Contracts report; numbers you corrected by hand are kept.` });
+      if (!s.contractsForCustomers) issues.push({ level: 'warn', src: 'Customers', text: 'No Rental Contracts are stored yet — import the Rental Contracts report first (or together), otherwise no customer can be linked.' });
+    }
     if (norm.payments) issues.push({ level: 'info', src: 'Rental Payments', text: `${U.int(s.paymentsKept)} of ${U.int(s.paymentsTotal)} payment rows belong to linked contracts and will be stored.` });
     types.forEach(t => norm[t].issues.forEach(i => issues.push(Object.assign({ src: REPORTS[t].label }, i))));
     if (s.missingContracts.length) issues.push({ level: 'warn', text: `${s.missingContracts.length} linked contract(s) are not in any Rental Contracts report yet (no phone/email): ${s.missingContracts.slice(0, 12).join(', ')}${s.missingContracts.length > 12 ? '…' : ''}` });
@@ -3746,7 +3913,7 @@ Views.import = {
             : `<div class="stat" style="opacity:.55"><small>${REPORTS[t].label}</small><b>—</b><span>not attached · stays as is</span></div>`).join('')}</div>
           ${allChanges.length ? `<div><div class="toolbar" style="margin-bottom:8px"><b class="small">Changed fields</b>${Object.entries(fieldCounts).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `<span class="tag">${U.esc(k.replace(/_/g, ' '))} · ${v}</span>`).join('')}</div>
             <div class="dt-scroll card" style="max-height:260px"><table class="tbl"><thead><tr><th>Report</th><th>Contract</th><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>
-            ${allChanges.slice(0, 300).map(c => `<tr><td class="small">${REPORTS[c.tbl].label}</td><td>${R.cno(c.contract_no || c.row_key)}</td><td class="small">${U.esc(c.field.replace(/_/g, ' '))}</td><td><span class="chg-old">${U.esc(this.fmtVal(c.old_value))}</span></td><td><span class="chg-new">${U.esc(this.fmtVal(c.new_value))}</span></td></tr>`).join('')}
+            ${allChanges.slice(0, 300).map(c => `<tr><td class="small">${REPORTS[c.tbl].label}</td><td>${c.tbl === 'customers' ? `<span class="small">Customer ${U.esc(c.row_key)}</span>` : R.cno(c.contract_no || c.row_key)}</td><td class="small">${U.esc(c.field.replace(/_/g, ' '))}</td><td><span class="chg-old">${U.esc(this.fmtVal(c.old_value))}</span></td><td><span class="chg-new">${U.esc(this.fmtVal(c.new_value))}</span></td></tr>`).join('')}
             </tbody></table></div>${allChanges.length > 300 ? `<p class="small muted mt-sm">Showing 300 of ${U.int(allChanges.length)} field changes.</p>` : ''}</div>`
             : `<div class="notice green">${icon('check')}<span>No existing record changed. ${totNew ? `${U.int(totNew)} new record(s) will be added.` : 'Everything is already up to date.'}</span></div>`}
         </div></div>
@@ -4014,6 +4181,7 @@ Object.assign(R, {
   },
   phoneTags(r) {
     if (r.phone_overridden) return '<span class="tag">corrected</span>';
+    if (r.phone_src === 'customers') return `<span class="tag" title="Matched by ${U.esc(r.customer && r.customer._by || '')}">from Customers report${r.nationality ? ' · ' + U.esc(r.nationality) : ''}</span>`;
     if (r.phone_auto) return `<span class="tag" title="Country code added automatically">${U.esc(r.phone_country)} · ${U.esc(r.phone_auto_reason)}</span>`;
     if (r.phone_kind === 'nocc') return '<span class="flag t-amber">add country code</span>';
     if (r.phone_kind === 'missing') return '<span class="flag t-amber">no phone</span>';
@@ -4028,11 +4196,12 @@ Object.assign(R, {
         <input class="input mono" id="fPhone" value="${U.esc(p.nat)}" placeholder="Number (or full +code number)">
         <button class="btn" id="fPhoneSave">${icon('check')}Save</button></div>
       <small id="fPhoneInfo">${R.phoneInfo(r)}</small>
+      ${r.phone_overridden && r.phone_derived && r.phone_derived !== r.phone ? `<div class="notice amber" style="margin-top:6px">${icon('alert')}<span>Your corrected number differs from the ${r.phone_from_customers ? 'Customers report' : 'report'} (<b class="mono">${U.esc(U.phoneFmt(r.phone_derived))}</b>). <button type="button" class="btn btn-xs" id="fPhoneReset" style="margin-left:6px">Use report number</button></span></div>` : ''}
       ${sug.length ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px"><small class="muted">Suggested country:</small>${sug.map(x => `<button type="button" class="btn btn-xs" data-ph-iso="${x.iso}" data-ph-nat="${U.esc(x.national)}" title="${U.esc(x.reason)}">+${x.cc} ${U.esc(x.name)}${x.tld ? ' ★' : ''}</button>`).join('')}</div>
         <small class="muted">Caryaati exports mobiles without the country code — pick the customer's country (★ = matches the e-mail domain). Check the name / nationality if unsure.</small>` : ''}</div>`;
   },
   phoneInfo(r) {
-    return r.phone ? `WhatsApp: <b class="mono">${U.esc(r.phone_display)}</b>${r.phone_country ? ` · ${U.esc(r.phone_country)}` : ''} · original in report: <span class="mono">${U.esc((r.contract && r.contract.mobile_raw) || '—')}</span>`
+    return r.phone ? `WhatsApp: <b class="mono">${U.esc(r.phone_display)}</b>${r.phone_country ? ` · ${U.esc(r.phone_country)}` : ''} · Contracts report: <span class="mono">${U.esc((r.contract && r.contract.mobile_raw) || '—')}</span>${r.customer ? ` · Customers report: <span class="mono">${U.esc(r.customer.mobile_raw || '—')}</span>` : ''}`
       : `<span style="color:var(--amber)">Not usable for WhatsApp yet — country code missing.</span> Original in report: <span class="mono">${U.esc((r.contract && r.contract.mobile_raw) || '—')}</span>`;
   },
   /** build the full number from a country iso + typed number */
@@ -4048,9 +4217,7 @@ Object.assign(R, {
   },
   /** what to store: '' when the number equals what the report already gives */
   phoneOverrideFor(r, ph) {
-    const g = App.model.settings.general;
-    const base = U.phone(r.contract && r.contract.mobile_raw, g.default_country_code, { email: r.email });
-    return base.valid && base.digits === ph.digits ? '' : '+' + ph.digits;
+    return r.phone_derived && r.phone_derived === ph.digits ? '' : '+' + ph.digits;
   },
   phoneBind(d, r) {
     const sel = $('#fCc', d), inp = $('#fPhone', d), info = $('#fPhoneInfo', d), btn = $('#fPhoneSave', d);
@@ -4070,6 +4237,7 @@ Object.assign(R, {
     sel.addEventListener('change', preview); inp.addEventListener('input', preview);
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
     btn.addEventListener('click', save);
+    const rs = $('#fPhoneReset', d); if (rs) rs.addEventListener('click', () => App.saveCase(r.contract_no, { phone_override: '' }, `Using ${U.phoneFmt(r.phone_derived)}`));
     $$('[data-ph-iso]', d).forEach(b => b.addEventListener('click', () => { sel.value = b.dataset.phIso; inp.value = b.dataset.phNat; preview(); save(); }));
   }
 });
