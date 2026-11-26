@@ -1347,6 +1347,35 @@ Engine.cardoo = function (model, cd) {
   /* ---------- invoices ---------- */
   const invoices = [];
   const seenPo = new Set();
+  // Older statement invoices carry no PO number: match the imported PO invoices to them by date + amount
+  const poForItem = new Map();
+  {
+    const numbered = new Set(L.invoice.items.filter(i => i.po_no).map(i => i.po_no));
+    const freeItems = L.invoice.items.filter(i => !i.po_no);
+    const freePos = POS.filter(p => !numbered.has(p.po_no) && p.issue_date && (p.total_aed != null || p.lines_total_aed != null));
+    const cand = [];
+    freePos.forEach(p => {
+      const pt = p.total_aed != null ? +p.total_aed : +p.lines_total_aed;
+      freeItems.forEach(it => {
+        const dd = Math.abs(U.dayNum(it.date) - U.dayNum(p.issue_date)), ad = Math.abs(it.amount - pt);
+        if (dd > 5) return;
+        const tol = Math.max(3, Math.abs(pt) * 0.015);
+        cand.push({ p, it, dd, ad, strong: ad <= tol });
+      });
+    });
+    cand.sort((x, y) => (y.strong - x.strong) || (x.ad - y.ad) || (x.dd - y.dd));
+    const usedP = new Set(), usedI = new Set();
+    cand.forEach(c => {
+      if (usedP.has(c.p.po_no) || usedI.has(c.it.key)) return;
+      // weak (amount differs) matches only when the PO and the statement line are the only candidates for each other
+      if (!c.strong) {
+        const others = cand.filter(o => (o.p === c.p || o.it === c.it) && o !== c && !usedP.has(o.p.po_no) && !usedI.has(o.it.key));
+        if (others.length) return;
+      }
+      usedP.add(c.p.po_no); usedI.add(c.it.key);
+      poForItem.set(c.it.key, { po: c.p, strong: c.strong, ad: c.ad });
+    });
+  }
   const addManual = (row) => {
     const ms = active.filter(s => s.po_no && s.po_no === row.po_no && ['payment', 'offset', 'adjustment'].includes(s.kind));
     ms.forEach(s => { const a = U.r2(toAed(s, row.fx)); row.parts.push({ type: s.kind === 'payment' ? 'Invoice payment' : s.kind === 'offset' ? 'Invoice offset' : 'Adjustment', date: s.entry_date, aed: a, manual: true, id: s.id }); });
@@ -1369,10 +1398,12 @@ Engine.cardoo = function (model, cd) {
     invoices.push(row);
   };
   L.invoice.items.forEach(it => {
+    const matched = !it.po_no ? poForItem.get(it.key) : null;
+    if (matched) it.po_no = matched.po.po_no;
     const po = it.po_no ? poMap.get(it.po_no) : null;
     if (it.po_no) seenPo.add(it.po_no);
     const row = Object.assign({}, po || {}, {
-      key: it.po_no || 'ST|' + it.key, po_no: it.po_no || null, label: it.po_no || `Invoice ${U.fmtDate(it.date)}`, source: 'statement',
+      key: it.po_no || 'ST|' + it.key, po_no: it.po_no || null, label: it.po_no || `Invoice ${U.fmtDate(it.date)}`, source: matched ? (matched.strong ? 'statement (matched by date & amount)' : 'statement (matched by date — amount differs)') : 'statement',
       issue_date: (po && po.issue_date) || it.date, stmt_date: it.date, total_aed: it.amount, total_usd: it.usd != null ? it.usd : po ? +po.total_usd : null,
       pdf_total_aed: po ? +po.total_aed : null, payment_terms_days: (po && po.payment_terms_days) || 3,
       parts: it.parts.slice(), has_pdf: !!(po && po.has_pdf), has_lines: !!(po && po.has_lines)
@@ -1387,10 +1418,14 @@ Engine.cardoo = function (model, cd) {
   });
   POS.filter(p => !seenPo.has(p.po_no)).forEach(p => {
     const total = p.total_aed != null ? +p.total_aed : +p.lines_total_aed || 0;
-    const row = Object.assign({}, p, { key: p.po_no, label: p.po_no, source: stTo && p.issue_date && U.dayNum(p.issue_date) <= stToN ? 'po (not on statement)' : 'po',
+    const inside = !!(stTo && p.issue_date && U.dayNum(p.issue_date) <= stToN);
+    const row = Object.assign({}, p, { key: p.po_no, label: p.po_no, source: inside ? 'not on statement' : 'po',
       total_aed: total, total_usd: p.total_usd != null ? +p.total_usd : +p.lines_total_usd || null, pdf_total_aed: total, parts: [] });
     row.fx = fxOf(row.total_aed, row.total_usd) || defFx;
     addManual(row); finish(row);
+    if (inside) {   // the statement covers this date but does not list the invoice: never count it as money owed
+      row.not_on_statement = true; row.status = 'Not on statement'; row.overdue_days = 0; row.excluded_aed = row.balance_aed; row.balance_aed = 0; row.balance_usd = 0;
+    }
   });
   invoices.sort((a, b) => (U.dayNum(b.issue_date) || 0) - (U.dayNum(a.issue_date) || 0));
   const invByPo = new Map(invoices.filter(i => i.po_no).map(i => [i.po_no, i]));
@@ -1481,7 +1516,7 @@ Engine.cardoo = function (model, cd) {
       invoiceSide: U.sum(st.filter(x => x.side === 'invoice'), x => +x.amount_aed), excessSide: U.sum(st.filter(x => x.side === 'excess'), x => +x.amount_aed),
       unallocInvoice: L.invoice.unalloc, unallocExcess: L.excess.unalloc } : null,
     invoices: invoices.length,
-    billedAed: U.sum(invoices, i => i.total_aed), billedUsd: U.sum(invoices.filter(i => i.total_usd != null), i => i.total_usd),
+    billedAed: U.sum(invoices.filter(i => !i.not_on_statement), i => i.total_aed), billedUsd: U.sum(invoices.filter(i => i.total_usd != null), i => i.total_usd),
     paidAed: U.sum(invoices, i => i.paid_aed), offsetAed: U.sum(invoices, i => i.offset_aed), feesAed: U.sum(invoices, i => i.fees_aed),
     paidUsd: U.sum(invoices, i => i.paid_usd || 0), offsetUsd: U.sum(invoices, i => i.offset_usd || 0),
     balanceAed: U.r2(U.sum(openInv, i => i.balance_aed) - U.sum(L.invoice.unalloc, c => c.aed)), balanceUsd: U.sum(openInv, i => i.balance_usd || 0),
@@ -1494,6 +1529,7 @@ Engine.cardoo = function (model, cd) {
     unappliedExcess: U.sum(L.excess.unalloc, c => c.aed), unappliedInvoice: U.sum(L.invoice.unalloc, c => c.aed),
     claimsReceivable: U.r2(U.sum(openClaims, c => c.open) - U.sum(L.excess.unalloc, c => c.aed)), claimsOpen: openClaims.length,
     notOnStatement: claims.filter(c => c.source === 'approved'), amountDiffs: claims.filter(c => Math.abs(c.diff) > 0.01),
+    invoicesNotOnStatement: invoices.filter(i => i.not_on_statement), invoicesMatchedWeak: invoices.filter(i => /amount differs/.test(i.source || '')),
     superseded: manual.filter(s => s.superseded).length,
     avoidable: U.sum(lines, l => l._avoidable), avoidableLines: lines.filter(l => l._avoidable).length,
     credits: U.sum(lines.filter(l => +l.price_aed < 0), l => l.price_aed), fx: Math.round(defFx * 10000) / 10000,
@@ -2093,6 +2129,9 @@ const App = {
       this.model.checks.push({ id: 'cardoo_not_credited', title: 'Approved claims not credited by Cardoo after 30 days', severity: 'high', kind: 'claims',
         desc: `In Recovery in the Excess report for more than 30 days but not on the Cardoo statement (up to ${U.fmtDate(cs.statement.to)}).`, rows: late.map(asClaim) });
       this.model.kpi.criticalChecks += late.length;
+      if (cs.invoicesNotOnStatement.length) this.model.checks.push({ id: 'cardoo_po_missing', title: 'PO invoices not found on the Cardoo statement', severity: 'medium', kind: 'claims',
+        desc: 'Imported PO invoice dated inside the statement period but no matching invoice line on the statement — not counted as owed. Ask Cardoo.',
+        rows: cs.invoicesNotOnStatement.map(i => ({ row_key: i.po_no, contract_raw: i.po_no, contract_no: '', _name: `Invoice ${U.fmtDate(i.issue_date)}`, title: i.po_no, claim_date: i.issue_date, excess_sum: i.excluded_aed, status: 'Not on statement' })) });
       const unposted = this.model.cardoo.claims.filter(c => c.type === 'Excess' && c.open <= 0.01 && c._rec && c._rec.status === 'Closed' && c._rec.outstanding >= c.amount - 1);
       this.model.checks.push({ id: 'cardoo_unposted', title: 'Paid by Cardoo but not posted in the Caryaati ledger', severity: 'medium', kind: 'claims',
         desc: 'Cardoo has paid (card / offset / transfer) but the customer ledger in Caryaati still shows at least that amount outstanding — post the Cardoo receipt in Caryaati so balances are correct.',
@@ -4215,7 +4254,7 @@ const STMT = {
    ===================================================================== */
 Views.cardoo = {
   tabs: [['invoices', 'Invoices', 'indigo'], ['claims', 'Claims & excess', 'teal'], ['statement', 'Statement', 'slate'], ['monthly', 'Monthly', 'violet'], ['manual', 'Manual entries', 'green'], ['lines', 'Invoice lines', 'slate'], ['avoidable', 'Avoidable charges', 'rose']],
-  statusTone: s => /overdue/i.test(s) ? 'rose' : /unpaid/i.test(s) ? 'amber' : /partly/i.test(s) ? 'orange' : 'green',
+  statusTone: s => /overdue/i.test(s) ? 'rose' : /not on statement/i.test(s) ? 'slate' : /unpaid/i.test(s) ? 'amber' : /partly/i.test(s) ? 'orange' : 'green',
   claimTone: s => /^received/i.test(s) ? 'green' : /partly/i.test(s) ? 'orange' : /not on statement/i.test(s) ? 'violet' : 'amber',
   build(el) {
     const C = App.model.cardoo, s = C.summary, cur = App.model.settings.general.currency;
@@ -4240,7 +4279,9 @@ Views.cardoo = {
         ${Views.dashboard.kpi('t-orange', 'user', 'Excess paid by customers', `<small>${cur}</small>${U.compact(s.paidByCustomer)}`, 'deducted by Cardoo — customer paid directly')}
         ${Views.dashboard.kpi('t-rose', 'alert', 'Avoidable charges', `<small>${cur}</small>${U.compact(s.avoidable)}`, `${s.avoidableLines} PO line(s) billed after Caryaati close`)}
       </div>
-      ${s.amountDiffs.length || s.notOnStatement.length || s.superseded ? `<div class="grid g-3 mt" style="gap:10px">
+      ${s.amountDiffs.length || s.notOnStatement.length || s.superseded || s.invoicesNotOnStatement.length || s.invoicesMatchedWeak.length ? `<div class="grid g-3 mt" style="gap:10px">
+        ${s.invoicesNotOnStatement.length ? `<div class="notice amber">${icon('alert')}<span><b>${s.invoicesNotOnStatement.length}</b> PO invoice(s) dated inside the statement period are not on the Cardoo statement (${s.invoicesNotOnStatement.slice(0, 4).map(i => i.po_no).join(', ')}) — not counted as owed. Ask Cardoo whether they were cancelled or re-issued.</span></div>` : ''}
+        ${s.invoicesMatchedWeak.length ? `<div class="notice">${icon('info')}<span><b>${s.invoicesMatchedWeak.length}</b> PO invoice(s) linked to a statement line by date although the amount differs: ${s.invoicesMatchedWeak.slice(0, 4).map(i => `${i.po_no} (PDF ${U.money(i.pdf_total_aed)} vs ${U.money(i.total_aed)})`).join(', ')}.</span></div>` : ''}
         ${s.notOnStatement.length ? `<div class="notice">${icon('info')}<span><b>${s.notOnStatement.length}</b> claim(s) are In Recovery in the Excess report but not credited on the statement yet (${cur} ${U.money(U.sum(s.notOnStatement, c => c.open))}).</span></div>` : ''}
         ${s.amountDiffs.length ? `<div class="notice amber">${icon('alert')}<span><b>${s.amountDiffs.length}</b> claim(s) credited with a different amount than approved: ${s.amountDiffs.slice(0, 3).map(c => `#${c.contract_raw} ${U.money(c.amount)} vs ${U.money(c.approved)}`).join(', ')}.</span></div>` : ''}
         ${s.superseded ? `<div class="notice">${icon('info')}<span><b>${s.superseded}</b> manual entr${s.superseded === 1 ? 'y is' : 'ies are'} dated inside the statement period and replaced by the statement (kept for reference).</span></div>` : ''}</div>` : ''}
@@ -4256,7 +4297,7 @@ Views.cardoo = {
     /* invoices */
     const inv = mk('invoices', { title: 'Cardoo invoices', exportName: 'cardoo_invoices', rowKey: r => r.key, sort: { key: 'issue_date', dir: 'desc' },
       columns: [
-        { key: 'label', label: 'Invoice', get: r => r.label, html: r => `<span class="mono">${U.esc(r.label)}</span>${r.disputed ? ' <span class="flag t-rose">disputed</span>' : ''}<span class="cell-sub">${r.source === 'statement' ? 'statement' : U.esc(r.source)}${r.has_pdf ? ' · PDF' : ''}${r.has_lines ? ' · lines' : ''}</span>` },
+        { key: 'label', label: 'Invoice', get: r => r.label, html: r => `<span class="mono">${U.esc(r.label)}</span>${r.disputed ? ' <span class="flag t-rose">disputed</span>' : ''}<span class="cell-sub" title="${U.esc(r.source)}">${/^statement/.test(r.source) ? 'statement' + (/matched/.test(r.source) ? ' (linked)' : '') : U.esc(r.source)}${r.has_pdf ? ' · PDF' : ''}${r.has_lines ? ' · lines' : ''}</span>` },
         { key: 'issue_date', label: 'Issued', type: 'date', get: r => r.issue_date, sortGet: r => U.dayNum(r.issue_date), html: r => R.date(r.issue_date) },
         { key: 'period_from', label: 'Period', get: r => r.period_from ? `${r.period_from} - ${r.period_to}` : '', sortGet: r => U.dayNum(r.period_from), html: r => r.period_from ? `<div class="dates2" title="${r.period_inferred ? 'Worked out from the invoice date (Cardoo bills on the 1st and 16th)' : ''}">${r.period_inferred ? '~ ' : ''}${U.fmtDate(r.period_from)}<span>→ ${U.fmtDate(r.period_to)}</span></div>` : '<span class="zero">—</span>' },
         { key: 'total_aed', label: 'Total AED', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.total_aed, html: r => `${R.amt(r.total_aed, 'big')}${r.stmt_diff ? `<span class="cell-sub" title="Statement and PDF differ by ${U.money(r.stmt_diff)}">PDF ${U.money(r.pdf_total_aed)}</span>` : ''}` },
@@ -4265,7 +4306,7 @@ Views.cardoo = {
         { key: 'offset_aed', label: 'Offset AED', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.offset_aed, html: r => R.amt(r.offset_aed) },
         { key: 'balance_aed', label: 'Balance AED', align: 'right', type: 'num', sum: true, numeric: true, get: r => r.balance_aed, html: r => `<span class="amt big" style="color:var(--${r.balance_aed > 0.01 ? 'rose' : 'green'})">${U.money(r.balance_aed)}</span>${r.balance_aed > 0.01 && r.balance_usd != null ? `<span class="cell-sub">USD ${U.money(r.balance_usd)}</span>` : ''}` },
         { key: 'balance_usd', label: 'Balance USD', type: 'num', get: r => r.balance_usd, hidden: true },
-        { key: 'due_date', label: 'Due', type: 'date', get: r => r.due_date, sortGet: r => U.dayNum(r.due_date), html: r => r.balance_aed > 0.01 ? `<span class="nowrap">${U.fmtDate(r.due_date)}</span>${r.overdue_days ? `<span class="cell-sub" style="color:var(--rose)">${r.overdue_days}d overdue</span>` : ''}` : `<span class="cell-sub">settled ${U.fmtDate(r.settled_on)}</span>` },
+        { key: 'due_date', label: 'Due', type: 'date', get: r => r.due_date, sortGet: r => U.dayNum(r.due_date), html: r => r.not_on_statement ? '<span class="cell-sub">check with Cardoo</span>' : r.balance_aed > 0.01 ? `<span class="nowrap">${U.fmtDate(r.due_date)}</span>${r.overdue_days ? `<span class="cell-sub" style="color:var(--rose)">${r.overdue_days}d overdue</span>` : ''}` : `<span class="cell-sub">settled ${U.fmtDate(r.settled_on)}</span>` },
         { key: 'status', label: 'Status', get: r => r.status, html: r => `<span class="chip t-${this.statusTone(r.status)}">${r.status}</span>` },
         { key: 'act', label: '', sortable: false, export: false, html: r => `<div class="row-actions">${r.balance_aed > 0.01 ? `<button class="btn btn-xs btn-primary" data-pay="${U.esc(r.key)}">Pay</button><button class="btn btn-xs" data-off="${U.esc(r.key)}">Offset</button>` : ''}<button class="icon-btn sm" data-detail="${U.esc(r.key)}" title="Details">${icon('more')}</button></div>` }
       ],
