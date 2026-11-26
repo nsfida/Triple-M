@@ -474,11 +474,11 @@ const Engine = {
       const rent = U.num0(C(row, ci, 'rent')), salik = U.num0(C(row, ci, 'salik')), fine = U.num0(C(row, ci, 'fine')), other = U.num0(C(row, ci, 'other'));
       const vat = shifted ? U.num0(C(row, ci, 'total')) : U.num0(C(row, ci, 'vat'));
       const total = shifted ? rent + salik + fine + other + vat : (ci.total != null ? U.num0(C(row, ci, 'total')) : rent + salik + fine + other + vat);
-      const ph = U.phone(C(row, ci, 'mobile'), g.default_country_code);
+      const em = U.clean(C(row, ci, 'email'));
+      const ph = U.phone(C(row, ci, 'mobile'), g.default_country_code, { email: em });
       stats.phones[ph.kind] = (stats.phones[ph.kind] || 0) + 1;
       const vehicle = U.clean(C(row, ci, 'vehicle'));
       const my = U.num(C(row, ci, 'model'));
-      const em = U.clean(C(row, ci, 'email'));
       out.push({
         contract_no: pc.no, customer_name: U.clean(C(row, ci, 'customer')),
         email: em && /@/.test(em) ? em.toLowerCase().replace(/(\.[a-z]{2,})\d+$/, '$1') : (em || null),
@@ -701,7 +701,7 @@ const Engine = {
       const bookings = (book.get(no) || []).slice().sort((a, b) => (U.dayFrac(a.start_at) || 0) - (U.dayFrac(b.start_at) || 0));
       const active = bookings.filter(b => !b.cancelled);
       const claims = (clm.get(no) || []).slice().sort((a, b) => (U.dayNum(b.claim_date) || 0) - (U.dayNum(a.claim_date) || 0));
-      const ph = U.phone(k.phone_override || (c && (c.mobile || c.mobile_raw)), g.default_country_code);
+      const ph = U.phone(k.phone_override || (c && (c.mobile_raw || c.mobile)), g.default_country_code, { email: c && c.email });
 
       const r = {
         contract_no: no, waiver: w, contract: c, case: k, payments, bookings, claims,
@@ -709,6 +709,7 @@ const Engine = {
         name_waiver: w.customer_name,
         email: c ? c.email : null,
         phone: ph.digits, phone_display: ph.display, phone_valid: ph.valid, phone_kind: ph.kind, phone_overridden: !!k.phone_override,
+        phone_auto: !!ph.auto, phone_auto_reason: ph.auto_reason || '', phone_suggest: ph.suggest || [], phone_raw: ph.raw_digits || (c && c.mobile_raw) || '', phone_country: ph.country || '',
         vehicle: w.vehicle || (c && c.vehicle) || '', plate: w.plate || (c && c.plate) || '',
         status: w.status, open_date: w.open_date, close_date: w.close_date,
         pickup_at: c ? c.pickup_at : null, dropoff_at: c ? c.dropoff_at : null,
@@ -750,8 +751,21 @@ const Engine = {
       r.claim_excess = primary ? +primary.excess_sum : null;
       r.claim_approved = U.sum(live, x => x.approved_amount);
       // Dates & money
-      r.days_since_close = r.close_date ? today - U.dayNum(r.close_date) : null;
-      r.claim_deadline = r.close_date ? U.addDaysISO(r.close_date, +g.claim_deadline_days || 60) : null;
+      // Waiver (Cardoo cover) end: Cardoo counts the claim window from the booking end in Cardoo.
+      // Use the Cardoo end (or its earlier close) when it is within 7 days of the Caryaati close;
+      // a booking left running much longer (e.g. monthly prolongation) falls back to the Caryaati close.
+      r.cover_end_at = null; r.cover_end_src = r.close_date ? 'caryaati' : null;
+      if (active.length && r.close_date) {
+        let ce = r.booking_end;
+        if (r.booking_close && U.dayFrac(r.booking_close) < (U.dayFrac(ce) || Infinity)) ce = r.booking_close;
+        const diff = ce ? U.dayNum(ce) - U.dayNum(r.close_date) : null;
+        if (diff != null && Math.abs(diff) <= 7) { r.cover_end_at = ce; r.cover_end_src = 'cardoo'; }
+        r.cover_end_diff = diff;
+      }
+      r.waiver_close = r.cover_end_at ? U.isoDate(r.cover_end_at) : r.close_date;
+      r.days_since_close = r.waiver_close ? today - U.dayNum(r.waiver_close) : null;
+      r.days_since_caryaati_close = r.close_date ? today - U.dayNum(r.close_date) : null;
+      r.claim_deadline = r.waiver_close ? U.addDaysISO(r.waiver_close, +g.claim_deadline_days || 60) : null;
       r.days_to_deadline = r.claim_deadline ? U.dayNum(r.claim_deadline) - today : null;
       // claim window state — only meaningful for closed, covered, owing contracts with no live claim
       r.claim_window = (w.status === 'Closed' && r.booking_state === 'active' && !r.claim_live && (+w.ledger_balance || 0) > minOut && r.days_to_deadline != null)
@@ -867,7 +881,7 @@ const Engine = {
       if (r.close_diff_days) f.push({ t: `Cardoo close ${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days}d`, tone: 'slate' });
     }
     if (k.promise_date && U.dayNum(k.promise_date) < today && r.stage !== 'settled' && r.status === 'Closed') f.push({ t: 'Promise missed', tone: 'rose' });
-    if (r.status === 'Closed' && r.outstanding > 0 && !r.phone_valid) f.push({ t: 'Check phone', tone: 'amber' });
+    if (r.status === 'Closed' && r.outstanding > 0 && !r.phone_valid) f.push({ t: r.phone_kind === 'nocc' ? 'Add country code' : r.phone_kind === 'missing' ? 'No phone' : 'Check phone', tone: 'amber' });
     if (r.followup_due) f.push({ t: 'Follow-up due', tone: 'indigo' });
     if (r.link_overdue) f.push({ t: 'Link not received', tone: 'violet' });
     if (r.stage === 'claim_submitted' && r.submitted_days >= 7) f.push({ t: `Not in Cardoo report ${r.submitted_days}d`, tone: 'orange' });
@@ -919,7 +933,7 @@ const Engine = {
       'Usually a short-term booking converted to long-term — make sure only the right one is billed.',
       R.filter(r => r.bookings.filter(b => !b.cancelled).length > 1));
     add('phone', 'Outstanding customers with a phone that needs checking', 'medium',
-      'Not a recognisable UAE mobile or international number — set a corrected number in the side panel.',
+      'Caryaati exports mobiles without the country code. UAE mobiles are fixed automatically; foreign numbers need the country confirmed — use “Fix country codes” (suggestions from number pattern and e-mail domain).',
       R.filter(r => r.status === 'Closed' && r.outstanding > 0 && !r.phone_valid));
     add('status_mismatch', 'Status differs between Waiver report and Contracts report', 'low',
       'One report says Open and the other Closed — usually fixed by the next export.',
@@ -980,6 +994,173 @@ const Engine = {
   },
   waLink(phone, text) { return `https://wa.me/${String(phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(text)}`; }
 };
+
+/* =====================================================================
+   1a. PHONES – country codes
+   Caryaati exports mobiles WITHOUT the country code (UAE 5xxxxxxxx and
+   foreign numbers alike). UAE mobiles are recognised directly; foreign
+   numbers get a country suggestion from the number pattern and the
+   customer's e-mail domain (.de, .it, .co.uk …). Only a suggestion that
+   both patterns agree on is applied automatically – everything else is
+   shown as "Add country code" with one-click suggestions.
+   ===================================================================== */
+const PHONE_COUNTRIES = [
+  // iso, name, dial code, national lengths, national mobile pattern, e-mail TLDs, prior (how common among customers)
+  ['AE', 'UAE', '971', [9], /^5[024568]/, ['ae'], 9],
+  ['IN', 'India', '91', [10], /^[6-9]/, ['in'], 6],
+  ['PK', 'Pakistan', '92', [10], /^3[0-4]/, ['pk'], 5],
+  ['GB', 'United Kingdom', '44', [10], /^7[1-9]/, ['uk'], 5],
+  ['RU', 'Russia', '7', [10], /^9/, ['ru', 'su'], 5],
+  ['DE', 'Germany', '49', [10, 11], /^1[5-7]/, ['de'], 4],
+  ['IT', 'Italy', '39', [9, 10], /^3/, ['it'], 3],
+  ['FR', 'France', '33', [9], /^[67]/, ['fr'], 3],
+  ['ES', 'Spain', '34', [9], /^[67]/, ['es'], 2],
+  ['SA', 'Saudi Arabia', '966', [9], /^5/, ['sa'], 3],
+  ['EG', 'Egypt', '20', [10], /^1[0125]/, ['eg'], 3],
+  ['PH', 'Philippines', '63', [10], /^9/, ['ph'], 3],
+  ['TR', 'Turkey', '90', [10], /^5/, ['tr'], 3],
+  ['LB', 'Lebanon', '961', [7, 8], /^(3|7[0169]|81)/, ['lb'], 2],
+  ['JO', 'Jordan', '962', [9], /^7[789]/, ['jo'], 2],
+  ['SY', 'Syria', '963', [9], /^9/, ['sy'], 1],
+  ['IQ', 'Iraq', '964', [10], /^7/, ['iq'], 1],
+  ['IR', 'Iran', '98', [10], /^9/, ['ir'], 1],
+  ['OM', 'Oman', '968', [8], /^[79]/, ['om'], 2],
+  ['QA', 'Qatar', '974', [8], /^[3-7]/, ['qa'], 1],
+  ['KW', 'Kuwait', '965', [8], /^[569]/, ['kw'], 2],
+  ['BH', 'Bahrain', '973', [8], /^3/, ['bh'], 1],
+  ['MA', 'Morocco', '212', [9], /^[67]/, ['ma'], 1],
+  ['TN', 'Tunisia', '216', [8], /^[2459]/, ['tn'], 1],
+  ['DZ', 'Algeria', '213', [9], /^[567]/, ['dz'], 1],
+  ['BD', 'Bangladesh', '880', [10], /^1[3-9]/, ['bd'], 2],
+  ['LK', 'Sri Lanka', '94', [9], /^7/, ['lk'], 1],
+  ['NP', 'Nepal', '977', [10], /^9[78]/, ['np'], 1],
+  ['NG', 'Nigeria', '234', [10], /^[789]/, ['ng'], 1],
+  ['KE', 'Kenya', '254', [9], /^[17]/, ['ke'], 1],
+  ['ZA', 'South Africa', '27', [9], /^[6-8]/, ['za'], 1],
+  ['US', 'USA / Canada', '1', [10], /^[2-9]\d\d[2-9]/, ['us', 'ca'], 2],
+  ['IE', 'Ireland', '353', [9], /^8[3-9]/, ['ie'], 1],
+  ['NL', 'Netherlands', '31', [9], /^6/, ['nl'], 1],
+  ['BE', 'Belgium', '32', [9], /^4/, ['be'], 1],
+  ['CH', 'Switzerland', '41', [9], /^7[5-9]/, ['ch'], 1],
+  ['AT', 'Austria', '43', [10, 11, 12], /^6/, ['at'], 1],
+  ['PL', 'Poland', '48', [9], /^[4-8]/, ['pl'], 1],
+  ['RO', 'Romania', '40', [9], /^7/, ['ro'], 1],
+  ['GR', 'Greece', '30', [10], /^69/, ['gr'], 1],
+  ['PT', 'Portugal', '351', [9], /^9[1236]/, ['pt'], 1],
+  ['SE', 'Sweden', '46', [9], /^7/, ['se'], 1],
+  ['NO', 'Norway', '47', [8], /^[49]/, ['no'], 1],
+  ['DK', 'Denmark', '45', [8], /^[2-9]/, ['dk'], 1],
+  ['FI', 'Finland', '358', [9, 10], /^(4|50)/, ['fi'], 1],
+  ['UA', 'Ukraine', '380', [9], /^[3-9]/, ['ua'], 1],
+  ['KZ', 'Kazakhstan', '7', [10], /^7/, ['kz'], 1],
+  ['UZ', 'Uzbekistan', '998', [9], /^9/, ['uz'], 1],
+  ['AZ', 'Azerbaijan', '994', [9], /^[4-7]/, ['az'], 1],
+  ['GE', 'Georgia', '995', [9], /^5/, ['ge'], 1],
+  ['AM', 'Armenia', '374', [8], /^[4-9]/, ['am'], 1],
+  ['IL', 'Israel', '972', [9], /^5/, ['il'], 1],
+  ['CN', 'China', '86', [11], /^1[3-9]/, ['cn'], 1],
+  ['AU', 'Australia', '61', [9], /^4/, ['au'], 1],
+  ['NZ', 'New Zealand', '64', [8, 9, 10], /^2/, ['nz'], 1],
+  ['SG', 'Singapore', '65', [8], /^[89]/, ['sg'], 1],
+  ['MY', 'Malaysia', '60', [9, 10], /^1/, ['my'], 1],
+  ['ID', 'Indonesia', '62', [9, 10, 11, 12], /^8/, ['id'], 1],
+  ['TH', 'Thailand', '66', [9], /^[689]/, ['th'], 1],
+  ['BR', 'Brazil', '55', [11], /^\d\d9/, ['br'], 1],
+  ['MX', 'Mexico', '52', [10], /^[1-9]/, ['mx'], 1],
+  ['SD', 'Sudan', '249', [9], /^9/, ['sd'], 1],
+  ['ET', 'Ethiopia', '251', [9], /^9/, ['et'], 1],
+  ['UG', 'Uganda', '256', [9], /^7/, ['ug'], 1],
+  ['HU', 'Hungary', '36', [9], /^[237]0/, ['hu'], 1],
+  ['CZ', 'Czechia', '420', [9], /^[67]/, ['cz'], 1]
+].map(([iso, name, cc, lens, re, tlds, prior]) => ({ iso, name, cc, lens, re, tlds, prior }));
+const PHONE_BY_CC = PHONE_COUNTRIES.slice().sort((a, b) => b.cc.length - a.cc.length);
+
+Object.assign(U, {
+  phoneCountry(iso) { return PHONE_COUNTRIES.find(c => c.iso === iso) || null; },
+  emailTld(email) {
+    const m = /\.([a-z]{2,6})\d*\s*$/i.exec(String(email || '').trim());
+    return m ? m[1].toLowerCase() : '';
+  },
+  /** split full international digits into {country, national} */
+  phoneSplit(d) {
+    if (/^9715\d{8}$/.test(d)) return { country: U.phoneCountry('AE'), national: d.slice(3) };
+    for (const c of PHONE_BY_CC) {
+      if (!d.startsWith(c.cc)) continue;
+      const n = d.slice(c.cc.length);
+      if (c.lens.includes(n.length)) return { country: c, national: n };
+    }
+    return { country: null, national: d };
+  },
+  phoneFmt(d) {
+    const s = U.phoneSplit(d);
+    if (s.country && s.country.iso === 'AE') return `+971 ${d.slice(3, 5)} ${d.slice(5, 8)} ${d.slice(8)}`;
+    return s.country ? `+${s.country.cc} ${s.national}` : '+' + d;
+  },
+  /** ranked country suggestions for a number that has no country code */
+  phoneSuggest(d, email) {
+    const tld = U.emailTld(email);
+    const nat = d.replace(/^0+/, '');
+    const out = [];
+    for (const c of PHONE_COUNTRIES) {
+      const tldHit = tld && c.tlds.includes(tld);
+      // a) number is national (no code)
+      if (c.lens.includes(nat.length) && c.re.test(nat)) out.push({ iso: c.iso, name: c.name, cc: c.cc, national: nat, digits: c.cc + nat, tld: !!tldHit, score: 10 + c.prior + (tldHit ? 30 : 0), reason: tldHit ? `e-mail ends .${tld}` : 'number pattern' });
+      // b) number already carries the code (no + sign in the report)
+      if (d.startsWith(c.cc) && c.iso !== 'AE') {
+        const n = d.slice(c.cc.length);
+        if (c.lens.includes(n.length) && c.re.test(n)) out.push({ iso: c.iso, name: c.name, cc: c.cc, national: n, digits: d, tld: !!tldHit, score: 8 + c.prior + (tldHit ? 30 : 0), reason: tldHit ? `already has +${c.cc} · e-mail .${tld}` : `already starts with ${c.cc}` });
+      }
+    }
+    // e-mail country even if the pattern is unusual (lower score)
+    if (tld) {
+      const c = PHONE_COUNTRIES.find(x => x.tlds.includes(tld));
+      if (c && !out.some(x => x.iso === c.iso)) out.push({ iso: c.iso, name: c.name, cc: c.cc, national: nat, digits: c.cc + nat, tld: true, score: 6, reason: `e-mail ends .${tld} (length unusual)` });
+    }
+    out.sort((a, b) => b.score - a.score);
+    const seen = new Set();
+    return out.filter(x => { const k = x.digits; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 5);
+  },
+
+  /* ---------- phones → WhatsApp-ready digits ---------- */
+  phone(raw, cc, opts) {
+    cc = String(cc || '971');
+    opts = opts || {};
+    if (raw == null || raw === '') return { digits: '', valid: false, kind: 'missing', display: '', suggest: [] };
+    const s = typeof raw === 'number' ? String(Math.round(raw)) : String(raw).trim();
+    let d = s.replace(/\D/g, '');
+    const explicit = /^\s*(\+|00)/.test(s);           // typed with + / 00 → trust the country code
+    if (d.startsWith('00')) d = d.slice(2);
+    if (!d) return { digits: '', valid: false, kind: 'missing', display: U.clean(s), suggest: [] };
+    const res = (digits, kind, extra) => {
+      const valid = kind === 'uae' || kind === 'intl' || kind === 'local';
+      const sp = U.phoneSplit(digits);
+      return Object.assign({ digits, valid, kind, display: valid || kind === 'landline' ? U.phoneFmt(digits) : d, country: sp.country ? sp.country.name : '', iso: sp.country ? sp.country.iso : '', national: sp.national, suggest: [] }, extra || {});
+    };
+    if (explicit) {
+      if (/^9715\d{8}$/.test(d)) return res(d, 'uae');
+      if (/^9710\d{9}$/.test(d)) return res('971' + d.slice(4), 'uae');
+      return res(d, /^[1-9]\d{7,14}$/.test(d) ? 'intl' : 'check');
+    }
+    if (cc !== '971') {
+      let out = d;
+      if (d.startsWith('0')) out = cc + d.slice(1); else if (!d.startsWith(cc)) out = cc + d;
+      return res(out, /^\d{10,15}$/.test(out) ? 'local' : 'check');
+    }
+    // UAE numbers
+    if (/^9710\d{9}$/.test(d)) return res('971' + d.slice(4), 'uae');
+    if (/^9715\d{8}$/.test(d)) return res(d, 'uae');
+    if (/^05\d{8}$/.test(d)) return res('971' + d.slice(1), 'uae');
+    if (/^5\d{8}$/.test(d)) return res('971' + d, 'uae');
+    if (/^971[234679]\d{7}$/.test(d)) return res(d, 'landline');
+    if (/^0[234679]\d{7}$/.test(d)) return res('971' + d.slice(1), 'landline');
+    // foreign number without its country code
+    const sug = U.phoneSuggest(d, opts.email);
+    const top = sug[0];
+    const sure = top && top.tld && top.score >= 40 && !(sug[1] && sug[1].tld && sug[1].score >= 40 && sug[1].iso !== top.iso);
+    if (sure) return res(top.digits, 'intl', { auto: true, auto_reason: top.reason, suggest: sug, raw_digits: d });
+    return { digits: '', valid: false, kind: 'nocc', display: d, raw_digits: d, suggest: sug, country: '', iso: '', national: d };
+  }
+});
 
 /* ---------- Profitability analysis ---------- */
 Engine.profit = function (model, opt) {
@@ -1694,7 +1875,7 @@ const R = {
   },
   owe(v) { const n = +v || 0; return `<span class="amt big ${n > 0.004 ? 'pos' : n < -0.004 ? 'neg' : 'zero'}">${U.money(n)}</span>`; },
   cust(r) {
-    return `<span class="cell-main" title="${U.esc(r.name)}">${U.esc(r.name)}</span><span class="cell-sub">${r.phone ? U.esc(r.phone_display) : '<span class="pos">No phone</span>'}${r.phone && !r.phone_valid ? ' · <span style="color:var(--amber)">check</span>' : ''}</span>`;
+    return `<span class="cell-main" title="${U.esc(r.name)}">${U.esc(r.name)}</span><span class="cell-sub">${r.phone ? U.esc(r.phone_display) : r.phone_kind === 'nocc' ? `${U.esc(r.phone_raw)} · <span style="color:var(--amber)">add country code</span>` : '<span class="pos">No phone</span>'}${r.phone && !r.phone_valid ? ' · <span style="color:var(--amber)">check</span>' : ''}</span>`;
   },
   cno(no) { return `<span class="cno">#${no}</span>`; },
   date(v, sub) { return v ? `<span class="nowrap">${U.fmtDate(v)}</span>${sub ? `<span class="cell-sub">${sub}</span>` : ''}` : '<span class="zero">—</span>'; },
@@ -2329,7 +2510,7 @@ Views.dashboard = {
       search: false, pageSize: 8, title: 'Largest balances', exportName: 'largest_balances', totals: false,
       columns: [
         ...Views.recordColumns(),
-        { key: 'close_date', label: 'Closed', type: 'date', get: r => r.close_date, html: r => R.date(r.close_date, R.ago(r.days_since_close)) },
+        { key: 'close_date', label: 'Closed', type: 'date', get: r => r.close_date, html: r => R.date(r.close_date, R.ago(r.days_since_caryaati_close)) },
         { key: 'outstanding', label: 'Outstanding', align: 'right', type: 'num', get: r => r.outstanding, html: r => R.owe(r.outstanding), numeric: true },
         { key: 'booking', label: 'Cardoo', get: r => r.booking_state, html: R.booking },
         { key: 'stage', label: 'Stage', get: r => STAGES[r.stage].label, html: r => R.stage(r.stage) }
@@ -2432,7 +2613,7 @@ Views.collections = {
       columns: [
         ...Views.recordColumns(),
         { key: 'vehicle', label: 'Vehicle', get: r => r.vehicle, hidden: true },
-        { key: 'close_date', label: 'Closed', type: 'date', get: r => r.close_date, sortGet: r => U.dayNum(r.close_date), html: r => R.date(r.close_date, R.ago(r.days_since_close)) },
+        { key: 'close_date', label: 'Closed', type: 'date', get: r => r.close_date, sortGet: r => U.dayNum(r.close_date), html: r => R.date(r.close_date, R.ago(r.days_since_caryaati_close)) },
         { key: 'due', label: `Due`, plain: `Due from customer (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.due, html: r => `${R.owe(r.due)}<span class="cell-sub" style="color:var(--${r.stage === 'recovered_partial' ? 'teal' : r.booking_state === 'active' ? 'muted' : 'rose'})">${r.stage === 'recovered_partial' ? `ledger ${U.compact(r.outstanding)} − Cardoo ${U.compact(r.claim_approved)}` : r.booking_state === 'active' ? 'cover ' + U.compact(r.coverage) : r.booking_state === 'cancelled' ? 'booking cancelled' : 'no Cardoo booking'}</span>` },
         { key: 'outstanding', label: 'Ledger balance', type: 'num', get: r => r.outstanding, hidden: true },
         { key: 'coverage', label: 'Cardoo cover', get: r => r.booking_state === 'active' ? r.coverage : 0, type: 'num', hidden: true },
@@ -2637,6 +2818,11 @@ Views.checks = {
   table(card, c) {
     const body = card.querySelector('.check-body'); body.dataset.built = '1';
     const div = document.createElement('div'); body.appendChild(div);
+    if (c.id === 'phone') {
+      const bar = document.createElement('div'); bar.className = 'notice'; bar.style.margin = '0 0 10px';
+      bar.innerHTML = `${icon('info')}<span>Caryaati exports foreign mobiles without the country code. <button class="btn btn-sm btn-primary" id="ckPhoneFix" style="margin-left:8px">Fix country codes</button></span>`;
+      body.insertBefore(bar, div); bar.querySelector('#ckPhoneFix').addEventListener('click', e => { e.stopPropagation(); Actions.phoneFix(c.rows); });
+    }
     let cols;
     if (c.kind === 'bookings') cols = Views.bookings.cols();
     else if (c.kind === 'cardoo') cols = Views.matching.cardooCols();
@@ -2902,10 +3088,7 @@ const Drawer = {
         <div class="grid" style="gap:12px">
           <label class="field"><span>Payment link</span><div class="inline-form"><input class="input" id="fLink" placeholder="https://…" value="${U.esc(k.payment_link || '')}">
             <button class="btn" id="fLinkSave">${icon('check')}Save</button>${k.payment_link ? `<a class="icon-btn" href="${U.esc(k.payment_link)}" target="_blank" rel="noopener" title="Open link">${icon('external')}</a>` : ''}</div></label>
-          <label class="field"><span>WhatsApp number ${r.phone_overridden ? '<span class="tag">corrected</span>' : ''}${!r.phone_valid ? ' <span class="flag t-amber">check</span>' : ''}</span>
-            <div class="inline-form"><input class="input mono" id="fPhone" value="${U.esc(k.phone_override || (r.contract && r.contract.mobile_raw) || '')}" placeholder="e.g. 0501234567 or +44…">
-            <button class="btn" id="fPhoneSave">${icon('check')}Save</button></div>
-            <small>Normalised: <b class="mono">${r.phone ? U.esc(r.phone_display) : '—'}</b> · original in report: <span class="mono">${U.esc((r.contract && r.contract.mobile_raw) || '—')}</span></small></label>
+          ${R.phoneField(r, k)}
           <div class="form-grid" style="grid-template-columns:1fr 1fr">
             <label class="field"><span>Promise to pay on</span><input class="input" type="date" id="fPromise" value="${k.promise_date || ''}" min="${today}"></label>
             <label class="field"><span>Claim submitted on</span><input class="input" type="date" id="fClaimed" value="${k.claim_submitted_at || ''}"></label>
@@ -2928,11 +3111,14 @@ const Drawer = {
           <dt>Vehicle / plate</dt><dd>${U.esc(r.vehicle)} ${r.plate ? `<span class="tag">${U.esc(r.plate)}</span>` : ''}</dd>
           <dt>Pick-up</dt><dd>${U.fmtDT(r.pickup_at) || U.fmtDate(r.open_date)}</dd>
           <dt>Drop-off</dt><dd>${U.fmtDT(r.dropoff_at) || '—'}</dd>
-          <dt>Waiver open / close</dt><dd>${U.fmtDate(r.open_date)} → ${r.close_date ? U.fmtDate(r.close_date) : '<span class="chip t-sky">open</span>'}${r.days_since_close != null ? ` <span class="muted">(${R.ago(r.days_since_close)})</span>` : ''}</dd>
+          <dt>Caryaati open / close</dt><dd>${U.fmtDate(r.open_date)} → ${r.close_date ? U.fmtDate(r.close_date) : '<span class="chip t-sky">open</span>'}</dd>
+          <dt>Waiver cover (Cardoo)</dt><dd>${r.booking_state === 'active'
+            ? `${U.fmtDT(r.booking_start)} → ${U.fmtDT(r.cover_end_at || r.booking_close || r.booking_end)}${r.days_since_close != null && r.cover_end_src === 'cardoo' ? ` <span class="muted">(${R.ago(r.days_since_close)})</span>` : ''}${r.cover_end_diff != null && r.cover_end_diff !== 0 ? ` <span class="tag" title="Cardoo booking end vs Caryaati close">${r.cover_end_diff > 0 ? '+' : ''}${r.cover_end_diff}d vs Caryaati</span>` : ''}${r.cover_end_src === 'caryaati' && r.cover_end_diff != null ? `<br><small class="muted">Booking runs ${r.cover_end_diff}d past the Caryaati close — claim window counted from the Caryaati close; close the booking in Cardoo.</small>` : ''}`
+            : R.booking(r)}</dd>
           <dt>Rental type</dt><dd>${U.esc(r.rental_type || '—')}${r.days ? ` · ${r.days} days` : ''}</dd>
           ${r.contract ? `<dt>Charges</dt><dd class="mono small">Rent ${U.money(r.contract.rent)} · Salik ${U.money(r.contract.salik)} · Fines ${U.money(r.contract.fine)} · Other ${U.money(r.contract.other_charges)} · VAT ${U.money(r.contract.vat)}</dd>
           <dt>Total / paid</dt><dd class="mono small">${U.money(r.contract.total_amount)} / ${U.money(r.contract.paid_amount)} → balance ${U.money(r.contract.balance)}</dd>` : '<dt>Contracts report</dt><dd class="pos">Not found in Rental Contracts report</dd>'}
-          ${r.claim_deadline && r.status === 'Closed' ? `<dt>Claim window</dt><dd>${U.fmtDate(r.claim_deadline)} <span class="muted">(${r.days_to_deadline < 0 ? `passed ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`})</span></dd>` : ''}
+          ${r.claim_deadline && r.status === 'Closed' ? `<dt>Claim window</dt><dd>${U.fmtDate(r.claim_deadline)} <span class="muted">(${r.days_to_deadline < 0 ? `passed ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`} · ${g.claim_deadline_days || 60} days from ${r.cover_end_src === 'cardoo' ? 'Cardoo booking end' : 'Caryaati close'})</span></dd>` : ''}
         </dl></div>`;
   },
   tab_remarks(r, g) {
@@ -3001,12 +3187,7 @@ const Drawer = {
     const no = r.contract_no;
     const on = (id, fn) => { const el = $(id, d); if (el) el.addEventListener('click', fn); };
     on('#fLinkSave', () => { const v = $('#fLink', d).value.trim(); if (v && !/^https?:\/\//i.test(v)) Toast.warn('Payment link should start with https://'); App.saveCase(no, { payment_link: v }, 'Payment link saved'); });
-    on('#fPhoneSave', () => {
-      const v = $('#fPhone', d).value.trim(); const orig = (r.contract && r.contract.mobile_raw) || '';
-      const ph = U.phone(v, App.model.settings.general.default_country_code);
-      if (v && !ph.valid) Toast.warn('Number still looks unusual', ph.display);
-      App.saveCase(no, { phone_override: v && v !== orig ? v : '' }, 'Phone number saved');
-    });
+    R.phoneBind(d, r);
     on('#fSave', () => App.saveCase(no, { promise_date: $('#fPromise', d).value, claim_submitted_at: $('#fClaimed', d).value, notes: $('#fNotes', d).value, payment_link: $('#fLink', d).value.trim() }, 'Changes saved'));
     on('#fCall', () => Actions.logCall(r));
     on('#fHold', () => App.saveCase(no, { on_hold: !(r.case && r.case.on_hold) }, r.case && r.case.on_hold ? 'Resumed' : 'Put on hold'));
@@ -3167,7 +3348,7 @@ const Actions = {
       body: `<div class="grid g-2" style="gap:18px;align-items:start">
         <div class="grid" style="gap:12px">
           <div class="tpl-tabs" id="waTpl">${tpls.map(t => `<button data-t="${t.id}" class="${t.id === tplId ? 'on' : ''}">${U.esc(t.name)}</button>`).join('')}</div>
-          <label class="field"><span>Phone (WhatsApp)</span><input class="input mono" id="waPhone" value="${U.esc(r.phone ? '+' + r.phone : '')}" placeholder="+9715…"></label>
+          <label class="field"><span>Phone (WhatsApp)</span><input class="input mono" id="waPhone" value="${U.esc(r.phone ? '+' + r.phone : '')}" placeholder="${r.phone_kind === 'nocc' ? `+<country code> ${U.esc(r.phone_raw)}` : '+9715…'}">${!r.phone && r.phone_kind === 'nocc' ? `<small style="color:var(--amber)">Report number ${U.esc(r.phone_raw)} has no country code${(r.phone_suggest || [])[0] ? ` — likely +${r.phone_suggest[0].cc} ${U.esc(r.phone_suggest[0].name)}` : ''}. Type it with + and the country code.</small>` : ''}</label>
           <label class="field"><span>Payment link ${r.payment_link ? '<span class="flag t-green">saved</span>' : '<span class="flag t-amber">missing</span>'}</span><input class="input" id="waLink" value="${U.esc(k.payment_link || '')}" placeholder="Paste the customer's payment link"></label>
           <label class="field"><span>Message <small class="muted">(edit freely — *bold* works in WhatsApp)</small></span><textarea class="input" id="waText" style="min-height:230px"></textarea></label>
         </div>
@@ -3196,7 +3377,7 @@ const Actions = {
         $('#waCopy', m).addEventListener('click', async () => { if (await this.copy(txt.value)) Toast.ok('Message copied'); });
         $('#waGo', m).addEventListener('click', async () => {
           const ph = U.phone(phone.value, App.model.settings.general.default_country_code);
-          if (!ph.digits) return Toast.err('Enter a phone number');
+          if (!ph.digits) return Toast.err(ph.kind === 'nocc' ? 'Add the country code (start with +)' : 'Enter a phone number');
           const lk = link.value.trim();
           const win = window.open(Engine.waLink(ph.digits, txt.value), '_blank', 'noopener');
           if (!win) Toast.warn('Pop-up blocked', 'Allow pop-ups for this site to open WhatsApp directly.');
@@ -3543,7 +3724,7 @@ Views.import = {
     }
     if (norm.contracts) {
       const ph = norm.contracts.stats.phones;
-      issues.push({ level: 'fix', src: 'Rental Contracts', text: `Phones normalised: ${U.int(ph.uae)} UAE mobiles, ${U.int(ph.intl)} international, ${U.int(ph.landline || 0)} landlines, ${U.int(ph.check)} need checking, ${U.int(ph.missing)} missing.` });
+      issues.push({ level: 'fix', src: 'Rental Contracts', text: `Phones normalised: ${U.int(ph.uae)} UAE mobiles, ${U.int(ph.intl)} international (country from e-mail domain), ${U.int(ph.landline || 0)} landlines, ${U.int(ph.nocc || 0)} foreign numbers without country code (confirm in Reconciliation → Fix country codes), ${U.int(ph.check || 0)} need checking, ${U.int(ph.missing)} missing.` });
       issues.push({ level: 'info', src: 'Rental Contracts', text: `${U.int(s.contractsKept)} of ${U.int(s.contractsTotal)} contracts are linked to a waiver, Cardoo booking or claim and will be stored.` });
     }
     if (norm.payments) issues.push({ level: 'info', src: 'Rental Payments', text: `${U.int(s.paymentsKept)} of ${U.int(s.paymentsTotal)} payment rows belong to linked contracts and will be stored.` });
@@ -3814,6 +3995,135 @@ Views.settings = {
 };
 
 /* =====================================================================
+   4b. PHONE UI – country picker in the side panel + bulk "Fix country codes"
+   ===================================================================== */
+Object.assign(R, {
+  ccOptions(sel) {
+    const list = [PHONE_COUNTRIES[0], ...PHONE_COUNTRIES.slice(1).sort((a, b) => a.name.localeCompare(b.name))];
+    return `<option value="">Country…</option>` + list.map(c => `<option value="${c.iso}" ${c.iso === sel ? 'selected' : ''}>${U.esc(c.name)} +${c.cc}</option>`).join('');
+  },
+  /** current country + national number to show in the editor */
+  phoneParts(r) {
+    if (r.phone && (r.phone_valid || r.phone_kind === 'landline')) {
+      const sp = U.phoneSplit(r.phone);
+      return { iso: sp.country ? sp.country.iso : '', nat: sp.country ? sp.national : '+' + r.phone };
+    }
+    const t = (r.phone_suggest || [])[0];
+    const raw = String(r.phone_raw || '').replace(/\D/g, '').replace(/^0+/, '');
+    return t ? { iso: t.iso, nat: t.national, guess: true } : { iso: '', nat: raw };
+  },
+  phoneTags(r) {
+    if (r.phone_overridden) return '<span class="tag">corrected</span>';
+    if (r.phone_auto) return `<span class="tag" title="Country code added automatically">${U.esc(r.phone_country)} · ${U.esc(r.phone_auto_reason)}</span>`;
+    if (r.phone_kind === 'nocc') return '<span class="flag t-amber">add country code</span>';
+    if (r.phone_kind === 'missing') return '<span class="flag t-amber">no phone</span>';
+    if (!r.phone_valid) return '<span class="flag t-amber">check number</span>';
+    return '';
+  },
+  phoneField(r, k) {
+    const p = R.phoneParts(r);
+    const sug = !r.phone_valid ? (r.phone_suggest || []) : [];
+    return `<div class="field"><span>WhatsApp number ${R.phoneTags(r)}</span>
+      <div class="inline-form"><select class="select" id="fCc" style="max-width:190px;flex:0 0 auto">${R.ccOptions(p.iso)}</select>
+        <input class="input mono" id="fPhone" value="${U.esc(p.nat)}" placeholder="Number (or full +code number)">
+        <button class="btn" id="fPhoneSave">${icon('check')}Save</button></div>
+      <small id="fPhoneInfo">${R.phoneInfo(r)}</small>
+      ${sug.length ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px"><small class="muted">Suggested country:</small>${sug.map(x => `<button type="button" class="btn btn-xs" data-ph-iso="${x.iso}" data-ph-nat="${U.esc(x.national)}" title="${U.esc(x.reason)}">+${x.cc} ${U.esc(x.name)}${x.tld ? ' ★' : ''}</button>`).join('')}</div>
+        <small class="muted">Caryaati exports mobiles without the country code — pick the customer's country (★ = matches the e-mail domain). Check the name / nationality if unsure.</small>` : ''}</div>`;
+  },
+  phoneInfo(r) {
+    return r.phone ? `WhatsApp: <b class="mono">${U.esc(r.phone_display)}</b>${r.phone_country ? ` · ${U.esc(r.phone_country)}` : ''} · original in report: <span class="mono">${U.esc((r.contract && r.contract.mobile_raw) || '—')}</span>`
+      : `<span style="color:var(--amber)">Not usable for WhatsApp yet — country code missing.</span> Original in report: <span class="mono">${U.esc((r.contract && r.contract.mobile_raw) || '—')}</span>`;
+  },
+  /** build the full number from a country iso + typed number */
+  phoneBuild(iso, val) {
+    const v = String(val || '').trim();
+    if (!v) return { empty: true };
+    if (/^\s*(\+|00)/.test(v)) return U.phone(v);
+    const c = U.phoneCountry(iso);
+    if (!c) return null;
+    let n = v.replace(/\D/g, '').replace(/^0+/, '');
+    if (n.startsWith(c.cc) && !c.lens.includes(n.length) && c.lens.includes(n.length - c.cc.length)) n = n.slice(c.cc.length);
+    return U.phone('+' + c.cc + n);
+  },
+  /** what to store: '' when the number equals what the report already gives */
+  phoneOverrideFor(r, ph) {
+    const g = App.model.settings.general;
+    const base = U.phone(r.contract && r.contract.mobile_raw, g.default_country_code, { email: r.email });
+    return base.valid && base.digits === ph.digits ? '' : '+' + ph.digits;
+  },
+  phoneBind(d, r) {
+    const sel = $('#fCc', d), inp = $('#fPhone', d), info = $('#fPhoneInfo', d), btn = $('#fPhoneSave', d);
+    if (!sel) return;
+    const preview = () => {
+      const ph = R.phoneBuild(sel.value, inp.value);
+      if (!ph || ph.empty) { info.innerHTML = ph && ph.empty ? 'Empty — saving clears the corrected number.' : '<span style="color:var(--amber)">Select the country.</span>'; return; }
+      info.innerHTML = `Will save as <b class="mono">${U.esc(U.phoneFmt(ph.digits))}</b>${ph.country ? ` · ${U.esc(ph.country)}` : ''}${ph.valid ? '' : ' · <span style="color:var(--amber)">looks unusual</span>'}`;
+    };
+    const save = async () => {
+      const ph = R.phoneBuild(sel.value, inp.value);
+      if (!ph) return Toast.warn('Select the country first');
+      if (ph.empty) return App.saveCase(r.contract_no, { phone_override: '' }, 'Corrected number cleared');
+      if (!ph.valid) Toast.warn('Number still looks unusual', U.phoneFmt(ph.digits));
+      await App.saveCase(r.contract_no, { phone_override: R.phoneOverrideFor(r, ph) }, `Saved ${U.phoneFmt(ph.digits)}`);
+    };
+    sel.addEventListener('change', preview); inp.addEventListener('input', preview);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+    btn.addEventListener('click', save);
+    $$('[data-ph-iso]', d).forEach(b => b.addEventListener('click', () => { sel.value = b.dataset.phIso; inp.value = b.dataset.phNat; preview(); save(); }));
+  }
+});
+
+Object.assign(Actions, {
+  /** bulk: confirm country codes for numbers Caryaati exported without one */
+  phoneFix(rows) {
+    const g = App.model.settings.general;
+    rows = (rows || App.model.records.filter(r => r.status === 'Closed' && r.outstanding > (+g.min_outstanding || 0)))
+      .filter(r => !r.phone_valid && r.phone_kind !== 'missing' && r.phone_raw);
+    if (!rows.length) return Toast.ok('All outstanding customers have a usable WhatsApp number');
+    const pick = {};
+    rows.forEach(r => { const p = R.phoneParts(r); pick[r.contract_no] = { iso: p.iso, nat: p.nat, on: !!(r.phone_suggest || []).length && (r.phone_suggest[0].tld || r.phone_suggest.length === 1) }; });
+    Modal.open({ title: 'Fix country codes', size: 'wide',
+      sub: `${rows.length} customer(s) whose number in Caryaati has no country code. Suggestions come from the number pattern and the e-mail domain (★). Tick the rows you have checked and save.`,
+      body: `<div class="dt-scroll card" style="max-height:440px"><table class="tbl"><thead><tr><th><input type="checkbox" id="pfAll"></th><th>Contract</th><th>Customer · e-mail</th><th>In report</th><th>Country</th><th>Number</th><th>WhatsApp as</th></tr></thead><tbody>
+        ${rows.map(r => { const p = pick[r.contract_no]; return `<tr data-no="${r.contract_no}"><td><input type="checkbox" class="pfOn" ${p.on ? 'checked' : ''}></td><td>${R.cno(r.contract_no)}</td>
+          <td style="max-width:260px"><span class="cell-main">${U.esc(r.name)}</span><span class="cell-sub">${U.esc(r.email || 'no e-mail')} · ${U.money(r.outstanding)} due</span></td>
+          <td class="mono small">${U.esc(r.phone_raw)}</td>
+          <td><select class="select input-sm pfCc" style="max-width:170px">${R.ccOptions(p.iso)}</select>${(r.phone_suggest || []).length > 1 ? `<span class="cell-sub">${r.phone_suggest.slice(1, 3).map(x => `+${x.cc} ${U.esc(x.name)}`).join(' · ')}</span>` : ''}</td>
+          <td><input class="input input-sm mono pfNum" style="width:120px" value="${U.esc(p.nat)}"></td><td class="mono small pfOut"></td></tr>`; }).join('')}</tbody></table></div>`,
+      foot: `<span class="muted small" id="pfCount"></span><span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="pfSave">${icon('check')}Save ticked numbers</button>`,
+      onOpen: m => {
+        const upd = tr => {
+          const ph = R.phoneBuild($('.pfCc', tr).value, $('.pfNum', tr).value);
+          $('.pfOut', tr).innerHTML = !ph || ph.empty ? '<span class="muted">—</span>' : `${U.esc(U.phoneFmt(ph.digits))}${ph.valid ? '' : ' <span style="color:var(--amber)">?</span>'}`;
+        };
+        const count = () => { $('#pfCount', m).textContent = `${$$('.pfOn:checked', m).length} ticked`; };
+        $$('tbody tr', m).forEach(tr => { upd(tr); ['change', 'input'].forEach(ev => tr.addEventListener(ev, e => { if (!e.target.classList.contains('pfOn')) { $('.pfOn', tr).checked = true; } upd(tr); count(); })); });
+        $('#pfAll', m).addEventListener('change', e => { $$('.pfOn', m).forEach(c => { c.checked = e.target.checked; }); count(); });
+        count();
+        $('#pfSave', m).addEventListener('click', async () => {
+          const todo = $$('tbody tr', m).filter(tr => $('.pfOn', tr).checked);
+          if (!todo.length) return Toast.warn('Tick at least one row');
+          const b = $('#pfSave', m); b.classList.add('loading'); b.disabled = true;
+          let n = 0, bad = 0;
+          for (const tr of todo) {
+            const r = rows.find(x => x.contract_no === +tr.dataset.no);
+            const ph = R.phoneBuild($('.pfCc', tr).value, $('.pfNum', tr).value);
+            if (!ph || ph.empty || !ph.valid) { bad++; continue; }
+            try {
+              const k = await API.call('dw_save_case', { p_contract: r.contract_no, p_patch: { phone_override: R.phoneOverrideFor(r, ph) } });
+              const list = State.ds.cases || (State.ds.cases = []); const i = list.findIndex(x => +x.contract_no === r.contract_no); if (i >= 0) list[i] = k; else list.push(k);
+              n++;
+            } catch (e) { Toast.err(`#${r.contract_no}: ${e.message}`); }
+          }
+          App.rebuild(true); Modal.close();
+          Toast.ok(`${n} number(s) saved`, bad ? `${bad} skipped — country missing or number unusual` : '');
+        });
+      } });
+  }
+});
+
+/* =====================================================================
    Cardoo ↔ Caryaati matching
    ===================================================================== */
 Views.matching = {
@@ -3855,7 +4165,7 @@ Views.matching = {
   recCols(tab) {
     const cur = App.model.settings.general.currency;
     const base = Views.recordColumns();
-    const car = { key: 'close_date', label: 'Caryaati closed', type: 'date', get: r => r.close_date, sortGet: r => U.dayNum(r.close_date), html: r => r.close_date ? `<div class="dates2">${String(r.caryaati_close_at).length > 10 ? U.fmtDT(r.caryaati_close_at) : U.fmtDate(r.close_date)}<span>${R.ago(r.days_since_close)}</span></div>` : '<span class="chip t-sky">open</span>' };
+    const car = { key: 'close_date', label: 'Caryaati closed', type: 'date', get: r => r.close_date, sortGet: r => U.dayNum(r.close_date), html: r => r.close_date ? `<div class="dates2">${String(r.caryaati_close_at).length > 10 ? U.fmtDT(r.caryaati_close_at) : U.fmtDate(r.close_date)}<span>${R.ago(r.days_since_caryaati_close)}</span></div>` : '<span class="chip t-sky">open</span>' };
     const per = { key: 'booking_end', label: 'Cardoo booking', get: r => r.booking_start ? `${U.fmtDate(r.booking_start)} - ${U.fmtDate(r.booking_end)}` : '', sortGet: r => U.dayFrac(r.booking_end), html: r => r.booking_start ? `<div class="dates2">${U.fmtDate(r.booking_start)}<span>→ ${U.fmtDate(r.booking_end)}</span></div>` : R.booking(r) };
     const cdc = { key: 'cardoo_close_at', label: 'Cardoo closed', type: 'date', dt: true, get: r => r.cardoo_close_at, sortGet: r => U.dayFrac(r.cardoo_close_at), html: r => r.cardoo_close_at ? `<div class="dates2">${U.fmtDT(r.cardoo_close_at)}</div>` : '<span class="zero">not closed</span>' };
     const diff = { key: 'close_diff_days', label: 'Difference', numeric: true, get: r => r.close_diff_days, html: r => r.close_diff_days ? `<span class="${r.close_diff_days > 0 ? 'diff-pos' : 'diff-neg'}">${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days} days</span><span class="cell-sub">${r.close_diff_days > 0 ? 'Cardoo later' : 'Cardoo earlier'}</span>` : '<span class="zero">same day</span>' };
