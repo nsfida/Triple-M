@@ -1347,33 +1347,53 @@ Engine.cardoo = function (model, cd) {
   /* ---------- invoices ---------- */
   const invoices = [];
   const seenPo = new Set();
-  // Older statement invoices carry no PO number: match the imported PO invoices to them by date + amount
+  // Older statement invoices carry no PO number: match the imported PO invoices to them by date + amount.
+  // POs imported without the PDF have no issue date — their date window is estimated from neighbouring
+  // PO numbers (Cardoo numbers POs in order) and from the booking dates in their lines.
   const poForItem = new Map();
+  const poNum = p => parseInt(String(p.po_no).replace(/\D/g, ''), 10) || 0;
+  const linesByPoAll = U.groupBy(cd.lines || [], l => l.po_no);
+  const poWindow = p => {
+    if (p.issue_date) return { lo: U.dayNum(p.issue_date), hi: U.dayNum(p.issue_date), est: false };
+    const dated = POS.filter(x => x.issue_date && x.po_no !== p.po_no).map(x => ({ n: poNum(x), d: U.dayNum(x.issue_date) }));
+    const n = poNum(p);
+    const lower = dated.filter(x => x.n < n).sort((a, b) => b.n - a.n)[0], higher = dated.filter(x => x.n > n).sort((a, b) => a.n - b.n)[0];
+    let lo = lower ? lower.d : null, hi = higher ? higher.d : null;
+    const ls = linesByPoAll.get(p.po_no) || [];
+    const booked = ls.map(l => U.dayNum(l.booked_at || l.start_at)).filter(x => x != null);
+    if (booked.length) { const mx = Math.max(...booked); lo = lo == null ? mx : Math.max(lo, mx); }
+    if (lo == null && hi == null) return null;
+    if (lo == null) lo = hi - 45; if (hi == null) hi = lo + 45;
+    if (hi < lo) hi = lo + 16;
+    return { lo, hi, est: true };
+  };
+  POS.forEach(p => { const w = poWindow(p); p._win = w; if (w && w.est) p._est_date = (() => { const d = new Date(Math.round((w.lo + w.hi) / 2) * 86400000); return `${d.getUTCFullYear()}-${U.pad(d.getUTCMonth() + 1)}-${U.pad(d.getUTCDate())}`; })(); });
   {
     const numbered = new Set(L.invoice.items.filter(i => i.po_no).map(i => i.po_no));
     const freeItems = L.invoice.items.filter(i => !i.po_no);
-    const freePos = POS.filter(p => !numbered.has(p.po_no) && p.issue_date && (p.total_aed != null || p.lines_total_aed != null));
+    const freePos = POS.filter(p => !numbered.has(p.po_no) && p._win && (p.total_aed != null || p.lines_total_aed != null));
     const cand = [];
     freePos.forEach(p => {
       const pt = p.total_aed != null ? +p.total_aed : +p.lines_total_aed;
       freeItems.forEach(it => {
-        const dd = Math.abs(U.dayNum(it.date) - U.dayNum(p.issue_date)), ad = Math.abs(it.amount - pt);
+        const dn = U.dayNum(it.date), w = p._win;
+        const dd = dn < w.lo ? w.lo - dn : dn > w.hi ? dn - w.hi : 0;
         if (dd > 5) return;
-        const tol = Math.max(3, Math.abs(pt) * 0.015);
-        cand.push({ p, it, dd, ad, strong: ad <= tol });
+        const ad = Math.abs(it.amount - pt), tol = Math.max(3, Math.abs(pt) * 0.015);
+        if (w.est && ad > tol) return;                     // undated POs must match on amount
+        cand.push({ p, it, dd, ad, strong: ad <= tol, est: w.est });
       });
     });
-    cand.sort((x, y) => (y.strong - x.strong) || (x.ad - y.ad) || (x.dd - y.dd));
+    cand.sort((x, y) => (y.strong - x.strong) || (x.est - y.est) || (x.ad - y.ad) || (x.dd - y.dd));
     const usedP = new Set(), usedI = new Set();
     cand.forEach(c => {
       if (usedP.has(c.p.po_no) || usedI.has(c.it.key)) return;
-      // weak (amount differs) matches only when the PO and the statement line are the only candidates for each other
       if (!c.strong) {
         const others = cand.filter(o => (o.p === c.p || o.it === c.it) && o !== c && !usedP.has(o.p.po_no) && !usedI.has(o.it.key));
         if (others.length) return;
       }
       usedP.add(c.p.po_no); usedI.add(c.it.key);
-      poForItem.set(c.it.key, { po: c.p, strong: c.strong, ad: c.ad });
+      poForItem.set(c.it.key, { po: c.p, strong: c.strong, ad: c.ad, est: c.est });
     });
   }
   const addManual = (row) => {
@@ -1403,11 +1423,12 @@ Engine.cardoo = function (model, cd) {
     const po = it.po_no ? poMap.get(it.po_no) : null;
     if (it.po_no) seenPo.add(it.po_no);
     const row = Object.assign({}, po || {}, {
-      key: it.po_no || 'ST|' + it.key, po_no: it.po_no || null, label: it.po_no || `Invoice ${U.fmtDate(it.date)}`, source: matched ? (matched.strong ? 'statement (matched by date & amount)' : 'statement (matched by date — amount differs)') : 'statement',
+      key: it.po_no || 'ST|' + it.key, po_no: it.po_no || null, label: it.po_no || `Invoice ${U.fmtDate(it.date)}`, source: matched ? (!matched.strong ? 'statement (matched by date — amount differs)' : matched.est ? 'statement (matched by amount — PO had no PDF date)' : 'statement (matched by date & amount)') : 'statement',
       issue_date: (po && po.issue_date) || it.date, stmt_date: it.date, total_aed: it.amount, total_usd: it.usd != null ? it.usd : po ? +po.total_usd : null,
       pdf_total_aed: po ? +po.total_aed : null, payment_terms_days: (po && po.payment_terms_days) || 3,
       parts: it.parts.slice(), has_pdf: !!(po && po.has_pdf), has_lines: !!(po && po.has_lines)
     });
+    if (matched && !matched.strong) { row.pdf_total_usd = row.total_usd; row.total_usd = it.usd != null ? it.usd : U.r2(it.amount / defFx); }
     row.fx = fxOf(row.total_aed, row.total_usd) || (po && fxOf(+po.total_aed, +po.total_usd)) || defFx;
     if (!row.period_from) {
       const o = U.parseDT(it.date);
@@ -1418,8 +1439,9 @@ Engine.cardoo = function (model, cd) {
   });
   POS.filter(p => !seenPo.has(p.po_no)).forEach(p => {
     const total = p.total_aed != null ? +p.total_aed : +p.lines_total_aed || 0;
-    const inside = !!(stTo && p.issue_date && U.dayNum(p.issue_date) <= stToN);
-    const row = Object.assign({}, p, { key: p.po_no, label: p.po_no, source: inside ? 'not on statement' : 'po',
+    const refDay = p.issue_date ? U.dayNum(p.issue_date) : (p._win ? p._win.lo : null);
+    const inside = !!(stTo && (refDay == null || refDay <= stToN));   // undated PO while a statement exists → do not assume it is unpaid
+    const row = Object.assign({}, p, { key: p.po_no, label: p.po_no, source: inside ? (p.issue_date ? 'not on statement' : 'not on statement (no PDF date)') : 'po', est_issue: p.issue_date ? null : p._est_date || null,
       total_aed: total, total_usd: p.total_usd != null ? +p.total_usd : +p.lines_total_usd || null, pdf_total_aed: total, parts: [] });
     row.fx = fxOf(row.total_aed, row.total_usd) || defFx;
     addManual(row); finish(row);
@@ -1432,7 +1454,9 @@ Engine.cardoo = function (model, cd) {
   invoices.forEach(i => {
     const p = i.po_no && poMap.get(i.po_no);
     i.check = !p ? 'statement only' : p.has_pdf && p.has_lines ? (Math.abs((+p.lines_total_aed || 0) - (+p.total_aed || 0)) < 0.05 ? 'ok' : 'mismatch') : p.has_pdf ? 'no_lines' : 'no_pdf';
-    i.stmt_diff = i.source === 'statement' && p && p.total_aed != null ? U.r2(i.total_aed - +p.total_aed) : 0;
+    const pTot = p ? (p.total_aed != null ? +p.total_aed : p.lines_total_aed != null ? +p.lines_total_aed : null) : null;
+    i.stmt_diff = /^statement/.test(i.source) && pTot != null ? U.r2(i.total_aed - pTot) : 0;
+    if (/^statement/.test(i.source) && p && p.total_aed == null) i.pdf_total_aed = pTot;
   });
 
   /* ---------- claims / excess receivable ---------- */
