@@ -92,11 +92,23 @@ function samePosition(a, b) {
   return Boolean(a && b && a.row === b.row && a.col === b.col);
 }
 
+// Rows can be virtualised (only the visible ones exist in the DOM), so the app
+// supplies the row element for a model index; null means "not rendered".
+function rowElement(grid, row) {
+  if (grid.config.getRowElement) return grid.config.getRowElement(row);
+  return grid.table.tBodies[0]?.rows[row] || null;
+}
+
 function findCell(grid, row, col) {
-  const tbody = grid.table.tBodies[0];
-  const tr = tbody?.rows[row];
+  const tr = rowElement(grid, row);
   if (!tr || !tr.dataset.clientId) return null;
   return tr.cells[col] || null;
+}
+
+function renderedRows(grid, minRow, maxRow) {
+  const range = grid.config.getRenderedRange?.();
+  if (!range) return [minRow, maxRow];
+  return [Math.max(minRow, range.start), Math.min(maxRow, range.end - 1)];
 }
 
 function rowCount(grid) {
@@ -130,15 +142,26 @@ function selectionMatrix(grid) {
   const range = selectionRange(grid);
   if (!range) return [];
   const matrix = [];
+  const fromModel = grid.config.getCellText;
   for (let row = range.minRow; row <= range.maxRow; row += 1) {
     const values = [];
     for (let col = range.minCol; col <= range.maxCol; col += 1) {
-      const cell = findCell(grid, row, col);
-      values.push(cell ? cellText(cell) : '');
+      if (fromModel) {
+        values.push(fromModel(row, col));
+      } else {
+        const cell = findCell(grid, row, col);
+        values.push(cell ? cellText(cell) : '');
+      }
     }
     matrix.push(values);
   }
   return matrix;
+}
+
+function selectionCellCount(grid) {
+  const range = selectionRange(grid);
+  if (!range) return 0;
+  return (range.maxRow - range.minRow + 1) * (range.maxCol - range.minCol + 1);
 }
 
 /* ------------------------------------------------------------------ */
@@ -169,11 +192,14 @@ function getClipboardProxy() {
   return proxy;
 }
 
+const PROXY_TEXT_CELL_LIMIT = 400;
+
 function syncClipboardProxy(grid, { focus = true } = {}) {
   const proxy = getClipboardProxy();
-  // The text is also kept in the proxy so the browser's native Copy command
-  // works even if a browser does not fire a copy event for it.
-  proxy.value = serializeTsv(selectionMatrix(grid));
+  // A small selection is also kept as text in the proxy so the browser's native
+  // Copy command works even without a copy event. Large selections are built
+  // only when copied (in the copy event), so moving around stays instant.
+  proxy.value = selectionCellCount(grid) <= PROXY_TEXT_CELL_LIMIT ? (serializeTsv(selectionMatrix(grid)) || ' ') : ' ';
   if (focus && document.activeElement !== proxy) proxy.focus({ preventScroll: true });
   if (document.activeElement === proxy) proxy.select();
 }
@@ -204,7 +230,7 @@ function handleProxyPaste(event) {
 /* Selection                                                           */
 /* ------------------------------------------------------------------ */
 
-function paintSelection(grid) {
+function paintSelection(grid, { notify = true } = {}) {
   grid.painted.forEach(cell => {
     cell.classList.remove('cell-range-selected', 'cell-range-single', 'cell-range-anchor');
   });
@@ -214,20 +240,20 @@ function paintSelection(grid) {
   (grid.markedNodes || []).forEach(node => node.classList.remove('col-active', 'row-active'));
   grid.markedNodes = [];
   const range = selectionRange(grid);
-  grid.config.onSelectionChange?.(range ? { ...range } : null);
+  if (notify) grid.config.onSelectionChange?.(range ? { ...range } : null);
   if (!range) return;
   const headerCells = grid.table.tHead?.rows[0]?.cells;
   for (let col = range.minCol; col <= range.maxCol; col += 1) {
     const th = headerCells?.[col];
     if (th) { th.classList.add('col-active'); grid.markedNodes.push(th); }
   }
-  const activeRow = grid.table.tBodies[0]?.rows[grid.anchor.row];
+  const activeRow = rowElement(grid, grid.anchor.row);
   if (activeRow?.dataset.clientId) { activeRow.classList.add('row-active'); grid.markedNodes.push(activeRow); }
 
-  const tbody = grid.table.tBodies[0];
   const single = range.minRow === range.maxRow && range.minCol === range.maxCol;
-  for (let row = range.minRow; row <= range.maxRow; row += 1) {
-    const tr = tbody?.rows[row];
+  const [firstRow, lastRow] = renderedRows(grid, range.minRow, range.maxRow);
+  for (let row = firstRow; row <= lastRow; row += 1) {
+    const tr = rowElement(grid, row);
     if (!tr || !tr.dataset.clientId) continue;
     for (let col = range.minCol; col <= range.maxCol; col += 1) {
       const cell = tr.cells[col];
@@ -241,6 +267,8 @@ function paintSelection(grid) {
 }
 
 function ensureCellVisible(grid, position) {
+  // Vertical: the app knows where every row is, rendered or not.
+  grid.config.ensureRowVisible?.(position.row);
   const cell = findCell(grid, position.row, position.col);
   if (!cell || !grid.frame) return;
   const frame = grid.frame;
@@ -277,8 +305,8 @@ function setSelection(grid, anchor, head, { sync = true, scroll = true } = {}) {
     const wantsScroll = grid.pendingScroll;
     grid.pendingScroll = false;
     if (!grid.anchor) return;
-    paintSelection(grid);
     if (wantsScroll && grid.head) ensureCellVisible(grid, grid.head);
+    paintSelection(grid);
   });
 }
 
@@ -344,10 +372,14 @@ function selectEverything(grid) {
 /* ------------------------------------------------------------------ */
 
 function beginEdit(grid, row, col, { replace = false, picker = false } = {}) {
+  if (!findCell(grid, row, col)) grid.config.ensureRowVisible?.(row);
   const cell = findCell(grid, row, col);
   if (!cell) return false;
   const control = cell.querySelector(EDIT_CONTROL_SELECTOR);
-  if (!control) return false;
+  if (!control) {
+    grid.config.onLockedEdit?.(row);
+    return false;
+  }
   if (control.disabled) {
     grid.config.onLockedEdit?.(row);
     return false;
@@ -418,6 +450,12 @@ function cancelEdit(grid) {
 function clearSelectedValues(grid) {
   const range = selectionRange(grid);
   if (!range) return;
+  if (grid.config.onClear) {
+    // The app clears its data model directly, including rows that are off screen.
+    grid.config.onClear({ ...range });
+    syncClipboardProxy(grid);
+    return;
+  }
   for (let row = range.minRow; row <= range.maxRow; row += 1) {
     for (let col = range.minCol; col <= range.maxCol; col += 1) {
       const control = findCell(grid, row, col)?.querySelector(EDIT_CONTROL_SELECTOR);
@@ -760,6 +798,16 @@ export function createSpreadsheetGrid(table, config) {
 
   return {
     clearSelection: () => clearSelection(grid),
-    startEditing: (row, col, options) => beginEdit(grid, row, col, options)
+    startEditing: (row, col, options) => beginEdit(grid, row, col, options),
+    // Re-applies the selection highlight after rows were (re)rendered.
+    repaint: () => {
+      if (!grid.anchor) return;
+      paintSelection(grid, { notify: false });
+      if (grid.editing && !grid.editing.cell.isConnected) {
+        grid.editing = null;
+      } else if (grid.editing) {
+        grid.editing.cell.classList.add('cell-editing');
+      }
+    }
   };
 }

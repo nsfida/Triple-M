@@ -9,7 +9,7 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Received register:** the exact 23 visible columns requested, inline cell editing, today's date by default, date suggestions for today and the previous five days, manual date selection, Cash/Bank type selector, a Merchant text column, and an automatically calculated row total.
 - **Cash Vault:** Available Cash is Cash-type Received minus Cash-type Expenses minus the total of all signed people balances. Bank entries are excluded. The denomination register stores one daily count per date for 1,000, 500, 200, 100, 50, 20, 10, 5, 1, 0.50 and 0.25 notes/coins. The app compares Available Cash with Cash Counted and highlights both values in red when they differ.
 - **People balances:** add a person's name and enter one signed AED amount. A positive amount (for example `+1,000`) means cash is with that person and reduces Available Cash; it is displayed in red. A negative amount (for example `-500`) increases Available Cash; it is displayed in green. Edit the person's name or amount at any time. The people balances never change the physical note/coin quantities. There are no separate Given/Received movement types or transaction-history list in the current workflow.
-- **Save changes:** edits are held in the page until you click Save changes. New and existing records are inserted/updated individually; no existing tables are dropped or replaced.
+- **Automatic saving:** there is no Save button. Every change is kept on this device instantly and written to the database in the background about half a second after you stop typing. New and existing records are inserted/updated individually; no existing tables are dropped or replaced.
 - **Owner access key:** the first key is seeded in the database migration as a salted bcrypt hash. The Auth account is provisioned on the first successful sign-in.
 - **Alternate keys:** the owner can create view-only or editable alternate keys, change their permission, and revoke them.
 - **RLS:** all financial tables have row-level security policies. The public browser key cannot read the access-key table or bypass ledger permissions. People balances are written only through a permission-checked SECURITY DEFINER RPC. It updates the one signed balance on the selected person; it never writes to `cash_vault_counts`. The cash balance RPC is SECURITY INVOKER, so the caller's SELECT grants and RLS policies still apply.
@@ -18,15 +18,22 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
-## Latest update (no new migration)
+## Latest update: speed and instant saving (no new migration)
 
-- **Faster, lighter saving:** edits are written to this browser's local storage instantly (no network) and synced to the database every 5 minutes, only when something is waiting. The top **Save** button syncs immediately and shows how many changes are waiting. A sync also runs when the tab is hidden or you sign out. Unsynced changes survive a refresh or closed tab and are restored and synced next time.
-- **Smoother cell movement:** selection painting and scrolling are done once per frame instead of on every key event.
+Front-end only. **Do not run any SQL migration and do not redeploy the Edge Function.** Replace the static files and refresh once with `Ctrl+F5`. Existing data is not touched.
+
+- **Save button removed; everything saves straight away.** Each edit is stored on this device immediately and saved to the database in the background ~0.5 s after you stop typing. The pill in the top bar shows *Saving…*, *All changes saved*, or *Not saved yet · retrying* / *Offline* if the connection drops. In that case the changes stay on this device and are retried automatically (2 s, 5 s, 15 s, 30 s, then every minute), and on the next visit if the page is closed. The browser warns before closing while a save is still in progress.
+- **Cash Vault difference is now real-time and always correct.** Cash Counted and the difference update on every keystroke, with no save needed. Available Cash also changes the instant you type in Expenses or Received. **Cause of the old wrong-difference bug:** Available Cash was calculated only from what had already reached the database, but edits were synced only every 5 minutes, so the figure was stale until a refresh. Available Cash is now the database summary plus every local change, calculated in whole fils so rounding never causes a false difference. Database writes and summary queries run one after another, so a change is never counted twice or missed.
+- **Much faster sheets.** Only the rows on screen are drawn (about 40), however many records exist. Locked rows (older than the edit window) are drawn as plain text instead of disabled inputs. Measured with 6,000 rows: Expenses ready in 0.5 s (was 3.6 s), tab switch ~0.15 s (was ~4 s), moving between cells ~6× faster.
+- **All rows load.** Supabase returns at most 1,000 rows per request, and the sheets previously loaded only the first 1,000 (oldest) rows. All pages are now loaded in parallel. The Excel export uses the same loader and saves any pending changes first.
+- **Background loading:** Expenses and Received load right after sign-in, so the first visit to those tabs is instant.
+- **Lighter requests:** the encrypted login session is decrypted once per page instead of before every database request (it is still stored encrypted; another tab's refresh is picked up automatically).
+- Copy, selection sums and Delete/Ctrl+X clearing work from the data itself, so they include rows scrolled out of view.
 
 ## Earlier update (blank rows and autosave)
 
 - **Always one empty row:** Expenses and Received keep one empty row at the bottom, dated with the working date. Start typing in it and the next empty row appears. Empty rows are never saved. "Add row" just jumps to the empty row.
-- **Automatic saving:** changes save about one second after you stop typing (no more Save buttons on each sheet). The **Save** button next to the date in the top bar saves everything immediately and shows how many changes are waiting. The browser also warns before closing the page with unsaved changes.
+- **Automatic saving:** changes save about one second after you stop typing (no more Save buttons on each sheet). *(Superseded: see the latest update. The top Save button has also been removed.)*
 - **One look for every button:** all buttons share the same compact, rounded style and the same green theme on every page, including the Staff Balance panel.
 
 ## Earlier update (selection sum and working date)
@@ -68,6 +75,7 @@ expense_vault_project/
 ├── js/
 │   ├── app.js
 │   ├── spreadsheet-grid.js
+│   ├── virtual-sheet.js
 │   └── secure-session-storage.js
 ├── sql/
 │   └── migrations/

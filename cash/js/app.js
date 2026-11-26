@@ -7,8 +7,9 @@ import {
   EXPENSE_VAULT_AUTH_STORAGE_KEY,
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
-} from './secure-session-storage.js';
-import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=local-sync-12';
+} from './secure-session-storage.js?v=fast-autosave-1';
+import { createVirtualSheet } from './virtual-sheet.js?v=fast-autosave-1';
+import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=fast-autosave-1';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -142,6 +143,10 @@ let cashVaultLoaded = false;
 let cashVaultLoading = false;
 let cashSummaryRequestId = 0;
 let cashAvailableBalance = null;
+let cashAvailableCents = null;
+let cashPositionFrame = 0;
+let summaryRefreshTimer = null;
+let draggingClientId = null;
 let cashPeople = [];
 let cashPeopleViewDate = '';
 let cashPeopleLoading = false;
@@ -211,7 +216,7 @@ function showToast(message, isError = false) {
 }
 
 function setSheetStatus(message, state = 'normal') {
-  sheetStatus.textContent = message;
+  setText(sheetStatus, message);
   sheetStatus.classList.toggle('dirty', state === 'dirty');
   sheetStatus.classList.toggle('error', state === 'error');
 }
@@ -288,20 +293,30 @@ function workDate() {
 }
 
 // ---------------------------------------------------------------------------
-// Blank rows, automatic saving and the top Save button
+// Blank rows and automatic background saving
 // ---------------------------------------------------------------------------
-// Changes are kept in this browser's local storage straight away (instant, no network)
-// and are synced to the database every 5 minutes, only when something is waiting,
-// or immediately when you press Save.
-const SYNC_INTERVAL_MS = 5 * 60 * 1000;
-const LOCAL_PERSIST_DELAY_MS = 400;
-const UNSYNCED_TEXT = 'Not synced yet · saved on this device';
-let syncTimer = null;
-let nextSyncAt = 0;
+// Every change is kept in this browser's local storage at once (so nothing is lost if
+// the page closes) and written to the database in the background a moment after you
+// stop typing. There is no Save button: the indicator in the top bar shows the state.
+const AUTOSAVE_DELAY_MS = 450;
+const LOCAL_PERSIST_DELAY_MS = 200;
+const RETRY_DELAYS_MS = [2000, 5000, 15000, 30000, 60000];
+const UNSYNCED_TEXT = 'Saving…';
 let persistTimer = null;
-let saveButtonFrame = 0;
+let autosaveTimer = null;
+let retryTimer = null;
+let retryAttempt = 0;
+let syncPromise = null;
+let syncAgain = false;
+let lastSyncError = '';
+let lastErrorToast = '';
+let indicatorFrame = 0;
 let restoredCount = 0;
 const saveState = { expenses: false, received: false, cash: false };
+
+function setText(node, text) {
+  if (node && node.textContent !== text) node.textContent = text;
+}
 
 function isBlankExpenseRow(row) {
   return !row.id
@@ -320,7 +335,8 @@ function isBlankReceivedRow(row) {
 }
 
 function recordCountText(list, isBlank) {
-  const count = list.filter(row => !isBlank(row)).length;
+  let count = 0;
+  for (let index = 0; index < list.length; index += 1) if (!isBlank(list[index])) count += 1;
   return `${count} ${count === 1 ? 'record' : 'records'}`;
 }
 
@@ -329,30 +345,42 @@ function isBlankCashRow(row) {
 }
 
 function pendingChangeCount() {
-  return rows.filter(row => row._dirty && !isBlankExpenseRow(row)).length
-    + receivedRows.filter(row => row._dirty && !isBlankReceivedRow(row)).length
-    + cashCounts.filter(row => row._dirty && !isBlankCashRow(row)).length;
+  let count = 0;
+  for (const row of rows) if (row._dirty && !isBlankExpenseRow(row)) count += 1;
+  for (const row of receivedRows) if (row._dirty && !isBlankReceivedRow(row)) count += 1;
+  for (const row of cashCounts) if (row._dirty && !isBlankCashRow(row)) count += 1;
+  return count;
 }
 
-function updateSaveAllButton() {
-  const button = document.getElementById('saveAllButton');
-  if (!button) return;
-  const pending = pendingChangeCount();
-  button.disabled = !canWrite;
-  button.classList.toggle('has-changes', pending > 0);
-  button.textContent = pending > 0 ? `Save (${pending})` : 'Save';
-  if (pending > 0) {
-    const minutes = Math.max(1, Math.ceil((nextSyncAt - Date.now()) / 60000));
-    button.title = `${pending} ${pending === 1 ? 'change is' : 'changes are'} saved on this device and will sync to the database in about ${minutes} min. Click to sync now.`;
+function updateSyncIndicator() {
+  indicatorFrame = 0;
+  const node = el('syncStatus');
+  if (!node) return;
+  let state;
+  let text;
+  let title;
+  const pending = canWrite ? pendingChangeCount() : 0;
+  if (!canWrite) {
+    state = 'readonly'; text = 'View only'; title = 'This access key can view records but not change them.';
+  } else if (pending && lastSyncError && !syncPromise) {
+    const offline = navigator.onLine === false;
+    state = offline ? 'offline' : 'error';
+    text = offline ? 'Offline · kept on this device' : 'Not saved yet · retrying';
+    title = `${lastSyncError} ${pending} ${pending === 1 ? 'change is' : 'changes are'} kept safely on this device and will be saved automatically.`;
+  } else if (pending || syncPromise) {
+    state = 'saving'; text = 'Saving…'; title = 'Your changes are being saved to the database in the background.';
   } else {
-    button.title = 'Everything is synced. Changes are synced to the database automatically every 5 minutes.';
+    state = 'saved'; text = 'All changes saved'; title = 'Every change is saved to the database automatically.';
   }
+  if (node.dataset.state !== state) node.dataset.state = state;
+  setText(node, text);
+  if (node.title !== title) node.title = title;
 }
 
 // Coalesces many rapid updates (every keystroke) into one cheap update per frame.
-function updateSaveAllButtonSoon() {
-  if (saveButtonFrame) return;
-  saveButtonFrame = requestAnimationFrame(() => { saveButtonFrame = 0; updateSaveAllButton(); });
+function updateSyncIndicatorSoon() {
+  if (indicatorFrame) return;
+  indicatorFrame = requestAnimationFrame(updateSyncIndicator);
 }
 
 // ---- Local storage (outbox) -------------------------------------------------
@@ -408,10 +436,11 @@ function mergePendingFromStorage(kind, list) {
     if (item.id) {
       const index = list.findIndex(row => row.id === item.id);
       if (index < 0) return; // deleted elsewhere
-      list[index] = { ...item, clientId: list[index].clientId, _dirty: true, _isNew: false };
+      // _base stays the database version, so Available Cash counts the change once.
+      list[index] = { ...item, clientId: list[index].clientId, _base: list[index]._base ?? null, _dirty: true, _isNew: false };
       merged += 1;
     } else if (item.clientId && !list.some(row => row.clientId === item.clientId)) {
-      list.push({ ...item, id: null, _dirty: true, _isNew: true });
+      list.push({ ...item, id: null, _base: null, _dirty: true, _isNew: true });
       merged += 1;
     }
   });
@@ -423,60 +452,156 @@ function announceRestoredChanges() {
   if (!restoredCount) return;
   const count = restoredCount;
   restoredCount = 0;
-  showToast(`Restored ${count} unsynced ${count === 1 ? 'change' : 'changes'} from this device. Syncing now…`);
-  setTimeout(() => { syncAll(); }, 4000);
+  showToast(`Restored ${count} unsaved ${count === 1 ? 'change' : 'changes'} from this device. Saving now…`);
+  requestSync(800);
 }
 
-// ---- Syncing ----------------------------------------------------------------
-function armSyncTimer() {
-  if (syncTimer) return;
-  nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
-  syncTimer = setTimeout(runScheduledSync, SYNC_INTERVAL_MS);
+// ---- Serialised database writes -----------------------------------------------
+// Every ledger write (and every Available Cash query) runs one after another. This
+// keeps the Available Cash figure exact: a summary always reflects exactly the
+// writes that finished before it started.
+let ledgerQueue = Promise.resolve();
+
+function runLedgerTask(task) {
+  const run = ledgerQueue.then(task, task);
+  ledgerQueue = run.catch(() => {});
+  return run;
 }
 
-// Called after every edit: instant local save + make sure a sync is on the way.
-function scheduleAutosave(key) {
-  if (!canWrite || !key) return;
-  scheduleLocalPersist();
-  armSyncTimer();
-  updateSaveAllButtonSoon();
+// ---- Local Available Cash ---------------------------------------------------------
+// The database summary is the starting point. Changes that have been saved since that
+// summary (commits) and changes still being typed / saved (dirty rows) are applied on
+// top of it in the browser, so Available Cash and the difference update instantly.
+let ledgerVersion = 0;
+let ledgerCommits = [];
+const cashSummaryCache = new Map(); // as-of date -> summary from the database
+let cashSummaryError = null;
+
+function toCents(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(numeric * 100) : 0;
 }
 
-async function runScheduledSync() {
-  syncTimer = null;
-  if (pendingChangeCount() === 0) return;
-  await syncAll();
-}
-
-async function syncAll({ manual = false } = {}) {
-  const none = { saved: 0, failures: [] };
-  if (!canWrite) return none;
-  clearTimeout(syncTimer);
-  syncTimer = null;
-  for (let wait = 0; wait < 40 && (saveState.expenses || saveState.received || saveState.cash); wait += 1) {
-    await new Promise(resolve => setTimeout(resolve, 150));
-  }
-  if (pendingChangeCount() === 0) { persistPendingLocally(); updateSaveAllButton(); return none; }
-  const results = [await saveChanges(), await saveReceivedChanges(), await saveCashCountChanges({ quiet: !manual })];
-  persistPendingLocally();
-  if (pendingChangeCount() > 0) armSyncTimer();
-  updateSaveAllButton();
+function ledgerSnapshot(row, amountFields) {
+  if (!row) return null;
+  let cents = 0;
+  for (const field of amountFields) cents += toCents(row[field]);
   return {
-    saved: results.reduce((sum, item) => sum + item.saved, 0),
-    failures: results.flatMap(item => item.failures)
+    date: String(row.entry_date || localDateString()).slice(0, 10),
+    cash: row.transaction_type !== 'Bank',
+    cents
   };
 }
 
-async function saveAllChanges() {
-  if (!canWrite) return;
-  const button = document.getElementById('saveAllButton');
-  button.disabled = true;
-  try {
-    const { saved, failures } = await syncAll({ manual: true });
-    if (!failures.length) showToast(saved ? `${saved} ${saved === 1 ? 'change' : 'changes'} saved to the database.` : 'Everything is already synced.');
-  } finally {
-    updateSaveAllButton();
+function snapshotContribution(snapshot, asOf) {
+  return snapshot && snapshot.cash && snapshot.date <= asOf ? snapshot.cents : 0;
+}
+
+function recordLedgerCommit(kind, before, after) {
+  ledgerVersion += 1;
+  ledgerCommits.push({ version: ledgerVersion, kind, before, after });
+}
+
+function pruneLedgerCommits() {
+  if (!cashSummaryCache.size) { ledgerCommits = []; return; }
+  let oldest = Infinity;
+  cashSummaryCache.forEach(summary => { oldest = Math.min(oldest, summary.version); });
+  ledgerCommits = ledgerCommits.filter(commit => commit.version > oldest);
+}
+
+function computeCashPosition(asOf = workDate()) {
+  const summary = cashSummaryCache.get(asOf);
+  if (!summary) return null;
+  let received = summary.receivedCents;
+  let expense = summary.expenseCents;
+  for (const commit of ledgerCommits) {
+    if (commit.version <= summary.version) continue;
+    const delta = snapshotContribution(commit.after, asOf) - snapshotContribution(commit.before, asOf);
+    if (commit.kind === 'received') received += delta; else expense += delta;
   }
+  for (const row of receivedRows) {
+    if (!row._dirty) continue;
+    received += snapshotContribution(ledgerSnapshot(row, RECEIVING_AMOUNT_FIELDS), asOf) - snapshotContribution(row._base, asOf);
+  }
+  for (const row of rows) {
+    if (!row._dirty) continue;
+    expense += snapshotContribution(ledgerSnapshot(row, AMOUNT_FIELDS), asOf) - snapshotContribution(row._base, asOf);
+  }
+  const people = summary.peopleGivenCents - summary.peopleReceivedCents;
+  return { received, expense, people, available: received - expense - people };
+}
+
+// ---- Syncing ----------------------------------------------------------------
+// Called after every edit: instant local save + a background save shortly after.
+function scheduleAutosave(key) {
+  if (!canWrite || !key) return;
+  scheduleLocalPersist();
+  requestSync();
+  updateSyncIndicatorSoon();
+  scheduleCashPositionRender();
+}
+
+function requestSync(delay = AUTOSAVE_DELAY_MS) {
+  if (!canWrite) return;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => { autosaveTimer = null; syncAll(); }, delay);
+}
+
+async function syncAll() {
+  const none = { saved: 0, failures: [] };
+  if (!canWrite) return none;
+  if (syncPromise) { syncAgain = true; return syncPromise; }
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  clearTimeout(retryTimer);
+  retryTimer = null;
+  if (pendingChangeCount() === 0) { persistPendingLocally(); updateSyncIndicator(); return none; }
+
+  let ledgerSaved = 0;
+  syncPromise = (async () => {
+    let saved = 0;
+    const failures = [];
+    do {
+      syncAgain = false;
+      if (pendingChangeCount() === 0) break;
+      const results = [await saveChanges(), await saveReceivedChanges(), await saveCashCountChanges()];
+      ledgerSaved += results[0].saved + results[1].saved;
+      results.forEach(item => { saved += item.saved; failures.push(...item.failures); });
+      persistPendingLocally();
+    } while (syncAgain && !failures.length);
+    return { saved, failures };
+  })();
+  updateSyncIndicatorSoon();
+
+  let result = none;
+  try {
+    result = await syncPromise;
+  } catch (error) {
+    result = { saved: 0, failures: [error?.message || 'Unknown save error'] };
+  } finally {
+    syncPromise = null;
+  }
+  persistPendingLocally();
+
+  if (result.failures.length) {
+    lastSyncError = result.failures[0];
+    const delay = RETRY_DELAYS_MS[Math.min(retryAttempt, RETRY_DELAYS_MS.length - 1)];
+    retryAttempt += 1;
+    retryTimer = setTimeout(() => { retryTimer = null; syncAll(); }, delay);
+    if (lastErrorToast !== lastSyncError) {
+      lastErrorToast = lastSyncError;
+      showToast(`Not saved yet: ${lastSyncError} Your changes are kept on this device and will be retried automatically.`, true);
+    }
+  } else {
+    lastSyncError = '';
+    lastErrorToast = '';
+    retryAttempt = 0;
+    if (pendingChangeCount() > 0) requestSync();
+  }
+  // Keep the database summary fresh in the background; the local figure is already exact.
+  if (ledgerSaved) scheduleSummaryRefresh();
+  updateSyncIndicator();
+  return result;
 }
 
 // One empty row is always kept at the bottom of Expenses and Received, dated with the
@@ -504,39 +629,37 @@ function addTrailingBlankReceivedRow() {
 function appendTrailingExpenseRow() {
   const row = addTrailingBlankExpenseRow();
   if (!row) return null;
-  tableBody.querySelector('td.empty-state')?.closest('tr')?.remove();
-  tableBody.appendChild(createExpenseRowElement(row, rows.length - 1));
-  el('recordCount').textContent = recordCountText(rows, isBlankExpenseRow);
+  expenseSheet.sync();
+  setText(el('recordCount'), recordCountText(rows, isBlankExpenseRow));
   return row;
 }
 
 function appendTrailingReceivedRow() {
   const row = addTrailingBlankReceivedRow();
   if (!row) return null;
-  receivedTableBody.querySelector('td.empty-state')?.closest('tr')?.remove();
-  receivedTableBody.appendChild(createReceivedRowElement(row, receivedRows.length - 1));
-  el('receivedRecordCount').textContent = recordCountText(receivedRows, isBlankReceivedRow);
+  receivedSheet.sync();
+  setText(el('receivedRecordCount'), recordCountText(receivedRows, isBlankReceivedRow));
   return row;
 }
 
 // When the working date changes, the waiting empty rows take the new date.
 function syncTrailingBlankRows() {
   const pairs = [
-    { list: rows, body: tableBody, blank: isBlankExpenseRow, loaded: expensesLoaded, append: appendTrailingExpenseRow, count: 'recordCount' },
-    { list: receivedRows, body: receivedTableBody, blank: isBlankReceivedRow, loaded: receivedLoaded, append: appendTrailingReceivedRow, count: 'receivedRecordCount' }
+    { list: rows, sheet: expenseSheet, blank: isBlankExpenseRow, loaded: expensesLoaded, append: appendTrailingExpenseRow, count: 'recordCount' },
+    { list: receivedRows, sheet: receivedSheet, blank: isBlankReceivedRow, loaded: receivedLoaded, append: appendTrailingReceivedRow, count: 'receivedRecordCount' }
   ];
-  pairs.forEach(({ list, body, blank, loaded, append, count }) => {
+  pairs.forEach(({ list, sheet, blank, loaded, append, count }) => {
     if (!loaded) return;
     const last = list[list.length - 1];
     if (last && blank(last)) {
       if (isDateEditable(workDate())) {
         last.entry_date = workDate();
-        const input = body.lastElementChild?.querySelector('input[data-field="entry_date"]');
+        const input = sheet.rowElement(list.length - 1)?.querySelector('input[data-field="entry_date"]');
         if (input) input.value = last.entry_date;
       } else {
         list.pop();
-        body.lastElementChild?.remove();
-        el(count).textContent = recordCountText(list, blank);
+        sheet.sync();
+        setText(el(count), recordCountText(list, blank));
       }
     } else {
       append();
@@ -549,8 +672,9 @@ function focusTrailingRow(tableElement, list, selectSetter) {
   if (!last) return;
   selectSetter(last.clientId);
   tableElement.querySelectorAll('tbody tr.selected').forEach(tr => tr.classList.remove('selected'));
-  tableElement.querySelector(`tbody tr[data-client-id="${CSS.escape(last.clientId)}"]`)?.classList.add('selected');
-  scrollSheetToBottom(tableElement);
+  const sheet = sheetFor(tableElement);
+  sheet?.scrollToBottom();
+  sheet?.rowElement(list.length - 1)?.classList.add('selected');
   spreadsheetGrids.get(tableElement)?.startEditing(list.length - 1, 0);
 }
 
@@ -566,7 +690,7 @@ function syncCashDateControls() {
 }
 
 function setCashVaultStatus(message, state = 'normal') {
-  cashVaultStatus.textContent = message;
+  setText(cashVaultStatus, message);
   cashVaultStatus.classList.toggle('dirty', state === 'dirty');
   cashVaultStatus.classList.toggle('error', state === 'error');
 }
@@ -626,7 +750,7 @@ function setActiveTab(tabName) {
   el('receivedPane').classList.toggle('hidden', tabName !== 'received');
   if (tabName === 'cash-vault') {
     if (!cashVaultLoaded && !cashVaultLoading) loadCashVault();
-    else if (cashVaultLoaded) refreshCashSummary();
+    else if (cashVaultLoaded) { renderCashPosition(); refreshCashSummary(); }
   }
   if (tabName === 'expenses' && !expensesLoaded && !expensesLoading) loadExpenses();
   if (tabName === 'received' && !receivedLoaded && !receivedLoading) loadReceived();
@@ -651,9 +775,23 @@ function recentDateOptions() {
   });
 }
 
+// Rows that cannot be edited (older than the edit window, or a view-only key) are
+// drawn as plain text: far lighter than disabled inputs, so scrolling stays smooth.
+function readOnlyCell(kind, text) {
+  return `<span class="cell-text cell-${kind}">${escapeHtml(text)}</span>`;
+}
+
 function renderCell(row, column, amountFields = AMOUNT_FIELDS) {
   const value = row[column.field] ?? '';
-  const disabled = (canWrite && !isRowLocked(row, 'entry_date')) ? '' : 'disabled';
+  const editable = canWrite && !isRowLocked(row, 'entry_date');
+  if (!editable) {
+    if (column.kind === 'total') return readOnlyCell('total', formatBlankIfZero(calculateTotal(row, amountFields)));
+    if (column.kind === 'select') return readOnlyCell('select', value === 'Bank' ? 'Bank' : 'Cash');
+    if (column.kind === 'date') return readOnlyCell('date', formatDmy(value || localDateString()));
+    if (column.kind === 'amount') return readOnlyCell('amount', value !== '' && value != null && Number(value) === 0 ? '' : String(value));
+    return readOnlyCell('text', String(value) || (column.field === 'trn_number' ? '---' : ''));
+  }
+  const disabled = '';
   if (column.kind === 'total') {
     return `<input class="cell-input total-cell" type="text" value="${formatBlankIfZero(calculateTotal(row, amountFields))}" readonly tabindex="-1" aria-label="Calculated row total">`;
   }
@@ -688,7 +826,12 @@ function buildReceivingTableHeader() {
 
 function renderCashCountCell(row, column) {
   const value = row[column.field] ?? '';
-  const disabled = (canWrite && !isRowLocked(row, 'count_date')) ? '' : 'disabled';
+  if (!canWrite || isRowLocked(row, 'count_date')) {
+    if (column.kind === 'total') return readOnlyCell('total', formatCashMoney(calculateCashCountCents(row) / 100));
+    if (column.kind === 'date') return readOnlyCell('date', formatDmy(value || localDateString()));
+    return readOnlyCell('quantity', String(value));
+  }
+  const disabled = '';
   if (column.kind === 'total') {
     return `<input class="cell-input total-cell cash-row-total" type="text" value="${formatCashMoney(calculateCashCountCents(row) / 100)}" readonly tabindex="-1" aria-label="Calculated cash count total">`;
   }
@@ -699,96 +842,103 @@ function renderCashCountCell(row, column) {
 }
 
 function updateCashCountToolbar() {
-  updateSaveAllButtonSoon();
+  updateSyncIndicatorSoon();
   cashAddButton.disabled = !canWrite;
   cashDeleteButton.disabled = !canWrite || !selectedCashClientId;
-  el('cashVaultPermissionNote').textContent = withEditWindow(currentUser?.role === 'owner'
-    ? 'Owner · full access'
-    : (canWrite ? 'Write access enabled' : 'View-only access'));
+  setText(el('cashVaultPermissionNote'), accessNoteText());
 }
 
 function updateCashCountedSummary() {
-  const selectedDate = el('cashAsOfDate').value || localDateString();
+  const selectedDate = workDate();
   const row = cashCounts.find(item => item.count_date === selectedDate);
-  const amount = row ? calculateCashCountCents(row) / 100 : 0;
-  el('cashCountedValue').textContent = formatCashMoney(amount);
-  el('cashCountedNote').textContent = row
-    ? (row._dirty ? `Unsaved physical count for ${formatDateLabel(selectedDate)}` : `Physical notes and coins counted on ${formatDateLabel(selectedDate)}`)
-    : `No physical count saved for ${formatDateLabel(selectedDate)}`;
-  updateCashReconciliation(row, amount);
+  const cents = row ? calculateCashCountCents(row) : 0;
+  setText(el('cashCountedValue'), formatCashMoney(cents / 100));
+  setText(el('cashCountedNote'), row
+    ? `Physical notes and coins counted on ${formatDateLabel(selectedDate)}`
+    : `No physical count for ${formatDateLabel(selectedDate)}`);
+  updateCashReconciliation(row, cents);
 }
 
-function updateCashReconciliation(row, countedAmount) {
+// Recalculated on every keystroke from the figures on screen (no save needed).
+// All arithmetic is in whole fils (cents) so the difference is never off by rounding.
+function updateCashReconciliation(row, countedCents) {
   const banner = el('cashReconciliationBanner');
   const balanceCard = document.querySelector('.cash-balance-card');
   const countedCard = document.querySelector('.cash-counted-card');
   const balanceValue = el('cashBalanceValue');
-  [banner, balanceCard, countedCard, balanceValue, el('cashCountedValue')].forEach(node => {
-    node?.classList.remove('variance-alert', 'variance-match', 'needs-count');
-  });
+  const countedValue = el('cashCountedValue');
+  let state = 'needs-count';
+  let title;
+  let value = '—';
+  let note;
 
-  if (cashAvailableBalance == null) {
-    banner.classList.add('needs-count');
-    el('cashReconciliationTitle').textContent = 'Cash reconciliation unavailable';
-    el('cashVarianceValue').textContent = '—';
-    el('cashVarianceNote').textContent = 'The ledger balance has not loaded yet.';
-    return;
-  }
-  if (!row || !row.id || row._dirty) {
-    banner.classList.add('needs-count');
-    el('cashReconciliationTitle').textContent = row?._dirty ? 'Cash count has unsaved changes' : 'Physical cash count required';
-    el('cashVarianceValue').textContent = '—';
-    el('cashVarianceNote').textContent = 'Save the selected date’s physical denomination count to compare it with Available Cash.';
-    return;
-  }
-
-  const difference = Number((countedAmount - cashAvailableBalance).toFixed(2));
-  if (Math.abs(difference) < 0.01) {
-    banner.classList.add('variance-match');
-    balanceCard.classList.add('variance-match');
-    countedCard.classList.add('variance-match');
-    el('cashReconciliationTitle').textContent = 'Cash balanced';
-    el('cashVarianceValue').textContent = formatCashMoney(0);
-    el('cashVarianceNote').textContent = 'Available Cash and Cash Counted match for the selected date.';
+  if (cashAvailableCents == null) {
+    title = cashSummaryError ? 'Cash reconciliation unavailable' : 'Calculating cash position…';
+    note = cashSummaryError ? 'The ledger balance could not be loaded.' : 'Loading the ledger balance for the selected date.';
+  } else if (!row) {
+    title = 'Physical cash count required';
+    note = 'Enter the selected date’s notes and coins below to compare them with Available Cash.';
   } else {
-    banner.classList.add('variance-alert');
-    balanceCard.classList.add('variance-alert');
-    countedCard.classList.add('variance-alert');
-    balanceValue.classList.add('variance-alert');
-    el('cashCountedValue').classList.add('variance-alert');
-    el('cashReconciliationTitle').textContent = difference > 0 ? 'Physical cash is higher than the ledger' : 'Physical cash is lower than the ledger';
-    el('cashVarianceValue').textContent = `${difference > 0 ? '+' : '−'}${formatCashMoney(Math.abs(difference))}`;
-    el('cashVarianceNote').textContent = 'Difference between Cash Counted and Available Cash. Both figures are highlighted until reconciled.';
+    const differenceCents = countedCents - cashAvailableCents;
+    if (differenceCents === 0) {
+      state = 'variance-match';
+      title = 'Cash balanced';
+      value = formatCashMoney(0);
+      note = 'Available Cash and Cash Counted match for the selected date.';
+    } else {
+      state = 'variance-alert';
+      title = differenceCents > 0 ? 'Physical cash is higher than the ledger' : 'Physical cash is lower than the ledger';
+      value = `${differenceCents > 0 ? '+' : '−'}${formatCashMoney(Math.abs(differenceCents) / 100)}`;
+      note = 'Difference between Cash Counted and Available Cash. Both figures are highlighted until reconciled.';
+    }
   }
+
+  if (banner.dataset.state !== state) {
+    banner.dataset.state = state;
+    [banner, balanceCard, countedCard, balanceValue, countedValue].forEach(node => {
+      node?.classList.remove('variance-alert', 'variance-match', 'needs-count');
+    });
+    banner.classList.add(state);
+    if (state !== 'needs-count') {
+      balanceCard.classList.add(state);
+      countedCard.classList.add(state);
+    }
+    if (state === 'variance-alert') {
+      balanceValue.classList.add('variance-alert');
+      countedValue.classList.add('variance-alert');
+    }
+  }
+  setText(el('cashReconciliationTitle'), title);
+  setText(el('cashVarianceValue'), value);
+  setText(el('cashVarianceNote'), note);
+}
+
+// Classes shared by every sheet row. Zebra striping is by model index (not
+// :nth-child) because only the visible rows are rendered.
+function rowClassName(row, rowIndex, selectedId, dateField) {
+  let className = rowIndex % 2 ? 'zebra' : '';
+  if (row.clientId === selectedId) className += ' selected';
+  if (row._dirty) className += ' dirty-row';
+  if (isRowLocked(row, dateField)) className += ' locked-row';
+  if (row.clientId === draggingClientId) className += ' row-dragging';
+  return className.trim();
+}
+
+function buildCashCountRow(row, rowIndex) {
+  const tr = document.createElement('tr');
+  tr.dataset.clientId = row.clientId;
+  tr.dataset.rowIndex = String(rowIndex);
+  tr.className = rowClassName(row, rowIndex, selectedCashClientId, 'count_date');
+  if (row.count_date === workDate()) tr.classList.add('cash-current-date');
+  tr.innerHTML = CASH_COUNT_COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCashCountCell(row, column)}</td>`).join('');
+  return tr;
 }
 
 function renderCashCounts() {
   scheduleLocalPersist();
   resetSheetSelection(el('cashCountTable'));
-  cashTableBody.innerHTML = '';
-  const selectedDate = el('cashAsOfDate').value || localDateString();
-  if (cashCounts.length === 0) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = CASH_COUNT_COLUMNS.length;
-    td.className = 'empty-state';
-    td.textContent = 'No daily cash counts yet. Select “Add day” to enter today’s notes and coins.';
-    tr.appendChild(td);
-    cashTableBody.appendChild(tr);
-  } else {
-    cashCounts.forEach((row, rowIndex) => {
-      const tr = document.createElement('tr');
-      tr.dataset.clientId = row.clientId;
-      tr.dataset.rowIndex = String(rowIndex);
-      tr.classList.toggle('selected', row.clientId === selectedCashClientId);
-      tr.classList.toggle('dirty-row', Boolean(row._dirty));
-      tr.classList.toggle('cash-current-date', row.count_date === selectedDate);
-      tr.classList.toggle('locked-row', isRowLocked(row, 'count_date'));
-      tr.innerHTML = CASH_COUNT_COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCashCountCell(row, column)}</td>`).join('');
-      cashTableBody.appendChild(tr);
-    });
-  }
-  el('cashVaultDateCount').textContent = `${cashCounts.length} ${cashCounts.length === 1 ? 'daily count' : 'daily counts'}`;
+  cashSheet.refresh();
+  setText(el('cashVaultDateCount'), `${cashCounts.length} ${cashCounts.length === 1 ? 'daily count' : 'daily counts'}`);
   updateCashCountedSummary();
   updateCashCountToolbar();
 }
@@ -801,9 +951,11 @@ function selectCashCountRow(clientId) {
     syncCashDateControls();
     refreshCashSummary();
   }
+  const selectedDate = workDate();
   cashTableBody.querySelectorAll('tr[data-client-id]').forEach(tr => {
     tr.classList.toggle('selected', tr.dataset.clientId === clientId);
-    tr.classList.toggle('cash-current-date', tr.querySelector('input[data-field="count_date"]')?.value === (el('cashAsOfDate').value || localDateString()));
+    const model = cashCounts[Number(tr.dataset.rowIndex)];
+    tr.classList.toggle('cash-current-date', model?.count_date === selectedDate);
   });
   updateCashCountedSummary();
   updateCashCountToolbar();
@@ -840,12 +992,12 @@ function handleCashCountInput(event) {
   if (totalInput) totalInput.value = formatCashMoney(calculateCashCountCents(row) / 100);
   if (field === 'count_date' && row.clientId === selectedCashClientId && row.count_date) {
     el('cashAsOfDate').value = row.count_date;
-    syncCashDateControls();
-    refreshCashSummary();
-  } else if (row.count_date === (el('cashAsOfDate').value || localDateString())) {
+    onCashAsOfDateChange();
+  } else {
+    // Instant: Cash Counted and the difference follow every keystroke.
     updateCashCountedSummary();
   }
-  tr.classList.toggle('cash-current-date', row.count_date === (el('cashAsOfDate').value || localDateString()));
+  tr.classList.toggle('cash-current-date', row.count_date === workDate());
   updateCashCountToolbar();
   scheduleAutosave('cash');
 }
@@ -867,49 +1019,104 @@ function getCashCountPayload(row) {
   return payload;
 }
 
-async function refreshCashSummary() {
-  if (!currentUser) return;
-  const selectedDate = el('cashAsOfDate').value || localDateString();
-  const requestId = ++cashSummaryRequestId;
-  el('cashBalanceCaption').textContent = `As of ${formatDateLabel(selectedDate)} · Cash ledger minus staff balances`;
-  const { data, error } = await supabase.rpc('get_cash_vault_summary', { p_as_of: selectedDate });
-  if (requestId !== cashSummaryRequestId) return;
-  if (error) {
+function setCashSummaryCaption(selectedDate, ready) {
+  setText(el('cashBalanceCaption'), ready
+    ? `As of ${formatDateLabel(selectedDate)} · Received − Expenses − Staff balance`
+    : `As of ${formatDateLabel(selectedDate)} · Cash ledger minus staff balances`);
+}
+
+// Paints Available Cash and its parts from the database summary plus every local
+// change (saved or still saving), then the reconciliation. Runs on each keystroke.
+function renderCashPosition() {
+  cashPositionFrame = 0;
+  const selectedDate = workDate();
+  const position = computeCashPosition(selectedDate);
+  const balanceValue = el('cashBalanceValue');
+  if (!position) {
+    cashAvailableCents = null;
     cashAvailableBalance = null;
-    el('cashBalanceValue').textContent = 'Unavailable';
-    el('cashBalanceValue').classList.remove('negative', 'variance-alert');
-    el('cashReceivedValue').textContent = '—';
-    el('cashExpensesValue').textContent = '—';
-    el('cashPeopleAdjustmentValue').textContent = '—';
-    showToast(`Unable to calculate cash balance: ${explainLedgerError(error)}. Confirm migrations 005, 006, 008, 009, 010 and 011 have been applied.`, true);
+    if (cashSummaryError) {
+      setText(balanceValue, 'Unavailable');
+      ['cashReceivedValue', 'cashExpensesValue', 'cashPeopleAdjustmentValue'].forEach(id => setText(el(id), '—'));
+    } else {
+      setText(balanceValue, '…');
+    }
+    balanceValue.classList.remove('negative');
+    setCashSummaryCaption(selectedDate, false);
     updateCashCountedSummary();
     return;
   }
-  const summary = Array.isArray(data) ? data[0] : data;
-  const received = Number(summary?.received_cash ?? 0);
-  const expenses = Number(summary?.expense_cash ?? 0);
-  const personPositive = Number(summary?.person_cash_given ?? 0);
-  const personNegative = Number(summary?.person_cash_received ?? 0);
-  const peopleAdjustment = personPositive - personNegative;
-  const available = Number(summary?.available_cash ?? received - expenses - peopleAdjustment);
-  cashAvailableBalance = available;
-  el('cashReceivedValue').textContent = formatCashMoney(received);
-  el('cashExpensesValue').textContent = formatCashMoney(expenses);
-  el('cashPeopleAdjustmentValue').textContent = formatSignedCashAdjustment(peopleAdjustment);
-  el('cashPeopleAdjustmentValue').classList.toggle('person-positive', peopleAdjustment > 0.0001);
-  el('cashPeopleAdjustmentValue').classList.toggle('person-negative', peopleAdjustment < -0.0001);
-  el('cashBalanceValue').textContent = formatCashMoney(available);
-  el('cashBalanceValue').classList.toggle('negative', available < 0);
-  el('cashBalanceCaption').textContent = `As of ${formatDateLabel(selectedDate)} · Received − Expenses − Staff balance`;
+  cashAvailableCents = position.available;
+  cashAvailableBalance = position.available / 100;
+  setText(el('cashReceivedValue'), formatCashMoney(position.received / 100));
+  setText(el('cashExpensesValue'), formatCashMoney(position.expense / 100));
+  const people = el('cashPeopleAdjustmentValue');
+  setText(people, formatSignedCashAdjustment(position.people / 100));
+  people.classList.toggle('person-positive', position.people > 0);
+  people.classList.toggle('person-negative', position.people < 0);
+  setText(balanceValue, formatCashMoney(position.available / 100));
+  balanceValue.classList.toggle('negative', position.available < 0);
+  setCashSummaryCaption(selectedDate, true);
   updateCashCountedSummary();
 }
 
+function scheduleCashPositionRender() {
+  if (cashPositionFrame) return;
+  cashPositionFrame = requestAnimationFrame(renderCashPosition);
+}
+
+function scheduleSummaryRefresh(delay = 1200) {
+  clearTimeout(summaryRefreshTimer);
+  summaryRefreshTimer = setTimeout(() => { summaryRefreshTimer = null; refreshCashSummary(); }, delay);
+}
+
+// Fetches the database summary for the working date. It runs in the same queue as the
+// ledger writes, so it reflects exactly the writes recorded before it (ledgerVersion).
+async function refreshCashSummary() {
+  if (!currentUser) return;
+  const selectedDate = workDate();
+  const requestId = ++cashSummaryRequestId;
+  renderCashPosition();
+  const { data, error, version } = await runLedgerTask(async () => {
+    const issuedAt = ledgerVersion;
+    const response = await supabase.rpc('get_cash_vault_summary', { p_as_of: selectedDate });
+    return { ...response, version: issuedAt };
+  });
+  if (!currentUser) return;
+  if (error) {
+    if (requestId !== cashSummaryRequestId) return;
+    cashSummaryCache.delete(selectedDate);
+    cashSummaryError = error;
+    renderCashPosition();
+    showToast(`Unable to calculate cash balance: ${explainLedgerError(error)}. Confirm migrations 005, 006, 008, 009, 010 and 011 have been applied.`, true);
+    return;
+  }
+  const summary = Array.isArray(data) ? data[0] : data;
+  const receivedCents = toCents(summary?.received_cash ?? 0);
+  const expenseCents = toCents(summary?.expense_cash ?? 0);
+  cashSummaryCache.delete(selectedDate);
+  cashSummaryCache.set(selectedDate, {
+    version,
+    receivedCents,
+    expenseCents,
+    peopleGivenCents: toCents(summary?.person_cash_given ?? 0),
+    peopleReceivedCents: toCents(summary?.person_cash_received ?? 0)
+  });
+  while (cashSummaryCache.size > 12) cashSummaryCache.delete(cashSummaryCache.keys().next().value);
+  pruneLedgerCommits();
+  if (requestId !== cashSummaryRequestId && selectedDate !== workDate()) return;
+  cashSummaryError = null;
+  renderCashPosition();
+}
+
+// Staff Balance entries change the people part of every later date.
+function invalidateCashSummaries() {
+  cashSummaryCache.clear();
+  pruneLedgerCommits();
+}
+
 async function reloadCashCountRows() {
-  const { data, error } = await supabase
-    .from('cash_vault_counts')
-    .select('*')
-    .order('count_date', { ascending: true });
-  if (error) throw error;
+  const data = await fetchAllRows('cash_vault_counts', ['count_date', 'id']);
 
   persistPendingLocally();
   cashCounts = (data || []).map(record => ({
@@ -922,7 +1129,6 @@ async function reloadCashCountRows() {
     cashCounts.sort((a, b) => String(a.count_date).localeCompare(String(b.count_date)));
   }
   if (!cashCounts.some(row => row.clientId === selectedCashClientId)) selectedCashClientId = null;
-  buildCashTableHeader();
   renderCashCounts();
   return cashCounts;
 }
@@ -934,6 +1140,8 @@ async function loadCashVault() {
   setCashVaultStatus('Loading daily cash counts…');
   if (!el('cashAsOfDate').value) el('cashAsOfDate').value = localDateString();
   syncCashDateControls();
+  // The balance and the counts load at the same time.
+  refreshCashSummary();
 
   try {
     await reloadCashCountRows();
@@ -942,8 +1150,9 @@ async function loadCashVault() {
     announceRestoredChanges();
     cashVaultLoading = false;
     cashAddButton.disabled = !canWrite;
-    setCashVaultStatus('All changes saved');
-    await refreshCashSummary();
+    const hasDirty = cashCounts.some(row => row._dirty && !isBlankCashRow(row));
+    setCashVaultStatus(hasDirty ? UNSYNCED_TEXT : 'All changes saved', hasDirty ? 'dirty' : 'normal');
+    updateSyncIndicatorSoon();
   } catch (error) {
     cashVaultLoading = false;
     cashAddButton.disabled = !canWrite;
@@ -952,71 +1161,67 @@ async function loadCashVault() {
   }
 }
 
-async function saveCashCountChanges({ quiet = true } = {}) {
+async function saveCashCountChanges() {
   const none = { saved: 0, failures: [] };
   if (!canWrite || saveState.cash) return none;
-  cashCounts.forEach(row => { if (row._dirty && isBlankCashRow(row)) row._wasBlank = true; });
   const dirtyRows = cashCounts.filter(row => row._dirty && !isBlankCashRow(row));
   if (!dirtyRows.length) { updateCashCountToolbar(); return none; }
   saveState.cash = true;
-  setCashVaultStatus('Saving cash counts…');
+  setCashVaultStatus('Saving…', 'dirty');
   let saved = 0;
   const failures = [];
 
-  for (const row of dirtyRows) {
-    try {
-      const before = JSON.stringify(getCashCountPayload(row));
-      const payload = getCashCountPayload(row);
-      let result;
-      if (row.id) {
-        // Optimistic lock: a stale browser tab cannot overwrite a newer change.
-        result = await supabase.from('cash_vault_counts')
-          .update(payload)
-          .eq('id', row.id)
-          .eq('updated_at', row.updated_at)
-          .select('*')
-          .maybeSingle();
-      } else {
-        result = await supabase.from('cash_vault_counts').insert(payload).select('*').single();
-      }
-      if (result.error) {
-        if (result.error.code === '23505') {
-          throw new Error('A cash count already exists for this date. Edit the existing date row instead.');
+  await runLedgerTask(async () => {
+    for (const row of dirtyRows) {
+      if (!cashCounts.includes(row)) continue; // deleted while waiting
+      try {
+        const payload = getCashCountPayload(row);
+        const before = JSON.stringify(payload);
+        let result;
+        if (row.id) {
+          // Optimistic lock: a stale browser tab cannot overwrite a newer change.
+          result = await supabase.from('cash_vault_counts')
+            .update(payload)
+            .eq('id', row.id)
+            .eq('updated_at', row.updated_at)
+            .select('*')
+            .maybeSingle();
+        } else {
+          result = await supabase.from('cash_vault_counts').insert(payload).select('*').single();
         }
-        throw result.error;
+        if (result.error) {
+          if (result.error.code === '23505') {
+            throw new Error('A cash count already exists for this date. Edit the existing date row instead.');
+          }
+          throw result.error;
+        }
+        if (!result.data) {
+          throw new Error('This cash count was changed by another user or browser session after you opened it. Your changes were not saved. Refresh the page, load the latest count, and reapply your correction.');
+        }
+        Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, _isNew: false });
+        let after = null;
+        try { after = JSON.stringify(getCashCountPayload(row)); } catch (_) { /* keep dirty */ }
+        row._dirty = after !== before;
+        cashTableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`)?.classList.toggle('dirty-row', row._dirty);
+        saved++;
+      } catch (error) {
+        failures.push(error.message || 'Unknown save error');
+        row._dirty = true;
       }
-      if (!result.data) {
-        throw new Error('This cash count was changed by another user or browser session after you opened it. Your changes were not saved. Refresh the page, load the latest count, and reapply your correction.');
-      }
-      Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, _isNew: false });
-      let after = null;
-      try { after = JSON.stringify(getCashCountPayload(row)); } catch (_) { /* keep dirty */ }
-      row._dirty = after !== before;
-      cashTableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`)?.classList.toggle('dirty-row', row._dirty);
-      saved++;
-    } catch (error) {
-      failures.push(error.message || 'Unknown save error');
-      row._dirty = true;
     }
-  }
+  });
 
   saveState.cash = false;
-  if (!quiet) {
-    cashCounts.sort((a, b) => String(a.count_date).localeCompare(String(b.count_date)));
-    renderCashCounts();
-  } else {
-    updateCashCountToolbar();
-  }
+  updateCashCountToolbar();
+  updateCashCountedSummary();
   if (failures.length) {
-    setCashVaultStatus(`${saved} saved · ${failures.length} need attention`, 'error');
-    showToast(`Some cash counts were not saved: ${failures[0]}`, true);
+    setCashVaultStatus(`${saved} saved · ${failures.length} not saved yet`, 'error');
   } else if (cashCounts.some(row => row._dirty && !isBlankCashRow(row))) {
     setCashVaultStatus(UNSYNCED_TEXT, 'dirty');
-    scheduleAutosave('cash');
+    requestSync();
   } else {
     setCashVaultStatus('All changes saved');
   }
-  await refreshCashSummary();
   return { saved, failures };
 }
 
@@ -1027,20 +1232,25 @@ async function deleteSelectedCashCount() {
   if (isRowLocked(row, 'count_date')) { warnLockedEdit('delete'); return; }
   if (!window.confirm(`Delete the cash count for ${formatDateLabel(row.count_date)}? This cannot be undone.`)) return;
   cashDeleteButton.disabled = true;
-  if (row.id) {
+  // Waits for any save of this row that is already on its way, then deletes it.
+  const failure = await runLedgerTask(async () => {
+    if (!row.id) return null;
     const { data, error } = await supabase.from('cash_vault_counts').delete().eq('id', row.id).select('id');
-    if (error || !data?.length) {
-      showToast(error?.message || 'The cash count could not be deleted. Check your access permission.', true);
-      updateCashCountToolbar();
-      return;
-    }
+    if (error || !data?.length) return error?.message || 'The cash count could not be deleted. Check your access permission.';
+    return null;
+  });
+  if (failure) {
+    showToast(failure, true);
+    updateCashCountToolbar();
+    return;
   }
-  cashCounts = cashCounts.filter(item => item.clientId !== selectedCashClientId);
-  selectedCashClientId = null;
+  cashCounts = cashCounts.filter(item => item !== row);
+  if (selectedCashClientId === row.clientId) selectedCashClientId = null;
+  persistPendingLocally();
   renderCashCounts();
+  updateSyncIndicatorSoon();
   setCashVaultStatus('Cash count deleted');
   showToast('Selected daily cash count deleted.');
-  await refreshCashSummary();
 }
 
 // ---------------------------------------------------------------------------
@@ -1288,6 +1498,7 @@ async function submitStaffForm(event) {
     }
     showToast(isNew ? `${name} added to Staff Balance.` : isEdit ? `Entry updated for ${name}.` : `${formatSignedCashAdjustment(amount)} AED saved for ${name} on ${formatDmy(txnDate)}.`);
     try {
+      invalidateCashSummaries();
       await Promise.all([refreshCashSummary(), loadCashPeopleData({ force: true })]);
       setCashVaultStatus('Staff Balance saved · Available Cash refreshed · Cash Count unchanged');
     } catch (refreshError) {
@@ -1364,9 +1575,9 @@ async function openStaffHistory(personId) {
 function onCashAsOfDateChange() {
   if (!el('cashAsOfDate').value) return;
   syncCashDateControls();
+  const selectedDate = workDate();
   cashTableBody.querySelectorAll('tr[data-client-id]').forEach(tr => {
-    const dateInput = tr.querySelector('input[data-field="count_date"]');
-    tr.classList.toggle('cash-current-date', dateInput?.value === el('cashAsOfDate').value);
+    tr.classList.toggle('cash-current-date', cashCounts[Number(tr.dataset.rowIndex)]?.count_date === selectedDate);
   });
   updateCashCountedSummary();
   refreshCashSummary();
@@ -1377,9 +1588,7 @@ function createExpenseRowElement(row, rowIndex) {
   const tr = document.createElement('tr');
   tr.dataset.clientId = row.clientId;
   tr.dataset.rowIndex = String(rowIndex);
-  tr.classList.toggle('selected', row.clientId === selectedClientId);
-  tr.classList.toggle('dirty-row', Boolean(row._dirty));
-  tr.classList.toggle('locked-row', isRowLocked(row, 'entry_date'));
+  tr.className = rowClassName(row, rowIndex, selectedClientId, 'entry_date');
   tr.innerHTML = COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCell(row, column)}</td>`).join('');
   return tr;
 }
@@ -1388,35 +1597,28 @@ function renderTable() {
   scheduleLocalPersist();
   addTrailingBlankExpenseRow();
   resetSheetSelection(table);
-  tableBody.innerHTML = '';
-  if (rows.length === 0) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = COLUMNS.length;
-    td.className = 'empty-state';
-    td.textContent = 'No expense entries yet. Select “Add row” to create your first entry.';
-    tr.appendChild(td);
-    tableBody.appendChild(tr);
-  } else {
-    el('recentDates').innerHTML = recentDateOptions().map(date => `<option value="${date}"></option>`).join('');
-    rows.forEach((row, rowIndex) => tableBody.appendChild(createExpenseRowElement(row, rowIndex)));
-  }
-  el('recordCount').textContent = recordCountText(rows, isBlankExpenseRow);
+  if (rows.length) el('recentDates').innerHTML = recentDateOptions().map(date => `<option value="${date}"></option>`).join('');
+  expenseSheet.refresh();
+  setText(el('recordCount'), recordCountText(rows, isBlankExpenseRow));
   updateToolbar();
 }
 
+function accessNoteText() {
+  return withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
+}
+
 function updateToolbar() {
-  updateSaveAllButtonSoon();
+  updateSyncIndicatorSoon();
   addButton.disabled = !canWrite;
   deleteButton.disabled = !canWrite || !selectedClientId;
-  el('permissionNote').textContent = withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
+  setText(el('permissionNote'), accessNoteText());
 }
 
 function updateReceivedToolbar() {
-  updateSaveAllButtonSoon();
+  updateSyncIndicatorSoon();
   receivedAddButton.disabled = !canWrite;
   receivedDeleteButton.disabled = !canWrite || !selectedReceivedClientId;
-  el('receivedPermissionNote').textContent = withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canWrite ? 'Write access enabled' : 'View-only access'));
+  setText(el('receivedPermissionNote'), accessNoteText());
 }
 
 function selectRow(clientId) {
@@ -1427,8 +1629,37 @@ function selectRow(clientId) {
   updateToolbar();
 }
 
-function rowFromDatabase(record) {
-  return { ...record, clientId: record.id, _dirty: false, _isNew: false };
+// _base is the row as the database has it; Available Cash uses it to apply local
+// changes exactly once.
+function rowFromDatabase(record, amountFields = AMOUNT_FIELDS) {
+  return { ...record, clientId: record.id, _base: ledgerSnapshot(record, amountFields), _dirty: false, _isNew: false };
+}
+
+// Loads every row of a table. Supabase returns at most 1,000 rows per request, so the
+// remaining pages are fetched in parallel after the first one reports the total.
+async function fetchAllRows(tableName, orderFields) {
+  const pageSize = 1000;
+  const query = (options) => {
+    let request = supabase.from(tableName).select('*', options);
+    orderFields.forEach(field => { request = request.order(field, { ascending: true }); });
+    return request;
+  };
+  const first = await query({ count: 'exact' }).range(0, pageSize - 1);
+  if (first.error) throw first.error;
+  const all = first.data || [];
+  const pageLength = all.length;
+  if (first.count != null && pageLength > 0 && first.count > pageLength) {
+    const pages = [];
+    for (let from = pageLength; from < first.count; from += pageLength) {
+      pages.push(query().range(from, from + pageLength - 1));
+    }
+    const results = await Promise.all(pages);
+    for (const result of results) {
+      if (result.error) throw result.error;
+      all.push(...(result.data || []));
+    }
+  }
+  return all;
 }
 
 function explainLedgerError(error) {
@@ -1500,6 +1731,10 @@ async function loadWorkspace() {
   cashVaultLoaded = false;
   cashVaultLoading = false;
   cashAvailableBalance = null;
+  cashAvailableCents = null;
+  cashSummaryCache.clear();
+  ledgerCommits = [];
+  cashSummaryError = null;
   cashPeople = [];
   cashPeopleViewDate = '';
   cashPeopleLoading = false;
@@ -1513,7 +1748,15 @@ async function loadWorkspace() {
   renderTable();
   renderReceivedTable();
   renderCashCounts();
+  updateSyncIndicator();
   setActiveTab('cash-vault');
+  // Load Expenses and Received in the background straight away, so switching tabs is
+  // instant and any changes kept on this device are saved without waiting.
+  setTimeout(() => {
+    if (!currentUser) return;
+    if (!expensesLoaded && !expensesLoading) loadExpenses();
+    if (!receivedLoaded && !receivedLoading) loadReceived();
+  }, 0);
 }
 
 async function loadExpenses() {
@@ -1521,11 +1764,9 @@ async function loadExpenses() {
   expensesLoading = true;
   addButton.disabled = true;
   setSheetStatus('Loading records…');
-  const { data, error } = await supabase
-    .from('expense_records')
-    .select('*')
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
+  let data = null;
+  let error = null;
+  try { data = await fetchAllRows('expense_records', ['sort_order', 'created_at', 'id']); } catch (loadError) { error = loadError; }
   if (error) {
     expensesLoading = false;
     addButton.disabled = !canWrite;
@@ -1535,7 +1776,7 @@ async function loadExpenses() {
   }
   persistPendingLocally();
   const localUnsaved = rows.filter(row => row._isNew && row._dirty && !isBlankExpenseRow(row));
-  rows = (data || []).map(rowFromDatabase);
+  rows = (data || []).map(record => rowFromDatabase(record, AMOUNT_FIELDS));
   mergePendingFromStorage('expenses', rows);
   localUnsaved.forEach(row => { if (!rows.some(item => item.clientId === row.clientId)) rows.push(row); });
   if (!rows.some(row => row.clientId === selectedClientId)) selectedClientId = null;
@@ -1545,17 +1786,17 @@ async function loadExpenses() {
   expensesLoading = false;
   announceRestoredChanges();
   addButton.disabled = !canWrite;
-  const hasDirty = rows.some(row => row._dirty);
+  const hasDirty = rows.some(row => row._dirty && !isBlankExpenseRow(row));
   setSheetStatus(hasDirty ? UNSYNCED_TEXT : 'All changes saved', hasDirty ? 'dirty' : 'normal');
+  scheduleCashPositionRender();
+  updateSyncIndicatorSoon();
 }
 
 function createReceivedRowElement(row, rowIndex) {
   const tr = document.createElement('tr');
   tr.dataset.clientId = row.clientId;
   tr.dataset.rowIndex = String(rowIndex);
-  tr.classList.toggle('selected', row.clientId === selectedReceivedClientId);
-  tr.classList.toggle('dirty-row', Boolean(row._dirty));
-  tr.classList.toggle('locked-row', isRowLocked(row, 'entry_date'));
+  tr.className = rowClassName(row, rowIndex, selectedReceivedClientId, 'entry_date');
   tr.innerHTML = RECEIVING_COLUMNS.map((column, colIndex) => `<td data-row-index="${rowIndex}" data-col-index="${colIndex}">${renderCell(row, column, RECEIVING_AMOUNT_FIELDS)}</td>`).join('');
   const dateInput = tr.querySelector('input[data-field="entry_date"]');
   if (dateInput) dateInput.setAttribute('list', 'recentReceivedDates');
@@ -1566,20 +1807,9 @@ function renderReceivedTable() {
   scheduleLocalPersist();
   addTrailingBlankReceivedRow();
   resetSheetSelection(el('receivedTable'));
-  receivedTableBody.innerHTML = '';
-  if (receivedRows.length === 0) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = RECEIVING_COLUMNS.length;
-    td.className = 'empty-state';
-    td.textContent = 'No received entries yet. Select “Add row” to create your first entry.';
-    tr.appendChild(td);
-    receivedTableBody.appendChild(tr);
-  } else {
-    el('recentReceivedDates').innerHTML = recentDateOptions().map(date => `<option value="${date}"></option>`).join('');
-    receivedRows.forEach((row, rowIndex) => receivedTableBody.appendChild(createReceivedRowElement(row, rowIndex)));
-  }
-  el('receivedRecordCount').textContent = recordCountText(receivedRows, isBlankReceivedRow);
+  if (receivedRows.length) el('recentReceivedDates').innerHTML = recentDateOptions().map(date => `<option value="${date}"></option>`).join('');
+  receivedSheet.refresh();
+  setText(el('receivedRecordCount'), recordCountText(receivedRows, isBlankReceivedRow));
   updateReceivedToolbar();
 }
 
@@ -1588,11 +1818,9 @@ async function loadReceived() {
   receivedLoading = true;
   receivedAddButton.disabled = true;
   receivedSheetStatus.textContent = 'Loading records…';
-  const { data, error } = await supabase
-    .from('received_records')
-    .select('*')
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
+  let data = null;
+  let error = null;
+  try { data = await fetchAllRows('received_records', ['sort_order', 'created_at', 'id']); } catch (loadError) { error = loadError; }
   if (error) {
     receivedLoading = false;
     receivedAddButton.disabled = !canWrite;
@@ -1603,7 +1831,7 @@ async function loadReceived() {
   }
   persistPendingLocally();
   const localUnsaved = receivedRows.filter(row => row._isNew && row._dirty && !isBlankReceivedRow(row));
-  receivedRows = (data || []).map(record => ({ ...record, clientId: record.id, _dirty: false, _isNew: false }));
+  receivedRows = (data || []).map(record => rowFromDatabase(record, RECEIVING_AMOUNT_FIELDS));
   mergePendingFromStorage('received', receivedRows);
   localUnsaved.forEach(row => { if (!receivedRows.some(item => item.clientId === row.clientId)) receivedRows.push(row); });
   if (!receivedRows.some(row => row.clientId === selectedReceivedClientId)) selectedReceivedClientId = null;
@@ -1613,10 +1841,12 @@ async function loadReceived() {
   receivedLoading = false;
   announceRestoredChanges();
   receivedAddButton.disabled = !canWrite;
-  const hasDirty = receivedRows.some(row => row._dirty);
+  const hasDirty = receivedRows.some(row => row._dirty && !isBlankReceivedRow(row));
   receivedSheetStatus.textContent = hasDirty ? UNSYNCED_TEXT : 'All changes saved';
   receivedSheetStatus.classList.toggle('dirty', hasDirty);
   receivedSheetStatus.classList.remove('error');
+  scheduleCashPositionRender();
+  updateSyncIndicatorSoon();
 }
 
 function handleReceivedInput(event) {
@@ -1637,7 +1867,7 @@ function handleReceivedInput(event) {
   }
   row[fieldInput.dataset.field] = fieldInput.value;
   row._dirty = true;
-  receivedSheetStatus.textContent = UNSYNCED_TEXT;
+  setText(receivedSheetStatus, UNSYNCED_TEXT);
   receivedSheetStatus.classList.add('dirty');
   receivedSheetStatus.classList.remove('error');
   tr.classList.add('dirty-row');
@@ -1670,39 +1900,44 @@ async function saveReceivedChanges() {
   const dirtyRows = receivedRows.filter(row => row._dirty);
   if (!dirtyRows.length) { updateReceivedToolbar(); return none; }
   saveState.received = true;
-  receivedSheetStatus.textContent = 'Saving…';
+  setText(receivedSheetStatus, 'Saving…');
   let saved = 0;
   const failures = [];
-  for (const row of dirtyRows) {
-    try {
-      const before = JSON.stringify(getReceivedPayload(row));
-      const payload = getReceivedPayload(row);
-      applyMovedOrder(payload, row, receivedRows);
-      const result = row.id
-        ? await supabase.from('received_records').update(payload).eq('id', row.id).select('*').single()
-        : await supabase.from('received_records').insert(payload).select('*').single();
-      if (result.error) throw result.error;
-      Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, sort_order: result.data.sort_order, _isNew: false, _orderMoved: false });
-      let after = null;
-      try { after = JSON.stringify(getReceivedPayload(row)); } catch (_) { /* keep dirty */ }
-      row._dirty = after !== before;
-      receivedTableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`)?.classList.toggle('dirty-row', row._dirty);
-      saved++;
-    } catch (error) {
-      failures.push(error.message || 'Unknown save error');
-      row._dirty = true;
+  await runLedgerTask(async () => {
+    for (const row of dirtyRows) {
+      if (!receivedRows.includes(row)) continue; // deleted while waiting
+      try {
+        const payload = getReceivedPayload(row);
+        const before = JSON.stringify(payload);
+        applyMovedOrder(payload, row, receivedRows);
+        const result = row.id
+          ? await supabase.from('received_records').update(payload).eq('id', row.id).select('*').single()
+          : await supabase.from('received_records').insert(payload).select('*').single();
+        if (result.error) throw result.error;
+        const committed = ledgerSnapshot(result.data, RECEIVING_AMOUNT_FIELDS);
+        recordLedgerCommit('received', row._base ?? null, committed);
+        Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, sort_order: result.data.sort_order, _base: committed, _isNew: false, _orderMoved: false });
+        let after = null;
+        try { after = JSON.stringify(getReceivedPayload(row)); } catch (_) { /* keep dirty */ }
+        row._dirty = after !== before;
+        receivedTableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`)?.classList.toggle('dirty-row', row._dirty);
+        saved++;
+      } catch (error) {
+        failures.push(error.message || 'Unknown save error');
+        row._dirty = true;
+      }
     }
-  }
+  });
   saveState.received = false;
   updateReceivedToolbar();
+  scheduleCashPositionRender();
   if (failures.length) {
-    receivedSheetStatus.textContent = `${saved} saved · ${failures.length} need attention`;
+    receivedSheetStatus.textContent = `${saved} saved · ${failures.length} not saved yet`;
     receivedSheetStatus.classList.add('error');
-    showToast(`Some received rows were not saved: ${failures[0]}`, true);
   } else if (receivedRows.some(row => row._dirty && !isBlankReceivedRow(row))) {
     receivedSheetStatus.textContent = UNSYNCED_TEXT;
     receivedSheetStatus.classList.add('dirty');
-    scheduleAutosave('received');
+    requestSync();
   } else {
     receivedSheetStatus.textContent = 'All changes saved';
     receivedSheetStatus.classList.remove('dirty', 'error');
@@ -1717,17 +1952,24 @@ async function deleteSelectedReceivedRow() {
   if (isRowLocked(row, 'entry_date')) { warnLockedEdit('delete'); return; }
   if (!window.confirm('Delete the selected received row? This cannot be undone.')) return;
   receivedDeleteButton.disabled = true;
-  if (row.id) {
+  // Waits for any save of this row that is already on its way, then deletes it.
+  const failure = await runLedgerTask(async () => {
+    if (!row.id) return null;
     const { data, error } = await supabase.from('received_records').delete().eq('id', row.id).select('id');
-    if (error || !data?.length) {
-      showToast(error?.message || 'The row could not be deleted. Check your access permission.', true);
-      updateReceivedToolbar();
-      return;
-    }
+    if (error || !data?.length) return error?.message || 'The row could not be deleted. Check your access permission.';
+    recordLedgerCommit('received', row._base ?? null, null);
+    return null;
+  });
+  if (failure) {
+    showToast(failure, true);
+    updateReceivedToolbar();
+    return;
   }
-  receivedRows = receivedRows.filter(item => item.clientId !== selectedReceivedClientId);
-  selectedReceivedClientId = null;
+  receivedRows = receivedRows.filter(item => item !== row);
+  if (selectedReceivedClientId === row.clientId) selectedReceivedClientId = null;
+  persistPendingLocally();
   renderReceivedTable();
+  scheduleCashPositionRender();
   receivedSheetStatus.textContent = 'Row deleted';
   receivedSheetStatus.classList.remove('dirty', 'error');
   showToast('Selected received row deleted.');
@@ -1789,40 +2031,45 @@ async function saveChanges() {
   const dirtyRows = rows.filter(row => row._dirty);
   if (!dirtyRows.length) { updateToolbar(); return none; }
   saveState.expenses = true;
-  setSheetStatus('Saving…');
+  setSheetStatus('Saving…', 'dirty');
   let saved = 0;
   const failures = [];
 
-  for (const row of dirtyRows) {
-    try {
-      const before = JSON.stringify(getPayload(row));
-      const payload = getPayload(row);
-      applyMovedOrder(payload, row, rows);
-      const result = row.id
-        ? await supabase.from('expense_records').update(payload).eq('id', row.id).select('*').single()
-        : await supabase.from('expense_records').insert(payload).select('*').single();
-      if (result.error) throw result.error;
-      // Update the row in place so typing is never interrupted.
-      Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, sort_order: result.data.sort_order, _isNew: false, _orderMoved: false });
-      let after = null;
-      try { after = JSON.stringify(getPayload(row)); } catch (_) { /* keep dirty */ }
-      row._dirty = after !== before;
-      tableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`)?.classList.toggle('dirty-row', row._dirty);
-      saved++;
-    } catch (error) {
-      failures.push(error.message || 'Unknown save error');
-      row._dirty = true;
+  await runLedgerTask(async () => {
+    for (const row of dirtyRows) {
+      if (!rows.includes(row)) continue; // deleted while waiting
+      try {
+        const payload = getPayload(row);
+        const before = JSON.stringify(payload);
+        applyMovedOrder(payload, row, rows);
+        const result = row.id
+          ? await supabase.from('expense_records').update(payload).eq('id', row.id).select('*').single()
+          : await supabase.from('expense_records').insert(payload).select('*').single();
+        if (result.error) throw result.error;
+        const committed = ledgerSnapshot(result.data, AMOUNT_FIELDS);
+        recordLedgerCommit('expense', row._base ?? null, committed);
+        // Update the row in place so typing is never interrupted.
+        Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, sort_order: result.data.sort_order, _base: committed, _isNew: false, _orderMoved: false });
+        let after = null;
+        try { after = JSON.stringify(getPayload(row)); } catch (_) { /* keep dirty */ }
+        row._dirty = after !== before;
+        tableBody.querySelector(`tr[data-client-id="${CSS.escape(row.clientId)}"]`)?.classList.toggle('dirty-row', row._dirty);
+        saved++;
+      } catch (error) {
+        failures.push(error.message || 'Unknown save error');
+        row._dirty = true;
+      }
     }
-  }
+  });
 
   saveState.expenses = false;
   updateToolbar();
+  scheduleCashPositionRender();
   if (failures.length) {
-    setSheetStatus(`${saved} saved · ${failures.length} need attention`, 'error');
-    showToast(`Some rows were not saved: ${failures[0]}`, true);
+    setSheetStatus(`${saved} saved · ${failures.length} not saved yet`, 'error');
   } else if (rows.some(row => row._dirty && !isBlankExpenseRow(row))) {
     setSheetStatus(UNSYNCED_TEXT, 'dirty');
-    scheduleAutosave('expenses');
+    requestSync();
   } else {
     setSheetStatus('All changes saved');
   }
@@ -1836,17 +2083,24 @@ async function deleteSelectedRow() {
   if (isRowLocked(row, 'entry_date')) { warnLockedEdit('delete'); return; }
   if (!window.confirm('Delete the selected expense row? This cannot be undone.')) return;
   deleteButton.disabled = true;
-  if (row.id) {
+  // Waits for any save of this row that is already on its way, then deletes it.
+  const failure = await runLedgerTask(async () => {
+    if (!row.id) return null;
     const { data, error } = await supabase.from('expense_records').delete().eq('id', row.id).select('id');
-    if (error || !data?.length) {
-      showToast(error?.message || 'The row could not be deleted. Check your access permission.', true);
-      updateToolbar();
-      return;
-    }
+    if (error || !data?.length) return error?.message || 'The row could not be deleted. Check your access permission.';
+    recordLedgerCommit('expense', row._base ?? null, null);
+    return null;
+  });
+  if (failure) {
+    showToast(failure, true);
+    updateToolbar();
+    return;
   }
-  rows = rows.filter(item => item.clientId !== selectedClientId);
-  selectedClientId = null;
+  rows = rows.filter(item => item !== row);
+  if (selectedClientId === row.clientId) selectedClientId = null;
+  persistPendingLocally();
   renderTable();
+  scheduleCashPositionRender();
   setSheetStatus('Row deleted locally and from database');
   showToast('Selected row deleted.');
 }
@@ -1905,8 +2159,7 @@ function normalizePastedAmount(rawValue) {
 }
 
 function scrollSheetToBottom(tableElement) {
-  const frame = tableElement?.closest('.table-frame');
-  if (frame) frame.scrollTop = frame.scrollHeight;
+  sheetFor(tableElement)?.scrollToBottom();
 }
 
 function resetSheetSelection(tableElement) {
@@ -1975,7 +2228,7 @@ function applyGridPaste(config, payload) {
   config.setDirtyStatus();
   scheduleAutosave(config.autosaveKey);
   const lockedNote = lockedSkipped ? ` ${lockedSkipped} cell${lockedSkipped === 1 ? '' : 's'} not changed: editing is not allowed for entries older than ${EDIT_WINDOW_DAYS} days (before ${formatDmy(editCutoffDate())}).` : '';
-  if (applied) showToast(`Pasted ${applied} cell${applied === 1 ? '' : 's'}. Save changes to commit.${skipped ? ` ${skipped} cell${skipped === 1 ? '' : 's'} skipped (invalid or calculated cells).` : ''}${lockedNote}`, Boolean(lockedSkipped));
+  if (applied) showToast(`Pasted ${applied} cell${applied === 1 ? '' : 's'}. Saving automatically.${skipped ? ` ${skipped} cell${skipped === 1 ? '' : 's'} skipped (invalid or calculated cells).` : ''}${lockedNote}`, Boolean(lockedSkipped));
   else showToast(lockedSkipped ? `Nothing pasted.${lockedNote}` : 'No editable cells from the pasted range were applied.', true);
 
   return {
@@ -1990,8 +2243,13 @@ function showCopyToast({ rows, columns, cut }) {
 }
 
 function signOutToLogin() {
-  clearTimeout(syncTimer);
-  syncTimer = null;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  clearTimeout(retryTimer);
+  retryTimer = null;
+  lastSyncError = '';
+  lastErrorToast = '';
+  retryAttempt = 0;
   clearAllSpreadsheetSelections();
   // Explicit sign-out is the only normal way to end the saved session: remove
   // the encrypted session and the browser-session marker, then sign out locally.
@@ -2013,6 +2271,12 @@ function signOutToLogin() {
   cashVaultLoaded = false;
   cashVaultLoading = false;
   cashAvailableBalance = null;
+  cashAvailableCents = null;
+  cashSummaryCache.clear();
+  ledgerCommits = [];
+  cashSummaryError = null;
+  clearTimeout(summaryRefreshTimer);
+  summaryRefreshTimer = null;
   cashPeople = [];
   cashPeopleViewDate = '';
   cashPeopleLoading = false;
@@ -2185,7 +2449,7 @@ el('signOutButton').addEventListener('click', async () => {
   persistPendingLocally();
   if (pendingChangeCount() > 0) {
     el('signOutButton').disabled = true;
-    try { await syncAll({ manual: true }); } catch (_) { /* unsynced rows stay on this device */ }
+    try { await syncAll(); } catch (_) { /* unsynced rows stay on this device */ }
     el('signOutButton').disabled = false;
     if (pendingChangeCount() > 0 && !window.confirm('Some changes could not be synced yet. They stay saved on this device and will sync the next time you sign in. Sign out anyway?')) return;
   }
@@ -2303,6 +2567,7 @@ el('staffHistoryList').addEventListener('click', async event => {
     const { data, error } = await supabase.rpc('delete_staff_transaction', { p_id: entry.id });
     if (error) throw error;
     showToast('Entry deleted.');
+    invalidateCashSummaries();
     await Promise.all([refreshCashSummary(), loadCashPeopleData({ force: true })]);
     openStaffHistory(data || staffState.person.person_id);
   } catch (error) {
@@ -2322,20 +2587,6 @@ el('cashPeopleBalanceList').addEventListener('click', event => {
 /* ------------------------------------------------------------------ */
 /* Excel export: Cash Vault, Expenses and Received (all dates, all rows) */
 /* ------------------------------------------------------------------ */
-
-async function fetchAllRecords(tableName, orderFields) {
-  const pageSize = 1000;
-  const all = [];
-  for (let from = 0; ; from += pageSize) {
-    let query = supabase.from(tableName).select('*');
-    orderFields.forEach(field => { query = query.order(field, { ascending: true }); });
-    const { data, error } = await query.range(from, from + pageSize - 1);
-    if (error) throw error;
-    all.push(...(data || []));
-    if (!data || data.length < pageSize) break;
-  }
-  return all;
-}
 
 function excelDateCell(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? ''));
@@ -2366,11 +2617,12 @@ async function exportToExcel() {
   const originalLabel = button.textContent;
   button.textContent = 'Preparing…';
   try {
+    if (pendingChangeCount() > 0) await syncAll();
     const [XLSX, cashRecords, expenseRecords, receivedRecords] = await Promise.all([
       import('https://esm.sh/xlsx@0.18.5'),
-      fetchAllRecords('cash_vault_counts', ['count_date']),
-      fetchAllRecords('expense_records', ['sort_order', 'created_at']),
-      fetchAllRecords('received_records', ['sort_order', 'created_at'])
+      fetchAllRows('cash_vault_counts', ['count_date', 'id']),
+      fetchAllRows('expense_records', ['sort_order', 'created_at', 'id']),
+      fetchAllRows('received_records', ['sort_order', 'created_at', 'id'])
     ]);
 
     const numberOrBlank = value => (value === '' || value == null ? 0 : Number(value));
@@ -2397,7 +2649,7 @@ async function exportToExcel() {
 
     const unsaved = pendingChangeCount() > 0;
     showToast(unsaved
-      ? 'Excel downloaded. It contains saved data only — save your pending changes and export again to include them.'
+      ? 'Excel downloaded. Some changes were still being saved — export again in a moment to include them.'
       : 'Excel file downloaded.');
   } catch (error) {
     showToast(`Excel export failed: ${explainLedgerError(error)}`, true);
@@ -2408,17 +2660,30 @@ async function exportToExcel() {
 }
 
 el('exportExcelButton').addEventListener('click', exportToExcel);
-el('saveAllButton').addEventListener('click', saveAllChanges);
 window.addEventListener('beforeunload', event => {
   persistPendingLocally();
-  if (pendingChangeCount() > 0) { event.preventDefault(); event.returnValue = ''; }
+  if (pendingChangeCount() > 0 || syncPromise) { event.preventDefault(); event.returnValue = ''; }
 });
 window.addEventListener('pagehide', () => persistPendingLocally());
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'hidden') return;
-  persistPendingLocally();
-  if (pendingChangeCount() > 0) syncAll(); // best effort when the tab is hidden or closed
+  if (document.visibilityState === 'hidden') {
+    persistPendingLocally();
+    if (pendingChangeCount() > 0) syncAll(); // best effort when the tab is hidden or closed
+  } else if (currentUser && !el('cashVaultPane').classList.contains('hidden')) {
+    refreshCashSummary();
+  }
 });
+window.addEventListener('online', () => {
+  updateSyncIndicator();
+  if (currentUser && pendingChangeCount() > 0) syncAll();
+});
+window.addEventListener('offline', updateSyncIndicator);
+// Picks up changes made by other users / devices while the Cash Vault is open.
+setInterval(() => {
+  if (!currentUser || document.visibilityState !== 'visible') return;
+  if (el('cashVaultPane').classList.contains('hidden')) return;
+  refreshCashSummary();
+}, 60000);
 
 // ---------------------------------------------------------------------------
 // Type-ahead: while typing a Supplier / Name / Merchant, complete it from the rows above
@@ -2552,6 +2817,7 @@ function enableRowReorder({ tableElement, tbody, getRows, render, tableName, dat
     if (!canWrite || isBlank?.(row)) { stop(); return; }
     if (isRowLocked(row, dateField)) { warnLockedEdit(); stop(); return; }
     drag = { row, tr: pending.tr, x: pending.x, y: pending.y, target: null, position: 'after' };
+    draggingClientId = row.clientId;
     pending = null;
     cancelSpreadsheetDrag();
     drag.tr.classList.add('row-dragging');
@@ -2615,6 +2881,8 @@ function enableRowReorder({ tableElement, tbody, getRows, render, tableName, dat
     pending = null;
     cancelAnimationFrame(frameRequest);
     if (drag) drag.tr.classList.remove('row-dragging');
+    tbody.querySelector('tr.row-dragging')?.classList.remove('row-dragging');
+    draggingClientId = null;
     clearIndicators();
     document.body.classList.remove('reordering-rows');
     window.removeEventListener('pointermove', onMove);
@@ -2644,6 +2912,36 @@ function enableRowReorder({ tableElement, tbody, getRows, render, tableName, dat
   });
 }
 
+
+// Values come from the data model, so selections that run off screen (rows that are
+// not rendered) still sum and copy correctly.
+function modelTotalText(config, row) {
+  if (config.cashTotals) return (calculateCashCountCents(row) / 100).toFixed(2);
+  return formatBlankIfZero(calculateTotal(row, config.amountFields));
+}
+
+function modelCellText(config, rowIndex, colIndex) {
+  const row = config.getRows()[rowIndex];
+  const column = config.columns[colIndex];
+  if (!row || !column) return '';
+  const value = row[column.field];
+  switch (column.kind) {
+    case 'total': return modelTotalText(config, row);
+    case 'date': return String(value || localDateString());
+    case 'select': return value === 'Bank' ? 'Bank' : 'Cash';
+    case 'amount': return value === '' || value == null || Number(value) === 0 ? '' : String(value);
+    default: return value == null ? '' : String(value);
+  }
+}
+
+function modelCellNumber(config, rowIndex, colIndex) {
+  const column = config.columns[colIndex];
+  if (!column || !config.sumKinds.includes(column.kind)) return null;
+  const raw = modelCellText(config, rowIndex, colIndex).replace(/,/g, '').trim();
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw)) return null;
+  return Number(raw);
+}
+
 function formatSelectionSum(value, auto) {
   const rounded = Math.round(value * 100) / 100;
   return rounded.toLocaleString('en-US', {
@@ -2653,64 +2951,125 @@ function formatSelectionSum(value, auto) {
 }
 
 // Shows the sum of the numeric cells in a multi-cell selection in the footer line.
-function updateSelectionSum(config, tableElement, range) {
+function updateSelectionSum(config, range) {
   const node = el(config.sumElementId);
   if (!node) return;
   config.lastRange = range;
   const hide = () => { node.textContent = ''; node.classList.add('hidden'); };
   if (!range || (range.minRow === range.maxRow && range.minCol === range.maxCol)) { hide(); return; }
-  const bodyRows = tableElement.tBodies[0]?.rows;
-  if (!bodyRows) { hide(); return; }
-  let sum = 0;
+  let sumCents = 0;
   let count = 0;
   for (let r = range.minRow; r <= range.maxRow; r += 1) {
     for (let c = range.minCol; c <= range.maxCol; c += 1) {
-      const column = config.columns[c];
-      if (!column || !config.sumKinds.includes(column.kind)) continue;
-      const control = bodyRows[r]?.cells[c]?.querySelector('input, select');
-      const raw = String(control ? control.value : '').replace(/,/g, '').trim();
-      if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw)) continue;
-      sum += Number(raw);
+      const value = modelCellNumber(config, r, c);
+      if (value == null) continue;
+      sumCents += Math.round(value * 100);
       count += 1;
     }
   }
   if (!count) { hide(); return; }
-  node.textContent = `Sum ${formatSelectionSum(sum, config.sumAuto)} · ${count} value${count === 1 ? '' : 's'}`;
+  setText(node, `Sum ${formatSelectionSum(sumCents / 100, config.sumAuto)} · ${count} value${count === 1 ? '' : 's'}`);
   node.classList.remove('hidden');
+}
+
+// Delete / Backspace / Ctrl+X: clears free-entry cells (text, amounts, quantities)
+// in the data model, including rows that are scrolled out of view.
+function clearRangeValues(config, range, sheet) {
+  if (!canWrite) return;
+  const list = config.getRows();
+  const clearable = new Set(['text', 'amount', 'quantity']);
+  let lockedHit = false;
+  const touched = [];
+  for (let r = range.minRow; r <= range.maxRow; r += 1) {
+    const model = list[r];
+    if (!model) continue;
+    if (config.isLocked?.(model)) { lockedHit = true; continue; }
+    let changed = false;
+    for (let c = range.minCol; c <= range.maxCol; c += 1) {
+      const column = config.columns[c];
+      if (!column || !clearable.has(column.kind)) continue;
+      if (modelCellText(config, r, c) === '') continue;
+      model[column.field] = '';
+      changed = true;
+    }
+    if (changed) {
+      model._dirty = true;
+      model._isNew = Boolean(model._isNew || !model.id);
+      touched.push(r);
+    }
+  }
+  if (lockedHit) warnLockedEdit();
+  if (!touched.length) return;
+  touched.forEach(index => sheet.updateRow(index));
+  config.setDirtyStatus();
+  config.afterChange?.();
+  scheduleAutosave(config.autosaveKey);
+}
+
+function sheetFor(tableElement) {
+  return sheets.get(tableElement) || null;
 }
 
 function registerSpreadsheet(tableElement, config) {
   const paste = payload => applyGridPaste(config, payload);
-  const refreshSum = () => updateSelectionSum(config, tableElement, config.lastRange);
+  const refreshSum = () => updateSelectionSum(config, config.lastRange);
   tableElement.tBodies[0]?.addEventListener('input', refreshSum);
   tableElement.tBodies[0]?.addEventListener('change', refreshSum);
-  spreadsheetGrids.set(tableElement, createSpreadsheetGrid(tableElement, {
+  let grid = null;
+  const sheet = createVirtualSheet({
+    table: tableElement,
+    getRows: config.getRows,
+    buildRow: config.buildRow,
+    columnCount: config.columns.length,
+    emptyHtml: config.emptyHtml,
+    estimatedRowHeight: config.rowHeight,
+    onRendered: () => grid?.repaint()
+  });
+  grid = createSpreadsheetGrid(tableElement, {
     columns: config.columns,
     getRowCount: () => config.getRows().length,
+    getRowElement: index => sheet.rowElement(index),
+    getRenderedRange: () => sheet.renderedRange(),
+    ensureRowVisible: index => sheet.scrollToRow(index),
+    getCellText: (row, col) => modelCellText(config, row, col),
+    onClear: range => { clearRangeValues(config, range, sheet); refreshSum(); },
     onPaste: paste,
     onCopy: showCopyToast,
-    onSelectionChange: range => updateSelectionSum(config, tableElement, range),
+    onSelectionChange: range => updateSelectionSum(config, range),
     onLockedEdit: rowIndex => {
       const model = config.getRows()[rowIndex];
       if (model && config.isLocked?.(model)) warnLockedEdit();
     }
-  }));
+  });
+  spreadsheetGrids.set(tableElement, grid);
+  sheets.set(tableElement, sheet);
+  return sheet;
 }
 
-registerSpreadsheet(table, {
+const sheets = new Map();
+
+const expenseSheet = registerSpreadsheet(table, {
   columns: COLUMNS,
+  amountFields: AMOUNT_FIELDS,
   getRows: () => rows,
+  buildRow: createExpenseRowElement,
+  rowHeight: 32,
+  emptyHtml: 'No expense entries yet. Select “Add row” to create your first entry.',
   makeRow: makeEmptyRow,
   autosaveKey: 'expenses',
   sumElementId: 'expensesSelectionSum',
   sumKinds: ['amount', 'total'],
   isLocked: row => isRowLocked(row, 'entry_date'),
   render: renderTable,
-  setDirtyStatus: () => { setSheetStatus('Unsaved changes from paste', 'dirty'); updateToolbar(); }
+  setDirtyStatus: () => { setSheetStatus(UNSYNCED_TEXT, 'dirty'); updateToolbar(); }
 });
-registerSpreadsheet(el('receivedTable'), {
+const receivedSheet = registerSpreadsheet(el('receivedTable'), {
   columns: RECEIVING_COLUMNS,
+  amountFields: RECEIVING_AMOUNT_FIELDS,
   getRows: () => receivedRows,
+  buildRow: createReceivedRowElement,
+  rowHeight: 36,
+  emptyHtml: 'No received entries yet. Select “Add row” to create your first entry.',
   makeRow: makeEmptyReceivedRow,
   autosaveKey: 'received',
   sumElementId: 'receivedSelectionSum',
@@ -2718,22 +3077,27 @@ registerSpreadsheet(el('receivedTable'), {
   isLocked: row => isRowLocked(row, 'entry_date'),
   render: renderReceivedTable,
   setDirtyStatus: () => {
-    receivedSheetStatus.textContent = 'Unsaved changes from paste';
+    receivedSheetStatus.textContent = UNSYNCED_TEXT;
     receivedSheetStatus.classList.add('dirty');
     receivedSheetStatus.classList.remove('error');
     updateReceivedToolbar();
   }
 });
-registerSpreadsheet(el('cashCountTable'), {
+const cashSheet = registerSpreadsheet(el('cashCountTable'), {
   columns: CASH_COUNT_COLUMNS,
+  cashTotals: true,
   getRows: () => cashCounts,
+  buildRow: buildCashCountRow,
+  rowHeight: 36,
+  emptyHtml: 'No daily cash counts yet. Select “Add day” to enter today’s notes and coins.',
+  afterChange: () => updateCashCountedSummary(),
   autosaveKey: 'cash',
   sumElementId: 'cashSelectionSum',
   sumKinds: ['quantity', 'total'],
   sumAuto: true,
   isLocked: row => isRowLocked(row, 'count_date'),
   render: renderCashCounts,
-  setDirtyStatus: () => { setCashVaultStatus('Unsaved changes from paste', 'dirty'); updateCashCountToolbar(); }
+  setDirtyStatus: () => { setCashVaultStatus(UNSYNCED_TEXT, 'dirty'); updateCashCountToolbar(); updateCashCountedSummary(); }
 });
 
 enableRowReorder({ tableElement: table, tbody: tableBody, getRows: () => rows, render: renderTable, tableName: 'expense_records', dateField: 'entry_date', isBlank: isBlankExpenseRow });

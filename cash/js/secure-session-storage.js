@@ -30,6 +30,15 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const memoryFallback = new Map();
 let databasePromise;
+
+// Another tab that refreshes the login writes a new encrypted session; drop this
+// tab's in-memory copy so the next request decrypts the newest one.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (event.key === null) { memoryFallback.clear(); return; }
+    if (event.key.startsWith(ENCRYPTED_STORAGE_PREFIX)) memoryFallback.delete(event.key.slice(ENCRYPTED_STORAGE_PREFIX.length));
+  });
+}
 let sessionPersistenceStatus = { persisted: false, error: 'No encrypted session has been written yet.' };
 
 function openKeyDatabase() {
@@ -74,7 +83,21 @@ async function addCryptoKey(key) {
   });
 }
 
-async function getOrCreateCryptoKey() {
+// The CryptoKey is looked up once per page and kept in memory (it stays
+// non-extractable); every database request used to re-read it from IndexedDB.
+let cryptoKeyPromise = null;
+
+function getOrCreateCryptoKey() {
+  if (!cryptoKeyPromise) {
+    cryptoKeyPromise = loadOrCreateCryptoKey().catch(error => {
+      cryptoKeyPromise = null;
+      throw error;
+    });
+  }
+  return cryptoKeyPromise;
+}
+
+async function loadOrCreateCryptoKey() {
   const existing = await readCryptoKey();
   if (existing) return existing;
 
@@ -249,7 +272,11 @@ export function createEncryptedBrowserSessionStorage() {
           key,
           fromBase64(envelope.ciphertext)
         );
-        return decoder.decode(plaintext);
+        const decoded = decoder.decode(plaintext);
+        // Supabase reads the session before every request; decrypt once, then
+        // serve it from memory until it changes, is removed, or the marker goes.
+        memoryFallback.set(storageKey, decoded);
+        return decoded;
       } catch (_) {
         // A malformed, tampered, or stale blob must never be treated as a session.
         // Remove only the invalid ciphertext. The marker is not a credential and
