@@ -65,11 +65,9 @@ export function createCollectionsImport(app, { section, footer }) {
   // Duplicate / edit-window checks against the Received sheet as it is now.
   function refreshStatuses(resetTicks = false) {
     const existing = app.existingReceivedVouchers();
-    const cutoff = app.editCutoffDate();
     result.entries.forEach(entry => {
       entry.uiStatus = entry.status;
       if (entry.vouchers.some(voucher => existing.has(voucher))) entry.uiStatus = 'imported';
-      else if (entry.date && entry.date < cutoff && !useWorkDate) entry.uiStatus = 'old';
       if (resetTicks || !include.has(entry.key)) {
         include.set(entry.key, !['imported', 'old', 'unknown'].includes(entry.uiStatus));
       }
@@ -265,7 +263,7 @@ export function createCollectionsImport(app, { section, footer }) {
       <div class="sp-toolbar ap-tight"><span class="sp-section-label">RECEIVED TYPE FOR EACH CHANNEL</span></div>
       <div class="cl-types">${Object.keys(CHANNELS).map(typeSelectHtml).join('')}</div>
       <p class="ri-hint">Cash postings are not imported: you enter cash yourself when it is received.</p>
-      ${oldCount ? `<label class="ri-old"><input type="checkbox" data-action="use-work-date" ${useWorkDate ? 'checked' : ''}> <span>${oldCount} entr${oldCount === 1 ? 'y is' : 'ies are'} dated before ${escapeHtml(dmy(app.editCutoffDate()))} (outside the edit window). Enter ${oldCount === 1 ? 'it' : 'them'} on the working date (${escapeHtml(dmy(app.workDate()))}) instead</span></label>` : ''}
+      ${oldCount ? `<label class="ri-old"><input type="checkbox" data-action="use-work-date" ${useWorkDate ? 'checked' : ''}> <span>${oldCount} entr${oldCount === 1 ? 'y is' : 'ies are'} dated before ${escapeHtml(dmy(app.editCutoffDate()))} and will keep the report date. Tick to enter ${oldCount === 1 ? 'it' : 'them'} on the working date (${escapeHtml(dmy(app.workDate()))}) instead</span></label>` : ''}
       <div class="sp-toolbar ap-tight"><span class="sp-section-label">ENTRIES FROM CARYAATI</span>
         <span class="cl-bulk"><button type="button" class="sp-btn-link" data-action="tick-all">Tick all</button> · <button type="button" class="sp-btn-link" data-action="tick-none">None</button></span></div>
       <div class="cl-filters">${[['all', 'All'], ['link', 'Link'], ['card', 'Card'], ['bank', 'Bank'], ['issues', 'Issues']].map(([key, label]) => `<button type="button" class="cl-filter ${filter === key ? 'on' : ''}" data-filter="${key}">${label} <span>${counts[key]}</span></button>`).join('')}</div>
@@ -335,16 +333,12 @@ export function createCollectionsImport(app, { section, footer }) {
         if (!app.receivedTypes().some(type => type.name === name) && app.canManageTypes()) await app.enableTypeForReceived(name);
       }
       const rows = chosen.map(entry => ({
-        entry_date: entry.uiStatus === 'old' || (useWorkDate && entry.date < app.editCutoffDate()) ? app.workDate() : entry.date,
+        entry_date: useWorkDate && entry.date < app.editCutoffDate() ? app.workDate() : entry.date,
         name: entry.name,
         merchant: merchantText(entry),
         transaction_type: typeFor(entry.channel),
         amounts: entry.columns
       }));
-      if (rows.some(row => !app.isDateEditable(row.entry_date))) {
-        app.showToast('Some entries are dated before the edit window. Tick the working-date option or untick them.', true);
-        return;
-      }
       const added = app.addReceivedEntries(rows);
       chosen.forEach(entry => { entry.added = true; });
       snapshot = buildSnapshot(added);

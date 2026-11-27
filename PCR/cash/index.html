@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f3f6fa">
   <meta name="description" content="Private expense register powered by Supabase.">
   <title>Expense Vault</title>
-  <link rel="stylesheet" href="css/styles.css?v=collections-1">
+  <link rel="stylesheet" href="css/styles.css?v=formula-1">
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -55,11 +55,18 @@
     </header>
 
     <div class="workspace">
-      <nav class="tabbar" aria-label="Main sections">
-        <button class="tab-button active" data-tab="cash-vault" type="button"><span class="tab-icon">▣</span> Cash Vault</button>
-        <button class="tab-button" data-tab="expenses" type="button"><span class="tab-icon">↗</span> Expenses</button>
-        <button class="tab-button" data-tab="received" type="button"><span class="tab-icon">↙</span> Received</button>
-      </nav>
+      <div class="workspace-bar">
+        <nav class="tabbar" aria-label="Main sections">
+          <button class="tab-button active" data-tab="cash-vault" type="button"><span class="tab-icon">▣</span> Cash Vault</button>
+          <button class="tab-button" data-tab="expenses" type="button"><span class="tab-icon">↗</span> Expenses</button>
+          <button class="tab-button" data-tab="received" type="button"><span class="tab-icon">↙</span> Received</button>
+        </nav>
+        <div id="formulaBar" class="formula-bar is-empty" data-keeps-selection>
+          <span id="formulaRef" class="formula-ref" title="Selected cell">—</span>
+          <span class="formula-fx" aria-hidden="true">fx</span>
+          <input id="formulaInput" class="formula-input" type="text" readonly spellcheck="false" autocomplete="off" placeholder="Select a cell to see its full content" aria-label="Content of the selected cell">
+        </div>
+      </div>
 
       <section id="cashVaultPane" class="pane cash-vault-pane">
         <div class="pane-heading">
@@ -79,6 +86,11 @@
                 <div id="cashBalanceValue" class="cash-balance-value">—</div>
                 <p id="cashBalanceCaption" class="cash-balance-caption">Calculating your cash position…</p>
               </div>
+              <div class="cash-counted-card cash-counted-inline">
+                <span class="cash-stat-label">CASH COUNTED</span>
+                <strong id="cashCountedValue">—</strong>
+                <span id="cashCountedNote" class="cash-stat-note">Physical notes and coins for selected date</span>
+              </div>
             </div>
             <div class="cash-balance-foot">Cash received − cash expenses − current staff balances. Positive amounts reduce Available Cash; negative amounts increase it.</div>
           </article>
@@ -94,15 +106,10 @@
               <strong id="cashExpensesValue">—</strong>
               <span class="cash-stat-note">Cash-type entries to date</span>
             </article>
-            <article class="cash-stat-card">
-              <span class="cash-stat-label">STAFF BALANCE</span>
+            <article id="cashStaffCard" class="cash-stat-card cash-stat-clickable" role="button" tabindex="0" title="Open Staff Balance" aria-label="Staff Balance: open the Staff Balance panel">
+              <span class="cash-stat-label">STAFF BALANCE <span class="cash-stat-open" aria-hidden="true">Open ›</span></span>
               <strong id="cashPeopleAdjustmentValue">—</strong>
               <span class="cash-stat-note">Current total · + reduces cash · − increases cash</span>
-            </article>
-            <article class="cash-stat-card cash-counted-card">
-              <span class="cash-stat-label">CASH COUNTED</span>
-              <strong id="cashCountedValue">—</strong>
-              <span id="cashCountedNote" class="cash-stat-note">Physical notes and coins for selected date</span>
             </article>
           </div>
         </div>
@@ -125,7 +132,6 @@
           <div class="toolbar-left">
             <button id="addCashCountButton" class="button button-primary" type="button">＋ Add day</button>
             <button id="deleteCashCountButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
-            <button id="cashPeopleButton" class="button button-outline" type="button">Staff Balance</button>
           </div>
           <div class="toolbar-right">
             <span id="cashVaultStatus" class="sheet-status" role="status" aria-live="polite">Loading cash counts…</span>
@@ -160,7 +166,7 @@
           <div class="toolbar-left">
             <button id="addRowButton" class="button button-primary" type="button">＋ Add row</button>
             <button id="deleteRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
-            <button id="changeTypeExpensesButton" class="button button-outline" type="button" title="Change the TYPE (Cash, Bank, Card…) of many rows at once. Select the rows first.">⇄ Change type</button>
+            <button id="changeTypeExpensesButton" class="button button-outline hidden" data-keeps-selection type="button" title="Change the TYPE (Cash, Bank, Card…) of many rows at once. Shown when TYPE cells are selected.">⇄ Change type</button>
             <button id="importReceiptsButton" class="button button-outline" type="button" title="Import RTA receipt PDFs (→ Expenses) or the day's Caryaati, payment-link and bank reports (→ Received)">⇪ Import</button>
           </div>
           <div class="toolbar-right">
@@ -196,7 +202,7 @@
           <div class="toolbar-left">
             <button id="addReceivedRowButton" class="button button-primary" type="button">＋ Add row</button>
             <button id="deleteReceivedRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
-            <button id="changeTypeReceivedButton" class="button button-outline" type="button" title="Change the TYPE (Cash, Bank, Card…) of many rows at once. Select the rows first.">⇄ Change type</button>
+            <button id="changeTypeReceivedButton" class="button button-outline hidden" data-keeps-selection type="button" title="Change the TYPE (Cash, Bank, Card…) of many rows at once. Shown when TYPE cells are selected.">⇄ Change type</button>
             <button id="importReceivedButton" class="button button-outline" type="button" title="Import the day's Caryaati, payment-link and bank POS reports and add the collections to Received">⇪ Import</button>
           </div>
           <div class="toolbar-right">
@@ -399,6 +405,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js?v=collections-1"></script>
+  <script type="module" src="js/app.js?v=formula-1"></script>
 </body>
 </html>

@@ -8,10 +8,10 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js?v=fast-autosave-1';
-import { createVirtualSheet } from './virtual-sheet.js?v=fast-autosave-1';
+import { createVirtualSheet } from './virtual-sheet.js?v=formula-1';
 import { setupReceiptImport } from './receipt-import.js?v=collections-1';
 import { createAccountPanel } from './account-panel.js?v=settings-1';
-import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=fast-autosave-1';
+import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid, onActiveCellChange, refocusActiveGrid } from './spreadsheet-grid.js?v=formula-1';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -279,8 +279,10 @@ function localDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-// Edit window: only entries dated today and the previous (EDIT_WINDOW_DAYS - 1) days can be
-// created, changed or deleted. The database enforces the same rule (migration 011).
+// Edit window: an existing entry can be changed or deleted only while it is recent, i.e. it
+// is dated within the last EDIT_WINDOW_DAYS days OR it was entered within them. New entries
+// may carry any date (back-dated manual entries and imported older reports are allowed).
+// The database enforces the same rule (migration 015).
 const EDIT_WINDOW_DAYS = 3;
 let lastLockToastAt = 0;
 
@@ -299,8 +301,15 @@ function isDateEditable(value) {
   return !value || String(value).slice(0, 10) >= editCutoffDate();
 }
 
+// Entered within the edit window (rows saved in this session have no created_at yet).
+function isRecentlyEntered(row) {
+  if (!row?.created_at) return true;
+  const created = new Date(row.created_at);
+  return Number.isNaN(created.getTime()) || localDateString(created) >= editCutoffDate();
+}
+
 function isRowLocked(row, dateField) {
-  return Boolean(row?.id) && !isDateEditable(row[dateField]);
+  return Boolean(row?.id) && !isDateEditable(row[dateField]) && !isRecentlyEntered(row);
 }
 
 function withEditWindow(text) {
@@ -312,10 +321,6 @@ function warnLockedEdit(action = 'edit') {
   if (now - lastLockToastAt < 1200) return;
   lastLockToastAt = now;
   showToast(`Editing is not allowed for older entries. Only entries from the last ${EDIT_WINDOW_DAYS} days (${formatDmy(editCutoffDate())} onward) can be ${action === 'delete' ? 'deleted' : 'changed'}. This entry is locked.`, true);
-}
-
-function warnOldDate() {
-  showToast(`Entries cannot be dated before ${formatDmy(editCutoffDate())}. Editing is not allowed for older dates (last ${EDIT_WINDOW_DAYS} days only).`, true);
 }
 
 function escapeHtml(value) {
@@ -725,7 +730,7 @@ async function syncAll() {
 // One empty row is always kept at the bottom of Expenses and Received, dated with the
 // working date. Typing into it makes the next empty row appear.
 function addTrailingBlankExpenseRow() {
-  if (!canEdit('expenses') || !isDateEditable(workDate())) return null;
+  if (!canEdit('expenses')) return null;
   const last = rows[rows.length - 1];
   if (last && isBlankExpenseRow(last)) return null;
   const row = makeEmptyRow();
@@ -735,7 +740,7 @@ function addTrailingBlankExpenseRow() {
 }
 
 function addTrailingBlankReceivedRow() {
-  if (!canEdit('received') || !isDateEditable(workDate())) return null;
+  if (!canEdit('received')) return null;
   const last = receivedRows[receivedRows.length - 1];
   if (last && isBlankReceivedRow(last)) return null;
   const row = makeEmptyReceivedRow();
@@ -766,19 +771,13 @@ function syncTrailingBlankRows() {
     { list: rows, sheet: expenseSheet, blank: isBlankExpenseRow, loaded: expensesLoaded, append: appendTrailingExpenseRow, count: 'recordCount' },
     { list: receivedRows, sheet: receivedSheet, blank: isBlankReceivedRow, loaded: receivedLoaded, append: appendTrailingReceivedRow, count: 'receivedRecordCount' }
   ];
-  pairs.forEach(({ list, sheet, blank, loaded, append, count }) => {
+  pairs.forEach(({ list, sheet, blank, loaded, append }) => {
     if (!loaded) return;
     const last = list[list.length - 1];
     if (last && blank(last)) {
-      if (isDateEditable(workDate())) {
-        last.entry_date = workDate();
-        const input = sheet.rowElement(list.length - 1)?.querySelector('input[data-field="entry_date"]');
-        if (input) input.value = last.entry_date;
-      } else {
-        list.pop();
-        sheet.sync();
-        setText(el(count), recordCountText(list, blank));
-      }
+      last.entry_date = workDate();
+      const input = sheet.rowElement(list.length - 1)?.querySelector('input[data-field="entry_date"]');
+      if (input) input.value = last.entry_date;
     } else {
       append();
     }
@@ -908,10 +907,6 @@ function focusTrailingRow(tableElement, list, selectSetter) {
   spreadsheetGrids.get(tableElement)?.startEditing(list.length - 1, 0);
 }
 
-function warnOldWorkDate() {
-  showToast(`The selected date (${formatDmy(workDate())}) is older than the ${EDIT_WINDOW_DAYS}-day edit window, so new entries can't be added. Choose ${formatDmy(editCutoffDate())} or later in the Date box at the top.`, true);
-}
-
 function syncCashDateControls() {
   const selectedDate = workDate();
   const dates = recentDateOptions();
@@ -982,7 +977,7 @@ function applySectionVisibility() {
     button.classList.toggle('hidden', !canView(TAB_SECTION[button.dataset.tab]));
   });
   el('exportExcelButton').classList.toggle('hidden', !permissions.export);
-  el('cashPeopleButton').classList.toggle('hidden', !canView('cash_vault'));
+  el('cashStaffCard').classList.toggle('is-disabled', !canView('cash_vault'));
 }
 
 function setActiveTab(tabName) {
@@ -1215,11 +1210,6 @@ function handleCashCountInput(event) {
   const field = fieldInput.dataset.field;
   const nextValue = fieldInput.value;
   if (isRowLocked(row, 'count_date')) { fieldInput.value = row[field] ?? ''; warnLockedEdit(); return; }
-  if (field === 'count_date' && nextValue && !isDateEditable(nextValue)) {
-    fieldInput.value = row.count_date;
-    warnOldDate();
-    return;
-  }
   if (field === 'count_date' && nextValue) {
     const duplicate = cashCounts.find(item => item.clientId !== row.clientId && item.count_date === nextValue);
     if (duplicate) {
@@ -2110,11 +2100,6 @@ function handleReceivedInput(event) {
   const row = receivedRows.find(item => item.clientId === tr.dataset.clientId);
   if (!row) return;
   if (isRowLocked(row, 'entry_date')) { fieldInput.value = row[fieldInput.dataset.field] ?? ''; warnLockedEdit(); return; }
-  if (fieldInput.dataset.field === 'entry_date' && fieldInput.value && !isDateEditable(fieldInput.value)) {
-    fieldInput.value = row.entry_date;
-    warnOldDate();
-    return;
-  }
   if (fieldInput.dataset.field === 'name' || fieldInput.dataset.field === 'merchant') {
     autocompleteInput(event, fieldInput, receivedRows, row, fieldInput.dataset.field);
   }
@@ -2246,11 +2231,6 @@ function onTableInput(event) {
   if (!row) return;
   const field = fieldInput.dataset.field;
   if (isRowLocked(row, 'entry_date')) { fieldInput.value = row[field] ?? ''; warnLockedEdit(); return; }
-  if (field === 'entry_date' && fieldInput.value && !isDateEditable(fieldInput.value)) {
-    fieldInput.value = row.entry_date;
-    warnOldDate();
-    return;
-  }
   if (field === 'supplier' || field === 'spent_by') autocompleteInput(event, fieldInput, rows, row, field);
   row[field] = fieldInput.value;
   markRowDirty(row);
@@ -2464,7 +2444,6 @@ function applyGridPaste(config, payload) {
       } else if (column.kind === 'date') {
         const parsedDate = normalizePastedDate(value);
         if (value && !parsedDate) { skipped++; return; }
-        if (parsedDate && !isDateEditable(parsedDate)) { lockedSkipped++; return; }
         model[field] = parsedDate;
       } else if (column.kind === 'amount') {
         const parsedAmount = normalizePastedAmount(value);
@@ -2600,7 +2579,6 @@ loginForm.addEventListener('submit', async event => {
 
 addButton.addEventListener('click', () => {
   if (!canEdit('expenses')) return;
-  if (!isDateEditable(workDate())) { warnOldWorkDate(); return; }
   appendTrailingExpenseRow();
   focusTrailingRow(table, rows, id => { selectedClientId = id; });
   updateToolbar();
@@ -2616,7 +2594,6 @@ tableBody.addEventListener('click', event => {
 
 cashAddButton.addEventListener('click', () => {
   if (!canEdit('cash_vault')) return;
-  if (!isDateEditable(workDate())) { warnOldWorkDate(); return; }
   const countDate = workDate();
   const existing = cashCounts.find(row => row.count_date === countDate);
   if (existing) {
@@ -2649,7 +2626,6 @@ el('cashAsOfDate').addEventListener('change', () => {
 
 receivedAddButton.addEventListener('click', () => {
   if (!canEdit('received')) return;
-  if (!isDateEditable(workDate())) { warnOldWorkDate(); return; }
   appendTrailingReceivedRow();
   focusTrailingRow(el('receivedTable'), receivedRows, id => { selectedReceivedClientId = id; });
   updateReceivedToolbar();
@@ -2682,7 +2658,10 @@ async function requestSignOut() {
   signOutToLogin();
 }
 
-el('cashPeopleButton').addEventListener('click', openCashPeoplePanel);
+el('cashStaffCard').addEventListener('click', () => { if (canView('cash_vault')) openCashPeoplePanel(); });
+el('cashStaffCard').addEventListener('keydown', event => {
+  if ((event.key === 'Enter' || event.key === ' ') && canView('cash_vault')) { event.preventDefault(); openCashPeoplePanel(); }
+});
 el('closeCashPeoplePanel').addEventListener('click', () => el('cashPeopleDialog').close());
 el('cashPeopleDialog').addEventListener('click', event => {
   if (event.target === el('cashPeopleDialog')) el('cashPeopleDialog').close();
@@ -3423,6 +3402,118 @@ async function applyTypeChange() {
     showToast(`${total} row${total === 1 ? '' : 's'} changed to ${target}.`);
   }
 }
+
+// ---- Formula bar (full content of the selected cell) + selection-based buttons ----------
+const formulaBar = el('formulaBar');
+const formulaRef = el('formulaRef');
+const formulaInput = el('formulaInput');
+const FORMULA_EDITABLE_KINDS = new Set(['text', 'amount', 'quantity']);
+let formulaCell = null; // { table, row, col, config, editable, original }
+
+function formulaDisplayText(config, row, col) {
+  const column = config.columns[col];
+  const text = modelCellText(config, row, col);
+  if (column?.kind === 'date') return formatDmy(text);
+  if (column?.kind === 'total') {
+    const number = Number(String(text).replace(/,/g, ''));
+    return text === '' || !Number.isFinite(number) ? text : number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return text;
+}
+
+function cellControl(info) {
+  const sheet = sheets.get(info.table);
+  let tr = sheet?.rowElement(info.row);
+  if (!tr) { sheet?.scrollToRow(info.row); tr = sheet?.rowElement(info.row); }
+  return tr?.cells[info.col]?.querySelector('input, textarea') || null;
+}
+
+function updateFormulaBar(info) {
+  if (document.activeElement === formulaInput && formulaCell && info && info.table === formulaCell.table && info.row === formulaCell.row && info.col === formulaCell.col) return;
+  const config = info ? sheetConfigs.get(info.table) : null;
+  const model = config?.getRows()[info.row];
+  const column = config?.columns[info.col];
+  if (!config || !model || !column) {
+    formulaCell = null;
+    formulaRef.textContent = '—';
+    formulaInput.value = '';
+    formulaInput.readOnly = true;
+    formulaBar.classList.add('is-empty');
+    formulaBar.classList.remove('is-editable');
+    return;
+  }
+  const editable = FORMULA_EDITABLE_KINDS.has(column.kind) && canEdit(sectionOf(config.autosaveKey)) && !config.isLocked?.(model);
+  const value = formulaDisplayText(config, info.row, info.col);
+  formulaCell = { table: info.table, row: info.row, col: info.col, config, editable, original: value };
+  const { minRow, maxRow, minCol, maxCol } = info.range;
+  const many = (maxRow - minRow + 1) * (maxCol - minCol + 1);
+  formulaRef.textContent = `${column.label} · ${info.row + 1}${many > 1 ? ` (+${many - 1})` : ''}`;
+  formulaRef.title = `${column.label}, row ${info.row + 1}${many > 1 ? ` · ${many} cells selected` : ''}`;
+  formulaInput.value = value;
+  formulaInput.readOnly = !editable;
+  formulaInput.title = value;
+  formulaBar.classList.remove('is-empty');
+  formulaBar.classList.toggle('is-editable', editable);
+}
+
+function updateChangeTypeButtons(info) {
+  [['expenses', table, 'changeTypeExpensesButton'], ['received', el('receivedTable'), 'changeTypeReceivedButton']].forEach(([ledger, tableElement, id]) => {
+    const columns = sheetConfigs.get(tableElement)?.columns || [];
+    const typeCol = columns.findIndex(column => column.kind === 'select');
+    const show = Boolean(info && info.table === tableElement && typeCol >= 0
+      && info.range.minCol === typeCol && info.range.maxCol === typeCol && canEdit(ledger));
+    el(id).classList.toggle('hidden', !show);
+    if (show) {
+      const count = info.range.maxRow - info.range.minRow + 1;
+      el(id).textContent = `⇄ Change type${count > 1 ? ` (${count})` : ''}`;
+    }
+  });
+}
+
+onActiveCellChange(info => {
+  updateFormulaBar(info);
+  updateChangeTypeButtons(info);
+});
+
+// Typing in the formula bar writes straight into the cell (and autosaves like the cell).
+formulaInput.addEventListener('input', () => {
+  if (!formulaCell?.editable) return;
+  const control = cellControl(formulaCell);
+  if (!control) return;
+  control.value = formulaInput.value;
+  control.dispatchEvent(new Event('input', { bubbles: true }));
+  formulaInput.title = formulaInput.value;
+});
+formulaInput.addEventListener('change', () => {
+  if (!formulaCell?.editable) return;
+  cellControl(formulaCell)?.dispatchEvent(new Event('change', { bubbles: true }));
+});
+formulaInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    formulaInput.dispatchEvent(new Event('change'));
+    if (formulaCell) formulaCell.original = formulaInput.value;
+    refocusActiveGrid();
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    if (formulaCell?.editable && formulaInput.value !== formulaCell.original) {
+      formulaInput.value = formulaCell.original;
+      formulaInput.dispatchEvent(new Event('input'));
+      formulaInput.dispatchEvent(new Event('change'));
+    }
+    refocusActiveGrid();
+  }
+});
+// Typing directly in a cell keeps the bar in step.
+document.addEventListener('input', event => {
+  if (!formulaCell || event.target === formulaInput) return;
+  const cell = event.target instanceof Element ? event.target.closest('td') : null;
+  if (!cell || !formulaCell.table.contains(cell)) return;
+  const config = formulaCell.config;
+  if (config.getRows()[formulaCell.row]?.clientId !== cell.parentElement?.dataset.clientId || cell.cellIndex !== formulaCell.col) return;
+  formulaInput.value = formulaDisplayText(config, formulaCell.row, formulaCell.col);
+  formulaCell.original = formulaInput.value;
+});
 
 el('changeTypeExpensesButton').addEventListener('click', () => openTypeChange('expenses'));
 el('changeTypeReceivedButton').addEventListener('click', () => openTypeChange('received'));

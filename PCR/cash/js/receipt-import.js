@@ -257,11 +257,9 @@ export function setupReceiptImport(app) {
       else if (seen.has(receipt.receiptNo)) { status = 'duplicate-batch'; detail = 'Same receipt appears more than once in the selected files.'; }
       else if (receiptReferences(receipt).some(ref => existing.has(ref))) { status = 'imported'; detail = 'Already in Expenses (receipt or fine number found).'; }
       else if (!receipt.paymentDate) { status = 'error'; detail = 'Payment date could not be read.'; }
-      else if (receipt.paymentDate < cutoff) {
-        status = oldDateCheck.checked ? 'redated' : 'old';
-        detail = oldDateCheck.checked
-          ? `Paid ${app.formatDmy(receipt.paymentDate)}; will be entered on ${app.formatDmy(app.workDate())}.`
-          : `Paid ${app.formatDmy(receipt.paymentDate)}, before the edit window (${app.formatDmy(cutoff)} onward).`;
+      else if (receipt.paymentDate < cutoff && oldDateCheck.checked) {
+        status = 'redated';
+        detail = `Paid ${app.formatDmy(receipt.paymentDate)}; will be entered on ${app.formatDmy(app.workDate())}.`;
       }
       seen.add(receipt.receiptNo);
       const importable = status === 'ready' || status === 'redated';
@@ -315,9 +313,10 @@ export function setupReceiptImport(app) {
     const methods = [...new Set(receipts.map(receipt => receipt.paymentMethod).filter(Boolean))];
     methodHint.textContent = methods.length ? `The receipts show payment method: ${methods.join(', ')}.` : '';
 
-    const oldCount = receipts.filter(receipt => receipt._status === 'old' || receipt._status === 'redated').length;
+    // Older receipts are entered on their own payment date; optionally on the working date.
+    const oldCount = receipts.filter(receipt => !receipt.error && receipt.paymentDate && receipt.paymentDate < app.editCutoffDate()).length;
     oldDateBox.hidden = oldCount === 0;
-    oldDateLabel.textContent = `${oldCount} receipt${oldCount === 1 ? ' is' : 's are'} dated before ${app.formatDmy(app.editCutoffDate())} (outside the ${app.editWindowDays}-day edit window). Enter ${oldCount === 1 ? 'it' : 'them'} on the working date (${app.formatDmy(app.workDate())}) instead`;
+    oldDateLabel.textContent = `${oldCount} receipt${oldCount === 1 ? ' is' : 's are'} dated ${app.formatDmy(app.editCutoffDate())} or earlier and will be entered on ${oldCount === 1 ? 'its' : 'their'} payment date. Tick to enter ${oldCount === 1 ? 'it' : 'them'} on the working date (${app.formatDmy(app.workDate())}) instead`;
 
     // Receipts
     receiptTable.querySelector('tbody').innerHTML = receipts.map((receipt, index) => {
@@ -461,10 +460,6 @@ export function setupReceiptImport(app) {
       refreshStatuses(); // re-check duplicates against the freshly loaded sheet
       const entries = plannedEntries();
       if (!entries.length) { message.textContent = 'Nothing to add: the selected receipts are already in Expenses.'; render(); return; }
-      if (entries.some(entry => !app.isDateEditable(entry.entry_date))) {
-        message.textContent = 'Some entries are dated before the edit window. Tick the working-date option or untick those receipts.';
-        return;
-      }
       const name = nameInput.value.trim();
       const added = app.addExpenseEntries(entries.map(entry => ({
         entry_date: entry.entry_date,

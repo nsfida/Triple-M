@@ -18,7 +18,34 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
-## Latest update: Import → daily collections + smoother arrow keys (no new migration)
+## Latest update: back-dated entries, formula bar, Ctrl+Arrow, Cash Vault cards (migration 015)
+
+**Run one SQL file:** open Supabase → SQL Editor, paste the whole of `sql/migrations/015_backdated_new_entries.sql` and run it once. It is safe to run again, and it changes no data.
+
+### New entries on older dates
+* New entries can now be dated in the past. This works for:
+  * manual rows (type an older date, or pick an older date at the top)
+  * RTA receipts and daily reports for older days
+* Existing entries are protected exactly as before: an entry that is **dated and was entered** more than 3 days ago cannot be changed or deleted.
+* A back-dated entry stays editable for 3 days after you enter it, so you can finish and correct it.
+* The database enforces the same rule. The "entered" time is set by the database and cannot be faked.
+
+### Formula bar
+The bar next to the tabs shows the selected cell (column · row) and its full content, so long text that doesn't fit the cell is readable.
+* For text and amount cells you can also edit there. Enter applies the change; Esc undoes it.
+* Locked or calculated cells are shown read-only.
+
+### Other changes
+* **Change type** appears only when one or more TYPE cells are selected. It shows how many rows are selected.
+* **Ctrl+Arrow** works like Excel:
+  * Inside a block of filled cells, it stops at the block's last filled cell.
+  * From an empty cell, it jumps to the next filled cell, or to the edge of the sheet if there is none.
+  * Home and End still go to the first and last column.
+* **Cash Vault:**
+  * The Staff Balance button is removed; click the **Staff Balance** card to open the panel.
+  * **Cash counted** now sits inside the Available Cash card.
+
+## Earlier update: Import → daily collections + smoother arrow keys (no new migration)
 
 **No SQL to run.** Nothing in the database changes; existing rows are untouched.
 
@@ -218,7 +245,8 @@ expense_vault_project/
 │       ├── 011_staff_balance_transactions_and_edit_window.sql
 │       ├── 012_row_order.sql
 │       ├── 013_staff_entry_edit_delete.sql
-│       └── 014_users_profiles_payment_types.sql
+│       ├── 014_users_profiles_payment_types.sql
+│       └── 015_backdated_new_entries.sql
 └── supabase/
     ├── config.toml
     └── functions/

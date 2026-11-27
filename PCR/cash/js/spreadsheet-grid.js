@@ -266,7 +266,10 @@ function paintSelection(grid, { notify = true } = {}) {
   (grid.markedNodes || []).forEach(node => node.classList.remove('col-active', 'row-active'));
   grid.markedNodes = [];
   const range = selectionRange(grid);
-  if (notify) grid.config.onSelectionChange?.(range ? { ...range } : null);
+  if (notify) {
+    grid.config.onSelectionChange?.(range ? { ...range } : null);
+    notifyActiveCell(range ? { table: grid.table, row: grid.anchor.row, col: grid.anchor.col, range: { ...range } } : null);
+  }
   if (!range) return;
   const headerCells = grid.table.tHead?.rows[0]?.cells;
   for (let col = range.minCol; col <= range.maxCol; col += 1) {
@@ -290,6 +293,27 @@ function paintSelection(grid, { notify = true } = {}) {
     }
   }
   findCell(grid, grid.anchor.row, grid.anchor.col)?.classList.add('cell-range-anchor');
+}
+
+// Listeners told which cell is active (formula bar). null = no selection anywhere.
+const activeCellListeners = new Set();
+let lastActiveCellKey = '';
+function notifyActiveCell(info) {
+  if (!info && activeGrid && activeGrid.anchor) return; // another grid took over
+  const key = info ? `${info.table.id}|${info.row}|${info.col}|${info.range.minRow},${info.range.maxRow},${info.range.minCol},${info.range.maxCol}` : '';
+  if (key === lastActiveCellKey) return;
+  lastActiveCellKey = key;
+  activeCellListeners.forEach(listener => listener(info));
+}
+
+export function onActiveCellChange(listener) {
+  activeCellListeners.add(listener);
+  return () => activeCellListeners.delete(listener);
+}
+
+// Gives keyboard focus back to the active sheet (e.g. after typing in the formula bar).
+export function refocusActiveGrid() {
+  if (activeGrid?.anchor) syncClipboardProxy(activeGrid);
 }
 
 function ensureCellVisible(grid, position) {
@@ -368,17 +392,17 @@ export function clearAllSpreadsheetSelections() {
   activeGrid = null;
 }
 
-function moveSelection(grid, rowDelta, colDelta, { extend = false, jump = false } = {}) {
+function moveSelection(grid, rowDelta, colDelta, { extend = false, jump = false, edge = false } = {}) {
   const rows = rowCount(grid);
   const columns = columnCount(grid);
   if (!rows || !columns || !grid.anchor) return;
   const base = extend ? grid.head : grid.anchor;
   let row = base.row + rowDelta;
   let col = base.col + colDelta;
-  if (jump) {
+  if (edge) {
     if (rowDelta) row = rowDelta < 0 ? 0 : rows - 1;
     if (colDelta) col = colDelta < 0 ? 0 : columns - 1;
-  }
+  } else if (jump) ({ row, col } = jumpTarget(grid, base, rowDelta, colDelta, rows, columns));
   const target = {
     row: Math.min(rows - 1, Math.max(0, row)),
     col: Math.min(columns - 1, Math.max(0, col))
@@ -386,6 +410,30 @@ function moveSelection(grid, rowDelta, colDelta, { extend = false, jump = false 
   // Keyboard moves defer the clipboard-proxy text (see deferClipboardProxyText).
   if (extend) setSelection(grid, grid.anchor, target, { sync: 'defer' });
   else setSelection(grid, target, target, { sync: 'defer' });
+}
+
+// Ctrl+Arrow like Excel: inside a block of filled cells go to the block's last filled cell;
+// from an empty cell (or a block's edge) go to the next filled cell, else the sheet edge.
+function cellHasValue(grid, row, col) {
+  let text;
+  if (grid.config.getCellText) text = grid.config.getCellText(row, col);
+  else { const cell = findCell(grid, row, col); text = cell ? cellText(cell) : ''; }
+  return String(text ?? '').trim() !== '';
+}
+
+function jumpTarget(grid, base, rowDelta, colDelta, rows, columns) {
+  const inside = (r, c) => r >= 0 && r < rows && c >= 0 && c < columns;
+  let r = base.row;
+  let c = base.col;
+  if (!inside(r + rowDelta, c + colDelta)) return { row: r, col: c };
+  if (cellHasValue(grid, r, c) && cellHasValue(grid, r + rowDelta, c + colDelta)) {
+    while (inside(r + rowDelta, c + colDelta) && cellHasValue(grid, r + rowDelta, c + colDelta)) { r += rowDelta; c += colDelta; }
+    return { row: r, col: c };
+  }
+  r += rowDelta;
+  c += colDelta;
+  while (inside(r + rowDelta, c + colDelta) && !cellHasValue(grid, r, c)) { r += rowDelta; c += colDelta; }
+  return { row: r, col: c };
 }
 
 function selectEverything(grid) {
@@ -628,6 +676,8 @@ function handleGridDoubleClick(grid, event) {
 document.addEventListener('mousedown', event => {
   const grid = activeGrid;
   if (!grid || event.target === clipboardProxy) return;
+  // The formula bar and selection-based buttons (Change type) keep the selection.
+  if (event.target instanceof Element && event.target.closest('[data-keeps-selection]')) return;
   const cell = cellFromNode(event.target);
   // Presses inside a spreadsheet cell are handled by that grid.
   if (cell && cell.closest('table') && [...grids.values()].some(item => item.table.contains(cell))) return;
@@ -683,8 +733,8 @@ function handleProxyKeyDown(event) {
     case 'ArrowLeft': event.preventDefault(); moveSelection(grid, 0, -1, { extend: event.shiftKey }); return;
     case 'ArrowRight': event.preventDefault(); moveSelection(grid, 0, 1, { extend: event.shiftKey }); return;
     case 'Tab': event.preventDefault(); moveSelection(grid, 0, event.shiftKey ? -1 : 1); return;
-    case 'Home': event.preventDefault(); moveSelection(grid, 0, -1, { extend: event.shiftKey, jump: true }); return;
-    case 'End': event.preventDefault(); moveSelection(grid, 0, 1, { extend: event.shiftKey, jump: true }); return;
+    case 'Home': event.preventDefault(); moveSelection(grid, 0, -1, { extend: event.shiftKey, edge: true }); return;
+    case 'End': event.preventDefault(); moveSelection(grid, 0, 1, { extend: event.shiftKey, edge: true }); return;
     case 'PageUp': event.preventDefault(); moveSelection(grid, -10, 0, { extend: event.shiftKey }); return;
     case 'PageDown': event.preventDefault(); moveSelection(grid, 10, 0, { extend: event.shiftKey }); return;
     case 'Escape': event.preventDefault(); clearSelection(grid); return;
