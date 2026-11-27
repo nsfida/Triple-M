@@ -1753,17 +1753,7 @@ async function uploadCompanyLogoToStorage(userId, file){
   const name = uploadFile.name || file.name || "logo.jpg";
   const ext = (name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
   const path = `${userId}/logo-${Date.now()}.${ext}`;
-  const uploadUrl = `${dbConfig.supabaseUrl}/storage/v1/object/company-logos/${path}`;
-  const res = await fetch(uploadUrl, {
-    method: "POST",
-    headers: {
-      apikey: dbConfig.supabaseKey,
-      Authorization: `Bearer ${dbConfig.supabaseKey}`,
-      "Content-Type": uploadFile.type || file.type || "image/jpeg",
-      "x-upsert": "true"
-    },
-    body: uploadFile
-  });
+  const res = await logoStorageWrite("put", path, uploadFile, { contentType: uploadFile.type || file.type || "image/jpeg" });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Logo upload failed (${res.status})`);
@@ -3988,17 +3978,7 @@ async function upsertAdminStoragePhoto(path, blob){
   if (!p) throw new Error("Storage path missing.");
   if (!blob) throw new Error("Compressed image missing.");
   const dbConfig = getSupabaseConfig();
-  const uploadUrl = `${dbConfig.supabaseUrl}/storage/v1/object/company-logos/${p}`;
-  const res = await fetch(uploadUrl, {
-    method: "POST",
-    headers: {
-      apikey: dbConfig.supabaseKey,
-      Authorization: `Bearer ${dbConfig.supabaseKey}`,
-      "Content-Type": blob.type || "image/jpeg",
-      "x-upsert": "true"
-    },
-    body: blob
-  });
+  const res = await logoStorageWrite("put", p, blob, { contentType: blob.type || "image/jpeg" });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Storage overwrite failed (${res.status})`);

@@ -86,7 +86,7 @@
         return !!(res && res.ok);
       },
       uploadLogo: async (p, bytes, type) => {
-        const res = await fetch(`${c.url}/storage/v1/object/company-logos/${encodePath(p)}`, { method: "POST", headers: { apikey: c.key, Authorization: `Bearer ${c.key}`, "Content-Type": type }, body: bytes });
+        const res = await logoStorageWrite("put", p, bytes, { contentType: type, upsert: false });
         if (res.ok) return true;
         if (res.status === 409 || res.status === 400) return "exists"; // never replaced
         return false;

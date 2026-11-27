@@ -260,6 +260,9 @@ const CANONICAL_MIGRATION_FILES = [
   "242_triplem_drive_photo_limits.sql",
   "243_triplem_drive_cars_always_available.sql",
   "244_insurance_edit_commission_deductions.sql",
+  "245_security_inventory_upsert_owner_check.sql",
+  "246_security_logo_storage_authorize.sql",
+  "247_security_logo_storage_no_anonymous_writes.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

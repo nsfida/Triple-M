@@ -150,11 +150,8 @@
       },
       uploadFile: async (path, bytes, type) => {
         if (!cfg || !path.startsWith(uid + "/")) return false;
-        const res = await fetch(`${cfg.supabaseUrl}/storage/v1/object/company-logos/${encodePath(path)}`, {
-          method: "POST", // no upsert: an existing file is never replaced
-          headers: { apikey: cfg.supabaseKey, Authorization: `Bearer ${cfg.supabaseKey}`, "Content-Type": type },
-          body: bytes
-        });
+        // no upsert: an existing file is never replaced
+        const res = await logoStorageWrite("put", path, bytes, { contentType: type, upsert: false });
         if (res.ok) return true;
         if (res.status === 409 || res.status === 400) return "exists";
         return false;

@@ -2107,6 +2107,37 @@ function getSupabaseConfig(){
   return runtimeConfig;
 }
 
+/**
+ * Writes to the "company-logos" Storage bucket (company logos, older wallet photos).
+ * Since migration 246 they go through the session-checked file-storage Edge Function, which
+ * writes with the server key. Until that function version is deployed (it answers 404 or
+ * "Unsupported action"), the previous direct Storage call is used; migration 247 then turns
+ * the direct route off. Returns a fetch Response (ok / status 409 = already exists / text()).
+ */
+async function logoStorageWrite(op, path, body, options = {}){
+  const cfg = getSupabaseConfig();
+  const base = String(cfg.supabaseUrl || "").replace(/\/$/, "");
+  const p = String(path || "").replace(/^\/+/, "").trim();
+  const upsert = options.upsert !== false;
+  const contentType = options.contentType || body?.type || "image/jpeg";
+  const keyHeaders = { apikey: cfg.supabaseKey, Authorization: `Bearer ${cfg.supabaseKey}` };
+  const direct = () => fetch(`${base}/storage/v1/object/company-logos/${p.split("/").map(encodeURIComponent).join("/")}`, op === "delete"
+    ? { method: "DELETE", headers: keyHeaders }
+    : { method: "POST", headers: { ...keyHeaders, "Content-Type": contentType, ...(upsert ? { "x-upsert": "true" } : {}) }, body });
+  const token = String((typeof state !== "undefined" && state?.sessionToken) || "").trim();
+  if (!token) return direct();
+  const headers = { ...keyHeaders, "X-Session-Token": token };
+  const res = op === "delete"
+    ? await fetch(`${base}/functions/v1/file-storage`, { method: "POST", cache: "no-store", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ action: "logo-delete", path: p }) })
+    : await fetch(`${base}/functions/v1/file-storage?action=logo-put`, { method: "POST", cache: "no-store", headers: { ...headers, "Content-Type": "application/octet-stream", "X-Logo-Path": encodeURIComponent(p), "X-Logo-Upsert": upsert ? "1" : "0" }, body });
+  if (res.status === 404) return direct();
+  if (res.status === 400) {
+    const data = await res.clone().json().catch(() => ({}));
+    if (data?.code === "bad_request" && /Unsupported action/i.test(String(data?.error || ""))) return direct();
+  }
+  return res;
+}
+
 async function supabaseRpc(fnName, args = {}, options = {}){
   const data = await supabase(`rpc/${fnName}`, {
     method: "POST",

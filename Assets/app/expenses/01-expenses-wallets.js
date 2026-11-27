@@ -3764,17 +3764,7 @@ async function uploadWalletLogoToStorage(userId, groupId, file){
   const name = uploadFile.name || file.name || "logo.jpg";
   const ext = (name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
   const path = `${userId}/wallet-${groupId || "new"}-${Date.now()}.${ext}`;
-  const uploadUrl = `${dbConfig.supabaseUrl}/storage/v1/object/company-logos/${path}`;
-  const res = await fetch(uploadUrl, {
-    method: "POST",
-    headers: {
-      apikey: dbConfig.supabaseKey,
-      Authorization: `Bearer ${dbConfig.supabaseKey}`,
-      "Content-Type": uploadFile.type || file.type || "image/jpeg",
-      "x-upsert": "true"
-    },
-    body: uploadFile
-  });
+  const res = await logoStorageWrite("put", path, uploadFile, { contentType: uploadFile.type || file.type || "image/jpeg" });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Wallet logo upload failed (${res.status})`);
@@ -3787,16 +3777,8 @@ async function deleteWalletLogoFromStorage(url){
   const path = typeof walletLogoStorageObjectPath === "function" ? walletLogoStorageObjectPath(url) : "";
   if (!path) return false;
   if (typeof isStoredWalletLogoUrl === "function" && !isStoredWalletLogoUrl(url)) return false;
-  const dbConfig = getSupabaseConfig();
-  const deleteUrl = `${dbConfig.supabaseUrl}/storage/v1/object/company-logos/${path}`;
   try {
-    const res = await fetch(deleteUrl, {
-      method: "DELETE",
-      headers: {
-        apikey: dbConfig.supabaseKey,
-        Authorization: `Bearer ${dbConfig.supabaseKey}`
-      }
-    });
+    const res = await logoStorageWrite("delete", path);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.warn("Wallet logo storage delete failed:", res.status, text);
