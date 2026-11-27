@@ -877,6 +877,14 @@ export function createSpreadsheetGrid(table, config) {
   return {
     clearSelection: () => clearSelection(grid),
     startEditing: (row, col, options) => beginEdit(grid, row, col, options),
+    // Selects one cell (scrolling it into view) and gives the sheet keyboard focus.
+    selectCell: (row, col) => {
+      const rows = rowCount(grid);
+      if (!rows) return;
+      const target = { row: Math.min(rows - 1, Math.max(0, row)), col: Math.min(columnCount(grid) - 1, Math.max(0, col)) };
+      if (grid.editing) finishEdit(grid);
+      setSelection(grid, target, target);
+    },
     // Re-applies the selection highlight after rows were (re)rendered.
     repaint: () => {
       if (!grid.anchor) return;

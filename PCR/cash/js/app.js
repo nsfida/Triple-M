@@ -8,10 +8,10 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js?v=fast-autosave-1';
-import { createVirtualSheet } from './virtual-sheet.js?v=formula-1';
-import { setupReceiptImport } from './receipt-import.js?v=collections-1';
+import { createVirtualSheet } from './virtual-sheet.js?v=fix-6';
+import { setupReceiptImport } from './receipt-import.js?v=fix-6';
 import { createAccountPanel } from './account-panel.js?v=settings-1';
-import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid, onActiveCellChange, refocusActiveGrid } from './spreadsheet-grid.js?v=formula-1';
+import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid, onActiveCellChange, refocusActiveGrid } from './spreadsheet-grid.js?v=fix-6';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -309,7 +309,8 @@ function isRecentlyEntered(row) {
 }
 
 function isRowLocked(row, dateField) {
-  return Boolean(row?.id) && !isDateEditable(row[dateField]) && !isRecentlyEntered(row);
+  // Imported entries (RTA receipts, daily reports) dated before the window are locked at once.
+  return Boolean(row?.id) && !isDateEditable(row[dateField]) && (Boolean(row.is_imported) || !isRecentlyEntered(row));
 }
 
 function withEditWindow(text) {
@@ -816,6 +817,7 @@ function addExpenseEntries(entries) {
     row.spent_by = entry.spent_by || '';
     row.invoice_number = entry.invoice_number || '';
     row.transaction_type = canonicalType('expenses', entry.transaction_type) || 'Cash';
+    row.is_imported = true;
     Object.entries(entry.amounts || {}).forEach(([field, cents]) => {
       if (AMOUNT_FIELDS.includes(field) && cents) row[field] = (cents / 100).toFixed(2);
     });
@@ -878,6 +880,7 @@ function addReceivedEntries(entries) {
     row.name = entry.name || '';
     row.merchant = entry.merchant || '';
     row.transaction_type = entry.transaction_type;
+    row.is_imported = true;
     Object.entries(entry.amounts || {}).forEach(([field, cents]) => {
       if (RECEIVING_AMOUNT_FIELDS.includes(field) && cents) row[field] = (cents / 100).toFixed(2);
     });
@@ -1083,7 +1086,7 @@ function renderCashCountCell(row, column) {
 function updateCashCountToolbar() {
   updateSyncIndicatorSoon();
   cashAddButton.disabled = !canEdit('cash_vault');
-  cashDeleteButton.disabled = !canEdit('cash_vault') || !selectedCashClientId;
+  updateDeleteButton('cash');
   setText(el('cashVaultPermissionNote'), accessNoteText('cash_vault'));
 }
 
@@ -1459,33 +1462,6 @@ async function saveCashCountChanges() {
   return { saved, failures };
 }
 
-async function deleteSelectedCashCount() {
-  if (!canEdit('cash_vault') || !selectedCashClientId) return;
-  const row = cashCounts.find(item => item.clientId === selectedCashClientId);
-  if (!row) return;
-  if (isRowLocked(row, 'count_date')) { warnLockedEdit('delete'); return; }
-  if (!window.confirm(`Delete the cash count for ${formatDateLabel(row.count_date)}? This cannot be undone.`)) return;
-  cashDeleteButton.disabled = true;
-  // Waits for any save of this row that is already on its way, then deletes it.
-  const failure = await runLedgerTask(async () => {
-    if (!row.id) return null;
-    const { data, error } = await supabase.from('cash_vault_counts').delete().eq('id', row.id).select('id');
-    if (error || !data?.length) return error?.message || 'The cash count could not be deleted. Check your access permission.';
-    return null;
-  });
-  if (failure) {
-    showToast(failure, true);
-    updateCashCountToolbar();
-    return;
-  }
-  cashCounts = cashCounts.filter(item => item !== row);
-  if (selectedCashClientId === row.clientId) selectedCashClientId = null;
-  persistPendingLocally();
-  renderCashCounts();
-  updateSyncIndicatorSoon();
-  setCashVaultStatus('Cash count deleted');
-  showToast('Selected daily cash count deleted.');
-}
 
 // ---------------------------------------------------------------------------
 // Staff Balance panel (list → add amount / add new → history)
@@ -1849,7 +1825,7 @@ function updateToolbar() {
   el('importReceiptsButton').disabled = !canImportAnything();
   el('importReceiptsButton').classList.toggle('hidden', !permissions.import);
   el('changeTypeExpensesButton').disabled = !canEdit('expenses');
-  deleteButton.disabled = !canEdit('expenses') || !selectedClientId;
+  updateDeleteButton('expenses');
   setText(el('permissionNote'), accessNoteText('expenses'));
 }
 
@@ -1859,7 +1835,7 @@ function updateReceivedToolbar() {
   el('changeTypeReceivedButton').disabled = !canEdit('received');
   el('importReceivedButton').disabled = !canImportAnything();
   el('importReceivedButton').classList.toggle('hidden', !permissions.import);
-  receivedDeleteButton.disabled = !canEdit('received') || !selectedReceivedClientId;
+  updateDeleteButton('received');
   setText(el('receivedPermissionNote'), accessNoteText('received'));
 }
 
@@ -2140,6 +2116,7 @@ async function saveReceivedChanges() {
   saveState.received = true;
   setText(receivedSheetStatus, 'Saving…');
   let saved = 0;
+  let lockedAfterSave = false;
   const failures = [];
   await runLedgerTask(async () => {
     for (const row of dirtyRows) {
@@ -2150,10 +2127,11 @@ async function saveReceivedChanges() {
         applyMovedOrder(payload, row, receivedRows);
         const result = row.id
           ? await supabase.from('received_records').update(payload).eq('id', row.id).select('*').single()
-          : await supabase.from('received_records').insert(payload).select('*').single();
+          : await supabase.from('received_records').insert(row.is_imported ? { ...payload, is_imported: true } : payload).select('*').single();
         if (result.error) throw result.error;
         const committed = ledgerSnapshot(result.data, RECEIVING_AMOUNT_FIELDS);
         recordLedgerCommit('received', row._base ?? null, committed);
+        if (row.is_imported && !row.id && !isDateEditable(row.entry_date)) lockedAfterSave = true;
         Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, sort_order: result.data.sort_order, _base: committed, _isNew: false, _orderMoved: false });
         let after = null;
         try { after = JSON.stringify(getReceivedPayload(row)); } catch (_) { /* keep dirty */ }
@@ -2166,6 +2144,7 @@ async function saveReceivedChanges() {
       }
     }
   });
+  if (lockedAfterSave) receivedSheet.refresh(); // imported older rows are locked now
   saveState.received = false;
   updateReceivedToolbar();
   scheduleCashPositionRender();
@@ -2183,35 +2162,6 @@ async function saveReceivedChanges() {
   return { saved, failures };
 }
 
-async function deleteSelectedReceivedRow() {
-  if (!canEdit('received') || !selectedReceivedClientId) return;
-  const row = receivedRows.find(item => item.clientId === selectedReceivedClientId);
-  if (!row) return;
-  if (isRowLocked(row, 'entry_date')) { warnLockedEdit('delete'); return; }
-  if (!window.confirm('Delete the selected received row? This cannot be undone.')) return;
-  receivedDeleteButton.disabled = true;
-  // Waits for any save of this row that is already on its way, then deletes it.
-  const failure = await runLedgerTask(async () => {
-    if (!row.id) return null;
-    const { data, error } = await supabase.from('received_records').delete().eq('id', row.id).select('id');
-    if (error || !data?.length) return error?.message || 'The row could not be deleted. Check your access permission.';
-    recordLedgerCommit('received', row._base ?? null, null);
-    return null;
-  });
-  if (failure) {
-    showToast(failure, true);
-    updateReceivedToolbar();
-    return;
-  }
-  receivedRows = receivedRows.filter(item => item !== row);
-  if (selectedReceivedClientId === row.clientId) selectedReceivedClientId = null;
-  persistPendingLocally();
-  renderReceivedTable();
-  scheduleCashPositionRender();
-  receivedSheetStatus.textContent = 'Row deleted';
-  receivedSheetStatus.classList.remove('dirty', 'error');
-  showToast('Selected received row deleted.');
-}
 
 function markRowDirty(row) {
   row._dirty = true;
@@ -2266,6 +2216,7 @@ async function saveChanges() {
   saveState.expenses = true;
   setSheetStatus('Saving…', 'dirty');
   let saved = 0;
+  let lockedAfterSave = false;
   const failures = [];
 
   await runLedgerTask(async () => {
@@ -2277,10 +2228,11 @@ async function saveChanges() {
         applyMovedOrder(payload, row, rows);
         const result = row.id
           ? await supabase.from('expense_records').update(payload).eq('id', row.id).select('*').single()
-          : await supabase.from('expense_records').insert(payload).select('*').single();
+          : await supabase.from('expense_records').insert(row.is_imported ? { ...payload, is_imported: true } : payload).select('*').single();
         if (result.error) throw result.error;
         const committed = ledgerSnapshot(result.data, AMOUNT_FIELDS);
         recordLedgerCommit('expense', row._base ?? null, committed);
+        if (row.is_imported && !row.id && !isDateEditable(row.entry_date)) lockedAfterSave = true;
         // Update the row in place so typing is never interrupted.
         Object.assign(row, { id: result.data.id, created_at: result.data.created_at, updated_at: result.data.updated_at, sort_order: result.data.sort_order, _base: committed, _isNew: false, _orderMoved: false });
         let after = null;
@@ -2294,6 +2246,7 @@ async function saveChanges() {
       }
     }
   });
+  if (lockedAfterSave) expenseSheet.refresh(); // imported older rows are locked now
 
   saveState.expenses = false;
   updateToolbar();
@@ -2309,34 +2262,85 @@ async function saveChanges() {
   return { saved, failures };
 }
 
-async function deleteSelectedRow() {
-  if (!canEdit('expenses') || !selectedClientId) return;
-  const row = rows.find(item => item.clientId === selectedClientId);
-  if (!row) return;
-  if (isRowLocked(row, 'entry_date')) { warnLockedEdit('delete'); return; }
-  if (!window.confirm('Delete the selected expense row? This cannot be undone.')) return;
-  deleteButton.disabled = true;
-  // Waits for any save of this row that is already on its way, then deletes it.
+// ---- Delete selected row(s) ------------------------------------------------------------
+// Every row touched by the current cell selection is deleted (or the clicked row when
+// nothing is selected). Locked (older) rows and the empty row at the bottom are skipped.
+const DELETE_TARGETS = {
+  expenses: { section: 'expenses', table: () => table, list: () => rows, set: list => { rows = list; }, selected: () => selectedClientId, clearSelected: () => { selectedClientId = null; }, dbTable: 'expense_records', dateField: 'entry_date', commit: 'expense', blank: row => isBlankExpenseRow(row), button: () => deleteButton, noun: 'expense' },
+  received: { section: 'received', table: () => el('receivedTable'), list: () => receivedRows, set: list => { receivedRows = list; }, selected: () => selectedReceivedClientId, clearSelected: () => { selectedReceivedClientId = null; }, dbTable: 'received_records', dateField: 'entry_date', commit: 'received', blank: row => isBlankReceivedRow(row), button: () => receivedDeleteButton, noun: 'received' },
+  cash: { section: 'cash_vault', table: () => el('cashCountTable'), list: () => cashCounts, set: list => { cashCounts = list; }, selected: () => selectedCashClientId, clearSelected: () => { selectedCashClientId = null; }, dbTable: 'cash_vault_counts', dateField: 'count_date', commit: null, blank: () => false, button: () => cashDeleteButton, noun: 'cash count' }
+};
+
+function rowsSelectedFor(kind) {
+  const target = DELETE_TARGETS[kind];
+  const list = target.list();
+  const range = sheetConfigs.get(target.table())?.lastRange;
+  let picked = [];
+  if (range) picked = list.slice(range.minRow, range.maxRow + 1);
+  else if (target.selected()) picked = list.filter(row => row.clientId === target.selected());
+  return picked.filter(row => row && !(row._isNew && !row.id && target.blank(row)));
+}
+
+function updateDeleteButton(kind) {
+  const target = DELETE_TARGETS[kind];
+  const button = target.button();
+  if (!button) return;
+  const count = rowsSelectedFor(kind).length;
+  button.disabled = !canEdit(target.section) || count === 0;
+  button.textContent = count > 1 ? `Delete Selected Rows (${count})` : 'Delete Selected Row';
+}
+
+async function deleteSelectedRows(kind) {
+  const target = DELETE_TARGETS[kind];
+  if (!canEdit(target.section)) return;
+  const picked = rowsSelectedFor(kind);
+  if (!picked.length) { showToast('Select the row or rows to delete first.', true); return; }
+  const locked = picked.filter(row => isRowLocked(row, target.dateField));
+  const deletable = picked.filter(row => !locked.includes(row));
+  if (!deletable.length) { warnLockedEdit('delete'); return; }
+  const dates = [...new Set(deletable.map(row => row[target.dateField]).filter(Boolean))].sort();
+  const dateText = dates.length === 1 ? formatDmy(dates[0]) : dates.length ? `${formatDmy(dates[0])} – ${formatDmy(dates[dates.length - 1])}` : '';
+  const question = deletable.length === 1
+    ? `Delete the selected ${target.noun} row${dateText ? ` (${dateText})` : ''}? This cannot be undone.`
+    : `Delete ${deletable.length} selected ${target.noun} rows${dateText ? ` (${dateText})` : ''}? This cannot be undone.`;
+  if (!window.confirm(`${question}${locked.length ? `\n\n${locked.length} older locked row${locked.length === 1 ? '' : 's'} will be skipped.` : ''}`)) return;
+  const button = target.button();
+  button.disabled = true;
+  // Waits for any save already on its way, then deletes the saved rows in batches.
   const failure = await runLedgerTask(async () => {
-    if (!row.id) return null;
-    const { data, error } = await supabase.from('expense_records').delete().eq('id', row.id).select('id');
-    if (error || !data?.length) return error?.message || 'The row could not be deleted. Check your access permission.';
-    recordLedgerCommit('expense', row._base ?? null, null);
+    const saved = deletable.filter(row => row.id);
+    for (let i = 0; i < saved.length; i += 200) {
+      const chunk = saved.slice(i, i + 200);
+      const { data, error } = await supabase.from(target.dbTable).delete().in('id', chunk.map(row => row.id)).select('id');
+      if (error) return error.message || 'The rows could not be deleted. Check your access permission.';
+      const gone = new Set((data || []).map(item => item.id));
+      chunk.forEach(row => {
+        if (!gone.has(row.id)) return;
+        row._deleted = true;
+        if (target.commit) recordLedgerCommit(target.commit, row._base ?? null, null);
+      });
+      if (gone.size < chunk.length) return 'Some rows could not be deleted. Check your access permission.';
+    }
     return null;
   });
-  if (failure) {
-    showToast(failure, true);
-    updateToolbar();
-    return;
-  }
-  rows = rows.filter(item => item !== row);
-  if (selectedClientId === row.clientId) selectedClientId = null;
+  const removed = deletable.filter(row => !row.id || row._deleted);
+  const removedSet = new Set(removed);
+  target.set(target.list().filter(row => !removedSet.has(row)));
+  if (removed.some(row => row.clientId === target.selected())) target.clearSelected();
+  clearAllSpreadsheetSelections();
   persistPendingLocally();
-  renderTable();
-  scheduleCashPositionRender();
-  setSheetStatus('Row deleted locally and from database');
-  showToast('Selected row deleted.');
+  if (kind === 'expenses') { renderTable(); scheduleCashPositionRender(); setSheetStatus(failure ? 'Some rows were not deleted' : 'Rows deleted'); }
+  else if (kind === 'received') { renderReceivedTable(); scheduleCashPositionRender(); receivedSheetStatus.textContent = failure ? 'Some rows were not deleted' : 'Rows deleted'; receivedSheetStatus.classList.remove('dirty', 'error'); }
+  else { renderCashCounts(); setCashVaultStatus(failure ? 'Some rows were not deleted' : 'Cash count deleted'); }
+  updateSyncIndicatorSoon();
+  updateDeleteButton(kind);
+  if (failure) showToast(`${removed.length ? `${removed.length} deleted. ` : ''}${failure}`, true);
+  else showToast(`${removed.length} ${target.noun} row${removed.length === 1 ? '' : 's'} deleted.${locked.length ? ` ${locked.length} locked row${locked.length === 1 ? '' : 's'} skipped.` : ''}`);
 }
+
+const deleteSelectedCashCount = () => deleteSelectedRows('cash');
+const deleteSelectedReceivedRow = () => deleteSelectedRows('received');
+const deleteSelectedRow = () => deleteSelectedRows('expenses');
 
 function normalizePastedDate(rawValue) {
   const value = String(rawValue ?? '').trim();
@@ -2734,7 +2738,7 @@ function buildExportSheet(XLSX, columns, records, valueFor) {
       return valueFor(record, column);
     }));
   });
-  const sheet = XLSX.utils.aoa_to_sheet(matrix);
+  const sheet = XLSX.utils.aoa_to_sheet(matrix, { sheetStubs: false });
   sheet['!cols'] = columns.map(column => ({
     wch: column.kind === 'date' ? 12 : column.kind === 'text' ? 18 : Math.max(8, column.label.length + 2)
   }));
@@ -2756,20 +2760,22 @@ async function exportToExcel() {
       fetchAllRows('received_records', ['sort_order', 'created_at', 'id'])
     ]);
 
-    const numberOrBlank = value => (value === '' || value == null ? 0 : Number(value));
+    // Empty and zero amounts are left as truly empty cells (like the sheet on screen).
+    const numberOrBlank = value => { const number = Number(value); return value === '' || value == null || !Number.isFinite(number) || number === 0 ? null : number; };
+    const textOrBlank = value => (value == null || String(value).trim() === '' ? null : value);
     const cashSheet = buildExportSheet(XLSX, CASH_COUNT_COLUMNS, cashRecords, (record, column) => {
-      if (column.kind === 'total') return calculateCashCountCents(record) / 100;
+      if (column.kind === 'total') return numberOrBlank(calculateCashCountCents(record) / 100);
       return numberOrBlank(record[column.field]);
     });
     const expenseSheet = buildExportSheet(XLSX, COLUMNS, expenseRecords, (record, column) => {
-      if (column.kind === 'total') return Number(calculateTotal(record, AMOUNT_FIELDS).toFixed(2));
+      if (column.kind === 'total') return numberOrBlank(Number(calculateTotal(record, AMOUNT_FIELDS).toFixed(2)));
       if (column.kind === 'amount') return numberOrBlank(record[column.field]);
-      return record[column.field] ?? '';
+      return textOrBlank(record[column.field]);
     });
     const receivedSheet = buildExportSheet(XLSX, RECEIVING_COLUMNS, receivedRecords, (record, column) => {
-      if (column.kind === 'total') return Number(calculateTotal(record, RECEIVING_AMOUNT_FIELDS).toFixed(2));
+      if (column.kind === 'total') return numberOrBlank(Number(calculateTotal(record, RECEIVING_AMOUNT_FIELDS).toFixed(2)));
       if (column.kind === 'amount') return numberOrBlank(record[column.field]);
-      return record[column.field] ?? '';
+      return textOrBlank(record[column.field]);
     });
 
     const workbook = XLSX.utils.book_new();
@@ -3473,6 +3479,7 @@ function updateChangeTypeButtons(info) {
 onActiveCellChange(info => {
   updateFormulaBar(info);
   updateChangeTypeButtons(info);
+  Object.keys(DELETE_TARGETS).forEach(updateDeleteButton);
 });
 
 // Typing in the formula bar writes straight into the cell (and autosaves like the cell).
@@ -3513,6 +3520,214 @@ document.addEventListener('input', event => {
   if (config.getRows()[formulaCell.row]?.clientId !== cell.parentElement?.dataset.clientId || cell.cellIndex !== formulaCell.col) return;
   formulaInput.value = formulaDisplayText(config, formulaCell.row, formulaCell.col);
   formulaCell.original = formulaInput.value;
+});
+
+// ---- Global search + date search -------------------------------------------------------
+// Searches every loaded row of Expenses and Received (all dates). Results open the row in
+// its sheet with the matching cell selected.
+const searchInput = el('globalSearchInput');
+const searchDate = el('globalSearchDate');
+const searchDateTo = el('globalSearchDateTo');
+const searchBox = el('globalSearch');
+const searchResults = el('globalSearchResults');
+const SEARCH_LIMIT_STEP = 30;
+let searchTimer = null;
+let searchLimits = {};
+let searchActiveIndex = -1;
+let searchItems = [];
+
+const SEARCH_SOURCES = [
+  { key: 'expenses', label: 'Expenses', section: 'expenses', tab: 'expenses', columns: COLUMNS, amountFields: AMOUNT_FIELDS, list: () => rows, blank: row => isBlankExpenseRow(row), loaded: () => expensesLoaded, load: () => loadExpenses(), table: () => table,
+    title: row => row.supplier || row.spent_by || '(no supplier)', sub: row => [row.spent_by, row.invoice_number && `Inv# ${row.invoice_number}`, row.trn_number && row.trn_number !== '---' ? `TRN ${row.trn_number}` : ''].filter(Boolean).join(' · ') },
+  { key: 'received', label: 'Received', section: 'received', tab: 'received', columns: RECEIVING_COLUMNS, amountFields: RECEIVING_AMOUNT_FIELDS, list: () => receivedRows, blank: row => isBlankReceivedRow(row), loaded: () => receivedLoaded, load: () => loadReceived(), table: () => el('receivedTable'),
+    title: row => row.name || row.merchant || '(no name)', sub: row => row.merchant || '' }
+];
+
+function searchHaystack(source, row) {
+  const parts = [formatDmy(row.entry_date), row.entry_date, row.transaction_type];
+  source.columns.forEach(column => {
+    if (column.kind === 'text') parts.push(row[column.field]);
+    else if (column.kind === 'amount') {
+      const value = Number(row[column.field]);
+      if (value) parts.push(String(value), value.toFixed(2), value.toLocaleString('en-US', { minimumFractionDigits: 2 }));
+    }
+  });
+  const total = calculateTotal(row, source.amountFields);
+  if (total) parts.push(String(Number(total.toFixed(2))), total.toFixed(2), total.toLocaleString('en-US', { minimumFractionDigits: 2 }));
+  return parts.filter(Boolean).join('   ').toLowerCase();
+}
+
+// Which column to select when a result is opened: the first one containing a search word.
+function matchingColumn(source, row, tokens) {
+  if (!tokens.length) return 0;
+  const index = source.columns.findIndex(column => {
+    if (column.kind === 'text') return tokens.some(token => String(row[column.field] ?? '').toLowerCase().includes(token));
+    if (column.kind === 'amount') { const value = Number(row[column.field]); return value && tokens.some(token => String(value).includes(token) || value.toFixed(2).includes(token)); }
+    if (column.kind === 'select') return tokens.some(token => String(row.transaction_type ?? '').toLowerCase().includes(token));
+    return false;
+  });
+  return index >= 0 ? index : 1;
+}
+
+function highlight(text, tokens) {
+  let html = escapeHtml(text);
+  tokens.forEach(token => {
+    if (!token) return;
+    const pattern = new RegExp(escapeHtml(token).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    html = html.replace(pattern, match => `<mark>${match}</mark>`);
+  });
+  return html;
+}
+
+const searchMoney = value => Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function runSearch() {
+  const query = searchInput.value.trim().toLowerCase();
+  // One date = that day; two dates = the range between them (either order).
+  let from = searchDate.value || searchDateTo.value;
+  let to = searchDateTo.value || searchDate.value;
+  if (from && to && from > to) [from, to] = [to, from];
+  const date = from;
+  const inRange = value => !from || (value >= from && value <= to);
+  searchBox.classList.toggle('has-query', Boolean(query || date));
+  if (!query && !date) { closeSearch(); return; }
+  const tokens = query.split(/\s+/).filter(Boolean);
+  const pending = SEARCH_SOURCES.filter(source => canView(source.section) && !source.loaded());
+  pending.forEach(source => { Promise.resolve(source.load()).then(() => { if (!searchResults.hidden) runSearch(); }).catch(() => {}); });
+  searchItems = [];
+  const groups = SEARCH_SOURCES.filter(source => canView(source.section)).map(source => {
+    const list = source.list();
+    const hits = [];
+    let totalCents = 0;
+    let cashCents = 0;
+    list.forEach((row, index) => {
+      if (source.blank(row)) return;
+      if (date && !inRange(row.entry_date)) return;
+      if (tokens.length) {
+        const hay = searchHaystack(source, row);
+        if (!tokens.every(token => hay.includes(token))) return;
+      }
+      const cents = Math.round(calculateTotal(row, source.amountFields) * 100);
+      totalCents += cents;
+      if (cashTypeNames.has(row.transaction_type || 'Cash')) cashCents += cents;
+      hits.push({ row, index });
+    });
+    return { source, hits, totalCents, cashCents };
+  });
+  const parts = [];
+  const rangeText = from === to ? formatDmy(from) : `${formatDmy(from)} – ${formatDmy(to)}`;
+  const filterText = [date ? rangeText : '', query ? `“${escapeHtml(searchInput.value.trim())}”` : ''].filter(Boolean).join(' · ');
+  const totalHits = groups.reduce((sum, group) => sum + group.hits.length, 0);
+  parts.push(`<div class="gs-head"><strong>${totalHits} result${totalHits === 1 ? '' : 's'}</strong><span>${filterText}</span>${pending.length ? '<span class="gs-loading">loading…</span>' : ''}<button type="button" class="gs-clear" data-search-action="clear">Clear</button></div>`);
+  if (date) {
+    const counts = cashCounts.filter(row => inRange(row.count_date)).sort((a, b) => String(a.count_date).localeCompare(String(b.count_date)));
+    const lastCount = counts[counts.length - 1];
+    const single = from === to;
+    const countedHtml = !canView('cash_vault') ? '' : single
+      ? `<div><span>Cash counted</span><strong>${lastCount ? searchMoney(calculateCashCountCents(lastCount) / 100) : '—'}</strong><small>${lastCount ? 'daily count saved' : 'no count for this date'}</small></div>`
+      : `<div><span>Cash counted (last day)</span><strong>${lastCount ? searchMoney(calculateCashCountCents(lastCount) / 100) : '—'}</strong><small>${counts.length} daily count${counts.length === 1 ? '' : 's'} in range${lastCount ? ` · ${formatDmy(lastCount.count_date)}` : ''}</small></div>`;
+    const net = groups.reduce((sum, group) => sum + (group.source.key === 'received' ? 1 : -1) * group.cashCents, 0);
+    parts.push(`<div class="gs-day">${groups.map(group => `<div><span>${group.source.label}</span><strong>${searchMoney(group.totalCents / 100)}</strong><small>${group.hits.length} entr${group.hits.length === 1 ? 'y' : 'ies'} · cash ${searchMoney(group.cashCents / 100)}</small></div>`).join('')}${groups.length > 1 && !query ? `<div><span>Net cash (received − expenses)</span><strong>${searchMoney(net / 100)}</strong><small>${escapeHtml(rangeText)}</small></div>` : ''}${countedHtml}</div>`);
+  }
+  groups.forEach(group => {
+    if (!group.hits.length) return;
+    const limit = searchLimits[group.source.key] || SEARCH_LIMIT_STEP;
+    const shown = group.hits.slice(-limit).reverse(); // newest first
+    parts.push(`<div class="gs-group"><span>${group.source.label} · ${group.hits.length}</span><span>AED ${searchMoney(group.totalCents / 100)}</span></div>`);
+    shown.forEach(({ row, index }) => {
+      const position = searchItems.push({ source: group.source, clientId: row.clientId, index, col: matchingColumn(group.source, row, tokens) }) - 1;
+      const total = calculateTotal(row, group.source.amountFields);
+      parts.push(`<button type="button" class="gs-item" role="option" data-search-index="${position}">
+        <span class="gs-date-col">${escapeHtml(formatDmy(row.entry_date))}</span>
+        <span class="gs-main"><strong>${highlight(group.source.title(row), tokens)}</strong><small>${highlight(group.source.sub(row), tokens)}</small></span>
+        <span class="gs-amount"><strong>${highlight(searchMoney(total), tokens)}</strong><small class="${cashTypeNames.has(row.transaction_type || 'Cash') ? 'gs-cash' : ''}">${highlight(row.transaction_type || 'Cash', tokens)}</small></span>
+      </button>`);
+    });
+    if (group.hits.length > shown.length) parts.push(`<button type="button" class="gs-more" data-search-action="more" data-source="${group.source.key}">Show ${Math.min(SEARCH_LIMIT_STEP, group.hits.length - shown.length)} more of ${group.hits.length - shown.length}</button>`);
+  });
+  if (!totalHits) parts.push(`<p class="gs-empty">${pending.length ? 'Loading entries…' : 'No entries found.'}</p>`);
+  searchResults.innerHTML = parts.join('');
+  searchResults.hidden = false;
+  searchActiveIndex = -1;
+}
+
+function scheduleSearch() {
+  clearTimeout(searchTimer);
+  searchLimits = {};
+  searchTimer = setTimeout(runSearch, 120);
+}
+
+function closeSearch() {
+  searchResults.hidden = true;
+  searchActiveIndex = -1;
+}
+
+function openSearchResult(item) {
+  if (!item) return;
+  closeSearch();
+  setActiveTab(item.source.tab);
+  const list = item.source.list();
+  let index = list.findIndex(row => row.clientId === item.clientId);
+  if (index < 0) index = item.index;
+  const tableElement = item.source.table();
+  requestAnimationFrame(() => {
+    sheets.get(tableElement)?.scrollToRow(index);
+    requestAnimationFrame(() => spreadsheetGrids.get(tableElement)?.selectCell(index, item.col));
+  });
+}
+
+function moveSearchFocus(step) {
+  const buttons = [...searchResults.querySelectorAll('.gs-item')];
+  if (!buttons.length) return;
+  searchActiveIndex = (searchActiveIndex + step + buttons.length) % buttons.length;
+  buttons.forEach((button, i) => button.classList.toggle('active', i === searchActiveIndex));
+  buttons[searchActiveIndex].scrollIntoView({ block: 'nearest' });
+}
+
+searchInput.addEventListener('input', scheduleSearch);
+searchInput.addEventListener('focus', () => { if (searchInput.value.trim() || searchDate.value || searchDateTo.value) runSearch(); });
+[searchDate, searchDateTo].forEach(input => input.addEventListener('change', () => { searchLimits = {}; runSearch(); }));
+[searchInput, searchDate, searchDateTo].forEach(input => input.addEventListener('keydown', event => {
+  if (event.key === 'ArrowDown') { event.preventDefault(); if (searchResults.hidden) runSearch(); moveSearchFocus(1); }
+  else if (event.key === 'ArrowUp') { event.preventDefault(); moveSearchFocus(-1); }
+  else if (event.key === 'Enter') {
+    event.preventDefault();
+    const target = searchActiveIndex >= 0 ? searchActiveIndex : 0;
+    const button = searchResults.querySelectorAll('.gs-item')[target];
+    if (button) openSearchResult(searchItems[Number(button.dataset.searchIndex)]);
+  } else if (event.key === 'Escape') {
+    if (!searchResults.hidden) { event.preventDefault(); closeSearch(); }
+    else if (searchInput.value || searchDate.value || searchDateTo.value) { searchInput.value = ''; searchDate.value = ''; searchDateTo.value = ''; searchBox.classList.remove('has-query'); }
+  }
+}));
+searchResults.addEventListener('mousedown', event => event.preventDefault()); // keep focus in the box
+searchResults.addEventListener('click', event => {
+  const item = event.target.closest('.gs-item');
+  if (item) { openSearchResult(searchItems[Number(item.dataset.searchIndex)]); return; }
+  const action = event.target.closest('[data-search-action]');
+  if (!action) return;
+  if (action.dataset.searchAction === 'more') {
+    searchLimits[action.dataset.source] = (searchLimits[action.dataset.source] || SEARCH_LIMIT_STEP) + SEARCH_LIMIT_STEP;
+    runSearch();
+  } else if (action.dataset.searchAction === 'clear') {
+    searchInput.value = '';
+    searchDate.value = '';
+    searchDateTo.value = '';
+    searchBox.classList.remove('has-query');
+    closeSearch();
+    searchInput.focus();
+  }
+});
+document.addEventListener('mousedown', event => {
+  if (!searchResults.hidden && !searchBox.contains(event.target)) closeSearch();
+});
+document.addEventListener('keydown', event => {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+    if (!currentUser) return;
+    event.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+  }
 });
 
 el('changeTypeExpensesButton').addEventListener('click', () => openTypeChange('expenses'));

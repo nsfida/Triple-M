@@ -8,7 +8,7 @@
  * and can be downloaded as Excel.
  */
 
-import { reconcile, RECEIVED_COLUMN_LABELS } from './daily-reports.js?v=collections-1';
+import { reconcile, RECEIVED_COLUMN_LABELS } from './daily-reports.js?v=fix-6';
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const money = cents => (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -135,7 +135,7 @@ export function createCollectionsImport(app, { section, footer }) {
         date: entry.date, name: entry.name, contract: entry.contract, vouchers: entry.vouchers, channel: entry.channel,
         status: entry.uiStatus || entry.status, cents: entry.cents, last4: entry.last4, ref: entry.ref, columns: entry.columns,
         matchRef: entry.match ? (entry.match.source === 'link' ? `Link ${entry.match.rrn}` : `POS auth ${entry.match.auth}`) : '',
-        notes: entry.notes, added: Boolean(entry.added)
+        notes: entry.notes, added: Boolean(entry.added), split: Boolean(entry.split)
       })),
       bank: reports.bank ? reports.bank.txns.map(txn => ({
         date: txn.date, card: txn.cardNo, type: txn.type, auth: txn.auth, arn: txn.arn, cents: txn.cents, netCents: txn.netCents,
@@ -198,7 +198,7 @@ export function createCollectionsImport(app, { section, footer }) {
           ${t.linkNet != null || t.posNet != null ? `<div class="rc-wide"><span>Expected card settlement (net)</span><strong>${money(settlement)}</strong><small>link net + POS net payable${t.linkNet == null || t.posNet == null ? ' (one report missing)' : ''}</small></div>` : ''}
         </div>
         ${snap.warnings.length ? `<ul class="rc-notes">${snap.warnings.map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul>` : ''}
-        ${snap.exceptions.length ? `<div class="rc-exceptions"><strong>Needs attention (${snap.exceptions.length})</strong>${snap.exceptions.map(item => `<div class="rc-ex ${item.severity}"><span>${escapeHtml(item.title)}</span><small>${escapeHtml(item.detail)}</small></div>`).join('')}</div>` : ''}
+        ${snap.exceptions.length ? `<div class="rc-exceptions"><strong>${snap.exceptions.some(item => item.severity !== 'info') ? 'Needs attention' : 'Good to know'} (${snap.exceptions.length})</strong>${snap.exceptions.map(item => `<div class="rc-ex ${item.severity}"><span>${escapeHtml(item.title)}</span><small>${escapeHtml(item.detail)}</small></div>`).join('')}</div>` : ''}
       </div>`;
   }
 
@@ -236,34 +236,56 @@ export function createCollectionsImport(app, { section, footer }) {
       <td class="num"><span class="strong">${money(entry.cents)}</span>
         <div><span class="cl-chan cl-chan-${entry.channel}">${channel}</span></div>
         <div><span class="ri-pill cl-st-${status.css}">${status.label}</span></div>
+        ${entry.split ? '<div><span class="ri-pill cl-st-info" title="One link payment posted over several contracts">Split link</span></div>' : ''}
         ${matchText ? `<div class="ri-sub">${escapeHtml(matchText)}</div>` : ''}</td>
     </tr>`;
+  }
+
+  // The three daily reports belong together: show which are in and ask for the rest.
+  const REPORT_SLOTS = [
+    { kind: 'caryaati', badge: 'CAR', css: 'im-car', label: 'Caryaati daily report', role: 'Received entries are made from it', file: 'Excel' },
+    { kind: 'link', badge: 'LINK', css: 'im-link', label: 'Payment-link report', role: 'identifies link payments and checks their total', file: 'Excel / CSV' },
+    { kind: 'bank', badge: 'POS', css: 'im-pos', label: 'Bank merchant (POS) report', role: 'checks the card-machine total', file: 'PDF' }
+  ];
+  const missingReports = () => REPORT_SLOTS.filter(slot => !reports[slot.kind]);
+
+  function checklistHtml() {
+    const missing = missingReports();
+    const dateOf = report => (report?.date ? dmy(report.date) : '');
+    return `<div class="cl-checklist ${missing.length ? 'incomplete' : 'complete'}">
+      <div class="cl-check-head"><strong>${missing.length ? `Add the other ${missing.length === 1 ? 'report' : `${missing.length} reports`} for matching` : '✓ All three daily reports added'}</strong>
+        ${missing.length ? `<button type="button" class="sp-btn sp-btn-small" data-action="add-files">+ Add ${missing.length === 1 ? 'file' : 'files'}</button>` : ''}</div>
+      ${REPORT_SLOTS.map(slot => {
+        const report = reports[slot.kind];
+        return `<div class="cl-slot ${report ? 'on' : 'off'}"><span class="im-badge ${slot.css}">${slot.badge}</span>
+          <div><strong>${slot.label}</strong><small>${report ? `${escapeHtml(report.fileName)} · ${escapeHtml(dateOf(report))}` : `Missing (${slot.file}): ${slot.role}`}</small></div>
+          <span class="cl-slot-state">${report ? '✓' : 'Needed'}</span></div>`;
+      }).join('')}
+    </div>`;
   }
 
   function render() {
     if (phase === 'done' || phase === 'last') { renderReport(); return; }
     if (!result) {
       const pending = Object.entries(reports).filter(([, report]) => report).map(([kind]) => kind);
-      section.innerHTML = pending.length
-        ? `<p class="ap-note ap-note-warn">Add the <strong>Caryaati</strong> report for the day as well: Received entries are made from it. The ${pending.map(kind => kind === 'link' ? 'payment-link' : 'bank POS').join(' and ')} report${pending.length > 1 ? 's are' : ' is'} used to check it.</p>`
-        : '';
+      section.innerHTML = pending.length ? checklistHtml() : '';
       renderFooter();
       return;
     }
     refreshStatuses();
     const counts = { all: result.entries.length };
     ['link', 'card', 'bank'].forEach(channel => { counts[channel] = result.entries.filter(entry => entry.channel === channel).length; });
-    counts.issues = result.entries.filter(entry => !['matched', 'unverified'].includes(entry.uiStatus)).length;
-    const shown = result.entries.filter(entry => filter === 'all' ? true : filter === 'issues' ? !['matched', 'unverified'].includes(entry.uiStatus) : entry.channel === filter);
-    const oldCount = result.entries.filter(entry => entry.date && entry.date < app.editCutoffDate()).length;
+    const isIssue = entry => !['matched', 'unverified'].includes(entry.uiStatus) || entry.split || entry.matchedBy?.[0] === 'amount only';
+    counts.issues = result.entries.filter(isIssue).length;
+    const shown = result.entries.filter(entry => filter === 'all' ? true : filter === 'issues' ? isIssue(entry) : entry.channel === filter);
     const snap = buildSnapshot();
 
     section.innerHTML = `
+      ${missingReports().length ? checklistHtml() : ''}
       ${reconciliationHtml(snap)}
       <div class="sp-toolbar ap-tight"><span class="sp-section-label">RECEIVED TYPE FOR EACH CHANNEL</span></div>
       <div class="cl-types">${Object.keys(CHANNELS).map(typeSelectHtml).join('')}</div>
       <p class="ri-hint">Cash postings are not imported: you enter cash yourself when it is received.</p>
-      ${oldCount ? `<label class="ri-old"><input type="checkbox" data-action="use-work-date" ${useWorkDate ? 'checked' : ''}> <span>${oldCount} entr${oldCount === 1 ? 'y is' : 'ies are'} dated before ${escapeHtml(dmy(app.editCutoffDate()))} and will keep the report date. Tick to enter ${oldCount === 1 ? 'it' : 'them'} on the working date (${escapeHtml(dmy(app.workDate()))}) instead</span></label>` : ''}
       <div class="sp-toolbar ap-tight"><span class="sp-section-label">ENTRIES FROM CARYAATI</span>
         <span class="cl-bulk"><button type="button" class="sp-btn-link" data-action="tick-all">Tick all</button> · <button type="button" class="sp-btn-link" data-action="tick-none">None</button></span></div>
       <div class="cl-filters">${[['all', 'All'], ['link', 'Link'], ['card', 'Card'], ['bank', 'Bank'], ['issues', 'Issues']].map(([key, label]) => `<button type="button" class="cl-filter ${filter === key ? 'on' : ''}" data-filter="${key}">${label} <span>${counts[key]}</span></button>`).join('')}</div>
@@ -319,6 +341,8 @@ export function createCollectionsImport(app, { section, footer }) {
   // ---- Actions --------------------------------------------------------------------
   async function addEntries() {
     if (busy) return;
+    const missing = missingReports();
+    if (missing.length && !window.confirm(`${missing.map(slot => slot.label).join(' and ')} ${missing.length === 1 ? 'is' : 'are'} not added, so the entries cannot be fully matched.\n\nAdd the entries anyway?`)) return;
     busy = true;
     renderFooter();
     try {
@@ -333,7 +357,7 @@ export function createCollectionsImport(app, { section, footer }) {
         if (!app.receivedTypes().some(type => type.name === name) && app.canManageTypes()) await app.enableTypeForReceived(name);
       }
       const rows = chosen.map(entry => ({
-        entry_date: useWorkDate && entry.date < app.editCutoffDate() ? app.workDate() : entry.date,
+        entry_date: entry.date, // always the report's own date
         name: entry.name,
         merchant: merchantText(entry),
         transaction_type: typeFor(entry.channel),
@@ -406,7 +430,8 @@ export function createCollectionsImport(app, { section, footer }) {
     } else if (action === 'create-link-type') {
       app.addPaymentType('Link').then(() => { typeMap.link = 'Link'; saveTypeMap(); render(); app.showToast('“Link” type created for Expenses and Received.'); })
         .catch(error => app.showToast(error?.message || 'The type could not be created.', true));
-    } else if (action === 'show-last') { snapshot = readLast(); phase = 'last'; render(); }
+    } else if (action === 'add-files') app.chooseFiles?.();
+    else if (action === 'show-last') { snapshot = readLast(); phase = 'last'; render(); }
     else if (action === 'back-review') { phase = 'review'; render(); }
     else if (action === 'open-received') { app.close(); app.openReceived(); }
     else if (action === 'close') app.close();
@@ -429,6 +454,7 @@ export function createCollectionsImport(app, { section, footer }) {
     render,
     hasData: () => Boolean(result) || Object.values(reports).some(Boolean),
     hasLast: () => Boolean(readLast()),
+    missingKinds: () => missingReports().map(slot => slot.kind),
     isShowingReport: () => phase !== 'review' && Boolean(snapshot),
     entryCount: () => (result ? result.entries.length : 0),
     showLast() { snapshot = readLast(); phase = snapshot ? 'last' : 'review'; },

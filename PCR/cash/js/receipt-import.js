@@ -16,9 +16,9 @@
  * Every receipt's entries add up exactly to the receipt's printed Total Amount.
  */
 
-import { parseRtaReceiptPdf } from './rta-receipt-parser.js?v=settings-1';
-import { createCollectionsImport } from './collections-import.js?v=collections-1';
-import { parseDelimitedText, isCaryaatiRows, parseCaryaati, isLinkReportRows, parseLinkReport, isBankPosPdf, parseBankPosPdf } from './daily-reports.js?v=collections-1';
+import { parseRtaReceiptPdf } from './rta-receipt-parser.js?v=fix-6';
+import { createCollectionsImport } from './collections-import.js?v=fix-6';
+import { parseDelimitedText, isCaryaatiRows, parseCaryaati, isLinkReportRows, parseLinkReport, isBankPosPdf, parseBankPosPdf } from './daily-reports.js?v=fix-6';
 
 const PDFJS_URL = new URL('./vendor/pdfjs/pdf.min.js', import.meta.url).href;
 const PDFJS_WORKER_URL = new URL('./vendor/pdfjs/pdf.worker.min.js', import.meta.url).href;
@@ -176,7 +176,8 @@ export function setupReceiptImport(app) {
     workDate: app.workDate,
     isDateEditable: app.isDateEditable,
     showToast: app.showToast,
-    close: () => dialog.close()
+    close: () => dialog.close(),
+    chooseFiles: () => fileInput.click()
   }, { section: collectionsSection, footer: collectionsFooter });
 
   const selectedType = () => dialog.querySelector('input[name="receiptPaymentType"]:checked')?.value || '';
@@ -315,7 +316,10 @@ export function setupReceiptImport(app) {
 
     // Older receipts are entered on their own payment date; optionally on the working date.
     const oldCount = receipts.filter(receipt => !receipt.error && receipt.paymentDate && receipt.paymentDate < app.editCutoffDate()).length;
-    oldDateBox.hidden = oldCount === 0;
+    // Older receipts always keep their own payment date (no working-date option).
+    oldDateBox.hidden = true;
+    oldDateCheck.checked = false;
+    void oldCount;
     oldDateLabel.textContent = `${oldCount} receipt${oldCount === 1 ? ' is' : 's are'} dated ${app.formatDmy(app.editCutoffDate())} or earlier and will be entered on ${oldCount === 1 ? 'its' : 'their'} payment date. Tick to enter ${oldCount === 1 ? 'it' : 'them'} on the working date (${app.formatDmy(app.workDate())}) instead`;
 
     // Receipts
@@ -399,6 +403,10 @@ export function setupReceiptImport(app) {
     entry.title = report.problems?.join('\n') || '';
     if (report.problems?.length) entry.detail += ' · ⚠ check';
     activeTab = 'collections';
+    // Ask for the related reports that are still missing (they are used for matching).
+    const names = { caryaati: 'Caryaati report', link: 'payment-link report', bank: 'bank POS report' };
+    const missing = collections.missingKinds();
+    if (missing.length) app.showToast(`${KIND_LABEL[report.kind]} added. Now add the ${missing.map(kind => names[kind]).join(' and ')} for matching.`);
   }
 
   async function readPdf(entry) {

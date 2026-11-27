@@ -516,6 +516,7 @@ export function reconcile({ caryaati = null, link = null, bank = null }) {
   result.cash = { cents: sumCents(cashVouchers), vouchers: cashVouchers, customers: new Set(cashVouchers.map(voucher => voucher.contract || voucher.customer)).size };
 
   // 1) Payment links: contract number in the order id, then card digits, then amount.
+  const pendingLinks = [];
   if (link) {
     const order = link.txns.slice().sort((a, b) => b.cents - a.cents);
     order.forEach(txn => {
@@ -539,8 +540,7 @@ export function reconcile({ caryaati = null, link = null, bank = null }) {
         result.entries.push(entry);
         result.link.matched.push({ txn, entry });
       } else {
-        result.link.unmatched.push(txn);
-        result.exceptions.push({ kind: 'link-unmatched', severity: 'error', txn, cents: txn.cents, title: `Payment link ${txn.order || txn.rrn} not found in Caryaati`, detail: `AED ${(txn.cents / 100).toFixed(2)} · card ****${txn.last4 || '----'} · ${txn.date}${txn.contract ? ` · contract ${txn.contract}` : ''}` });
+        pendingLinks.push(txn); // retried after the card-machine matching (split postings)
       }
     });
   }
@@ -571,6 +571,54 @@ export function reconcile({ caryaati = null, link = null, bank = null }) {
       }
     });
   }
+
+  // 2b) Payment links still unmatched: one link payment may have been posted in Caryaati over
+  //     several contracts (or under a different contract / card). Search the card postings
+  //     left after the card-machine matching: first those related by contract, card digits or
+  //     customer, then (amount only) any leftover card posting.
+  pendingLinks.forEach(txn => {
+    const pool = free(card);
+    const norm = text => String(text || '').toUpperCase().replace(/[^A-Z]/g, '');
+    const contractVouchers = txn.contract ? vouchers.filter(voucher => voucher.contract === txn.contract) : [];
+    const customers = new Set(contractVouchers.map(voucher => norm(voucher.customer)).filter(Boolean));
+    const related = pool.filter(voucher => (txn.contract && voucher.contract === txn.contract)
+      || (txn.last4 && voucher.last4 === txn.last4)
+      || customers.has(norm(voucher.customer)));
+    let chosen = related.length ? findSubset(related, txn.cents) : null;
+    let how = chosen ? ['related contract / card / customer', 'amount'] : null;
+    if (!chosen && pool.length && pool.length <= 18) {
+      chosen = findSubset(pool, txn.cents);
+      how = chosen ? ['amount only'] : null;
+    }
+    if (!chosen) {
+      result.link.unmatched.push(txn);
+      result.exceptions.push({ kind: 'link-unmatched', severity: 'error', txn, cents: txn.cents, title: `Payment link ${txn.order || txn.rrn} not found in Caryaati`, detail: `AED ${(txn.cents / 100).toFixed(2)} · card ****${txn.last4 || '----'} · ${txn.date}${txn.contract ? ` · contract ${txn.contract}` : ''}` });
+      return;
+    }
+    chosen.forEach(voucher => used.add(voucher));
+    const groups = [...groupBy(chosen, voucher => voucher.contract || voucher.customer).values()];
+    const label = txn.order || txn.rrn;
+    const parts = groups.map(group => `${group[0].contract || group[0].customer} (${(sumCents(group) / 100).toFixed(2)})`);
+    groups.forEach(group => {
+      const entry = makeEntry('link', group, { status: 'matched', match: txn, matchedBy: how, split: groups.length > 1 });
+      entry.notes.push(groups.length > 1
+        ? `Part of one payment-link payment ${label} of AED ${(txn.cents / 100).toFixed(2)}, posted over ${groups.length} contracts: ${parts.join(', ')}.`
+        : `Payment link ${label} (contract ${txn.contract || '—'}) was posted in Caryaati under contract ${entry.contract}.`);
+      if (how[0] === 'amount only') entry.notes.push('Matched by amount only: please check.');
+      result.entries.push(entry);
+    });
+    result.link.matched.push({ txn, entries: groups.length });
+    result.exceptions.push({
+      kind: groups.length > 1 ? 'link-split' : 'link-other-contract',
+      severity: how[0] === 'amount only' ? 'warn' : 'info',
+      txn,
+      cents: txn.cents,
+      title: groups.length > 1
+        ? `Payment link ${label} was posted over ${groups.length} contracts`
+        : `Payment link ${label} was posted under another contract`,
+      detail: `AED ${(txn.cents / 100).toFixed(2)} · card ****${txn.last4 || '----'}${txn.contract ? ` · link contract ${txn.contract}` : ''} · Caryaati: ${parts.join(', ')}${how[0] === 'amount only' ? ' · matched by amount only' : ''}`
+    });
+  });
 
   // 3) Card postings not found in either report (still entered, flagged).
   const leftoverCard = free(card);

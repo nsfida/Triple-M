@@ -18,7 +18,24 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
-## Latest update: back-dated entries, formula bar, Ctrl+Arrow, Cash Vault cards (migration 015)
+## Latest update: imported entries locked, split link payments, multi-row delete, search (migration 016)
+
+**Run one SQL file:** open Supabase → SQL Editor, paste the whole of `sql/migrations/016_imported_entries_locked.sql` and run it once. It includes migration 015, so you don't need to run 015 as well. It is safe to run again, and existing rows are not changed.
+
+* **Older reports keep their own date.** Imported entries (RTA receipts and daily reports) are always entered on the report's date; the "working date" option is gone. Imported rows dated before the edit window are locked as soon as they are saved.
+  * Manual back-dated rows stay editable for 3 days after they are entered.
+  * The new `is_imported` column records this and cannot be changed afterwards.
+* **Split link payments.** If one payment-link payment was posted in Caryaati over several contracts (or under another contract), it is now matched to all of them.
+  * One Received entry is made per contract, marked "Split link". The "Good to know" list explains it.
+  * A match found by amount only is flagged for checking.
+* **Daily reports checklist.** When you add any one of the three daily reports (Caryaati, payment link, bank POS), the panel lists the missing ones with an "+ Add files" button. Adding entries without all three asks for confirmation first.
+* **Delete Selected Row / Rows (N).** Select cells over several rows, in any column, and every selected row is deleted in one go. Older locked rows are skipped. This works in Expenses, Received and the Cash count.
+* **Excel export:** empty and zero cells are now truly empty.
+* **Search (top bar, Ctrl+K)** searches Expenses and Received across all dates: names, suppliers, merchants, invoice numbers, amounts and types.
+  * **From / To dates** show one day or a date range, with totals, cash totals, net cash and the cash count.
+  * Click a result (or use the arrow keys and Enter) to open the row with the matching cell selected.
+
+## Earlier update: back-dated entries, formula bar, Ctrl+Arrow, Cash Vault cards (migration 015)
 
 **Run one SQL file:** open Supabase → SQL Editor, paste the whole of `sql/migrations/015_backdated_new_entries.sql` and run it once. It is safe to run again, and it changes no data.
 
@@ -246,7 +263,8 @@ expense_vault_project/
 │       ├── 012_row_order.sql
 │       ├── 013_staff_entry_edit_delete.sql
 │       ├── 014_users_profiles_payment_types.sql
-│       └── 015_backdated_new_entries.sql
+│       ├── 015_backdated_new_entries.sql
+│       └── 016_imported_entries_locked.sql
 └── supabase/
     ├── config.toml
     └── functions/

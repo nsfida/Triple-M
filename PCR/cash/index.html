@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f3f6fa">
   <meta name="description" content="Private expense register powered by Supabase.">
   <title>Expense Vault</title>
-  <link rel="stylesheet" href="css/styles.css?v=formula-1">
+  <link rel="stylesheet" href="css/styles.css?v=fix-6">
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -65,6 +65,19 @@
           <span id="formulaRef" class="formula-ref" title="Selected cell">—</span>
           <span class="formula-fx" aria-hidden="true">fx</span>
           <input id="formulaInput" class="formula-input" type="text" readonly spellcheck="false" autocomplete="off" placeholder="Select a cell to see its full content" aria-label="Content of the selected cell">
+        </div>
+        <div id="globalSearch" class="global-search" data-keeps-selection role="search">
+          <label class="gs-field" title="Search every entry in Expenses and Received (Ctrl+K)">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="globalSearchInput" type="search" placeholder="Search all entries…" autocomplete="off" spellcheck="false" aria-label="Search all entries" aria-controls="globalSearchResults">
+            <kbd class="gs-kbd">Ctrl K</kbd>
+          </label>
+          <div class="gs-range" title="Show every entry on a date, or between two dates">
+            <label class="gs-date"><span>From</span><input id="globalSearchDate" type="date" aria-label="Search from date"></label>
+            <span class="gs-range-sep">–</span>
+            <label class="gs-date"><span>To</span><input id="globalSearchDateTo" type="date" aria-label="Search to date"></label>
+          </div>
+          <div id="globalSearchResults" class="gs-results" role="listbox" hidden></div>
         </div>
       </div>
 
@@ -131,7 +144,7 @@
         <div class="sheet-toolbar">
           <div class="toolbar-left">
             <button id="addCashCountButton" class="button button-primary" type="button">＋ Add day</button>
-            <button id="deleteCashCountButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
+            <button id="deleteCashCountButton" class="button button-danger-quiet" data-keeps-selection type="button" disabled>Delete Selected Row</button>
           </div>
           <div class="toolbar-right">
             <span id="cashVaultStatus" class="sheet-status" role="status" aria-live="polite">Loading cash counts…</span>
@@ -165,7 +178,7 @@
         <div class="sheet-toolbar">
           <div class="toolbar-left">
             <button id="addRowButton" class="button button-primary" type="button">＋ Add row</button>
-            <button id="deleteRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
+            <button id="deleteRowButton" class="button button-danger-quiet" data-keeps-selection type="button" disabled>Delete Selected Row</button>
             <button id="changeTypeExpensesButton" class="button button-outline hidden" data-keeps-selection type="button" title="Change the TYPE (Cash, Bank, Card…) of many rows at once. Shown when TYPE cells are selected.">⇄ Change type</button>
             <button id="importReceiptsButton" class="button button-outline" type="button" title="Import RTA receipt PDFs (→ Expenses) or the day's Caryaati, payment-link and bank reports (→ Received)">⇪ Import</button>
           </div>
@@ -201,7 +214,7 @@
         <div class="sheet-toolbar">
           <div class="toolbar-left">
             <button id="addReceivedRowButton" class="button button-primary" type="button">＋ Add row</button>
-            <button id="deleteReceivedRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
+            <button id="deleteReceivedRowButton" class="button button-danger-quiet" data-keeps-selection type="button" disabled>Delete Selected Row</button>
             <button id="changeTypeReceivedButton" class="button button-outline hidden" data-keeps-selection type="button" title="Change the TYPE (Cash, Bank, Card…) of many rows at once. Shown when TYPE cells are selected.">⇄ Change type</button>
             <button id="importReceivedButton" class="button button-outline" type="button" title="Import the day's Caryaati, payment-link and bank POS reports and add the collections to Received">⇪ Import</button>
           </div>
@@ -405,6 +418,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js?v=formula-1"></script>
+  <script type="module" src="js/app.js?v=fix-6"></script>
 </body>
 </html>
