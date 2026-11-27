@@ -1,1486 +1,387 @@
-<div align="center">
+# Expense Vault
 
-<img src="Assets/logo/logo.png" alt="Triplem VIP Logo" width="120" />
+A single-page, Excel-style expense register using Supabase. The project is split into separate HTML, CSS, JavaScript, SQL migration, and Edge Function files.
 
-# Triplem VIP
+## Included
 
-### Private accounting, finance, inventory and business operations in one protected workspace
+- **Cash Vault, Expenses, Received** tabs. Cash Vault is the default tab after every successful sign-in. All three sections are functional.
+- **Expenses register:** the exact 32 visible columns requested, inline cell editing, today's date by default, date suggestions for today and the previous five days, manual date selection, Cash/Bank type selector, and an automatically calculated row total. Amount columns have been narrowed and each sheet scrolls inside its own frame so the page itself does not expand horizontally.
+- **Received register:** the exact 23 visible columns requested, inline cell editing, today's date by default, date suggestions for today and the previous five days, manual date selection, Cash/Bank type selector, a Merchant text column, and an automatically calculated row total.
+- **Cash Vault:** Available Cash is Cash-type Received minus Cash-type Expenses minus the total of all signed people balances. Bank entries are excluded. The denomination register stores one daily count per date for 1,000, 500, 200, 100, 50, 20, 10, 5, 1, 0.50 and 0.25 notes/coins. The app compares Available Cash with Cash Counted and highlights both values in red when they differ.
+- **People balances:** add a person's name and enter one signed AED amount. A positive amount (for example `+1,000`) means cash is with that person and reduces Available Cash; it is displayed in red. A negative amount (for example `-500`) increases Available Cash; it is displayed in green. Edit the person's name or amount at any time. The people balances never change the physical note/coin quantities. There are no separate Given/Received movement types or transaction-history list in the current workflow.
+- **Automatic saving:** there is no Save button. Every change is kept on this device instantly and written to the database in the background about half a second after you stop typing. New and existing records are inserted/updated individually; no existing tables are dropped or replaced.
+- **Owner access key:** the first key is seeded in the database migration as a salted bcrypt hash. The Auth account is provisioned on the first successful sign-in.
+- **Alternate keys:** the owner can create view-only or editable alternate keys, change their permission, and revoke them.
+- **RLS:** all financial tables have row-level security policies. The public browser key cannot read the access-key table or bypass ledger permissions. People balances are written only through a permission-checked SECURITY DEFINER RPC. It updates the one signed balance on the selected person; it never writes to `cash_vault_counts`. The cash balance RPC is SECURITY INVOKER, so the caller's SELECT grants and RLS policies still apply.
+- **Persistent encrypted login:** after you sign in with your access key, refreshing the page (or closing and reopening the tab or browser) takes you straight back into the workspace. The key is only asked for again after you press **Sign out**. The Supabase Auth session JSON is AES-256-GCM encrypted before it is written to localStorage; the AES key is a non-extractable CryptoKey held in IndexedDB. The access PIN itself is never stored in browser storage.
+- **Full-window light desktop UI:** the workspace uses the available browser window height and width; the spreadsheet scrolls inside its own frame.
+- **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
+- **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
-[![Website](https://img.shields.io/badge/Website-triplem.vip-2457D6?style=for-the-badge)](https://triplem.vip/)
-[![Node](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
-[![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?style=for-the-badge)](https://triplem.vip/)
-[![Security](https://img.shields.io/badge/Security-Layered-111827?style=for-the-badge)](https://triplem.vip/Security/)
+## Latest update: imported entries locked, split link payments, multi-row delete, search (migration 016)
 
-**Triplem VIP** is a private personal and business finance workspace designed to bring accounting records, wallets, expenses, loans, assets, installments, inventory, Bitcoin utilities, reports, subscriptions, messaging and support into one coherent browser-based application.
+**Run one SQL file:** open Supabase → SQL Editor, paste the whole of `sql/migrations/016_imported_entries_locked.sql` and run it once. It includes migration 015, so you don't need to run 015 as well. It is safe to run again, and existing rows are not changed.
 
-[Live Website](https://triplem.vip/) · [Security Overview](https://triplem.vip/Security/) · [Interactive Demo](https://triplem.vip/Demo/) · [Founder](https://triplem.vip/Founder/)
+* **Older reports keep their own date.** Imported entries (RTA receipts and daily reports) are always entered on the report's date; the "working date" option is gone. Imported rows dated before the edit window are locked as soon as they are saved.
+  * Manual back-dated rows stay editable for 3 days after they are entered.
+  * The new `is_imported` column records this and cannot be changed afterwards.
+* **Split link payments.** If one payment-link payment was posted in Caryaati over several contracts (or under another contract), it is now matched to all of them.
+  * One Received entry is made per contract, marked "Split link". The "Good to know" list explains it.
+  * A match found by amount only is flagged for checking.
+* **Daily reports checklist.** When you add any one of the three daily reports (Caryaati, payment link, bank POS), the panel lists the missing ones with an "+ Add files" button. Adding entries without all three asks for confirmation first.
+* **Delete Selected Row / Rows (N).** Select cells over several rows, in any column, and every selected row is deleted in one go. Older locked rows are skipped. This works in Expenses, Received and the Cash count.
+* **Excel export:** empty and zero cells are now truly empty.
+* **Search (top bar, Ctrl+K)** searches Expenses and Received across all dates: names, suppliers, merchants, invoice numbers, amounts and types.
+  * **From / To dates** show one day or a date range, with totals, cash totals, net cash and the cash count.
+  * Click a result (or use the arrow keys and Enter) to open the row with the matching cell selected.
 
-</div>
+## Earlier update: back-dated entries, formula bar, Ctrl+Arrow, Cash Vault cards (migration 015)
 
----
+**Run one SQL file:** open Supabase → SQL Editor, paste the whole of `sql/migrations/015_backdated_new_entries.sql` and run it once. It is safe to run again, and it changes no data.
 
-## Table of Contents
+### New entries on older dates
+* New entries can now be dated in the past. This works for:
+  * manual rows (type an older date, or pick an older date at the top)
+  * RTA receipts and daily reports for older days
+* Existing entries are protected exactly as before: an entry that is **dated and was entered** more than 3 days ago cannot be changed or deleted.
+* A back-dated entry stays editable for 3 days after you enter it, so you can finish and correct it.
+* The database enforces the same rule. The "entered" time is set by the database and cannot be faked.
 
-1. [About Triplem VIP](#about-triplem-vip)
-2. [Project Philosophy](#project-philosophy)
-3. [Core Capabilities](#core-capabilities)
-4. [Application Modules](#application-modules)
-5. [Multi-Currency Architecture](#multi-currency-architecture)
-6. [Regional Pricing](#regional-pricing)
-7. [Security Architecture](#security-architecture)
-8. [Authentication and Account Recovery](#authentication-and-account-recovery)
-9. [Permissions and Data Isolation](#permissions-and-data-isolation)
-10. [Live Support and Aziz](#live-support-and-aziz)
-11. [Web Push Notifications](#web-push-notifications)
-12. [Themes and Interface Design](#themes-and-interface-design)
-13. [Responsive Experience](#responsive-experience)
-14. [Offline and Performance Design](#offline-and-performance-design)
-15. [Progressive Web App](#progressive-web-app)
-16. [Reports and Exports](#reports-and-exports)
-17. [SEO and Public Content](#seo-and-public-content)
-18. [Technology Stack](#technology-stack)
-19. [Frontend Architecture](#frontend-architecture)
-20. [Backend Architecture](#backend-architecture)
-21. [Repository Structure](#repository-structure)
-22. [Currency Registry](#currency-registry)
-23. [Database Migrations](#database-migrations)
-24. [Edge Functions](#edge-functions)
-25. [Local Development](#local-development)
-26. [Testing](#testing)
-27. [Build and Maintenance Utilities](#build-and-maintenance-utilities)
-28. [Deployment Principles](#deployment-principles)
-29. [Security Disclosure](#security-disclosure)
-30. [Privacy and Sensitive Information](#privacy-and-sensitive-information)
-31. [Public Repository Safety](#public-repository-safety)
-32. [Browser Compatibility](#browser-compatibility)
-33. [Accessibility](#accessibility)
-34. [Project Status](#project-status)
-35. [Contributing](#contributing)
-36. [Support](#support)
-37. [Founder](#founder)
-38. [License and Usage](#license-and-usage)
+### Formula bar
+The bar next to the tabs shows the selected cell (column · row) and its full content, so long text that doesn't fit the cell is readable.
+* For text and amount cells you can also edit there. Enter applies the change; Esc undoes it.
+* Locked or calculated cells are shown read-only.
 
----
+### Other changes
+* **Change type** appears only when one or more TYPE cells are selected. It shows how many rows are selected.
+* **Ctrl+Arrow** works like Excel:
+  * Inside a block of filled cells, it stops at the block's last filled cell.
+  * From an empty cell, it jumps to the next filled cell, or to the edge of the sheet if there is none.
+  * Home and End still go to the first and last column.
+* **Cash Vault:**
+  * The Staff Balance button is removed; click the **Staff Balance** card to open the panel.
+  * **Cash counted** now sits inside the Available Cash card.
 
-# About Triplem VIP
+## Earlier update: Import → daily collections + smoother arrow keys (no new migration)
 
-Triplem VIP is a browser-based accounting and finance platform for individuals and businesses that need more structure than a spreadsheet without fragmenting daily work across numerous disconnected applications.
+**No SQL to run.** Nothing in the database changes; existing rows are untouched.
 
-The project combines financial record keeping, operational management, secure account access, reporting, communication and support within a single interface.
+### One "⇪ Import" button
+The Expenses button is now just **Import**, and Received has one too. Drop any mix of files; each file's type is detected:
 
-The live application is available at:
-
-**https://triplem.vip/**
-
-Triplem VIP is designed around several practical principles:
-
-- financial information should remain organized by account and owner;
-- common tasks should be available from one workspace;
-- mobile and desktop experiences should remain coherent;
-- security should be layered rather than dependent on one control;
-- user-selected themes should apply consistently across the application;
-- currency presentation should be centrally governed;
-- database changes should be forward-only and migration-based;
-- existing production data should be preserved during application evolution;
-- support should be available directly from the product experience.
-
----
-
-# Project Philosophy
-
-Triplem VIP is built around the idea that everyday finance software should be both disciplined and approachable.
-
-Instead of treating expenses, wallets, loans, inventory, installments, assets and reports as unrelated utilities, the application places them inside a shared financial workspace.
-
-The project emphasizes:
-
-### Privacy
-
-User data is separated by ownership rules and protected through application and database controls.
-
-### Clarity
-
-Balances, transactions, schedules and operational information are presented through dedicated modules instead of one undifferentiated ledger.
-
-### Continuity
-
-The system is designed for long-lived production data. New functionality is added through incremental migrations and backward-compatible application changes wherever practical.
-
-### Personalization
-
-Users can configure company information, account branding, currency preferences and visual themes.
-
-### Portability
-
-The application is browser-first, responsive, installable as a Progressive Web App and usable across modern desktop and mobile environments.
-
-### Layered Security
-
-Authentication, Smart PIN controls, optional Authenticator App 2FA, Passkeys/WebAuthn-compatible workflows, recovery mechanisms, trusted-device concepts, database isolation and protected server functions work together rather than relying on a single defensive layer.
-
----
-
-# Core Capabilities
-
-Triplem VIP includes a broad set of finance and operational tools.
-
-| Area | Purpose |
+| File | Goes to |
 |---|---|
-| Dashboard | Consolidated financial overview and account summaries |
-| Expenses | Expense records, account activity and transaction history |
-| Wallets | Cash, bank, card and custom financial accounts |
-| Transfers | Wallet-to-wallet movements with synchronized balances |
-| Loans | Money given, money taken, repayments and outstanding balances |
-| Installments | Structured payment plans, schedules and due tracking |
-| Assets | Asset records, value tracking and management |
-| Depreciation | Depreciation-aware asset workflows |
-| Inventory | Catalogs, stock, brands, variants, sales and customers |
-| Bitcoin | Bitcoin wallet-related tools, balances and transaction views |
-| Notes | Notes and reminder-enabled records |
-| Reports | PDF reports, statements and data exports |
-| Messages | Authenticated in-app communication |
-| Notifications | Account, reminder, message and support alerts |
-| Subscriptions | Trial, plan, renewal and account-access lifecycle |
-| Team Access | Multi-user business access with permission controls |
-| Live Support | Visitor support, AI guidance and human-agent handoff |
-| Administration | Authorized account, support and platform management |
-
----
-
-# Application Modules
-
-## Dashboard
-
-The Dashboard is the primary financial overview.
-
-It is designed to present important values without requiring users to open every section individually. Dashboard data is loaded through modular application logic and is connected to the user's available finance domains.
-
-The dashboard respects the active account context, selected currencies, permissions and current theme.
-
----
-
-## Expenses and Wallets
-
-The Expenses area serves as a central transaction workspace.
-
-Users can work with different account types such as cash, bank, card and other supported account categories.
-
-Typical workflows include:
-
-- creating and renaming accounts;
-- adding account balances;
-- recording expenses;
-- reviewing transaction history;
-- transferring funds between wallets;
-- maintaining custom account logos;
-- filtering and searching financial activity;
-- exporting account-level information.
-
-Wallet and expense data is designed to remain associated with the authenticated owner.
-
----
-
-## Loans
-
-The Loans module supports both directions of lending activity.
-
-It can represent:
-
-- money given to others;
-- money received back;
-- loans taken;
-- repayments;
-- open balances;
-- settlement progress;
-- wallet-linked loan activity.
-
-Supporting calculations are separated into reusable frontend helpers where appropriate.
-
----
-
-## Installments
-
-The Installments module provides structured payment-plan management.
-
-It supports scheduled financial obligations and gives users visibility into upcoming and completed payment activity.
-
-The database evolution history includes dedicated installment schedule, down-payment and reminder functionality.
-
----
-
-## Assets
-
-The Assets module provides a dedicated place for managing financial or business assets.
-
-Functionality includes asset records, custom labels and depreciation-aware workflows.
-
-Asset calculations are supported by specialized frontend logic rather than being scattered throughout the interface.
-
----
-
-## Inventory
-
-Inventory is one of the larger operational areas in Triplem VIP.
-
-Its architecture covers:
-
-- categories;
-- brands;
-- sub-brands;
-- product lines;
-- variants;
-- stock;
-- units and selling modes;
-- product metadata;
-- customers;
-- sales;
-- drafts;
-- product barcodes;
-- catalog editing;
-- inventory summaries.
-
-Inventory functionality is split into dedicated modules so stock, sales, overlays and barcode-related behavior can evolve independently.
-
----
-
-## Bitcoin
-
-Triplem VIP includes a dedicated Bitcoin section.
-
-The interface can display Bitcoin balances, wallet-related information and USD-equivalent values while keeping BTC and fiat currency rendering distinct.
-
-The application treats BTC as its own currency definition with the Bitcoin symbol and precision rules appropriate to Bitcoin.
-
-Sensitive client-side Bitcoin material is intended to remain under browser-side control rather than being treated like an ordinary server-side account credential.
-
-Users should always apply standard cryptocurrency security practices and independently protect their own wallet material.
-
----
-
-## Notes and Reminders
-
-Notes provide a lightweight place for contextual records inside the same workspace.
-
-The Notes module also integrates reminder behavior so operational or financial notes can become actionable rather than remaining static text.
-
----
-
-## Messaging
-
-Triplem VIP includes authenticated in-app messaging.
-
-Messaging is distinct from general notifications so conversations can be handled as conversations while reminders and system events remain in the notification experience.
-
-The project includes live synchronization logic and dedicated support for user/admin communication.
-
----
-
-## Administration
-
-Administrative capabilities are separated from ordinary account activity and protected by additional authorization logic.
-
-Administrative functionality includes areas such as:
-
-- account management;
-- access-plan administration;
-- support operations;
-- analytics;
-- storage-management workflows;
-- authorized data-management tools;
-- account recovery assistance;
-- live-support operations.
-
-Sensitive administrative implementation details are intentionally not documented in this public README.
-
----
-
-# Multi-Currency Architecture
-
-Triplem VIP uses a centralized currency registry rather than defining symbols independently throughout each page.
-
-The registry is located at:
-
-```text
-Assets/config/currencies.json
-```
-
-The current application registry defines:
-
-| Currency | Code | Display Symbol | Symbol Font |
-|---|---:|---:|---|
-| US Dollar | USD | `$` | Normal application font |
-| Pakistani Rupee | PKR | `Rs.` | Normal application font |
-| Saudi Riyal | SAR | `$` | Dedicated SAR symbol font |
-| UAE Dirham | AED | `~` | Dedicated AED symbol font |
-| Bitcoin | BTC | `₿` | Normal application font |
-
-The important architectural rule is that **symbol appearance is determined by currency identity, not by the symbol character alone**.
-
-USD and SAR deliberately share the `$` character in the current product design, but they do not share the same font treatment.
-
-A `$` must therefore never be interpreted as SAR merely because the character is `$`.
-
-Currency rendering helpers receive or resolve the currency code and apply the correct presentation from the registry.
-
----
-
-# Regional Pricing
-
-The public site can adapt billing presentation according to a visitor's region.
-
-The registry currently maps regional billing defaults as follows:
-
-| Region | Billing Currency |
+| RTA vehicle renewal receipt PDF | Expenses (works exactly as before) |
+| Caryaati daily report (Excel) | Received: the entries are made from this file |
+| Payment-link provider report (.xls/.xlsx/.csv) | Matching only: identifies link payments |
+| Bank merchant (POS) report PDF | Matching only: checks the card-machine total |
+
+If RTA receipts and collections are loaded together, the panel shows two tabs.
+
+### Collections → Received
+* One Received entry per customer payment (vouchers paid together are combined), dated with the Caryaati voucher date.
+  * Name = customer.
+  * Merchant = `CN <contract> · Link/POS ****<card> or Transfer <ref> · RCV-… numbers`.
+  * The amounts go into the matching columns (Rent, VAT, Salik, Fines, CDW, …). Anything unrecognised goes to OTHERS.
+* **Cash postings are skipped**, because cash is entered by hand.
+* Each entry gets a **channel**:
+  * **Link**: identified from the payment-link report by contract number, then card's last 4 digits, then amount.
+  * **Card**: matched to a bank POS transaction by card digits and amount.
+  * **Bank transfer.**
+* You choose which Received TYPE each channel uses; the choice is remembered. The owner can create a "Link" type in one click. A type that isn't yet enabled for Received is enabled automatically.
+* Re-importing the same day is safe: vouchers already in Received (by RCV number) are greyed out.
+* Entries dated outside the edit window can be put on the working date instead.
+
+### Matching section
+* Payment link: Caryaati vs link report.
+* Card machine: Caryaati vs bank POS (voided sale/reversal pairs are ignored).
+* Total non-cash, with any differences highlighted.
+* Cash in Caryaati compared with cash already entered in Received for that date.
+* Link and POS fees, and the expected net card settlement.
+* Date warnings, and a "needs attention" list: link/POS payments not found in Caryaati, Caryaati card postings not found in either report, unknown payment methods.
+* Filters: All / Link / Card / Bank / Issues. Tick or untick any entry.
+* **⬇ Reconciliation (Excel)** downloads Summary, Entries, Bank POS and Payment link sheets.
+* The last reconciliation is kept and can be reopened from the Import panel ("View last reconciliation").
+
+### Arrow keys
+Holding an arrow key in Expenses / Received now moves the selection without the small lag:
+* The copy buffer is updated after you stop moving.
+* Rows are re-rendered only when the selection leaves the drawn area.
+
+## Earlier update: settings panel, users & access, payment types, change type
+
+**Three steps to install, in this order. No existing data is changed.**
+
+1. **Run the SQL migration**: open Supabase → SQL Editor, paste the whole of `sql/migrations/014_users_profiles_payment_types.sql` and run it once (it is safe to run again).
+2. **Redeploy the access Edge Function**:
+   `npx --yes supabase@latest functions deploy access --project-ref hmtbalmgpyrnxbifnvzg --use-api`
+3. **Replace the website files** and refresh once with `Ctrl+F5`.
+
+The new website keeps working if step 1 or 2 hasn't been done yet (Cash/Bank only, old key behaviour); the new options appear once both are done.
+
+### User menu and side panels
+The *Access keys* and *Sign out* buttons are replaced by your **name and photo** in the top bar. Its menu has: **Settings**, **Name & photo**, **Password**, **Payment types** (owner), **Users & access** (owner) and **Sign out**. Every view opens in the same right-hand side panel. Staff Balance, Import RTA receipts and Change type use the same panel with the same size and design (`--panel-width` in `css/styles.css`, 480 px).
+
+- **Name & photo**: set a display name; upload a photo and **drag to move / zoom** to choose the look before saving. Photos are stored as a small 256×256 image (about 5–30 KB).
+- **Password**: every user can change their own access key (current key required).
+
+### Users & access (owner)
+- **New user**: name, access key, and for each section (**Cash Vault** incl. Staff Balance, **Expenses**, **Received**): *No access*, *View* or *Edit*. Plus *Can download the Excel file* and *Can import RTA receipts* (needs Expenses: Edit).
+- **Edit** a user: change the name or access, or set a new key for them.
+- **Disable / Enable**: a disabled user is signed out and can't sign in until enabled again.
+- **Delete**: removes the key permanently. Entries the user created are kept (their sign-in account is deleted, or permanently blocked if their entries still refer to it).
+- The database enforces the access (row-level security), not just the screen: a user without access to a section cannot read or change it at all. Existing keys keep exactly what they had: editor keys → Edit everywhere, view-only keys → View everywhere.
+
+### Payment types (owner)
+Cash and Bank are built in. **Card, Credit Card, Debit Card and Travel Card** are already added (unticked); tick them to use them, or add your own (e.g. Cheque).
+- Tick **Expenses** and/or **Received** to choose where a type appears in the TYPE column. Unticking only hides it from the list; rows already using it keep it.
+- **Counts as cash**: only these types change Available Cash. By default only Cash does, exactly as before; Cash always counts as cash.
+- A type that is used by any entry can't be deleted (untick it instead); Cash and Bank can't be deleted.
+- The import screen offers every type enabled for Expenses.
+
+### Change type of many rows at once
+**Expenses / Received → ⇄ Change type**
+1. **Rows**: either the rows you selected in the sheet (click a cell in the first row, then Shift+click / Shift+↓ to the last, or drag), or **all rows of a date**. Optionally only rows that are currently a given type (e.g. only Bank).
+2. **New type**: pick it. The panel shows how many rows change, which are skipped (older than the edit window, already that type, empty), and the exact effect on Available Cash, before you confirm.
+3. Saved rows are updated together, one database request per 300 rows (101 rows in about a second). If anything fails, the rows are saved one by one automatically. Rows older than the 3-day edit window stay locked, as always.
+
+Example: you imported receipts as **Bank** but they were paid by card → Change type → *All rows dated 26/11/2026*, *only rows that are currently Bank* → **Card**.
+
+## Earlier update: Import RTA receipts (no new migration)
+
+Front-end only. **No SQL to run and no Edge Function redeploy.** Replace the static files (including the new `js/vendor/pdfjs/` folder) and refresh once with `Ctrl+F5`.
+
+**Expenses → ⇪ Import RTA receipts** reads the *Receipt for Vehicle Renewal* PDFs downloaded from the RTA portal (one or many files at once, by choosing or dragging them in) and adds them as expense entries.
+
+1. **Reading.** Every receipt in every file is read, including receipts that continue onto a second page. The fee lines must add up exactly to the printed *Total Amount*; a receipt that doesn't is shown as *Cannot read* and is not imported. Files that are not RTA receipts are rejected.
+2. **Paid by Cash or Bank: required.** Nothing can be added until you choose. *Cash* entries reduce Available Cash. *Bank* entries are recorded only; they never affect the cash figures. The receipts' own payment method (e.g. Credit Card) is shown as a hint.
+3. **Preview.** You see each receipt (date, renewal, fines, total, status) and every entry that will be created before anything is added. Receipts can be unticked.
+4. **Add.** Entries are added to the bottom of Expenses (above the empty row) dated with the receipt's **Payment Date**, and save automatically like typed rows.
+
+**Where amounts go**
+
+| Receipt line | Expenses column |
 |---|---|
-| Pakistan | PKR |
-| Saudi Arabia | SAR |
-| United Arab Emirates | AED |
-| Other supported regions | USD fallback unless separately configured |
+| Light vehicle register, Issue Vehicle Registration Card, Vehicle Renewal Fee, Renewal Light Vehicle Private, Delivery Fee | **Renewal** |
+| Every fine (RTA Parking, Bus Lane, Dubai Police violations, Abu Dhabi Police, Abu Dhabi DoT, Sharjah Police, Sharjah Municipality, Ajman Police, …) | **Fines** |
+| Knowledge & Innovation fees (AED 20 per Dubai item) | Added to the item it was charged for: the renewal's AED 20 to **Renewal**, each Dubai fine's AED 20 to that fine in **Fines**. Fines from other emirates carry none. |
+| Vehicle test / inspection fees (if ever present) | **RTA Passing** |
+| Anything else | **Misc Exp.** (flagged in the preview first) |
 
-The landing page also contains a region selector so visitors can intentionally preview another supported regional context.
+**Entry layout** (choose in the dialog):
+- *Renewal + each fine on its own row* (default). Renewal row: Supplier `RTA Renewal`, Inv# = Receipt No. Fine rows: Supplier = issuing authority (Dubai Police rows also name the violation, e.g. `Dubai Police · Speeding +30 km/h`), Inv# = the fine number, or the Receipt No for Dubai Police fines (they have no fine number on the receipt).
+- *One row per receipt*. Supplier `RTA`, Inv# = Receipt No, amounts split across Renewal and Fines.
 
-Current selectable examples include:
+Either way, a receipt's entries add up exactly to its printed total. The *Name* column can optionally be filled for all imported rows; TRN# stays `---`.
 
-- USA;
-- UK;
-- India;
-- UAE;
-- Saudi Arabia;
-- Pakistan;
-- Russia;
-- China.
+**Safety**
+- **No double imports.** A receipt whose Receipt No or any of its fine numbers is already in Expenses is shown as *Already imported* and unticked. The same receipt appearing twice in one upload is imported once.
+- **Edit window.** Receipts paid before the 3-day edit window can't be saved on their own date (the database enforces this). They are shown as *Too old*; you can choose to enter them on the working date instead.
+- Existing rows are never changed; the import only adds new rows.
+- **Plate numbers are not printed on RTA renewal receipts** (the QR code only links to the RTA website), so the Receipt No and fine numbers are used as references.
+- The PDFs are read entirely in the browser (PDF.js, bundled in `js/vendor/pdfjs/`) and are not uploaded anywhere.
 
-A region appearing in the selector does **not** automatically imply that the platform has a distinct billing currency for that country.
+## Earlier update: speed and instant saving (no new migration)
 
-Where a region does not have an explicitly configured billing currency, the application uses the configured fallback.
+Front-end only. **Do not run any SQL migration and do not redeploy the Edge Function.** Replace the static files and refresh once with `Ctrl+F5`. Existing data is not touched.
 
-This avoids presenting unsupported or invented pricing.
+- **Save button removed; everything saves straight away.** Each edit is stored on this device immediately and saved to the database in the background ~0.5 s after you stop typing. The pill in the top bar shows *Saving…*, *All changes saved*, or *Not saved yet · retrying* / *Offline* if the connection drops. In that case the changes stay on this device and are retried automatically (2 s, 5 s, 15 s, 30 s, then every minute), and on the next visit if the page is closed. The browser warns before closing while a save is still in progress.
+- **Cash Vault difference is now real-time and always correct.** Cash Counted and the difference update on every keystroke, with no save needed. Available Cash also changes the instant you type in Expenses or Received. **Cause of the old wrong-difference bug:** Available Cash was calculated only from what had already reached the database, but edits were synced only every 5 minutes, so the figure was stale until a refresh. Available Cash is now the database summary plus every local change, calculated in whole fils so rounding never causes a false difference. Database writes and summary queries run one after another, so a change is never counted twice or missed.
+- **Much faster sheets.** Only the rows on screen are drawn (about 40), however many records exist. Locked rows (older than the edit window) are drawn as plain text instead of disabled inputs. Measured with 6,000 rows: Expenses ready in 0.5 s (was 3.6 s), tab switch ~0.15 s (was ~4 s), moving between cells ~6× faster.
+- **All rows load.** Supabase returns at most 1,000 rows per request, and the sheets previously loaded only the first 1,000 (oldest) rows. All pages are now loaded in parallel. The Excel export uses the same loader and saves any pending changes first.
+- **Background loading:** Expenses and Received load right after sign-in, so the first visit to those tabs is instant.
+- **Lighter requests:** the encrypted login session is decrypted once per page instead of before every database request (it is still stored encrypted; another tab's refresh is picked up automatically).
+- Copy, selection sums and Delete/Ctrl+X clearing work from the data itself, so they include rows scrolled out of view.
 
----
+## Earlier update (blank rows and autosave)
 
-# Security Architecture
+- **Always one empty row:** Expenses and Received keep one empty row at the bottom, dated with the working date. Start typing in it and the next empty row appears. Empty rows are never saved. "Add row" just jumps to the empty row.
+- **Automatic saving:** changes save about one second after you stop typing (no more Save buttons on each sheet). *(Superseded: see the latest update. The top Save button has also been removed.)*
+- **One look for every button:** all buttons share the same compact, rounded style and the same green theme on every page, including the Staff Balance panel.
 
-Security is treated as a cross-cutting system rather than a single login screen.
+## Earlier update (selection sum and working date)
 
-The project includes multiple layers of protection, including:
+- **Selection sum:** select several cells (Expenses, Received or Cash Vault) and the footer line shows `Sum … · N values` for the numeric cells (amounts and totals; Cash Vault counts and totals).
+- **One working date:** the Date box in the top bar (today by default; change or type any date) controls Available Cash, the date of new Expenses / Received rows, new Cash Vault counts and new Staff Balance entries. Dates older than the 3-day edit window are refused with a warning. The Recent dates picker was removed.
 
-- account authentication;
-- session validation;
-- Smart PIN controls;
-- lockout and retry protections;
-- optional Authenticator App two-factor authentication;
-- Passkey/WebAuthn-compatible account-security flows;
-- account recovery options;
-- trusted-browser concepts;
-- permission-based module access;
-- owner-isolated data access;
-- Row Level Security policies;
-- protected database functions;
-- controlled administrative operations;
-- Web Push consent controls;
-- security-focused migrations;
-- protected server-side Edge Functions;
-- security disclosure metadata.
+## Earlier update (migration 013)
 
-The public security overview is available at:
+- **Staff Balance entries can be edited or deleted:** open a staff member's history and use the pencil / bin icons on an entry. Only entries from the last 3 days can be changed (older entries show a lock). **Run `sql/migrations/013_staff_entry_edit_delete.sql`.**
 
-**https://triplem.vip/Security/**
+## Earlier update (migration 012)
 
-No application can reasonably be described as invulnerable. Security requires continuous review, dependency maintenance, configuration discipline and responsible deployment.
+- **Type-ahead:** in Expenses (Supplier, Name) and Received (Name, Merchant), typing completes the text from rows above. Enter/Tab accepts; keep typing or press Backspace to discard. Choosing a Supplier also fills TRN# and Name from its latest row if those cells are empty.
+- **Move rows:** press and hold a row (about half a second), then drag it up or down and release. Saved rows keep their new position. Locked (older than 3 days) rows cannot be moved.
+- **Run `sql/migrations/012_row_order.sql`** in the Supabase SQL Editor.
 
----
+## Earlier update (migration 011)
 
-# Authentication and Account Recovery
+- **Staff Balance** (renamed from People balances): each staff member has an **+ Add** button. Enter a plus or minus amount and an optional note; it is added to / subtracted from the balance. Click a name to see its full history (date, note, amount, balance after). **+ Add New** (top of the panel) creates a staff member.
+- **3-day edit window:** entries older than 3 days (today and the 2 previous days stay editable) are locked in Expenses, Received, Cash Vault and Staff Balance, in the app and in the database. Locked rows are greyed and show a warning when you try to edit or delete them. To change the number of days, edit `EDIT_WINDOW_DAYS` in `js/app.js` and `app_edit_window_start()` in migration 011.
+- **Run `sql/migrations/011_staff_balance_transactions_and_edit_window.sql`** in the Supabase SQL Editor.
 
-Triplem VIP contains a multi-layer account-security experience.
+## Earlier update (migration 010)
 
-The frontend authentication modules include dedicated areas for:
+- **Expenses fit the window:** all 32 columns are sized as percentages, with smaller text, so no horizontal scrolling is needed on normal desktop widths.
+- **New rows go to the bottom:** Expenses, Received and Cash Vault list oldest first; Add row / Add day appends at the bottom and opens it for typing, like Excel.
+- **Clear cell selection:** the active cell has a blue frame and fill, the cell being typed in has a bold green frame, and its row and column heading are highlighted.
+- **Cash Vault table:** column titles are bold; cell numbers are regular.
+- **Dated people balances:** every balance now has a date. The balance on a date is the latest entry on or before it. Changing today's figure leaves earlier dates unchanged; edit an earlier date's entry to change that date. **Run `sql/migrations/010_dated_person_balances.sql` in the Supabase SQL Editor before using the updated app.**
 
-```text
-Assets/app/auth/
-├── 01-auth-session.js
-├── 02-auth-welcome-trial.js
-├── 03-two-factor.js
-├── 04-account-recovery.js
-├── 05-account-security.js
-└── 06-auth-ui.js
-```
-
-Supported account-security concepts include:
-
-### Standard Sign-In
-
-Primary account authentication and session establishment.
-
-### Remember Me
-
-Optional remembered-session behavior for a faster return experience where permitted by account settings.
-
-### Smart PIN
-
-An additional quick-access protection layer with lockout-aware behavior.
-
-### Authenticator App 2FA
-
-Optional time-based one-time-password authentication compatible with standard authenticator applications.
-
-### Recovery Codes
-
-Recovery-oriented mechanisms designed to provide an alternative path when a configured authentication method is unavailable.
-
-### Passkeys / WebAuthn
-
-Modern browser and device authentication support through a dedicated WebAuthn Edge Function and frontend account-security workflow.
-
-### Trusted Browser
-
-An optional recovery/sign-in convenience concept tied to explicit account-security configuration.
-
-### Administrative Recovery Assistance
-
-Controlled administrative mechanisms exist for legitimate account-recovery cases where self-service recovery is unavailable.
-
-Sensitive operational recovery procedures are intentionally excluded from public documentation.
-
----
-
-# Permissions and Data Isolation
-
-Triplem VIP is a multi-user application.
-
-Financial records are designed around account ownership.
-
-The database architecture includes owner identifiers, permission-aware application functions and Row Level Security policies.
-
-A central design principle is:
-
-> A normal authenticated account should operate on its own financial data unless a deliberately authorized administrative workflow is being used.
-
-Permissions are also used to determine which application sections are available to an account.
-
-This allows different users or team members to receive access appropriate to their role without exposing every application module by default.
-
----
-
-# Live Support and Aziz
-
-Triplem VIP includes a live visitor-support system.
-
-The support experience combines:
-
-- visitor chat;
-- AI-assisted guidance;
-- human support agents;
-- conversation routing;
-- transfers;
-- message state;
-- support records;
-- agent handoff;
-- closure workflows;
-- multilingual conversation support.
-
-The AI assistant is named **Aziz**.
-
-Aziz is intended to answer questions about Triplem VIP using controlled application context.
-
-A particularly important rule is that Aziz should describe currency support from the same authoritative currency registry used by the application rather than claiming arbitrary unsupported currencies.
-
-When AI assistance cannot reliably continue, the live-support architecture supports handoff to a human agent.
-
-Server-side support logic is located in:
+## Project structure
 
 ```text
-supabase/functions/aziz-live-support/
-```
-
-No AI provider credentials or server secrets should ever be committed to a public repository.
-
----
-
-# Web Push Notifications
-
-Triplem VIP includes opt-in Web Push support for appropriate browsers and devices.
-
-Notification use cases can include:
-
-- security notices;
-- account activity;
-- messages;
-- reminders;
-- support activity;
-- other authorized product events.
-
-The frontend notification module is located at:
-
-```text
-Assets/app/notifications/01-web-push.js
-```
-
-Server-side push delivery is handled through a dedicated Edge Function.
-
-Browser permission is requested through the application's consent experience rather than being assumed.
-
-Notification presentation is also integrated with the application's theme system.
-
----
-
-# Themes and Interface Design
-
-Triplem VIP uses a theme-aware design system.
-
-The interface includes glass-inspired surfaces, rounded containers, contextual overlays, responsive cards, theme-aware buttons and animated interaction patterns.
-
-The application supports multiple visual experiences rather than forcing a single appearance.
-
-Theme logic is centralized in:
-
-```text
-Assets/app/core/07-theme.js
-```
-
-Theme-sensitive UI includes:
-
-- dashboard cards;
-- navigation;
-- dialogs and overlays;
-- charts;
-- forms;
-- dropdowns;
-- transaction panels;
-- account settings;
-- security interfaces;
-- notification permission cards;
-- admin interfaces;
-- messaging;
-- support windows.
-
-A core UI rule is that overlays should inherit the active authenticated-user theme instead of applying unrelated fixed colors.
-
----
-
-# Responsive Experience
-
-Triplem VIP is designed for desktop and mobile browsers.
-
-Responsive behavior covers:
-
-- navigation;
-- dashboards;
-- financial cards;
-- data lists;
-- overlays;
-- authentication;
-- messaging;
-- live support;
-- inventory;
-- account settings;
-- charts and reports;
-- notifications.
-
-Mobile layouts are not treated as merely scaled-down desktop screens.
-
-Several interaction patterns are adapted specifically for smaller screens so controls remain reachable and financial information remains legible.
-
----
-
-# Offline and Performance Design
-
-Performance is an important part of the application architecture.
-
-The frontend has been modularized into domain-specific scripts to reduce maintenance complexity and support selective work.
-
-The application also includes offline-aware synchronization logic:
-
-```text
-Assets/app/core/08-offline-sync.js
-```
-
-Where supported by the workflow, browser-side state can temporarily preserve actions during connectivity interruptions and synchronize them after connectivity returns.
-
-The project also contains lazy-query and paging-related database improvements, particularly for larger finance and inventory domains.
-
-Performance considerations include:
-
-- modular script loading;
-- domain-specific data requests;
-- lazy loading;
-- paging;
-- cached public configuration;
-- selective refresh behavior;
-- service-worker support;
-- reduced unnecessary full-page reloads.
-
----
-
-# Progressive Web App
-
-Triplem VIP includes Progressive Web App support.
-
-Relevant files include:
-
-```text
-service-worker.js
-site.webmanifest
-```
-
-The web manifest defines Triplem VIP as a finance, business and productivity application and supports standalone installation behavior on compatible platforms.
-
-The PWA layer is intended to improve:
-
-- installability;
-- startup experience;
-- browser integration;
-- resource caching;
-- mobile usability.
-
----
-
-# Reports and Exports
-
-Reporting is built into the finance workflow.
-
-Dedicated modules include:
-
-```text
-Assets/app/reports/
-├── 01-pdf.js
-└── 02-exports.js
-```
-
-Depending on the module and available data, users can generate or export financial information such as:
-
-- statements;
-- transaction records;
-- account reports;
-- summaries;
-- printable records;
-- business documents.
-
-Company information and branding can be incorporated into supported report outputs.
-
----
-
-# SEO and Public Content
-
-Triplem VIP includes a dedicated public SEO content area:
-
-```text
-seo/
-├── accounting-setup.html
-├── accounting-software.html
-├── expense-tracking.html
-├── finance-software.html
+expense_vault_project/
 ├── index.html
-├── security-and-support.html
-└── triplem.html
+├── css/
+│   └── styles.css
+├── js/
+│   ├── app.js
+│   ├── spreadsheet-grid.js
+│   ├── virtual-sheet.js
+│   ├── rta-receipt-parser.js
+│   ├── receipt-import.js    (Import panel: file detection + RTA receipts)
+│   ├── daily-reports.js     (Caryaati / payment-link / bank POS readers + matching)
+│   ├── collections-import.js (Import → Received collections and reconciliation)
+│   ├── account-panel.js     (user menu, settings, users & access, payment types)
+│   ├── vendor/pdfjs/        (PDF.js 4.10.38, Apache-2.0; loaded only when importing)
+│   ├── vendor/sheetjs/      (SheetJS 0.18.5, Apache-2.0; reads Excel files, writes exports)
+│   └── secure-session-storage.js
+├── sql/
+│   └── migrations/
+│       ├── 001_init_expenses.sql
+│       ├── 002_service_role_public_schema_usage.sql
+│       ├── 003_create_received_records.sql
+│       ├── 004_fix_public_schema_access.sql
+│       ├── 005_cash_vault_counts_and_balance.sql
+│       ├── 006_cash_person_accounts_and_denomination_adjustments.sql
+│       ├── 007_cash_people_amount_only.sql
+│       ├── 008_separate_person_movements_from_physical_cash_count.sql
+│       ├── 009_signed_person_balances.sql
+│       ├── 010_dated_person_balances.sql
+│       ├── 011_staff_balance_transactions_and_edit_window.sql
+│       ├── 012_row_order.sql
+│       ├── 013_staff_entry_edit_delete.sql
+│       ├── 014_users_profiles_payment_types.sql
+│       ├── 015_backdated_new_entries.sql
+│       └── 016_imported_entries_locked.sql
+└── supabase/
+    ├── config.toml
+    └── functions/
+        └── access/
+            └── index.ts
 ```
 
-Additional discoverability resources include:
+## Setup — Supabase
 
-```text
-robots.txt
-sitemap.xml
-llms.txt
-humans.txt
+The HTML already contains the supplied project URL and **publishable** key. A publishable key is expected to be visible in a browser; RLS is what restricts its database access. Never put a Supabase secret key or legacy `service_role` key in `index.html`, `js/app.js`, or any other browser file.
+
+### 1. Apply the database migrations
+
+1. Open the Supabase Dashboard and select project `hmtbalmgpyrnxbifnvzg`.
+2. Open **SQL Editor**.
+3. For a brand-new setup, run `sql/migrations/001_init_expenses.sql` first. It creates the initial access-key system and Expenses ledger. It does not drop or truncate existing tables.
+4. Run `sql/migrations/002_service_role_public_schema_usage.sql` once. It adds the service-role schema permission needed by the login function.
+5. Run `sql/migrations/003_create_received_records.sql` once. This creates the separate `received_records` table with RLS and the same owner/editor/view-only permissions as Expenses. It does not alter or delete expense records.
+6. Run `sql/migrations/004_fix_public_schema_access.sql`. This repairs missing `USAGE` permission on the `public` schema for the Supabase API roles, reasserts ledger table grants, and reinstates the RLS policies. It does not disable RLS or grant the `anon` role access to ledger rows.
+7. Run `sql/migrations/005_cash_vault_counts_and_balance.sql`. This adds the daily denomination-count table, generated cash-count total, RLS policies, and the RLS-aware `get_cash_vault_summary(date)` function.
+8. Run `sql/migrations/006_cash_person_accounts_and_denomination_adjustments.sql`. This adds the people register and person cash movements, atomic denomination-count adjustment functions, and updates the available-balance calculation. It does not delete or rewrite historical Expense, Received or daily denomination-count records.
+9. Run `sql/migrations/007_cash_people_amount_only.sql`. This changes the person-movement workflow to amount-only entry. It retains legacy denomination columns only as an internal way to store the movement amount in the existing generated `total_cash` field.
+10. Run `sql/migrations/008_separate_person_movements_from_physical_cash_count.sql`. This separates the former person movement ledger from physical cash counts. Existing transaction and cash-count rows are preserved.
+11. Run `sql/migrations/009_signed_person_balances.sql`. This adds one signed balance to each person, backfills it from the previous movement totals once, replaces the Available Cash formula, and disables the old movement RPCs for browser users. The legacy history table is retained; no existing expense, received or denomination-count records are deleted or modified.
+
+**For the already-running project described in this package:** migrations 001–009 have already been applied. This update (refresh-login fix and spreadsheet selection fix) is a front-end-only change: do not run any SQL migration and do not redeploy the Edge Function. Replace the complete static project files with this package and refresh with `Ctrl+F5`. You will need to enter your access key once after installing this update; after that, refreshing keeps you signed in until you press **Sign out**.
+
+The initial owner PIN `356425023663338` appears in the migration only as an input to `pgcrypto`'s bcrypt hash function. The database stores the hash, not the plaintext PIN. Keep the migration file private until you have applied it; remove the literal from any public copy or repository history if you publish the source.
+
+### 2. Deploy the access Edge Function (required for the PIN to work)
+
+The SQL migration creates the hashed owner key in the database. The PIN login endpoint must also be deployed; otherwise the page cannot verify the key.
+
+On Windows:
+
+1. Install **Node.js 20 or later** from https://nodejs.org/ .
+2. Open the extracted `expense_vault_project` folder in File Explorer. Click the folder address bar, type `powershell`, and press Enter.
+3. Run these commands one at a time:
+
+```powershell
+npx --yes supabase@latest login
+npx --yes supabase@latest functions deploy access --project-ref hmtbalmgpyrnxbifnvzg --use-api
 ```
 
-The main landing page includes structured metadata intended to improve search-engine understanding of the product and its capabilities.
+4. When the login command asks for a Supabase access token, create one at https://supabase.com/dashboard/account/tokens, copy it, and paste it into PowerShell. Treat this token as a password.
+5. Wait for the deployment command to report that the `access` function was deployed successfully. In the Supabase Dashboard, open **Edge Functions** and confirm that `access` appears there.
 
-Public SEO content should remain factual and should not claim unsupported capabilities.
+**Do not run a command to create `SUPABASE_SECRET_KEY` or `SUPABASE_PUBLISHABLE_KEY` yourself.** Supabase automatically provides the `SUPABASE_PUBLISHABLE_KEYS` and `SUPABASE_SECRET_KEYS` environment variables to hosted Edge Functions. The function in this project reads those values automatically. Never put a secret key or CLI access token in the HTML or JavaScript files.
 
----
+Supabase's official instructions: [CLI installation](https://supabase.com/docs/guides/local-development/cli/getting-started), [deploying Edge Functions](https://supabase.com/docs/guides/functions/deploy), and [Edge Function environment variables](https://supabase.com/docs/guides/functions/secrets).
 
-# Technology Stack
+### 3. Run the web page
 
-Triplem VIP is deliberately lightweight at the application shell.
-
-| Layer | Technology |
-|---|---|
-| Frontend | HTML5, CSS3, JavaScript |
-| Backend Platform | Supabase |
-| Database | PostgreSQL |
-| Database Security | Row Level Security + controlled functions |
-| Server Functions | Supabase Edge Functions |
-| Authentication Extensions | TOTP, WebAuthn/Passkey-related flows |
-| Push | Web Push architecture through Edge Functions |
-| PWA | Service Worker + Web Manifest |
-| Testing | Node.js built-in test runner |
-| Runtime Requirement | Node.js 18+ for project tooling |
-| Public Hosting | Browser-deployable static application |
-| Production Site | triplem.vip |
-
-The project does not depend on a large frontend framework for its primary application shell.
-
-Instead, functionality is divided into ordered JavaScript modules and CSS layers.
-
----
-
-# Frontend Architecture
-
-The frontend is organized by responsibility.
-
-Major application directories include:
-
-```text
-Assets/app/
-├── admin/
-├── ai/
-├── analytics/
-├── assets/
-├── auth/
-├── bitcoin/
-├── core/
-├── expenses/
-├── installments/
-├── inventory/
-├── landing/
-├── lib/
-├── loans/
-├── messaging/
-├── notes/
-├── notifications/
-├── reports/
-├── ui/
-└── utils/
-```
-
-This structure separates application domains while retaining a classic browser-global loading model.
-
-## Core Layer
-
-The core area contains foundational runtime behavior such as:
-
-- analytics bootstrap;
-- currency registry;
-- configuration;
-- shared state;
-- element references;
-- data-entry APIs;
-- metadata helpers;
-- application loading;
-- theming;
-- offline synchronization;
-- dashboard summaries.
-
-## Domain Layer
-
-Financial and operational functionality is kept in dedicated folders.
-
-For example:
-
-```text
-Assets/app/expenses/
-Assets/app/loans/
-Assets/app/assets/
-Assets/app/installments/
-Assets/app/inventory/
-Assets/app/bitcoin/
-Assets/app/notes/
-```
-
-## UI Layer
-
-Common rendering and event binding are separated into:
-
-```text
-Assets/app/ui/
-```
-
-## Boot Layer
-
-Final initialization is coordinated through:
-
-```text
-Assets/app/boot.js
-```
-
-### Important
-
-The project uses an intentional script load order.
-
-Do not arbitrarily reorder frontend scripts in `index.html`.
-
-Several modules depend on globals initialized by earlier modules.
-
----
-
-# Backend Architecture
-
-The backend is based on Supabase and PostgreSQL.
-
-The backend architecture uses:
-
-- PostgreSQL tables;
-- incremental SQL migrations;
-- Row Level Security;
-- stored functions/RPCs;
-- owner-aware financial records;
-- controlled administrative functions;
-- Edge Functions for server-only workloads.
-
-The frontend should never be given server-secret credentials.
-
-Operations requiring privileged secrets belong in protected server-side environments.
-
----
-
-# Repository Structure
-
-A simplified repository map is shown below.
-
-```text
-Triplem VIP/
-│
-├── index.html
-├── package.json
-├── service-worker.js
-├── site.webmanifest
-├── robots.txt
-├── sitemap.xml
-├── llms.txt
-├── humans.txt
-├── CNAME
-│
-├── Assets/
-│   ├── app/
-│   │   ├── admin/
-│   │   ├── ai/
-│   │   ├── analytics/
-│   │   ├── assets/
-│   │   ├── auth/
-│   │   ├── bitcoin/
-│   │   ├── core/
-│   │   ├── expenses/
-│   │   ├── installments/
-│   │   ├── inventory/
-│   │   ├── landing/
-│   │   ├── lib/
-│   │   ├── loans/
-│   │   ├── messaging/
-│   │   ├── notes/
-│   │   ├── notifications/
-│   │   ├── reports/
-│   │   ├── ui/
-│   │   └── utils/
-│   │
-│   ├── config/
-│   │   └── currencies.json
-│   │
-│   ├── logo/
-│   ├── sounds/
-│   ├── sql/
-│   ├── style/
-│   │   └── fonts/
-│   └── mobile_app/
-│
-├── Demo/
-├── Founder/
-├── Security/
-├── docs/
-├── migrations/
-├── scripts/
-├── seo/
-├── supabase/
-│   └── functions/
-└── tests/
-```
-
----
-
-# Currency Registry
-
-The currency registry is one of the central configuration files in the project.
-
-```text
-Assets/config/currencies.json
-```
-
-Each currency can define public metadata such as:
-
-```json
-{
-  "code": "USD",
-  "name": "US Dollar",
-  "symbol": "$",
-  "font": {
-    "family": "inherit",
-    "file": null
-  },
-  "decimals": 2,
-  "enabled": true
-}
-```
-
-Currency-specific symbol fonts are referenced only where needed.
-
-For example, specialized symbol fonts currently live under:
-
-```text
-Assets/style/fonts/
-```
-
-## Adding a New Currency
-
-Adding a new currency is intentionally configuration-driven at the frontend level, but a production finance system must consider more than UI display.
-
-A new currency may require review of:
-
-1. `currencies.json`;
-2. formatting precision;
-3. symbol font requirements;
-4. billing eligibility;
-5. regional billing mapping;
-6. user currency selectors;
-7. PDF/report formatting;
-8. server validation;
-9. database constraints;
-10. historical records;
-11. Aziz support context;
-12. regression tests.
-
-Do not assume that adding one JSON entry is sufficient to make a new currency safe for persistent financial records.
-
-Frontend availability and database acceptance should remain aligned.
-
----
-
-# Database Migrations
-
-Database changes are maintained in:
-
-```text
-migrations/
-```
-
-The project has a long incremental migration history covering authentication, permissions, finance domains, inventory, security hardening, subscriptions, messaging, live support, notifications, two-factor authentication, WebAuthn and regional billing.
-
-## Migration Philosophy
-
-For a live production financial application:
-
-- avoid destructive resets;
-- avoid replacing the production database with a development schema;
-- preserve existing users;
-- preserve existing financial records;
-- prefer additive or carefully transformational migrations;
-- make access-policy changes explicit;
-- test migration order;
-- maintain backward compatibility where practical;
-- review data constraints before introducing new currencies or account types;
-- keep privileged SQL out of the browser.
-
-## Full Schema
-
-The repository contains schema/build tooling for development and reference purposes.
-
-Do not assume that a complete schema file should be executed against an existing production database.
-
-Production updates should normally use the specific incremental migration required for that release.
-
----
-
-# Edge Functions
-
-Server-side Edge Functions are located in:
-
-```text
-supabase/functions/
-```
-
-Current functional areas include:
-
-```text
-account-security-webauthn/
-aziz-live-support/
-push-notifications/
-```
-
-## account-security-webauthn
-
-Supports server-side components of WebAuthn/Passkey-compatible account-security workflows.
-
-## aziz-live-support
-
-Provides server-side functionality for Aziz and live-support integration.
-
-## push-notifications
-
-Handles privileged server-side Web Push delivery behavior.
-
-### Secret Handling
-
-Edge Functions may require environment secrets.
-
-Those values must be configured in the deployment platform and must **never** be committed into source control.
-
-This README intentionally does not document secret values, tokens, production identifiers or confidential environment configuration.
-
----
-
-# Local Development
-
-## Requirements
-
-Install:
-
-- Node.js 18 or newer;
-- npm;
-- a modern browser;
-- Supabase CLI when database or Edge Function work is required.
-
-Confirm Node.js:
+Do not open `index.html` directly using `file://`; ES modules and browser security rules require a local or hosted web server. For a quick local test on Windows, open PowerShell in the project folder and run:
 
 ```bash
-node --version
+py -m http.server 8080
 ```
 
-Install project tooling if dependencies are later added:
+Then visit `http://localhost:8080` in your browser. For regular use, host the folder on an HTTPS static host such as your own website. No build step is required.
 
-```bash
-npm install
-```
+## Access-key rules
 
-The current package scripts are intentionally lightweight.
+- Initial owner key: `356425023663338`.
+- New owner and alternate keys must be **8–32 digits**.
+- The owner can change the owner key after signing in.
+- Alternate keys can be created as view-only or with ledger editing/deletion permission. The owner can toggle that permission or revoke an alternate key. Revocation disables the key while retaining its Auth identity for audit-history integrity.
+- The app never stores the plaintext access PIN in browser storage. The Edge Function verifies the PIN against a bcrypt hash in PostgreSQL. Supabase's access/refresh session tokens are encrypted with AES-256-GCM before being stored in localStorage; only the ciphertext envelope is visible there. A non-extractable CryptoKey is stored in IndexedDB, and a login marker (cookie mirrored in localStorage) gates decryption/restoration until you sign out.
+- A view-only key can read Expenses, Received and Cash Vault but cannot add, update, or delete records. This rule is enforced by RLS, not only by disabled UI controls.
+- The owner role always has full read/write/delete access, even if an old `can_write` flag on that owner row is false. Editable alternate keys have the same ledger CRUD permissions, but cannot manage access keys or change the owner key.
 
----
+### Login persistence (refresh fix)
 
-## Run Tests
+- **Cause of the earlier "asks for the key on every refresh" problem:** `js/app.js` called a function (`resetCashMovementForm`) that no longer exists. That raised a `ReferenceError` while the page was starting up, so the code that restores the saved login never ran. That call has been removed, and the whole project was checked for any other undefined names.
+- On startup the app now restores the saved encrypted session *before* showing the key form (the form is hidden for a moment, so it does not flash), then goes straight to the Cash Vault tab.
+- The login marker that unlocks the encrypted session is a long-lived cookie (180 days) mirrored in localStorage, so a browser that drops the cookie does not log you out. It is removed only by **Sign out** (or when the server confirms the session is no longer valid, for example the key was revoked).
+- A temporary problem while restoring (for example being offline) does not discard the saved session; refresh to try again.
+- Always reopen the app at the same exact origin (same protocol, hostname and port). For local testing, consistently use `http://localhost:8080` rather than alternating between `localhost`, `127.0.0.1`, or another port. Browser storage and cookies are origin/host scoped.
 
-From the project root:
+### Browser session storage and security
 
-```bash
-npm test
-```
+- The authentication session is stored as an AES-256-GCM encrypted envelope in localStorage; the plaintext PIN and plaintext Supabase access/refresh tokens are not stored there. A non-extractable AES-256-GCM CryptoKey is kept in IndexedDB, and the login marker is bound into the encryption.
+- **Sign out** removes the marker and the encrypted session immediately. If you use a shared or public computer, always sign out.
+- The stored CryptoKey is non-extractable, but no browser-side encryption can protect against malicious scripts running on the same origin (for example, an XSS vulnerability) or a compromised browser/extension. Keep the app hosted over HTTPS, maintain strong Content Security Policy and XSS protections, and do not install untrusted scripts on the site.
+- On first launch the app removes this project's legacy default Supabase Auth key (`sb-hmtbalmgpyrnxbifnvzg-auth-token`) from localStorage/sessionStorage so an older plaintext session blob is not left behind. It does not remove other application data. If IndexedDB or Web Crypto are blocked, the app keeps the session in memory only and displays a warning instead of falling back to plaintext storage.
 
-This executes:
+## Expense columns
 
-```bash
-node --test tests/critical-paths.test.js
-```
+`Date`, `Supplier`, `TRN#`, `Name`, `Inv#`, `Salik`, `Renewal`, `New Reg`, `RTA Passing`, `Fines`, `Fuel`, `Taxi`, `Metro`, `Parking`, `Wash`, `Rental / FINE RF`, `FD REFUND`, `Lunch`, `Marketing`, `Salary`, `Servicing`, `Drawing`, `Director`, `Heyaza`, `Office Supplies`, `Misc Exp.`, `OTHER`, `Al Insaf`, `Charity`, `VAT`, `Total`, `TYPE`.
 
----
+`Total` is generated by PostgreSQL from the 25 amount columns, so the saved total is calculated in the database as well as displayed live in the sheet. `TYPE` is restricted to `Cash` or `Bank`.
 
-## Build the Consolidated Schema Reference
+## Received columns
 
-Where required for maintenance:
+`Date`, `Name`, `Rent`, `Salik`, `Fines`, `VAT`, `CDW`, `ADD DRI`, `Low Fuel`, `Fine Deposit`, `Waiver`, `Withdraw`, `Sold Cars`, `P.UP / DEL`, `INS EXC.`, `FREEZE`, `TYRE`, `DAMAGE`, `EX KM`, `OTHERS`, `TOTAL`, `TYPE`, `Merchant`.
 
-```bash
-npm run build:schema
-```
+`TOTAL` is generated by PostgreSQL from the 18 amount columns and also updates live while typing. The `TYPE` dropdown uses `Cash` and `Bank`, matching the Expenses register.
 
-This invokes:
+## Cash Vault calculation and denominations
 
-```bash
-node scripts/build_full_schema_sql.js
-```
+- **Available cash** = `Cash Received - Cash Expenses - SUM(Person Balances)`. Only ledger rows dated on or before the selected as-of date and marked `TYPE = Cash` are included; Bank rows are excluded. Person balances are current signed account values and are applied to the selected cash position regardless of the selected as-of date.
+- The balance uses PostgreSQL aggregation via `public.get_cash_vault_summary(date)`, avoiding the browser's row-download limit. The function is `SECURITY INVOKER`; the signed-in user's SELECT privileges and RLS policies still apply.
+- **Cash counted** is the physical note/coin count for the selected date. It is calculated only from the 11 quantities entered in the daily denomination table. Signed person balances never change this table and do not require a daily count to be saved. A reconciliation banner shows `Cash Counted - Available Cash`; if the difference is non-zero, both the Available Cash and Cash Counted values are highlighted in red.
+- The daily count columns are quantities, not money values: `1000`, `500`, `200`, `100`, `50`, `20`, `10`, `5`, `1`, `0.5`, `0.25`. The row total is the sum of each quantity multiplied by its denomination. The database stores integer quantities and generates `total_cash` itself.
+- Only one daily count per date is allowed. To correct a day, edit its existing row. All date counts are shared with authorized users of this Expense Vault workspace.
+- **People balances:** Each person has exactly one editable signed amount. Positive amounts are shown in red and reduce Available Cash. Negative amounts are shown in green and increase Available Cash. Zero leaves Available Cash unchanged. The formula is `Cash Received - Cash Expenses - SUM(person cash_adjustment)`. There are no movement dates, Given/Received categories, descriptions, or transaction history in the current side panel.
+- Editing a person's amount changes only `cash_people.cash_adjustment`. It does not create, lock, adjust, reverse, or delete a physical denomination-count row. Cash Count remains calculated exclusively from the 11 denomination quantities entered by the user.
+- Do not enter the same person adjustment again in Expenses or Received, or the effect will be counted twice. Use the person list only for a signed balance adjustment. The previous `cash_person_transactions` table is retained as historical data and used once to initialize each person's new signed balance during migration 009; the current app no longer reads or writes it.
+- Cash-count edits use `updated_at` as an optimistic lock. If another user changes the same count after it was loaded, a stale save is rejected rather than overwriting the newer denomination quantities. Person balance edits do not lock or change a cash-count row.
 
-Treat generated full-schema output as a development/reference artifact unless a deployment procedure explicitly requires otherwise.
+## Important deployment notes
 
----
-
-## Static Local Hosting
-
-Because Triplem VIP is browser-based, the public frontend can be served through any suitable local static server.
-
-For example, if you already have a static server available:
-
-```bash
-npx serve .
-```
-
-or:
-
-```bash
-python -m http.server 8080
-```
-
-Then open the displayed local URL in a browser.
-
-Some production features require configured backend services and will not function fully in an isolated static-only environment.
-
----
-
-# Testing
-
-The repository includes critical-path tests under:
-
-```text
-tests/critical-paths.test.js
-```
-
-Run:
-
-```bash
-npm test
-```
-
-Critical-path testing is intended to protect important project assumptions such as:
-
-- frontend integration;
-- security-sensitive flows;
-- module loading;
-- live-support behavior;
-- important UI contracts;
-- configuration consistency.
-
-Testing should be performed after every production-affecting modification.
-
-## Recommended Release Validation
-
-In addition to automated tests, manually verify:
-
-- landing page;
-- region selector;
-- signup;
-- sign-in;
-- Remember Me;
-- Smart PIN;
-- Authenticator App 2FA;
-- Passkey/WebAuthn flow where supported;
-- account recovery;
-- currency rendering;
-- USD versus SAR `$` font behavior;
-- Dashboard;
-- Expenses;
-- wallet creation;
-- transfers;
-- Loans;
-- Installments;
-- Assets;
-- Inventory;
-- Bitcoin;
-- Notes;
-- PDF/report export;
-- Messages;
-- Web Push;
-- Aziz;
-- human-agent handoff;
-- subscription screens;
-- mobile layouts;
-- desktop layouts;
-- every available user theme.
-
----
-
-# Build and Maintenance Utilities
-
-Maintenance scripts live in:
-
-```text
-scripts/
-```
-
-They include utilities for:
-
-- schema generation;
-- JavaScript domain analysis;
-- modularization;
-- script splitting;
-- stylesheet splitting;
-- currency utility splitting;
-- SEO optimization;
-- modularization verification.
-
-These scripts are development tools.
-
-Review their behavior before running them against files containing unpublished work.
-
----
-
-# Deployment Principles
-
-Triplem VIP is a live financial application.
-
-Production deployment should be conservative.
-
-## Frontend Deployment
-
-Deploy only reviewed files that changed in the intended release.
-
-Avoid replacing unrelated production files without need.
-
-## Database Deployment
-
-Apply only the required incremental migration for the release.
-
-Before running SQL in production:
-
-1. review the migration;
-2. confirm it is intended for the current schema state;
-3. ensure it does not unexpectedly remove data;
-4. verify compatibility with existing users;
-5. create an appropriate database backup according to your operational policy.
-
-## Edge Function Deployment
-
-Redeploy an Edge Function only when its source changed or its server configuration requires an update.
-
-Example Supabase CLI workflow:
-
-```bash
-npx supabase login
-npx supabase link
-npx supabase functions deploy <function-name>
-```
-
-Never place an access token directly into documentation, screenshots, commits, shell-history examples or issue reports.
-
-## Cache Busting
-
-The project may use query-string revisions on CSS and JavaScript resources.
-
-When updating files that are aggressively cached by browsers or service workers, ensure the release strategy causes clients to receive the intended new assets.
-
-## Service Worker
-
-Changes to service-worker-controlled assets should be validated carefully because cached older versions can otherwise survive a deployment.
-
----
-
-# Security Disclosure
-
-Triplem VIP publishes a standard security contact file at:
-
-```text
-/.well-known/security.txt
-```
-
-Security researchers should use the current contact details published there or the official website.
-
-Please report vulnerabilities responsibly.
-
-Do not publicly disclose an exploitable vulnerability before the maintainer has had a reasonable opportunity to investigate and remediate it.
-
----
-
-# Privacy and Sensitive Information
-
-Financial software repositories require disciplined secret handling.
-
-Never commit:
-
-- database passwords;
-- service-role keys;
-- personal access tokens;
-- API secrets;
-- AI-provider secrets;
-- private cryptographic keys;
-- Web Push private keys;
-- recovery codes;
-- production session tokens;
-- administrator credentials;
-- private customer information;
-- exported production databases;
-- unredacted support transcripts containing personal data;
-- private Bitcoin keys or seed phrases.
-
-Client-accessible public configuration and true server secrets are not interchangeable.
-
-A value being used by JavaScript does not automatically make every backend credential safe to publish.
-
----
-
-# Public Repository Safety
-
-Before making any branch public, perform an independent secret scan.
-
-Recommended checks include:
-
-```bash
-git grep -n -i "password"
-git grep -n -i "secret"
-git grep -n -i "service_role"
-git grep -n -i "access_token"
-git grep -n -i "private_key"
-```
-
-Also consider dedicated scanners such as:
-
-- GitHub Secret Scanning;
-- Gitleaks;
-- TruffleHog.
-
-Do not rely solely on keyword searches.
-
-Secrets may exist in:
-
-- previous commits;
-- deleted files still present in Git history;
-- ZIP archives;
-- SQL dumps;
-- screenshots;
-- logs;
-- documentation;
-- `.env` files;
-- test fixtures.
-
-If a secret has ever been committed publicly, removing it from the latest commit is not sufficient.
-
-Rotate the credential.
-
----
-
-# Browser Compatibility
-
-Triplem VIP targets modern browsers with support for contemporary web APIs.
-
-Recommended current browsers include:
-
-- Google Chrome;
-- Microsoft Edge;
-- Safari;
-- Firefox;
-- current Chromium-based mobile browsers.
-
-Some functionality depends on browser capabilities.
-
-Examples include:
-
-- WebAuthn/Passkeys;
-- Web Push;
-- service workers;
-- PWA installation;
-- clipboard/security APIs;
-- camera/barcode-related browser capabilities.
-
-Feature availability can therefore differ by browser, device and operating system.
-
----
-
-# Accessibility
-
-The application uses semantic HTML, labeled controls, responsive layouts and icon-assisted navigation in many areas.
-
-Accessibility should remain part of ongoing development.
-
-When adding new components:
-
-- provide accessible labels;
-- maintain keyboard navigation;
-- avoid color-only meaning;
-- preserve sufficient contrast;
-- manage focus inside overlays;
-- use semantic buttons for actions;
-- provide screen-reader text where visual controls require it;
-- test zoom and smaller screens;
-- avoid inaccessible custom controls where native controls are sufficient.
-
----
-
-# Project Status
-
-Triplem VIP is an actively developed production project.
-
-The application has evolved through numerous incremental releases covering:
-
-- multi-user architecture;
-- ownership isolation;
-- finance domain separation;
-- inventory expansion;
-- performance improvements;
-- subscription lifecycle;
-- live support;
-- AI-assisted support;
-- Web Push;
-- Authenticator App 2FA;
-- account recovery;
-- Passkeys/WebAuthn;
-- regional billing;
-- centralized currency rendering;
-- theme consistency.
-
-Because the project is live, repository code and production deployment may move at different times.
-
-Always confirm the intended release before applying migrations or deploying server functions.
-
----
-
-# Contributing
-
-Triplem VIP is maintained as a production application.
-
-Before proposing changes:
-
-1. understand the affected domain;
-2. preserve existing user data;
-3. avoid unrelated redesigns;
-4. maintain theme compatibility;
-5. maintain mobile and desktop behavior;
-6. preserve currency-rendering rules;
-7. avoid weakening Row Level Security;
-8. avoid exposing privileged credentials;
-9. add database changes through incremental migrations;
-10. run the critical-path tests;
-11. manually test the affected workflow;
-12. document deployment requirements.
-
-## Coding Principles
-
-Prefer:
-
-- small, focused changes;
-- explicit currency codes;
-- shared helpers;
-- configuration-driven behavior;
-- owner-aware backend operations;
-- theme variables instead of fixed colors;
-- reusable domain modules;
-- graceful network failure;
-- backward-compatible database evolution.
-
-Avoid:
-
-- hard-coded production secrets;
-- duplicated currency symbol logic;
-- global fonts for currency-specific glyphs;
-- destructive database resets;
-- bypassing RLS from the client;
-- arbitrary script reordering;
-- large unrelated refactors inside hotfixes.
-
----
-
-# Support
-
-For product information and current support options, visit:
-
-**https://triplem.vip/**
-
-Triplem VIP also provides live visitor support directly through the website.
-
-For security-specific communication, use the current channels published in:
-
-**https://triplem.vip/.well-known/security.txt**
-
----
-
-# Founder
-
-Triplem VIP was founded by **Nadeem Shahzad Fida**.
-
-Founder information and the project's background are available at:
-
-**https://triplem.vip/Founder/**
-
----
-
-# License and Usage
-
-This repository does not currently include a root `LICENSE` file.
-
-Unless a separate license is added by the copyright owner, public visibility of the source code should not be interpreted as a grant of unrestricted permission to copy, redistribute, sublicense, rebrand or commercially reuse the project.
-
-All applicable rights remain with their respective owner unless explicitly stated otherwise.
-
----
-
-<div align="center">
-
-## Triplem VIP
-
-**One private workspace for finance, operations, records and support.**
-
-[Visit triplem.vip](https://triplem.vip/)
-
-</div>
+- The Edge Function is required. PIN login and alternate-key management will not work by hosting the HTML alone. The current access function also matches the `verify_access_key` SQL return shape: that function filters out inactive keys, so the Edge Function does not expect an `is_active` column in its return value.
+- Keep the Supabase secret key and `RATE_LIMIT_SALT` exclusively in Supabase Edge Function secrets. Never share them or commit them to source control.
+- The provided Supabase project URL and publishable key are public client configuration. Their exposure does not grant database access on their own; the RLS policies and signed-in access record are required.
+- This update does not change the database schema or Edge Function. No SQL migration or Edge Function redeployment is required; replace the full static project files and refresh with `Ctrl+F5`.
+- After a person-balance RPC reports success, the app treats the database update as committed even if the subsequent screen refresh fails. Refresh the page to load the saved people and Available Cash balances. Cash Count is intentionally unchanged.
+- Migration 009 retains all historical person movement rows and backfills each person's new signed balance once using `given - received`. It does not alter any physical-count rows. After the first successful application, rerunning migration 009 will not overwrite balances subsequently edited by the user.
+- Test on a non-production Supabase project before using real financial data. This package has been statically checked, but the migration has not been run against your live Supabase project from this environment.
+- Future SQL changes should be added as `010_...sql`, `011_...sql`, and so on. Do not edit an already-applied migration; add a new migration for each schema change.

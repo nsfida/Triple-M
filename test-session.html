@@ -1,0 +1,10 @@
+<!doctype html><html><body><pre id="out">starting</pre><script type="module">
+import {beginBrowserSession,createEncryptedBrowserSessionStorage,getEncryptedSessionPersistenceStatus} from './js/secure-session-storage.js';
+const s=createEncryptedBrowserSessionStorage();
+const url=new URL(location.href); const action=url.searchParams.get('action');
+let result={action,cookie:document.cookie};
+if(action==='write') { result.marker=beginBrowserSession(); await s.setItem('expense-vault-auth-session-v1', JSON.stringify({access_token:'abc',refresh_token:'def'})); result.status=getEncryptedSessionPersistenceStatus(); result.cookie=document.cookie; }
+if(action==='read') { result.value=await s.getItem('expense-vault-auth-session-v1'); result.cookie=document.cookie; result.status=getEncryptedSessionPersistenceStatus(); }
+if(action==='remove') { await s.removeItem('expense-vault-auth-session-v1'); result.cookie=document.cookie; }
+document.getElementById('out').textContent=JSON.stringify(result,null,2);
+</script></body></html>
