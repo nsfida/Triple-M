@@ -740,15 +740,20 @@ const Engine = {
       // Cardoo still treats the booking as running after the contract was closed → should be closed in Cardoo
       const closeF = U.dayFrac(w.close_date ? w.close_date + ' 23:59:59' : null);
       r.booking_running_after_close = w.status === 'Closed' && closeF != null &&
-        active.some(b => !b.close_at && (U.dayFrac(b.end_at) || 0) > closeF + 1);
+        active.some(b => !b.close_at && !/short/i.test(b.booking_type || '') && (U.dayFrac(b.end_at) || 0) > closeF + 1);
       r.booking_close = active.length ? active.map(b => b.close_at).filter(Boolean).sort().pop() || null : null;
       r.cardoo_fee = U.sum(active, b => Engine.bookingFee(b));
       // Caryaati vs Cardoo closing
       r.caryaati_close_at = w.status === 'Closed' ? ((c && c.dropoff_at && U.isoDate(c.dropoff_at) === w.close_date) ? c.dropoff_at : w.close_date) : null;
       r.cardoo_status = !active.length ? 'none' : r.booking_closed ? 'closed' : 'open';
       r.cardoo_close_at = r.cardoo_status === 'closed' ? r.booking_close : null;
+      // Short-term bookings are closed automatically by Cardoo at their end date (the report still shows them open).
+      // Only an open LONG-term booking really needs to be closed by hand.
+      const isShort = b => /short/i.test(b.booking_type || '');
+      r.cardoo_open_long = active.filter(b => !b.close_at && !isShort(b)).length;
+      r.cardoo_auto_closed = r.cardoo_status === 'open' && !r.cardoo_open_long;
       r.close_sync = !active.length ? 'no_booking'
-        : w.status === 'Closed' ? (r.cardoo_status === 'closed' ? 'both_closed' : 'caryaati_only')
+        : w.status === 'Closed' ? (r.cardoo_status === 'closed' ? 'both_closed' : r.cardoo_auto_closed ? 'auto_closed' : 'caryaati_only')
         : (r.cardoo_status === 'closed' ? 'cardoo_only' : 'both_open');
       r.close_diff_days = r.close_sync === 'both_closed' && w.close_date ? U.dayNum(r.cardoo_close_at) - U.dayNum(w.close_date) : null;
       // Claims summary
@@ -3297,17 +3302,18 @@ const Drawer = {
         ${r.case && r.case.notes ? `<div class="rm-item mt-sm"><div class="meta"><span class="tag">Notes</span></div>${U.esc(r.case.notes)}</div>` : ''}</div>`;
   },
   tab_cardoo(r, g, cur) {
-    const syncTxt = { both_closed: 'Closed in both', caryaati_only: 'Closed in Caryaati · still open in Cardoo', cardoo_only: 'Closed in Cardoo · still open in Caryaati', both_open: 'Open in both', no_booking: 'No Cardoo booking' }[r.close_sync];
-    const syncTone = { both_closed: r.close_diff_days ? 'amber' : 'green', caryaati_only: 'amber', cardoo_only: 'rose', both_open: 'sky', no_booking: 'rose' }[r.close_sync];
+    const syncTxt = { both_closed: 'Closed in both', caryaati_only: 'Closed in Caryaati · still open in Cardoo', cardoo_only: 'Closed in Cardoo · still open in Caryaati', auto_closed: 'Short term · closed automatically by Cardoo', both_open: 'Open in both', no_booking: 'No Cardoo booking' }[r.close_sync];
+    const syncTone = { both_closed: r.close_diff_days ? 'amber' : 'green', caryaati_only: 'amber', cardoo_only: 'rose', auto_closed: 'green', both_open: 'sky', no_booking: 'rose' }[r.close_sync];
     const cmp = `<div class="panel"><h4>${icon('swap')}Caryaati vs Cardoo<span class="spacer"></span><span class="chip t-${syncTone}" style="text-transform:none;letter-spacing:0">${syncTxt}</span></h4>
       <table class="ledger"><tr><td>Caryaati status</td><td>${r.status}</td></tr>
       <tr><td>Caryaati closed</td><td>${r.close_date ? (String(r.caryaati_close_at).length > 10 ? U.fmtDT(r.caryaati_close_at) : U.fmtDate(r.close_date)) : '—'}</td></tr>
       <tr><td>Cardoo booking period</td><td>${r.booking_start ? `${U.fmtDate(r.booking_start)} → ${U.fmtDate(r.booking_end)}` : '—'}</td></tr>
       ${r.cardoo_close_at ? `<tr><td>Cardoo closed</td><td>${U.fmtDT(r.cardoo_close_at)}</td></tr>`
-        : r.cardoo_status === 'open' && r.status === 'Closed' ? `<tr class="nc-row"><td>Cardoo closed</td><td><span class="nc-badge">Not closed</span>${r.days_since_caryaati_close != null ? ` <small>${r.days_since_caryaati_close}d after Caryaati close</small>` : ''}</td></tr>`
+        : r.close_sync === 'auto_closed' ? `<tr><td>Cardoo closed</td><td>auto · short term ends ${U.fmtDT(r.booking_end)}</td></tr>`
+        : r.close_sync === 'caryaati_only' ? `<tr class="nc-row"><td>Cardoo closed</td><td><span class="nc-badge">Not closed</span>${r.days_since_caryaati_close != null ? ` <small>${r.days_since_caryaati_close}d after Caryaati close</small>` : ''}</td></tr>`
         : `<tr><td>Cardoo closed</td><td>${r.cardoo_status === 'open' ? 'not closed' : '—'}</td></tr>`}
       ${r.close_diff_days ? `<tr><td>Difference</td><td class="${r.close_diff_days > 0 ? 'diff-pos' : 'diff-neg'}">${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days} days</td></tr>`
-        : r.cardoo_status === 'open' && r.status === 'Closed' ? `<tr class="nc-row"><td>Difference</td><td><span class="nc-badge">Not closed in Cardoo</span></td></tr>` : ''}
+        : r.close_sync === 'caryaati_only' ? `<tr class="nc-row"><td>Difference</td><td><span class="nc-badge">Not closed in Cardoo</span></td></tr>` : ''}
       ${r.claim_deadline ? `<tr><td>Claim window (${g.claim_deadline_days} days)</td><td>${U.fmtDate(r.claim_deadline)} · ${r.days_to_deadline < 0 ? `expired ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`}</td></tr>` : ''}</table></div>`;
     const bl = (App.model.cardoo ? App.model.cardoo.lines : []).filter(l => +l.contract_no === r.contract_no).sort((a, b) => String(b.po_no).localeCompare(String(a.po_no)));
     const billed = bl.length ? `<div class="panel"><h4>${icon('receipt')}Charged by Cardoo (invoices)<span class="spacer"></span><span class="mono" style="text-transform:none">AED ${U.money(U.sum(bl, l => l.price_aed))}</span></h4>
@@ -3315,7 +3321,7 @@ const Drawer = {
       <p class="small muted mt-sm">Waiver fee charged to customer: AED ${U.money(r.waiver_amount)} · Cardoo charged so far: AED ${U.money(U.sum(bl, l => l.price_aed))}</p></div>` : '';
     return cmp + billed + `<div class="panel"><h4>${icon('shield')}Cardoo bookings</h4>${r.bookings.length ? `<div class="mini-list">${r.bookings.map(b => `<div class="mini-item">
         <div class="grow"><b>${U.esc(b.booking_type || 'Booking')} ${b.contract_variant ? `<span class="tag">${U.esc(b.contract_variant)}</span>` : ''}</b>
-        <div class="small muted">${U.fmtDT(b.start_at)} → ${U.fmtDT(b.end_at)}${b.close_at ? ` · closed ${U.fmtDT(b.close_at)}` : ' · not closed'}</div>
+        <div class="small muted">${U.fmtDT(b.start_at)} → ${U.fmtDT(b.end_at)}${b.close_at ? ` · closed ${U.fmtDT(b.close_at)}` : /short/i.test(b.booking_type || '') ? ' · closes automatically at end' : ' · not closed'}</div>
         <div class="small muted">Booked ${U.fmtDT(b.booked_at)} by ${U.esc(b.user_label || '')}${b.comment ? ` · ${U.esc(b.comment)}` : ''}</div></div>
         <div class="right"><b class="mono">${cur} ${U.money(b.deposit_covered)}</b><div class="small muted">fee ${U.money(Engine.bookingFee(b))}</div>${b.cancelled ? '<span class="chip sm t-rose">Cancelled</span>' : '<span class="chip sm t-teal">Active</span>'}</div></div>`).join('')}</div>`
       : `<div class="notice rose">${icon('alert')}<span>No Cardoo booking for this contract. ${r.status === 'Open' ? 'Register it in Cardoo so the deposit is covered.' : 'Any outstanding must be collected directly.'}</span></div>`}</div>
@@ -4302,7 +4308,7 @@ Views.matching = {
     ['missing_cardoo', 'Missing in Cardoo', 'rose', 'Waiver contracts in Caryaati with no active Cardoo booking — the deposit is not covered.'],
     ['missing_caryaati', 'Missing in Caryaati', 'rose', 'Cardoo bookings whose contract number is not found in the Caryaati Rental Contracts data. Check the contract number used in Cardoo (re-import the Rental Contracts report if it is recent).'],
     ['no_waiver', 'Booked, no waiver fee', 'amber', 'The contract exists in Caryaati and is booked in Cardoo, but it is not in the Deposit Waivers report — check whether the waiver fee was charged.'],
-    ['close_cardoo', 'Not closed in Cardoo', 'rose', 'Closed in Caryaati but NOT closed in Cardoo — the booking is still running and Cardoo keeps charging. Close each one in Cardoo with the Caryaati closing date (oldest first).'],
+    ['close_cardoo', 'Not closed in Cardoo', 'rose', 'Long-term bookings closed in Caryaati but NOT closed in Cardoo — the booking keeps running. Close each one in Cardoo with the Caryaati closing date (oldest first). Short-term bookings are left out: Cardoo closes them automatically at their end date.'],
     ['close_mismatch', 'Closing date mismatch', 'orange', 'Closed in both systems but on different dates.'],
     ['cardoo_only', 'Closed in Cardoo only', 'rose', 'Cardoo booking is closed while the Caryaati contract is still open — the deposit is no longer covered.'],
     ['matched', 'Fully matched', 'green', 'Closed in both systems on the same date.']
@@ -4338,7 +4344,7 @@ Views.matching = {
     const base = Views.recordColumns();
     const car = { key: 'close_date', label: 'Caryaati closed', type: 'date', get: r => r.close_date, sortGet: r => U.dayNum(r.close_date), html: r => r.close_date ? `<div class="dates2">${String(r.caryaati_close_at).length > 10 ? U.fmtDT(r.caryaati_close_at) : U.fmtDate(r.close_date)}<span>${R.ago(r.days_since_caryaati_close)}</span></div>` : '<span class="chip t-sky">open</span>' };
     const per = { key: 'booking_end', label: 'Cardoo booking', get: r => r.booking_start ? `${U.fmtDate(r.booking_start)} - ${U.fmtDate(r.booking_end)}` : '', sortGet: r => U.dayFrac(r.booking_end), html: r => r.booking_start ? `<div class="dates2">${U.fmtDate(r.booking_start)}<span>→ ${U.fmtDate(r.booking_end)}</span></div>` : R.booking(r) };
-    const cdc = { key: 'cardoo_close_at', label: 'Cardoo closed', type: 'date', dt: true, get: r => r.cardoo_close_at, sortGet: r => U.dayFrac(r.cardoo_close_at), html: r => r.cardoo_close_at ? `<div class="dates2">${U.fmtDT(r.cardoo_close_at)}</div>` : r.status === 'Closed' && r.cardoo_status === 'open' ? '<span class="nc-badge">Not closed</span>' : '<span class="zero">not closed</span>' };
+    const cdc = { key: 'cardoo_close_at', label: 'Cardoo closed', type: 'date', dt: true, get: r => r.cardoo_close_at, sortGet: r => U.dayFrac(r.cardoo_close_at), html: r => r.cardoo_close_at ? `<div class="dates2">${U.fmtDT(r.cardoo_close_at)}</div>` : r.close_sync === 'caryaati_only' ? '<span class="nc-badge">Not closed</span>' : r.close_sync === 'auto_closed' ? '<span class="zero">auto (short term)</span>' : '<span class="zero">not closed</span>' };
     const diff = { key: 'close_diff_days', label: 'Difference', numeric: true, get: r => r.close_diff_days, html: r => r.close_diff_days ? `<span class="${r.close_diff_days > 0 ? 'diff-pos' : 'diff-neg'}">${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days} days</span><span class="cell-sub">${r.close_diff_days > 0 ? 'Cardoo later' : 'Cardoo earlier'}</span>` : '<span class="zero">same day</span>' };
     const notc = { key: 'not_closed_days', label: 'Cardoo status', numeric: true, get: r => r.days_since_caryaati_close, sortGet: r => r.days_since_caryaati_close, html: r => `<span class="nc-badge">Not closed</span><span class="cell-sub">${r.days_since_caryaati_close != null ? `${r.days_since_caryaati_close} day${r.days_since_caryaati_close === 1 ? '' : 's'} since Caryaati close` : ''}</span>` };
     const type = { key: 'btype', label: 'Type', get: r => [...new Set(r.bookings.filter(b => !b.cancelled).map(b => b.booking_type))].join(' / ') };
