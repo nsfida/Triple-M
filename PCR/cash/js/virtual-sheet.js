@@ -163,6 +163,17 @@ export function createVirtualSheet({
     for (let index = start; index < keepEnd; index += 1) {
       if (rendered[index - start].dataset.clientId !== rows[index].clientId) { rebuild(); return; }
     }
+    // Hysteresis: while the rows already rendered still cover the screen with a few
+    // rows to spare, change nothing. Rows are then added / removed in small batches
+    // instead of one row every frame while an arrow key is held.
+    if (!force && isVisible() && end <= total) {
+      const visibleCount = Math.ceil(frame.clientHeight / rowHeight) + 1;
+      const first = Math.floor(Math.max(0, frame.scrollTop - headerHeight()) / rowHeight);
+      const margin = 4;
+      const coversTop = start <= Math.max(0, first - margin);
+      const coversBottom = end >= Math.min(total, first + visibleCount + margin);
+      if (coversTop && coversBottom) { updateSpacers(total); return; }
+    }
     const [s, e] = computeWindow(total);
     if (s >= end || e <= start) {
       rebuild();

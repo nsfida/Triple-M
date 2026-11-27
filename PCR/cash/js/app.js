@@ -9,7 +9,7 @@ import {
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js?v=fast-autosave-1';
 import { createVirtualSheet } from './virtual-sheet.js?v=fast-autosave-1';
-import { setupReceiptImport } from './receipt-import.js?v=settings-1';
+import { setupReceiptImport } from './receipt-import.js?v=collections-1';
 import { createAccountPanel } from './account-panel.js?v=settings-1';
 import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=fast-autosave-1';
 
@@ -831,6 +831,71 @@ function addExpenseEntries(entries) {
   scheduleAutosave('expenses');
   return entries.length;
 }
+
+// ---- Collections import (Received) ---------------------------------------------
+// Used by collections-import.js: entries come from the daily Caryaati report.
+async function ensureReceivedLoaded() {
+  if (!receivedLoaded && !receivedLoading) await loadReceived();
+  while (receivedLoading) await new Promise(resolve => setTimeout(resolve, 100));
+  if (!receivedLoaded) throw new Error('Received could not be loaded. Check the connection and try again.');
+}
+
+// Caryaati voucher numbers (RCV-123456) already written in the Received MERCHANT column.
+function existingReceivedVouchers() {
+  const found = new Set();
+  receivedRows.forEach(row => {
+    const text = String(row.merchant ?? '');
+    if (text) for (const match of text.matchAll(/\b[A-Z]{2,5}-\d{3,}\b/g)) found.add(match[0]);
+  });
+  return found;
+}
+
+// Cash already entered in Received for one date (for the reconciliation card).
+function receivedCashOn(date) {
+  let cents = 0;
+  let count = 0;
+  receivedRows.forEach(row => {
+    if (row.entry_date !== date || !cashTypeNames.has(row.transaction_type || 'Cash') || isBlankReceivedRow(row)) return;
+    count += 1;
+    cents += Math.round(calculateTotal(row, RECEIVING_AMOUNT_FIELDS) * 100);
+  });
+  return { cents, count };
+}
+
+// Adds imported entries above the empty row at the bottom of Received; they save
+// automatically like typed rows. The type must be one offered for Received.
+function addReceivedEntries(entries) {
+  if (!canEdit('received') || !entries.length) return 0;
+  const prepared = entries.map(entry => {
+    const type = canonicalType('received', entry.transaction_type);
+    if (!type) throw new Error(`“${entry.transaction_type}” is not a Received payment type. Enable it in Settings → Payment types.`);
+    return { ...entry, transaction_type: type };
+  });
+  const last = receivedRows[receivedRows.length - 1];
+  const trailing = last && isBlankReceivedRow(last) ? receivedRows.pop() : null;
+  prepared.forEach(entry => {
+    const row = makeEmptyReceivedRow();
+    row.entry_date = entry.entry_date;
+    row.name = entry.name || '';
+    row.merchant = entry.merchant || '';
+    row.transaction_type = entry.transaction_type;
+    Object.entries(entry.amounts || {}).forEach(([field, cents]) => {
+      if (RECEIVING_AMOUNT_FIELDS.includes(field) && cents) row[field] = (cents / 100).toFixed(2);
+    });
+    receivedRows.push(row);
+  });
+  if (trailing) receivedRows.push(trailing);
+  selectedReceivedClientId = null;
+  renderReceivedTable();
+  setActiveTab('received');
+  scrollSheetToBottom(el('receivedTable'));
+  setText(receivedSheetStatus, UNSYNCED_TEXT);
+  receivedSheetStatus.classList.add('dirty');
+  scheduleAutosave('received');
+  return prepared.length;
+}
+
+const canManagePaymentTypes = () => currentUser?.role === 'owner' && paymentTypesManaged;
 
 function focusTrailingRow(tableElement, list, selectSetter) {
   const last = list[list.length - 1];
@@ -1786,10 +1851,12 @@ function accessNoteText(section = 'expenses') {
   return withEditWindow(currentUser?.role === 'owner' ? 'Owner · full access' : (canEdit(section) ? 'Edit access' : 'View-only access'));
 }
 
+const canImportAnything = () => Boolean(permissions.import) && (canEdit('expenses') || canEdit('received'));
+
 function updateToolbar() {
   updateSyncIndicatorSoon();
   addButton.disabled = !canEdit('expenses');
-  el('importReceiptsButton').disabled = !canEdit('expenses') || !permissions.import;
+  el('importReceiptsButton').disabled = !canImportAnything();
   el('importReceiptsButton').classList.toggle('hidden', !permissions.import);
   el('changeTypeExpensesButton').disabled = !canEdit('expenses');
   deleteButton.disabled = !canEdit('expenses') || !selectedClientId;
@@ -1800,6 +1867,8 @@ function updateReceivedToolbar() {
   updateSyncIndicatorSoon();
   receivedAddButton.disabled = !canEdit('received');
   el('changeTypeReceivedButton').disabled = !canEdit('received');
+  el('importReceivedButton').disabled = !canImportAnything();
+  el('importReceivedButton').classList.toggle('hidden', !permissions.import);
   receivedDeleteButton.disabled = !canEdit('received') || !selectedReceivedClientId;
   setText(el('receivedPermissionNote'), accessNoteText('received'));
 }
@@ -2702,7 +2771,7 @@ async function exportToExcel() {
   try {
     if (pendingChangeCount() > 0) await syncAll();
     const [XLSX, cashRecords, expenseRecords, receivedRecords] = await Promise.all([
-      import('https://esm.sh/xlsx@0.18.5'),
+      import(new URL('./vendor/sheetjs/xlsx.js', import.meta.url).href),
       fetchAllRows('cash_vault_counts', ['count_date', 'id']),
       fetchAllRows('expense_records', ['sort_order', 'created_at', 'id']),
       fetchAllRows('received_records', ['sort_order', 'created_at', 'id'])
@@ -3395,7 +3464,21 @@ setupReceiptImport({
   isDateEditable,
   formatDmy,
   editWindowDays: EDIT_WINDOW_DAYS,
-  showToast
+  showToast,
+  collections: {
+    canAdd: () => canEdit('received') && permissions.import,
+    ensureReceivedLoaded,
+    existingReceivedVouchers,
+    receivedCashOn,
+    addReceivedEntries,
+    receivedTypes: () => typesForLedger('received'),
+    allTypes: () => (canManagePaymentTypes() ? paymentTypes : typesForLedger('received')),
+    canManageTypes: canManagePaymentTypes,
+    enableTypeForReceived: name => updatePaymentType(name, { use_in_received: true }),
+    addPaymentType,
+    openReceived: () => setActiveTab('received'),
+    storageKey: name => `expense-vault:${name}:${currentUser?.id || currentUser?.label || 'user'}`
+  }
 });
 
 

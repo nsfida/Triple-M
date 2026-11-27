@@ -18,7 +18,53 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
-## Latest update: settings panel, users & access, payment types, change type
+## Latest update: Import → daily collections + smoother arrow keys (no new migration)
+
+**No SQL to run.** Nothing in the database changes; existing rows are untouched.
+
+### One "⇪ Import" button
+The Expenses button is now just **Import**, and Received has one too. Drop any mix of files; each file's type is detected:
+
+| File | Goes to |
+|---|---|
+| RTA vehicle renewal receipt PDF | Expenses (works exactly as before) |
+| Caryaati daily report (Excel) | Received: the entries are made from this file |
+| Payment-link provider report (.xls/.xlsx/.csv) | Matching only: identifies link payments |
+| Bank merchant (POS) report PDF | Matching only: checks the card-machine total |
+
+If RTA receipts and collections are loaded together, the panel shows two tabs.
+
+### Collections → Received
+* One Received entry per customer payment (vouchers paid together are combined), dated with the Caryaati voucher date.
+  * Name = customer.
+  * Merchant = `CN <contract> · Link/POS ****<card> or Transfer <ref> · RCV-… numbers`.
+  * The amounts go into the matching columns (Rent, VAT, Salik, Fines, CDW, …). Anything unrecognised goes to OTHERS.
+* **Cash postings are skipped**, because cash is entered by hand.
+* Each entry gets a **channel**:
+  * **Link**: identified from the payment-link report by contract number, then card's last 4 digits, then amount.
+  * **Card**: matched to a bank POS transaction by card digits and amount.
+  * **Bank transfer.**
+* You choose which Received TYPE each channel uses; the choice is remembered. The owner can create a "Link" type in one click. A type that isn't yet enabled for Received is enabled automatically.
+* Re-importing the same day is safe: vouchers already in Received (by RCV number) are greyed out.
+* Entries dated outside the edit window can be put on the working date instead.
+
+### Matching section
+* Payment link: Caryaati vs link report.
+* Card machine: Caryaati vs bank POS (voided sale/reversal pairs are ignored).
+* Total non-cash, with any differences highlighted.
+* Cash in Caryaati compared with cash already entered in Received for that date.
+* Link and POS fees, and the expected net card settlement.
+* Date warnings, and a "needs attention" list: link/POS payments not found in Caryaati, Caryaati card postings not found in either report, unknown payment methods.
+* Filters: All / Link / Card / Bank / Issues. Tick or untick any entry.
+* **⬇ Reconciliation (Excel)** downloads Summary, Entries, Bank POS and Payment link sheets.
+* The last reconciliation is kept and can be reopened from the Import panel ("View last reconciliation").
+
+### Arrow keys
+Holding an arrow key in Expenses / Received now moves the selection without the small lag:
+* The copy buffer is updated after you stop moving.
+* Rows are re-rendered only when the selection leaves the drawn area.
+
+## Earlier update: settings panel, users & access, payment types, change type
 
 **Three steps to install, in this order. No existing data is changed.**
 
@@ -57,7 +103,7 @@ Cash and Bank are built in. **Card, Credit Card, Debit Card and Travel Card** ar
 
 Example: you imported receipts as **Bank** but they were paid by card → Change type → *All rows dated 26/11/2026*, *only rows that are currently Bank* → **Card**.
 
-## Latest update: Import RTA receipts (no new migration)
+## Earlier update: Import RTA receipts (no new migration)
 
 Front-end only. **No SQL to run and no Edge Function redeploy.** Replace the static files (including the new `js/vendor/pdfjs/` folder) and refresh once with `Ctrl+F5`.
 
@@ -91,7 +137,7 @@ Either way, a receipt's entries add up exactly to its printed total. The *Name* 
 - **Plate numbers are not printed on RTA renewal receipts** (the QR code only links to the RTA website), so the Receipt No and fine numbers are used as references.
 - The PDFs are read entirely in the browser (PDF.js, bundled in `js/vendor/pdfjs/`) and are not uploaded anywhere.
 
-## Latest update: speed and instant saving (no new migration)
+## Earlier update: speed and instant saving (no new migration)
 
 Front-end only. **Do not run any SQL migration and do not redeploy the Edge Function.** Replace the static files and refresh once with `Ctrl+F5`. Existing data is not touched.
 
@@ -150,9 +196,12 @@ expense_vault_project/
 │   ├── spreadsheet-grid.js
 │   ├── virtual-sheet.js
 │   ├── rta-receipt-parser.js
-│   ├── receipt-import.js
+│   ├── receipt-import.js    (Import panel: file detection + RTA receipts)
+│   ├── daily-reports.js     (Caryaati / payment-link / bank POS readers + matching)
+│   ├── collections-import.js (Import → Received collections and reconciliation)
 │   ├── account-panel.js     (user menu, settings, users & access, payment types)
 │   ├── vendor/pdfjs/        (PDF.js 4.10.38, Apache-2.0; loaded only when importing)
+│   ├── vendor/sheetjs/      (SheetJS 0.18.5, Apache-2.0; reads Excel files, writes exports)
 │   └── secure-session-storage.js
 ├── sql/
 │   └── migrations/
@@ -168,7 +217,8 @@ expense_vault_project/
 │       ├── 010_dated_person_balances.sql
 │       ├── 011_staff_balance_transactions_and_edit_window.sql
 │       ├── 012_row_order.sql
-│       └── 013_staff_entry_edit_delete.sql
+│       ├── 013_staff_entry_edit_delete.sql
+│       └── 014_users_profiles_payment_types.sql
 └── supabase/
     ├── config.toml
     └── functions/

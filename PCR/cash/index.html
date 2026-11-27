@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f3f6fa">
   <meta name="description" content="Private expense register powered by Supabase.">
   <title>Expense Vault</title>
-  <link rel="stylesheet" href="css/styles.css?v=settings-1">
+  <link rel="stylesheet" href="css/styles.css?v=collections-1">
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -161,7 +161,7 @@
             <button id="addRowButton" class="button button-primary" type="button">＋ Add row</button>
             <button id="deleteRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
             <button id="changeTypeExpensesButton" class="button button-outline" type="button" title="Change the TYPE (Cash, Bank, Card…) of many rows at once. Select the rows first.">⇄ Change type</button>
-            <button id="importReceiptsButton" class="button button-outline" type="button" title="Read RTA vehicle renewal receipt PDFs and add them as expense entries">⇪ Import RTA receipts</button>
+            <button id="importReceiptsButton" class="button button-outline" type="button" title="Import RTA receipt PDFs (→ Expenses) or the day's Caryaati, payment-link and bank reports (→ Received)">⇪ Import</button>
           </div>
           <div class="toolbar-right">
             <span id="sheetStatus" class="sheet-status" role="status" aria-live="polite">All changes saved</span>
@@ -197,6 +197,7 @@
             <button id="addReceivedRowButton" class="button button-primary" type="button">＋ Add row</button>
             <button id="deleteReceivedRowButton" class="button button-danger-quiet" type="button" disabled>Delete selected</button>
             <button id="changeTypeReceivedButton" class="button button-outline" type="button" title="Change the TYPE (Cash, Bank, Card…) of many rows at once. Select the rows first.">⇄ Change type</button>
+            <button id="importReceivedButton" class="button button-outline" type="button" title="Import the day's Caryaati, payment-link and bank POS reports and add the collections to Received">⇪ Import</button>
           </div>
           <div class="toolbar-right">
             <span id="receivedSheetStatus" class="sheet-status" role="status" aria-live="polite">All changes saved</span>
@@ -312,18 +313,35 @@
     <div class="cash-side-panel-shell">
       <header class="sp-header">
         <div class="sp-avatar" aria-hidden="true"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6m-3 3 3-3 3 3"/></svg></div>
-        <div class="sp-title"><h2 id="receiptImportTitle">Import RTA receipts</h2><p class="sp-sub">Vehicle renewal receipt PDFs → Expenses entries</p></div>
+        <div class="sp-title"><h2 id="receiptImportTitle">Import</h2><p class="sp-sub">RTA receipts → Expenses · Daily collections → Received</p></div>
         <button id="closeReceiptImport" class="sp-close" type="button" aria-label="Close">×</button>
       </header>
       <div class="cash-side-panel-content sp-body ri-content">
         <div id="receiptDropZone" class="ri-drop">
-          <input id="receiptImportFiles" type="file" accept="application/pdf,.pdf" multiple hidden>
-          <p class="ri-drop-title">Drop RTA receipt PDFs here</p>
-          <p class="muted ri-drop-sub">one or many files</p>
-          <button id="receiptChooseFiles" class="sp-btn" type="button">Choose PDF files…</button>
+          <input id="receiptImportFiles" type="file" accept="application/pdf,.pdf,.xls,.xlsx,.csv,.txt,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" multiple hidden>
+          <p class="ri-drop-title">Drop files here</p>
+          <p class="muted ri-drop-sub">PDF, Excel or CSV · one or many files · the type of each file is detected automatically</p>
+          <button id="receiptChooseFiles" class="sp-btn" type="button">Choose files…</button>
         </div>
         <ul id="receiptFileList" class="ri-files"></ul>
 
+        <div id="importIntro" class="im-intro">
+          <div class="im-kind"><span class="im-badge im-rta">RTA</span><div><strong>RTA vehicle renewal receipts</strong><small>PDF · adds Renewal / Fines entries to <b>Expenses</b></small></div></div>
+          <div class="im-kind"><span class="im-badge im-car">CAR</span><div><strong>Caryaati daily report</strong><small>Excel · adds card, link and bank-transfer collections to <b>Received</b> (cash is skipped)</small></div></div>
+          <div class="im-kind"><span class="im-badge im-link">LINK</span><div><strong>Payment-link report</strong><small>Excel · identifies link payments and checks their total</small></div></div>
+          <div class="im-kind"><span class="im-badge im-pos">POS</span><div><strong>Bank merchant (POS) report</strong><small>PDF · checks the card-machine total</small></div></div>
+          <p class="ri-hint">For the day's collections, add all three daily files together: entries are made from Caryaati, the other two are used for matching.</p>
+          <button id="importShowLast" class="sp-btn sp-btn-small" type="button" hidden>View last reconciliation</button>
+        </div>
+
+        <div id="importTabs" class="im-tabs" role="tablist" hidden>
+          <button type="button" role="tab" data-import-tab="collections">Collections → Received <span id="importTabCollectionsCount"></span></button>
+          <button type="button" role="tab" data-import-tab="rta">RTA → Expenses <span id="importTabRtaCount"></span></button>
+        </div>
+
+        <div id="importCollectionsSection" hidden></div>
+
+        <div id="importRtaSection" hidden>
         <div id="receiptImportOptions" hidden>
           <div class="sp-toolbar ap-tight"><span class="sp-section-label">1 · PAID BY <span class="ri-required">required</span></span></div>
           <div id="receiptTypeChoices" class="ri-type"></div>
@@ -344,11 +362,17 @@
             <table id="receiptImportEntries" class="ri-table"><thead><tr><th>Supplier · Inv# · Date</th><th class="num">Total</th></tr></thead><tbody></tbody></table>
           </div>
         </div>
+        </div>
       </div>
-      <footer class="ri-footer">
+      <footer id="rtaImportFooter" class="ri-footer">
         <span id="receiptImportSummary" class="ri-summary"></span>
         <span id="receiptImportMessage" class="ri-message" role="status" aria-live="polite"></span>
         <div class="sp-actions"><button id="receiptImportCancel" class="sp-btn" type="button">Cancel</button><button id="receiptImportConfirm" class="sp-btn sp-btn-primary" type="button" disabled>Add entries</button></div>
+      </footer>
+      <footer id="collectionsImportFooter" class="ri-footer" hidden>
+        <span class="ri-summary" data-role="summary"></span>
+        <span class="ri-message" data-role="message" role="status" aria-live="polite"></span>
+        <div class="sp-actions" data-role="actions"></div>
       </footer>
     </div>
   </dialog>
@@ -375,6 +399,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js?v=settings-1"></script>
+  <script type="module" src="js/app.js?v=collections-1"></script>
 </body>
 </html>

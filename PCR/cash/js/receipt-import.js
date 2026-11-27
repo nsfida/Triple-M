@@ -1,5 +1,8 @@
 /*
- * "Import RTA receipts": reads one or more RTA vehicle-renewal receipt PDFs, shows
+ * "Import" panel. RTA receipt PDFs → Expenses (below); the day's Caryaati,
+ * payment-link and bank POS reports → Received (collections-import.js).
+ *
+ * RTA receipts: reads one or more RTA vehicle-renewal receipt PDFs, shows
  * exactly which Expenses entries will be created, asks Cash or Bank, then adds the
  * entries to the Expenses sheet (they save automatically like any typed row).
  *
@@ -14,6 +17,8 @@
  */
 
 import { parseRtaReceiptPdf } from './rta-receipt-parser.js?v=settings-1';
+import { createCollectionsImport } from './collections-import.js?v=collections-1';
+import { parseDelimitedText, isCaryaatiRows, parseCaryaati, isLinkReportRows, parseLinkReport, isBankPosPdf, parseBankPosPdf } from './daily-reports.js?v=collections-1';
 
 const PDFJS_URL = new URL('./vendor/pdfjs/pdf.min.js', import.meta.url).href;
 const PDFJS_WORKER_URL = new URL('./vendor/pdfjs/pdf.worker.min.js', import.meta.url).href;
@@ -31,6 +36,39 @@ function loadPdfJs() {
   }
   return pdfjsPromise;
 }
+
+const SHEETJS_URL = new URL('./vendor/sheetjs/xlsx.js', import.meta.url).href;
+let sheetjsPromise = null;
+function loadSheetJs() {
+  if (!sheetjsPromise) sheetjsPromise = import(SHEETJS_URL).catch(error => { sheetjsPromise = null; throw error; });
+  return sheetjsPromise;
+}
+
+// Spreadsheet file → rows of every sheet. Real Excel files (zip / OLE) are read with
+// SheetJS; text "xls" exports (tab separated, like the payment-link report) are parsed directly.
+async function readSpreadsheet(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;
+  const isOle = bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0;
+  if (!isZip && !isOle) {
+    let text = new TextDecoder('utf-8').decode(bytes);
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    if (/^\s*<(html|table|\?xml)/i.test(text)) {
+      const XLSX = await loadSheetJs();
+      const book = XLSX.read(text, { type: 'string', cellDates: false });
+      return book.SheetNames.map(name => XLSX.utils.sheet_to_json(book.Sheets[name], { header: 1, raw: true, defval: '' }));
+    }
+    return [parseDelimitedText(text)];
+  }
+  const XLSX = await loadSheetJs();
+  const book = XLSX.read(bytes, { type: 'array', cellDates: false });
+  return book.SheetNames.map(name => XLSX.utils.sheet_to_json(book.Sheets[name], { header: 1, raw: true, defval: '' }));
+}
+
+const isPdfFile = file => /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+const isSheetFile = file => /\.(xlsx?|csv|txt|tsv)$/i.test(file.name) || /spreadsheet|excel|csv/i.test(file.type);
+const KIND_LABEL = { rta: 'RTA receipts', caryaati: 'Caryaati report', link: 'Payment-link report', bank: 'Bank POS report' };
+const dmyIso = iso => (iso ? iso.split('-').reverse().join('/') : '');
 
 const money = cents => (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const amount = cents => (cents ? (cents / 100).toFixed(2) : '');
@@ -114,9 +152,32 @@ export function setupReceiptImport(app) {
   const methodHint = document.getElementById('receiptPaymentHint');
   const typeChoices = document.getElementById('receiptTypeChoices');
 
-  let files = [];      // { name, status: 'reading'|'done'|'error', error, receipts }
+  const intro = document.getElementById('importIntro');
+  const showLastButton = document.getElementById('importShowLast');
+  const tabs = document.getElementById('importTabs');
+  const rtaSection = document.getElementById('importRtaSection');
+  const collectionsSection = document.getElementById('importCollectionsSection');
+  const rtaFooter = document.getElementById('rtaImportFooter');
+  const collectionsFooter = document.getElementById('collectionsImportFooter');
+
+  let files = [];      // { name, status: 'reading'|'done'|'error', error, receipts, kind, detail }
   let receipts = [];   // flattened, with ._include / ._status
   let busy = false;
+  let activeTab = null; // 'rta' | 'collections'
+
+  const c = app.collections;
+  const rtaAllowed = () => app.canWrite();
+  const collectionsAllowed = () => c.canAdd();
+  const collections = createCollectionsImport({
+    ...c,
+    canAddReceived: c.canAdd,
+    isCashType: app.isCashType,
+    editCutoffDate: app.editCutoffDate,
+    workDate: app.workDate,
+    isDateEditable: app.isDateEditable,
+    showToast: app.showToast,
+    close: () => dialog.close()
+  }, { section: collectionsSection, footer: collectionsFooter });
 
   const selectedType = () => dialog.querySelector('input[name="receiptPaymentType"]:checked')?.value || '';
   const selectedLayout = () => dialog.querySelector('input[name="receiptLayout"]:checked')?.value || 'split';
@@ -132,16 +193,56 @@ export function setupReceiptImport(app) {
     const split = dialog.querySelector('input[name="receiptLayout"][value="split"]');
     if (split) split.checked = true;
     message.textContent = '';
+    activeTab = null;
+    collections.reset();
     render();
   }
 
-  function open() {
-    if (!app.canWrite()) { app.showToast('This access key can view records but cannot add entries.', true); return; }
+  function open(preferred = null) {
+    if (!rtaAllowed() && !collectionsAllowed()) { app.showToast('This access key can view records but cannot import entries.', true); return; }
     reset();
+    activeTab = preferred;
     dialog.showModal();
+    render();
     loadPdfJs().catch(() => {}); // warm up while the person picks files
-    // Duplicate detection needs every existing Expenses row.
-    app.ensureExpensesLoaded().then(() => { if (dialog.open) render(); }).catch(() => {});
+    // Duplicate detection needs every existing row.
+    if (rtaAllowed()) app.ensureExpensesLoaded().then(() => { if (dialog.open) render(); }).catch(() => {});
+    if (collectionsAllowed()) c.ensureReceivedLoaded().then(() => { if (dialog.open && collections.hasData()) collections.render(); }).catch(() => {});
+  }
+
+  // Which part of the panel is shown: intro, RTA, Collections (tabs when both have files).
+  function layout() {
+    const hasRta = receipts.length > 0 || files.some(file => file.kind === 'rta');
+    const hasCollections = collections.hasData() || collections.isShowingReport();
+    if (activeTab === 'rta' && !hasRta) activeTab = hasCollections ? 'collections' : null;
+    if (activeTab === 'collections' && !hasCollections) activeTab = hasRta ? 'rta' : null;
+    if (!activeTab) activeTab = hasCollections ? 'collections' : hasRta ? 'rta' : null;
+    const nothing = !hasRta && !hasCollections;
+    intro.hidden = !nothing;
+    showLastButton.hidden = !(nothing && collectionsAllowed() && collections.hasLast());
+    tabs.hidden = !(hasRta && hasCollections);
+    tabs.querySelectorAll('[data-import-tab]').forEach(button => {
+      const on = button.dataset.importTab === activeTab;
+      button.classList.toggle('on', on);
+      button.setAttribute('aria-selected', String(on));
+    });
+    document.getElementById('importTabRtaCount').textContent = receipts.length ? String(receipts.length) : '';
+    document.getElementById('importTabCollectionsCount').textContent = collections.entryCount() ? String(collections.entryCount()) : '';
+    rtaSection.hidden = activeTab !== 'rta';
+    collectionsSection.hidden = activeTab !== 'collections';
+    rtaFooter.hidden = activeTab === 'collections';
+    collectionsFooter.hidden = activeTab !== 'collections';
+  }
+
+  function renderFiles() {
+    fileList.innerHTML = files.map(file => {
+      const state = file.status === 'reading' ? 'Reading…'
+        : file.status === 'error' ? escapeHtml(file.error)
+          : escapeHtml(file.detail || '');
+      const badge = file.kind ? `<span class="im-badge im-${file.kind === 'rta' ? 'rta' : file.kind === 'caryaati' ? 'car' : file.kind === 'link' ? 'link' : 'pos'}">${file.kind === 'caryaati' ? 'CAR' : file.kind === 'bank' ? 'POS' : file.kind.toUpperCase()}</span>` : '';
+      return `<li class="ri-file ${file.status}" title="${escapeHtml(file.title || '')}">${badge}<span class="ri-file-name">${escapeHtml(file.name)}</span><span class="ri-file-state">${state}</span></li>`;
+    }).join('');
+    dropZone.classList.toggle('compact', files.length > 0);
   }
 
   // Works out which receipts can be imported and why not.
@@ -198,15 +299,14 @@ export function setupReceiptImport(app) {
   };
 
   function render() {
-    // Files
-    fileList.innerHTML = files.map(file => {
-      const state = file.status === 'reading' ? 'Reading…'
-        : file.status === 'error' ? escapeHtml(file.error)
-          : `${file.receipts.length} receipt${file.receipts.length === 1 ? '' : 's'}`;
-      return `<li class="ri-file ${file.status}"><span class="ri-file-name">${escapeHtml(file.name)}</span><span class="ri-file-state">${state}</span></li>`;
-    }).join('');
+    renderFiles();
+    layout();
+    if (activeTab === 'collections') collections.render();
+    renderRta();
+  }
+
+  function renderRta() {
     const hasReceipts = receipts.length > 0;
-    dropZone.classList.toggle('compact', files.length > 0);
     optionsBox.hidden = !hasReceipts;
 
     refreshStatuses();
@@ -263,39 +363,91 @@ export function setupReceiptImport(app) {
   }
 
   async function readFiles(list) {
-    const pdfs = [...list].filter(file => /\.pdf$/i.test(file.name) || file.type === 'application/pdf');
-    if (!pdfs.length) { message.textContent = 'Please choose PDF files.'; return; }
+    const chosen = [...list].filter(file => isPdfFile(file) || isSheetFile(file));
+    if (!chosen.length) { app.showToast('Please choose PDF, Excel or CSV files.', true); return; }
     const known = new Set(files.map(file => `${file.name}|${file.size}`));
-    const fresh = pdfs.filter(file => !known.has(`${file.name}|${file.size}`));
-    if (!fresh.length) { message.textContent = 'Those files are already in the list.'; return; }
+    const fresh = chosen.filter(file => !known.has(`${file.name}|${file.size}`));
+    if (!fresh.length) { app.showToast('Those files are already in the list.', true); return; }
     const entries = fresh.map(file => ({ name: file.name, size: file.size, status: 'reading', receipts: [], file }));
     files.push(...entries);
     render();
-    let pdfjs;
-    try {
-      pdfjs = await loadPdfJs();
-    } catch (error) {
-      entries.forEach(entry => { entry.status = 'error'; entry.error = 'The PDF reader could not be loaded. Check the connection and try again.'; });
-      render();
-      return;
-    }
     for (const entry of entries) {
       try {
-        const data = new Uint8Array(await entry.file.arrayBuffer());
-        const pdf = await pdfjs.getDocument({ data, isEvalSupported: false }).promise;
-        const result = await parseRtaReceiptPdf(pdf, entry.name);
-        pdf.destroy?.();
-        if (!result.isRtaReceipt) throw new Error('Not an RTA vehicle renewal receipt.');
-        entry.receipts = result.receipts;
+        if (isPdfFile(entry.file)) await readPdf(entry);
+        else await readSheet(entry);
         entry.status = 'done';
-        receipts.push(...result.receipts);
       } catch (error) {
         entry.status = 'error';
-        entry.error = /password/i.test(error?.message || '') ? 'The PDF is password protected.' : (error?.message || 'Could not read this PDF.');
+        entry.error = /password/i.test(error?.message || '') ? 'The PDF is password protected.' : (error?.message || 'Could not read this file.');
       }
       delete entry.file;
       render();
     }
+  }
+
+  function addCollectionsReport(entry, report) {
+    if (!collectionsAllowed()) throw new Error('Your access does not include importing into Received.');
+    entry.kind = report.kind;
+    const replaced = collections.addReport(report.kind, report);
+    if (replaced) {
+      files.filter(file => file !== entry && file.kind === report.kind && file.status === 'done').forEach(file => {
+        file.status = 'error';
+        file.error = 'Replaced by a newer file';
+      });
+    }
+    const count = report.kind === 'caryaati' ? `${report.vouchers.length} vouchers` : `${report.txns.length} payments`;
+    entry.detail = `${KIND_LABEL[report.kind]} · ${dmyIso(report.date)} · ${count}`;
+    entry.title = report.problems?.join('\n') || '';
+    if (report.problems?.length) entry.detail += ' · ⚠ check';
+    activeTab = 'collections';
+  }
+
+  async function readPdf(entry) {
+    let pdfjs;
+    try { pdfjs = await loadPdfJs(); } catch (_) { throw new Error('The PDF reader could not be loaded. Check the connection and try again.'); }
+    const data = new Uint8Array(await entry.file.arrayBuffer());
+    const pdf = await pdfjs.getDocument({ data, isEvalSupported: false }).promise;
+    try {
+      const result = await parseRtaReceiptPdf(pdf, entry.name);
+      if (result.isRtaReceipt) {
+        if (!rtaAllowed()) throw new Error('Your access does not include importing into Expenses.');
+        entry.kind = 'rta';
+        entry.receipts = result.receipts;
+        entry.detail = `${result.receipts.length} RTA receipt${result.receipts.length === 1 ? '' : 's'}`;
+        receipts.push(...result.receipts);
+        activeTab = 'rta';
+        return;
+      }
+      if (await isBankPosPdf(pdf)) {
+        addCollectionsReport(entry, await parseBankPosPdf(pdf, entry.name));
+        return;
+      }
+      throw new Error('Not an RTA receipt or a bank merchant report.');
+    } finally {
+      pdf.destroy?.();
+    }
+  }
+
+  async function readSheet(entry) {
+    let sheets;
+    try { sheets = await readSpreadsheet(entry.file); } catch (error) {
+      throw new Error(/import|fetch|module/i.test(error?.message || '') ? 'The Excel reader could not be loaded. Check the connection and try again.' : 'This spreadsheet could not be read.');
+    }
+    for (const rows of sheets) {
+      if (isCaryaatiRows(rows)) {
+        const report = parseCaryaati(rows, entry.name);
+        if (!report.vouchers.length) throw new Error('No vouchers found in this Caryaati report.');
+        addCollectionsReport(entry, report);
+        return;
+      }
+      if (isLinkReportRows(rows)) {
+        const report = parseLinkReport(rows, entry.name);
+        if (!report.txns.length) throw new Error('No payments found in this payment-link report.');
+        addCollectionsReport(entry, report);
+        return;
+      }
+    }
+    throw new Error('Not a Caryaati or payment-link report.');
   }
 
   async function confirmImport() {
@@ -335,16 +487,24 @@ export function setupReceiptImport(app) {
   }
 
   // ---- Events ----------------------------------------------------------------
-  document.getElementById('importReceiptsButton').addEventListener('click', open);
+  document.getElementById('importReceiptsButton').addEventListener('click', () => open());
+  document.getElementById('importReceivedButton')?.addEventListener('click', () => open('collections'));
+  tabs.addEventListener('click', event => {
+    const button = event.target.closest('[data-import-tab]');
+    if (!button) return;
+    activeTab = button.dataset.importTab;
+    render();
+  });
+  showLastButton.addEventListener('click', () => { collections.showLast(); activeTab = 'collections'; render(); });
   document.getElementById('closeReceiptImport').addEventListener('click', () => dialog.close());
   document.getElementById('receiptImportCancel').addEventListener('click', () => dialog.close());
   document.getElementById('receiptChooseFiles').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => { if (fileInput.files?.length) readFiles(fileInput.files); fileInput.value = ''; });
   confirmButton.addEventListener('click', confirmImport);
-  dialog.addEventListener('change', event => {
+  rtaSection.addEventListener('change', event => {
     const box = event.target.closest('input[type="checkbox"][data-index]');
     if (box) receipts[Number(box.dataset.index)]._include = box.checked;
-    render();
+    renderRta();
   });
   ['dragenter', 'dragover'].forEach(type => dialog.addEventListener(type, event => {
     if (!event.dataTransfer?.types?.includes('Files')) return;
@@ -360,7 +520,7 @@ export function setupReceiptImport(app) {
     event.preventDefault();
     readFiles(event.dataTransfer.files);
   });
-  dialog.addEventListener('close', () => { files = []; receipts = []; });
+  dialog.addEventListener('close', () => { files = []; receipts = []; collections.reset(); });
 
   return { open };
 }

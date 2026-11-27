@@ -177,6 +177,13 @@ function getClipboardProxy() {
   proxy.setAttribute('autocomplete', 'off');
   proxy.setAttribute('autocapitalize', 'off');
   proxy.setAttribute('spellcheck', 'false');
+  proxy.setAttribute('autocorrect', 'off');
+  // Writing assistants (Grammarly, LanguageTool, …) watch every textarea and do work on
+  // each change; this one is only a keyboard / clipboard bridge, so opt it out.
+  proxy.setAttribute('data-gramm', 'false');
+  proxy.setAttribute('data-gramm_editor', 'false');
+  proxy.setAttribute('data-enable-grammarly', 'false');
+  proxy.setAttribute('data-lt-active', 'false');
   document.body.appendChild(proxy);
 
   proxy.addEventListener('keydown', handleProxyKeyDown);
@@ -194,14 +201,33 @@ function getClipboardProxy() {
 
 const PROXY_TEXT_CELL_LIMIT = 400;
 
+let proxyTextTimer = 0;
+
 function syncClipboardProxy(grid, { focus = true } = {}) {
   const proxy = getClipboardProxy();
+  clearTimeout(proxyTextTimer);
+  proxyTextTimer = 0;
   // A small selection is also kept as text in the proxy so the browser's native
   // Copy command works even without a copy event. Large selections are built
   // only when copied (in the copy event), so moving around stays instant.
-  proxy.value = selectionCellCount(grid) <= PROXY_TEXT_CELL_LIMIT ? (serializeTsv(selectionMatrix(grid)) || ' ') : ' ';
+  const text = selectionCellCount(grid) <= PROXY_TEXT_CELL_LIMIT ? (serializeTsv(selectionMatrix(grid)) || ' ') : ' ';
   if (focus && document.activeElement !== proxy) proxy.focus({ preventScroll: true });
+  if (proxy.value !== text) proxy.value = text;
   if (document.activeElement === proxy) proxy.select();
+}
+
+// Keyboard navigation (arrows held down, Tab, Page Up/Down): keep focus on the proxy
+// but write its text only once the keys stop. Rewriting a textarea ~30 times a second
+// makes the browser, accessibility tools and extensions do work on every repeat, which
+// is felt as lag. Copy / cut always build their text from the data, so nothing changes.
+function deferClipboardProxyText(grid) {
+  const proxy = getClipboardProxy();
+  if (document.activeElement !== proxy) proxy.focus({ preventScroll: true });
+  clearTimeout(proxyTextTimer);
+  proxyTextTimer = setTimeout(() => {
+    proxyTextTimer = 0;
+    if (activeGrid === grid && grid.anchor && !grid.editing) syncClipboardProxy(grid, { focus: false });
+  }, 80);
 }
 
 function handleProxyCopy(event, isCut) {
@@ -294,7 +320,8 @@ function setSelection(grid, anchor, head, { sync = true, scroll = true } = {}) {
   activateGrid(grid);
   grid.anchor = { ...anchor };
   grid.head = { ...head };
-  if (sync) syncClipboardProxy(grid);
+  if (sync === 'defer') deferClipboardProxyText(grid);
+  else if (sync) syncClipboardProxy(grid);
   // Painting and scrolling are done once per animation frame, so holding an arrow key
   // or dragging a selection never forces the browser to re-lay-out the table per event.
   grid.pendingScroll = grid.pendingScroll || scroll;
@@ -356,8 +383,9 @@ function moveSelection(grid, rowDelta, colDelta, { extend = false, jump = false 
     row: Math.min(rows - 1, Math.max(0, row)),
     col: Math.min(columns - 1, Math.max(0, col))
   };
-  if (extend) setSelection(grid, grid.anchor, target);
-  else setSelection(grid, target, target);
+  // Keyboard moves defer the clipboard-proxy text (see deferClipboardProxyText).
+  if (extend) setSelection(grid, grid.anchor, target, { sync: 'defer' });
+  else setSelection(grid, target, target, { sync: 'defer' });
 }
 
 function selectEverything(grid) {
