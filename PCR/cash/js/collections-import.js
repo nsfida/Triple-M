@@ -8,7 +8,7 @@
  * and can be downloaded as Excel.
  */
 
-import { reconcile, RECEIVED_COLUMN_LABELS } from './daily-reports.js?v=fix-6';
+import { reconcile, RECEIVED_COLUMN_LABELS } from './daily-reports.js?v=refunds-7';
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const money = cents => (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -142,11 +142,30 @@ export function createCollectionsImport(app, { section, footer }) {
         status: txn.voided ? 'voided' : entryOf.has(txn) ? 'matched' : 'unmatched',
         name: entryOf.get(txn)?.name || '', contract: entryOf.get(txn)?.contract || ''
       })) : [],
+      refunds: (result.refunds || []).map(txn => ({ originalDate: txn.date, card: txn.cardNo, type: txn.type, arn: txn.arn, auth: txn.auth, cents: -txn.cents, feeCents: -txn.feeCents, netCents: txn.netCents })),
       link: reports.link ? reports.link.txns.map(txn => ({
         date: txn.date, order: txn.order, card: txn.cardNo, rrn: txn.rrn, cents: txn.cents, netCents: txn.netCents,
         status: entryOf.has(txn) ? 'matched' : 'unmatched', name: entryOf.get(txn)?.name || '', contract: entryOf.get(txn)?.contract || txn.contract
       })) : []
     };
+  }
+
+  // Stored in the database (collection_reports) so Reports can show fees and settlements.
+  async function storeReconciliation(snap, added) {
+    if (!app.saveCollectionReport || !snap?.date) return false;
+    const { entries, bank, link, ...rest } = snap;
+    try {
+      return await app.saveCollectionReport({
+        report_date: snap.date,
+        totals: { ...snap.totals, cashSheet: snap.cash.sheetCents, cashCount: snap.cash.vouchers, linkCount: snap.counts.link, linkMatched: snap.counts.linkMatched, posCount: snap.counts.pos, posMatched: snap.counts.posMatched, exceptions: snap.exceptions.filter(item => item.severity === 'error').length },
+        snapshot: { ...rest, entries, bank, link },
+        files: snap.files.map(file => file.fileName),
+        entries_added: added
+      });
+    } catch (error) {
+      app.showToast(`The reconciliation could not be saved: ${error?.message || error}`, true);
+      return false;
+    }
   }
 
   function saveLast(snap) {
@@ -195,7 +214,8 @@ export function createCollectionsImport(app, { section, footer }) {
           <div class="${cashDiff === 0 ? 'ok' : 'warn'}"><span>Cash in Received ${escapeHtml(dmy(snap.date))}</span><strong>${money(snap.cash.sheetCents)}</strong><small>${cashDiff === 0 ? '✓ matches Caryaati' : `${cashDiff > 0 ? '+' : '−'}${money(Math.abs(cashDiff))} vs Caryaati`} · ${snap.cash.sheetCount} row${snap.cash.sheetCount === 1 ? '' : 's'}</small></div>
           ${t.linkFees != null ? `<div><span>Link fees</span><strong>${money(t.linkFees)}</strong><small>net ${money(t.linkNet)}</small></div>` : ''}
           ${t.posFees != null ? `<div><span>POS fees</span><strong>${money(t.posFees)}</strong><small>net payable ${money(t.posNet)}</small></div>` : ''}
-          ${t.linkNet != null || t.posNet != null ? `<div class="rc-wide"><span>Expected card settlement (net)</span><strong>${money(settlement)}</strong><small>link net + POS net payable${t.linkNet == null || t.posNet == null ? ' (one report missing)' : ''}</small></div>` : ''}
+          ${t.refundsCount ? `<div class="warn"><span>Card refunds in bank report</span><strong>−${money(t.refunds)}</strong><small>${t.refundsCount} refund${t.refundsCount === 1 ? '' : 's'} of earlier payments · fees back ${money(t.refundsFeesReturned)} · see Refunds tab</small></div>` : ''}
+          ${t.linkNet != null || t.posNet != null ? `<div class="rc-wide"><span>Expected card settlement (net)</span><strong>${money(settlement)}</strong><small>link net + bank net payable${t.refundsCount ? ' (after refunds)' : ''}${t.linkNet == null || t.posNet == null ? ' (one report missing)' : ''}</small></div>` : ''}
         </div>
         ${snap.warnings.length ? `<ul class="rc-notes">${snap.warnings.map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul>` : ''}
         ${snap.exceptions.length ? `<div class="rc-exceptions"><strong>${snap.exceptions.some(item => item.severity !== 'info') ? 'Needs attention' : 'Good to know'} (${snap.exceptions.length})</strong>${snap.exceptions.map(item => `<div class="rc-ex ${item.severity}"><span>${escapeHtml(item.title)}</span><small>${escapeHtml(item.detail)}</small></div>`).join('')}</div>` : ''}
@@ -335,7 +355,7 @@ export function createCollectionsImport(app, { section, footer }) {
     const problems = typeProblems();
     message.textContent = busy ? 'Adding entries…' : (!app.canAddReceived() ? 'Your access does not include editing Received.' : problems[0] || '');
     const disabled = busy || !chosen.length || problems.length || !app.canAddReceived();
-    actions.innerHTML = `<button class="sp-btn" type="button" data-action="download">⬇ Excel</button><button class="sp-btn sp-btn-primary" type="button" data-action="add" ${disabled ? 'disabled' : ''}>Add ${chosen.length} entr${chosen.length === 1 ? 'y' : 'ies'} to Received</button>`;
+    actions.innerHTML = `<button class="sp-btn" type="button" data-action="download">⬇ Excel</button><button class="sp-btn" type="button" data-action="save-recon" title="Save this reconciliation for Reports without adding entries">Save</button><button class="sp-btn sp-btn-primary" type="button" data-action="add" ${disabled ? 'disabled' : ''}>Add ${chosen.length} entr${chosen.length === 1 ? 'y' : 'ies'} to Received</button>`;
   }
 
   // ---- Actions --------------------------------------------------------------------
@@ -367,6 +387,7 @@ export function createCollectionsImport(app, { section, footer }) {
       chosen.forEach(entry => { entry.added = true; });
       snapshot = buildSnapshot(added);
       saveLast(snapshot);
+      storeReconciliation(snapshot, added);
       phase = 'done';
       app.showToast(`Added ${added} Received entr${added === 1 ? 'y' : 'ies'} (AED ${money(chosen.reduce((sum, entry) => sum + entry.cents, 0))}). Saving automatically.`);
     } catch (error) {
@@ -410,6 +431,7 @@ export function createCollectionsImport(app, { section, footer }) {
         ...snap.entries.map(entry => [dmy(entry.date), entry.name, entry.contract, entry.vouchers.join(', '), entry.channel, entry.status, entry.last4 ? `****${entry.last4}` : '', entry.ref, entry.matchRef, entry.added ? 'Yes' : '', amount(entry.cents), ...fields.map(field => entry.columns[field] ? amount(entry.columns[field]) : ''), entry.notes.join(' ')])];
       XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(entries), 'Entries');
       if (snap.bank.length) XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['Date', 'Card', 'Type', 'Auth', 'ARN', 'Amount', 'Net', 'Status', 'Customer', 'Contract'], ...snap.bank.map(txn => [dmy(txn.date), txn.card, txn.type, txn.auth, txn.arn, amount(txn.cents), amount(txn.netCents), txn.status, txn.name, txn.contract])]), 'Bank POS');
+      if (snap.refunds?.length) XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['Original date', 'Card', 'Type', 'ARN', 'Auth', 'Refund', 'Fee returned', 'Net effect'], ...snap.refunds.map(item => [dmy(item.originalDate), item.card, item.type, item.arn, item.auth, amount(item.cents), amount(item.feeCents), amount(item.netCents)])]), 'Refunds');
       if (snap.link.length) XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['Date', 'Order', 'Card', 'RRN', 'Amount', 'Net', 'Status', 'Customer', 'Contract'], ...snap.link.map(txn => [dmy(txn.date), txn.order, txn.card, txn.rrn, amount(txn.cents), amount(txn.netCents), txn.status, txn.name, txn.contract])]), 'Payment link');
       XLSX.writeFile(book, `Reconciliation_${snap.date || 'collections'}.xlsx`);
     } catch (error) {
@@ -424,6 +446,11 @@ export function createCollectionsImport(app, { section, footer }) {
     const action = target.dataset.action;
     if (action === 'add') addEntries();
     else if (action === 'download') download();
+    else if (action === 'save-recon') {
+      const snap = buildSnapshot(0);
+      saveLast(snap);
+      storeReconciliation(snap, 0).then(ok => { if (ok) app.showToast(`Reconciliation for ${dmy(snap.date)} saved. It now shows in Reports.`); });
+    }
     else if (action === 'tick-all' || action === 'tick-none') {
       result.entries.forEach(entry => include.set(entry.key, action === 'tick-all' && !['imported', 'old', 'unknown'].includes(entry.uiStatus)));
       render();

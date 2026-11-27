@@ -16,9 +16,10 @@
  * Every receipt's entries add up exactly to the receipt's printed Total Amount.
  */
 
-import { parseRtaReceiptPdf } from './rta-receipt-parser.js?v=fix-6';
-import { createCollectionsImport } from './collections-import.js?v=fix-6';
-import { parseDelimitedText, isCaryaatiRows, parseCaryaati, isLinkReportRows, parseLinkReport, isBankPosPdf, parseBankPosPdf } from './daily-reports.js?v=fix-6';
+import { parseRtaReceiptPdf } from './rta-receipt-parser.js?v=refunds-7';
+import { createCollectionsImport } from './collections-import.js?v=refunds-7';
+import { createRefundsImport } from './refunds.js?v=refunds-7';
+import { parseDelimitedText, isCaryaatiRows, parseCaryaati, isLinkReportRows, parseLinkReport, isBankPosPdf, parseBankPosPdf } from './daily-reports.js?v=refunds-7';
 
 const PDFJS_URL = new URL('./vendor/pdfjs/pdf.min.js', import.meta.url).href;
 const PDFJS_WORKER_URL = new URL('./vendor/pdfjs/pdf.worker.min.js', import.meta.url).href;
@@ -159,6 +160,8 @@ export function setupReceiptImport(app) {
   const collectionsSection = document.getElementById('importCollectionsSection');
   const rtaFooter = document.getElementById('rtaImportFooter');
   const collectionsFooter = document.getElementById('collectionsImportFooter');
+  const refundsSection = document.getElementById('importRefundsSection');
+  const refundsFooter = document.getElementById('refundsImportFooter');
 
   let files = [];      // { name, status: 'reading'|'done'|'error', error, receipts, kind, detail }
   let receipts = [];   // flattened, with ._include / ._status
@@ -177,8 +180,22 @@ export function setupReceiptImport(app) {
     isDateEditable: app.isDateEditable,
     showToast: app.showToast,
     close: () => dialog.close(),
-    chooseFiles: () => fileInput.click()
+    chooseFiles: () => fileInput.click(),
+    saveCollectionReport: app.refunds?.saveCollectionReport
   }, { section: collectionsSection, footer: collectionsFooter });
+  const refunds = createRefundsImport({
+    ...app.refunds,
+    storageKey: c.storageKey,
+    ensureReceivedLoaded: c.ensureReceivedLoaded,
+    ensureExpensesLoaded: app.ensureExpensesLoaded,
+    existingInvoiceNumbers: app.existingInvoiceNumbers,
+    expenseTypes: app.expenseTypes,
+    isCashType: app.isCashType,
+    addExpenseEntries: app.addExpenseEntries,
+    canPost: () => rtaAllowed(),
+    showToast: app.showToast,
+    close: () => dialog.close()
+  }, { section: refundsSection, footer: refundsFooter });
 
   const selectedType = () => dialog.querySelector('input[name="receiptPaymentType"]:checked')?.value || '';
   const selectedLayout = () => dialog.querySelector('input[name="receiptLayout"]:checked')?.value || 'split';
@@ -196,6 +213,7 @@ export function setupReceiptImport(app) {
     message.textContent = '';
     activeTab = null;
     collections.reset();
+    refunds.reset();
     render();
   }
 
@@ -215,13 +233,15 @@ export function setupReceiptImport(app) {
   function layout() {
     const hasRta = receipts.length > 0 || files.some(file => file.kind === 'rta');
     const hasCollections = collections.hasData() || collections.isShowingReport();
-    if (activeTab === 'rta' && !hasRta) activeTab = hasCollections ? 'collections' : null;
-    if (activeTab === 'collections' && !hasCollections) activeTab = hasRta ? 'rta' : null;
-    if (!activeTab) activeTab = hasCollections ? 'collections' : hasRta ? 'rta' : null;
-    const nothing = !hasRta && !hasCollections;
+    const hasRefunds = refunds.hasData();
+    const present = { collections: hasCollections, refunds: hasRefunds, rta: hasRta };
+    if (activeTab && !present[activeTab]) activeTab = null;
+    if (!activeTab) activeTab = hasCollections ? 'collections' : hasRefunds ? 'refunds' : hasRta ? 'rta' : null;
+    const nothing = !hasRta && !hasCollections && !hasRefunds;
     intro.hidden = !nothing;
     showLastButton.hidden = !(nothing && collectionsAllowed() && collections.hasLast());
-    tabs.hidden = !(hasRta && hasCollections);
+    tabs.hidden = Object.values(present).filter(Boolean).length < 2;
+    tabs.querySelectorAll('[data-import-tab]').forEach(button => { button.hidden = !present[button.dataset.importTab]; });
     tabs.querySelectorAll('[data-import-tab]').forEach(button => {
       const on = button.dataset.importTab === activeTab;
       button.classList.toggle('on', on);
@@ -229,10 +249,13 @@ export function setupReceiptImport(app) {
     });
     document.getElementById('importTabRtaCount').textContent = receipts.length ? String(receipts.length) : '';
     document.getElementById('importTabCollectionsCount').textContent = collections.entryCount() ? String(collections.entryCount()) : '';
+    document.getElementById('importTabRefundsCount').textContent = refunds.count() ? String(refunds.count()) : '';
     rtaSection.hidden = activeTab !== 'rta';
     collectionsSection.hidden = activeTab !== 'collections';
-    rtaFooter.hidden = activeTab === 'collections';
+    refundsSection.hidden = activeTab !== 'refunds';
+    rtaFooter.hidden = activeTab === 'collections' || activeTab === 'refunds';
     collectionsFooter.hidden = activeTab !== 'collections';
+    refundsFooter.hidden = activeTab !== 'refunds';
   }
 
   function renderFiles() {
@@ -301,6 +324,7 @@ export function setupReceiptImport(app) {
     renderFiles();
     layout();
     if (activeTab === 'collections') collections.render();
+    if (activeTab === 'refunds') refunds.render();
     renderRta();
   }
 
@@ -389,7 +413,10 @@ export function setupReceiptImport(app) {
   }
 
   function addCollectionsReport(entry, report) {
-    if (!collectionsAllowed()) throw new Error('Your access does not include importing into Received.');
+    const refundCount = report.kind === 'bank' ? (report.refunds?.length || 0) : 0;
+    // A bank report that only carries refunds can be used by someone who may post Expenses.
+    if (!collectionsAllowed() && !(refundCount && rtaAllowed())) throw new Error('Your access does not include importing into Received.');
+    if (refundCount && rtaAllowed()) refunds.setBank(report).then(() => { if (dialog.open) render(); });
     entry.kind = report.kind;
     const replaced = collections.addReport(report.kind, report);
     if (replaced) {
@@ -398,7 +425,9 @@ export function setupReceiptImport(app) {
         file.error = 'Replaced by a newer file';
       });
     }
-    const count = report.kind === 'caryaati' ? `${report.vouchers.length} vouchers` : `${report.txns.length} payments`;
+    const count = report.kind === 'caryaati' ? `${report.vouchers.length} vouchers`
+      : report.kind === 'bank' ? `${report.txns.length - refundCount} payments${refundCount ? ` + ${refundCount} refund${refundCount === 1 ? '' : 's'}` : ''}`
+        : `${report.txns.length} payments`;
     entry.detail = `${KIND_LABEL[report.kind]} · ${dmyIso(report.date)} · ${count}`;
     entry.title = report.problems?.join('\n') || '';
     if (report.problems?.length) entry.detail += ' · ⚠ check';
@@ -523,7 +552,7 @@ export function setupReceiptImport(app) {
     event.preventDefault();
     readFiles(event.dataTransfer.files);
   });
-  dialog.addEventListener('close', () => { files = []; receipts = []; collections.reset(); });
+  dialog.addEventListener('close', () => { files = []; receipts = []; collections.reset(); refunds.reset(); });
 
   return { open };
 }

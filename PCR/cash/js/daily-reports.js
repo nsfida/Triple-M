@@ -372,9 +372,13 @@ export function parseBankPosLines(lines, fileName = '') {
     const match = BANK_ROW.exec(line.trim());
     if (!match) return;
     const [, dateText, terminal, card, type, arn, auth, amount, msf, fee, vat, net, desc] = match;
+    // Refund lines carry the ORIGINAL transaction date (dd/mm, no year): a date after the
+    // report date belongs to the previous year.
+    let date = toIsoDate(dateText, year);
+    if (date && fromIso && date > toIsoDate(to || from) && !/\/\d{2,4}$/.test(dateText.slice(3))) date = toIsoDate(dateText, (year || 0) - 1);
     txns.push({
       source: 'pos',
-      date: toIsoDate(dateText, year),
+      date,
       terminal,
       cardNo: card,
       bin: /^(\d{4,6})/.exec(card)?.[1] || '',
@@ -386,6 +390,7 @@ export function parseBankPosLines(lines, fileName = '') {
       commissionCents: Math.abs(toCents(msf)) + Math.abs(toCents(fee)),
       vatCents: Math.abs(toCents(vat)),
       netCents: toCents(net),
+      feeCents: toCents(amount) - toCents(net), // signed: a refund gives the fee back (negative)
       desc: desc.trim()
     });
   });
@@ -410,8 +415,17 @@ export function parseBankPosLines(lines, fileName = '') {
     const sale = txns.find(txn => !txn.voided && txn !== reversal && txn.cents === -reversal.cents && txn.cardNo === reversal.cardNo && (txn.arn === reversal.arn || txn.auth === reversal.auth));
     if (sale) { sale.voided = true; reversal.voided = true; sale.pair = reversal; reversal.pair = sale; }
   });
+  // Refunds / reversals of earlier sales: money paid back to customers' cards.
+  txns.forEach(txn => {
+    txn.refund = !txn.voided && txn.cents < 0;
+    if (txn.refund) txn.refundKind = /REV/i.test(txn.type) ? 'reversal' : 'refund';
+  });
   const merchantNo = /Merchant No\s*:?\s*(\d+)/i.exec(all)?.[1] || '';
-  return { kind: 'bank', fileName, date: fromIso, dateTo: toIsoDate(to), merchantNo, txns, totals, sumCents, problems };
+  const header = {
+    merchantName: /Address\s*:?\s*([^\n]+)/i.exec(all)?.[1]?.trim() || '',
+    chainId: /Chain ID\s*:?\s*(\d+)/i.exec(all)?.[1] || ''
+  };
+  return { kind: 'bank', fileName, date: fromIso, dateTo: toIsoDate(to), merchantNo, header, txns, totals, sumCents, refunds: txns.filter(txn => txn.refund), problems };
 }
 
 export async function parseBankPosPdf(pdf, fileName = '') {
@@ -423,6 +437,19 @@ export async function isBankPosPdf(pdf) {
   const content = await page.getTextContent();
   const text = content.items.map(item => item.str).join(' ');
   return /MERCHANT TRANSACTION REPORT/i.test(text);
+}
+
+// Card scheme from the first digit(s) of a masked card number.
+export function cardBrand(cardNo) {
+  const digits = String(cardNo || '').replace(/\D/g, '');
+  if (/^4/.test(digits)) return 'Visa';
+  if (/^(5[1-5]|2[2-7])/.test(digits)) return 'Mastercard';
+  if (/^3[47]/.test(digits)) return 'American Express';
+  if (/^(6011|65|64[4-9])/.test(digits)) return 'Discover';
+  if (/^(30|36|38)/.test(digits)) return 'Diners Club';
+  if (/^35/.test(digits)) return 'JCB';
+  if (/^62/.test(digits)) return 'UnionPay';
+  return 'Card';
 }
 
 // ---------------------------------------------------------------------------
@@ -502,9 +529,16 @@ export function reconcile({ caryaati = null, link = null, bank = null }) {
     cash: { cents: 0, vouchers: [] },
     link: { report: Boolean(link), matched: [], unmatched: [] },
     pos: { report: Boolean(bank), matched: [], unmatched: [], voided: [] },
-    warnings: []
+    warnings: [],
+    refunds: bank ? bank.refunds || bank.txns.filter(txn => txn.refund) : []
   };
-  if (!caryaati) return result;
+  const refundTotals = {
+    refunds: result.refunds.reduce((sum, txn) => sum - txn.cents, 0),
+    refundsFeesReturned: result.refunds.reduce((sum, txn) => sum - txn.feeCents, 0),
+    refundsNet: result.refunds.reduce((sum, txn) => sum - txn.netCents, 0),
+    refundsCount: result.refunds.length
+  };
+  if (!caryaati) { result.totals = refundTotals; return result; }
 
   const vouchers = caryaati.vouchers;
   const card = vouchers.filter(voucher => voucher.method === 'card');
@@ -550,11 +584,7 @@ export function reconcile({ caryaati = null, link = null, bank = null }) {
     const live = bank.txns.filter(txn => !txn.voided);
     result.pos.voided = bank.txns.filter(txn => txn.voided && txn.cents > 0);
     live.slice().sort((a, b) => b.cents - a.cents).forEach(txn => {
-      if (txn.cents <= 0) {
-        result.pos.unmatched.push(txn);
-        result.exceptions.push({ kind: 'pos-refund', severity: 'warn', txn, cents: txn.cents, title: `Bank ${txn.type.toLowerCase().replace(/_/g, ' ')} of AED ${(Math.abs(txn.cents) / 100).toFixed(2)}`, detail: `Card ****${txn.last4} · no matching sale in the report` });
-        return;
-      }
+      if (txn.cents <= 0) return; // refunds / reversals of earlier days: see result.refunds
       let chosen = null;
       const pool = free(card).filter(voucher => voucher.last4 === txn.last4 && !voucher.viaLink);
       const groups = [...groupBy(pool, voucher => voucher.contract).values()].sort((a, b) => Math.abs(sumCents(a) - txn.cents) - Math.abs(sumCents(b) - txn.cents));
@@ -654,7 +684,10 @@ export function reconcile({ caryaati = null, link = null, bank = null }) {
   // Totals and comparisons.
   const byChannel = channel => result.entries.filter(entry => entry.channel === channel).reduce((sum, entry) => sum + entry.cents, 0);
   const linkTotal = link ? link.txns.reduce((sum, txn) => sum + txn.cents, 0) : null;
-  const posTotal = bank ? (bank.totals.grossCents ?? bank.sumCents) : null;
+  // Card-machine SALES are compared with Caryaati; refunds in the same report are listed apart.
+  const posSales = bank ? bank.txns.filter(txn => !txn.voided && txn.cents > 0) : [];
+  const posTotal = bank ? posSales.reduce((sum, txn) => sum + txn.cents, 0) : null;
+  const posSalesNet = bank ? posSales.reduce((sum, txn) => sum + txn.netCents, 0) : null;
   result.totals = {
     caryaati: sumCents(vouchers),
     cash: result.cash.cents,
@@ -669,8 +702,11 @@ export function reconcile({ caryaati = null, link = null, bank = null }) {
     linkFees: link ? linkTotal - link.txns.reduce((sum, txn) => sum + txn.netCents, 0) : null,
     linkNet: link ? link.txns.reduce((sum, txn) => sum + txn.netCents, 0) : null,
     posReport: posTotal,
-    posFees: bank && bank.totals.netCents != null ? posTotal - bank.totals.netCents : null,
-    posNet: bank ? bank.totals.netCents : null
+    posFees: bank ? posTotal - posSalesNet : null,             // charges on the day's sales
+    posSalesNet,
+    posGrand: bank ? (bank.totals.grossCents ?? bank.sumCents) : null, // report grand total (sales − refunds)
+    posNet: bank ? (bank.totals.netCents ?? bank.txns.reduce((sum, txn) => sum + txn.netCents, 0)) : null, // net payable
+    ...refundTotals
   };
   result.totals.linkDiff = linkTotal == null ? null : result.totals.link - linkTotal;
   result.totals.posDiff = posTotal == null ? null : result.totals.pos - posTotal;
@@ -686,5 +722,6 @@ export function reconcile({ caryaati = null, link = null, bank = null }) {
   if (caryaati.dates.length > 1) result.warnings.push(`The Caryaati report contains several dates: ${caryaati.dates.map(iso).join(', ')}.`);
   if (!link) result.warnings.push('No payment-link report: link payments cannot be told apart from card-machine payments.');
   if (!bank) result.warnings.push('No bank POS report: card payments are entered without bank verification.');
+  if (result.refunds.length) result.warnings.push(`The bank report also contains ${result.refunds.length} card refund${result.refunds.length === 1 ? '' : 's'} / reversal${result.refunds.length === 1 ? '' : 's'} of earlier payments (AED ${(refundTotals.refunds / 100).toFixed(2)}): see Refunds.`);
   return result;
 }

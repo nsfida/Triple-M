@@ -18,7 +18,65 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
-## Latest update: imported entries locked, split link payments, multi-row delete, search (migration 016)
+## Latest update: Reports, card refunds, customer messages, Excel ranges (migration 017)
+
+**Run one SQL file:** in Supabase → SQL Editor, paste the whole of `sql/migrations/017_collections_refunds_reports.sql` and run it once. Run 016 first if you have not yet. 017 is safe to run again and changes no existing data. It adds three tables:
+
+| Table | What it holds |
+|---|---|
+| `collection_reports` | One saved reconciliation per day: Caryaati vs payment link vs bank POS, charges, net payable and refunds. Used by Reports. |
+| `card_refunds` | Every card refund or reversal posted from a bank report, with customer, contract, contact details and when the customer was told. The same bank line can never be posted twice. |
+| `app_settings` | Company details (Settings → Company & messages), used in customer messages and PDF reports. |
+
+Everything also works before 017 is run. Reports and refund records then tell you that the migration is needed, and company details are kept in the browser only.
+
+### Card refunds (bank report)
+* The bank's Merchant Transaction Report can now carry **REFUNDS** and **SALES_REV** lines (refunds and reversals of earlier payments). These lines carry the original payment date; a date after the report date is read as the previous year.
+* Refunds are kept apart from the day's card-machine sales, so the card matching with Caryaati still works on the day's sales. Refunds show in the reconciliation card and in the Excel download.
+* **Import → Refunds tab:**
+  * One card per refund, showing card brand and last 4 digits, original date, ARN, auth code, amount, fee returned and net effect.
+  * **The customer is found automatically** from earlier card payments in Received with the same card ending, closest to the original date. Earlier refunds fill in email and phone. If there are several candidates, "Other matches" lets you pick one.
+  * Choose the payment type (default Card, else a non-cash type) and the Expenses column (default *Rental / FINE RF*; *FD REFUND* or any other column per refund).
+  * **Post to Expenses:** one row per refund on the bank report's date.
+    * Supplier: "Card refund ****6222 · CN 19447"
+    * Name: the customer
+    * Inv#: "RF &lt;auth code&gt;"
+  * The rows are imported, so older dates are locked. A refund record is stored, and posting the same refund twice is blocked.
+* A bank report that only contains refunds also works on its own.
+
+### Notify the customer (email / WhatsApp)
+* Click **Notify** (after posting, or from Reports). The panel shows the refund facts, the customer's name, contract, email and WhatsApp, and a professional message with every refund detail:
+  * amount and card brand / ending
+  * refund date and original payment date
+  * contract, ARN and auth code
+  * expected arrival time
+  * your signature and company details
+* **Open email** opens your email app with the subject and message ready, with your company email in CC. **Open WhatsApp** opens WhatsApp with the message (UAE numbers like 050… are converted automatically). **Copy message** is also available.
+* The text can be edited, and the sent time (email / WhatsApp) is saved and shown in Reports.
+
+### Reports tab
+* **Period:** month (‹ › arrows or month picker), this / last month, last 30 days, quarter, year, or any From–To range. Every figure is compared with the previous period of the same length.
+* **Key figures:** total received, non-cash receivable, cash, bank and link charges (with %), card refunds, actually received (net of charges and refunds), expenses, and net.
+* **Collections by channel:** Cash, Card, Link, Bank transfer and Other, with share, charges and net. Refunds are shown as a separate line, and there is a breakdown by Received type.
+* **Receivable vs actually received:** Caryaati vs bank and link reports, differences, card-machine and link charges, refunds and fees returned. It ends with the amount expected into the bank, plus the bank net payable and the effective charge rate.
+* **Chart:** daily (or monthly) stacked chart by channel, with an expenses marker.
+* **Day-by-day or month-by-month table:** cash, card, link, bank, received, expenses, charges, refunds, and the reconciliation status of each day.
+* **Breakdowns:** Received by column (VAT shown), Expenses by category and by type.
+* **Card refunds:** the refunds list with "customer told" status and a Notify button.
+* **Data checks:** days with card or link money but no saved reconciliation, days with differences, refunds not yet communicated, and unusual types.
+* **Downloads:** a **PDF report** with company header, all sections and page numbers; **Excel** (Summary, Daily, Monthly, Columns, Refunds); and **Print**.
+* Reports shows to users who can view Expenses or Received. Each part shows only what that user may see.
+
+### Other changes
+* **⬇ Excel** now opens a menu:
+  * **Full workbook**: every date.
+  * **Date range**: This month / Last month / Last 7 days / This year, or any From–To. Adds a Summary sheet with totals by type, net, cash counts and refunds.
+  * Both versions also include Refunds and Collections sheets when migration 017 has been run.
+* **Search** keeps only the text search. The date range was removed.
+* **Settings → Company & messages** (owner): company name, address, phone, WhatsApp, email, signature, refund arrival time and TRN.
+* **Collections:** reconciliations are saved for Reports when entries are added. A **Save** button stores a day's reconciliation without adding entries, e.g. when re-importing a day.
+
+## Earlier update: imported entries locked, split link payments, multi-row delete, search (migration 016)
 
 **Run one SQL file:** open Supabase → SQL Editor, paste the whole of `sql/migrations/016_imported_entries_locked.sql` and run it once. It includes migration 015, so you don't need to run 015 as well. It is safe to run again, and existing rows are not changed.
 
@@ -243,9 +301,12 @@ expense_vault_project/
 │   ├── receipt-import.js    (Import panel: file detection + RTA receipts)
 │   ├── daily-reports.js     (Caryaati / payment-link / bank POS readers + matching)
 │   ├── collections-import.js (Import → Received collections and reconciliation)
+│   ├── refunds.js           (Import → Refunds, customer email / WhatsApp messages)
+│   ├── reports.js           (Reports tab, PDF / Excel)
 │   ├── account-panel.js     (user menu, settings, users & access, payment types)
 │   ├── vendor/pdfjs/        (PDF.js 4.10.38, Apache-2.0; loaded only when importing)
 │   ├── vendor/sheetjs/      (SheetJS 0.18.5, Apache-2.0; reads Excel files, writes exports)
+│   ├── vendor/jspdf/        (jsPDF 2.5.2 + AutoTable 3.8.4, MIT; PDF reports only)
 │   └── secure-session-storage.js
 ├── sql/
 │   └── migrations/
@@ -264,7 +325,8 @@ expense_vault_project/
 │       ├── 013_staff_entry_edit_delete.sql
 │       ├── 014_users_profiles_payment_types.sql
 │       ├── 015_backdated_new_entries.sql
-│       └── 016_imported_entries_locked.sql
+│       ├── 016_imported_entries_locked.sql
+│       └── 017_collections_refunds_reports.sql
 └── supabase/
     ├── config.toml
     └── functions/

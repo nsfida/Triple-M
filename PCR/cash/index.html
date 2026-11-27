@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f3f6fa">
   <meta name="description" content="Private expense register powered by Supabase.">
   <title>Expense Vault</title>
-  <link rel="stylesheet" href="css/styles.css?v=fix-6">
+  <link rel="stylesheet" href="css/styles.css?v=refunds-7">
 </head>
 <body>
   <div class="background-glow" aria-hidden="true"></div>
@@ -42,7 +42,29 @@
           <input id="cashAsOfDate" type="date" aria-label="Working date">
         </label>
         <span id="syncStatus" class="sync-status" data-state="saved" role="status" aria-live="polite" title="Every change is saved to the database automatically.">All changes saved</span>
-        <button id="exportExcelButton" class="button button-excel" type="button" title="Download Cash Vault, Expenses and Received as one Excel file">⬇ Excel</button>
+        <div class="export-wrap">
+          <button id="exportExcelButton" class="button button-excel" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu" title="Download an Excel file">⬇ Excel <span class="export-caret" aria-hidden="true">▾</span></button>
+          <div id="exportMenu" class="export-menu" role="menu" hidden>
+            <button type="button" class="export-option" data-export="full" role="menuitem">
+              <span class="export-icon">▦</span>
+              <span><strong>Full workbook</strong><small>Every date · Cash Vault, Expenses, Received, Refunds, Collections</small></span>
+            </button>
+            <div class="export-range">
+              <div class="export-range-head"><span class="export-icon">◷</span><span><strong>Date range</strong><small>Only entries between two dates, with a Summary sheet</small></span></div>
+              <div class="export-chips">
+                <button type="button" data-range="this-month">This month</button>
+                <button type="button" data-range="last-month">Last month</button>
+                <button type="button" data-range="last-7">Last 7 days</button>
+                <button type="button" data-range="this-year">This year</button>
+              </div>
+              <div class="export-dates">
+                <label><span>From</span><input id="exportFrom" type="date"></label>
+                <label><span>To</span><input id="exportTo" type="date"></label>
+              </div>
+              <button type="button" class="sp-btn sp-btn-primary export-go" data-export="range">⬇ Download range</button>
+            </div>
+          </div>
+        </div>
         <div class="user-menu-wrap">
           <button id="userMenuButton" class="user-chip" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="userMenu" title="Account and settings">
             <span id="userChipAvatar"></span>
@@ -60,6 +82,7 @@
           <button class="tab-button active" data-tab="cash-vault" type="button"><span class="tab-icon">▣</span> Cash Vault</button>
           <button class="tab-button" data-tab="expenses" type="button"><span class="tab-icon">↗</span> Expenses</button>
           <button class="tab-button" data-tab="received" type="button"><span class="tab-icon">↙</span> Received</button>
+          <button class="tab-button" data-tab="reports" type="button"><span class="tab-icon">◔</span> Reports</button>
         </nav>
         <div id="formulaBar" class="formula-bar is-empty" data-keeps-selection>
           <span id="formulaRef" class="formula-ref" title="Selected cell">—</span>
@@ -72,11 +95,6 @@
             <input id="globalSearchInput" type="search" placeholder="Search all entries…" autocomplete="off" spellcheck="false" aria-label="Search all entries" aria-controls="globalSearchResults">
             <kbd class="gs-kbd">Ctrl K</kbd>
           </label>
-          <div class="gs-range" title="Show every entry on a date, or between two dates">
-            <label class="gs-date"><span>From</span><input id="globalSearchDate" type="date" aria-label="Search from date"></label>
-            <span class="gs-range-sep">–</span>
-            <label class="gs-date"><span>To</span><input id="globalSearchDateTo" type="date" aria-label="Search to date"></label>
-          </div>
           <div id="globalSearchResults" class="gs-results" role="listbox" hidden></div>
         </div>
       </div>
@@ -236,6 +254,8 @@
           <span class="sheet-footer-right"><span id="receivedSelectionSum" class="selection-sum hidden" aria-live="polite"></span><span id="receivedPermissionNote">Write access enabled</span></span>
         </div>
       </section>
+
+      <section id="reportsPane" class="pane reports-pane hidden" aria-label="Reports"></section>
     </div>
   </main>
 
@@ -348,17 +368,19 @@
           <div class="im-kind"><span class="im-badge im-rta">RTA</span><div><strong>RTA vehicle renewal receipts</strong><small>PDF · adds Renewal / Fines entries to <b>Expenses</b></small></div></div>
           <div class="im-kind"><span class="im-badge im-car">CAR</span><div><strong>Caryaati daily report</strong><small>Excel · adds card, link and bank-transfer collections to <b>Received</b> (cash is skipped)</small></div></div>
           <div class="im-kind"><span class="im-badge im-link">LINK</span><div><strong>Payment-link report</strong><small>Excel · identifies link payments and checks their total</small></div></div>
-          <div class="im-kind"><span class="im-badge im-pos">POS</span><div><strong>Bank merchant (POS) report</strong><small>PDF · checks the card-machine total</small></div></div>
+          <div class="im-kind"><span class="im-badge im-pos">POS</span><div><strong>Bank merchant (POS) report</strong><small>PDF · checks the card-machine total · its card refunds are posted to <b>Expenses</b></small></div></div>
           <p class="ri-hint">For the day's collections, add all three daily files together: entries are made from Caryaati, the other two are used for matching.</p>
           <button id="importShowLast" class="sp-btn sp-btn-small" type="button" hidden>View last reconciliation</button>
         </div>
 
         <div id="importTabs" class="im-tabs" role="tablist" hidden>
-          <button type="button" role="tab" data-import-tab="collections">Collections → Received <span id="importTabCollectionsCount"></span></button>
-          <button type="button" role="tab" data-import-tab="rta">RTA → Expenses <span id="importTabRtaCount"></span></button>
+          <button type="button" role="tab" data-import-tab="collections">Collections <span id="importTabCollectionsCount"></span></button>
+          <button type="button" role="tab" data-import-tab="refunds">Refunds <span id="importTabRefundsCount"></span></button>
+          <button type="button" role="tab" data-import-tab="rta">RTA <span id="importTabRtaCount"></span></button>
         </div>
 
         <div id="importCollectionsSection" hidden></div>
+        <div id="importRefundsSection" hidden></div>
 
         <div id="importRtaSection" hidden>
         <div id="receiptImportOptions" hidden>
@@ -388,11 +410,27 @@
         <span id="receiptImportMessage" class="ri-message" role="status" aria-live="polite"></span>
         <div class="sp-actions"><button id="receiptImportCancel" class="sp-btn" type="button">Cancel</button><button id="receiptImportConfirm" class="sp-btn sp-btn-primary" type="button" disabled>Add entries</button></div>
       </footer>
+      <footer id="refundsImportFooter" class="ri-footer" hidden>
+        <span class="ri-summary" data-role="summary"></span>
+        <span class="ri-message" data-role="message" role="status" aria-live="polite"></span>
+        <div class="sp-actions" data-role="actions"></div>
+      </footer>
       <footer id="collectionsImportFooter" class="ri-footer" hidden>
         <span class="ri-summary" data-role="summary"></span>
         <span class="ri-message" data-role="message" role="status" aria-live="polite"></span>
         <div class="sp-actions" data-role="actions"></div>
       </footer>
+    </div>
+  </dialog>
+  <dialog id="refundMessagePanel" class="cash-side-panel staff-panel app-panel rm-panel" aria-labelledby="refundMessageTitle">
+    <div class="cash-side-panel-shell">
+      <header class="sp-header">
+        <div class="sp-avatar" aria-hidden="true"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="m3 6 9 7 9-7"/></svg></div>
+        <div class="sp-title"><h2 id="refundMessageTitle">Notify customer</h2><p id="refundMessageSub" class="sp-sub"></p></div>
+        <button id="closeRefundMessage" class="sp-close" type="button" aria-label="Close">×</button>
+      </header>
+      <div id="refundMessageBody" class="cash-side-panel-content sp-body"></div>
+      <footer id="refundMessageFooter" class="ri-footer rm-footer"></footer>
     </div>
   </dialog>
   <dialog id="typeChangePanel" class="cash-side-panel staff-panel app-panel" aria-labelledby="typeChangeTitle">
@@ -418,6 +456,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js?v=fix-6"></script>
+  <script type="module" src="js/app.js?v=refunds-7"></script>
 </body>
 </html>

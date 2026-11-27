@@ -65,6 +65,7 @@ const ICONS = {
   key: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3m-3 3 3 3m-6 0 2 2"/></svg>',
   tag: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
   users: '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.4.1 4 1.5 4.5 4.3"/></svg>',
+  building: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M16 9h2a2 2 0 0 1 2 2v10"/><path d="M8 7h4M8 11h4M8 15h4M3 21h18"/></svg>',
   out: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>'
 };
 
@@ -100,7 +101,8 @@ export function createAccountPanel(app) {
       <button type="button" role="menuitem" data-open="profile">${ICONS.user}<span>Name &amp; photo</span></button>
       <button type="button" role="menuitem" data-open="password">${ICONS.key}<span>Password</span></button>
       ${isOwner() ? `<button type="button" role="menuitem" data-open="types">${ICONS.tag}<span>Payment types</span></button>
-      <button type="button" role="menuitem" data-open="users">${ICONS.users}<span>Users &amp; access</span></button>` : ''}
+      <button type="button" role="menuitem" data-open="users">${ICONS.users}<span>Users &amp; access</span></button>
+      <button type="button" role="menuitem" data-open="company">${ICONS.building}<span>Company &amp; messages</span></button>` : ''}
       <div class="um-sep"></div>
       <button type="button" role="menuitem" data-action="signout" class="um-danger">${ICONS.out}<span>Sign out</span></button>`;
   }
@@ -140,6 +142,7 @@ export function createAccountPanel(app) {
     password: () => ({ icon: ICONS.key, title: 'Password', subtitle: 'Change the access key you sign in with' }),
     types: () => ({ icon: ICONS.tag, title: 'Payment types', subtitle: 'Types available in the TYPE column' }),
     users: () => ({ icon: ICONS.users, title: 'Users & access', subtitle: 'Access keys, names and what each user can do' }),
+    company: () => ({ icon: ICONS.building, title: 'Company & messages', subtitle: 'Used in customer refund emails, WhatsApp messages and PDF reports' }),
     user: () => ({ icon: ICONS.users, title: editing?.mode === 'create' ? 'New user' : (editing?.name || 'User'), subtitle: editing?.mode === 'create' ? 'Create an access key for a person' : 'Edit access, key and status' })
   };
 
@@ -152,7 +155,7 @@ export function createAccountPanel(app) {
 
   function open(nextView = 'home') {
     if (!user) return;
-    if ((nextView === 'types' || nextView === 'users' || nextView === 'user') && !isOwner()) nextView = 'home';
+    if ((nextView === 'types' || nextView === 'users' || nextView === 'user' || nextView === 'company') && !isOwner()) nextView = 'home';
     show(nextView);
     if (!panel.open) panel.showModal();
   }
@@ -196,7 +199,7 @@ export function createAccountPanel(app) {
 
   // ---- Views --------------------------------------------------------------------
   function render() {
-    const renderers = { home: renderHome, profile: renderProfile, crop: renderCrop, password: renderPassword, types: renderTypes, users: renderUsers, user: renderUser };
+    const renderers = { home: renderHome, profile: renderProfile, crop: renderCrop, password: renderPassword, types: renderTypes, users: renderUsers, user: renderUser, company: renderCompany };
     renderers[view]();
   }
 
@@ -222,8 +225,44 @@ export function createAccountPanel(app) {
       <div class="ap-nav-list">
         ${navRow('types', ICONS.tag, 'Payment types', `${types.filter(type => type.use_in_expenses || type.use_in_received).length} in use · Cash, Bank, Card…`)}
         ${navRow('users', ICONS.users, 'Users &amp; access', 'Create, edit, disable or delete access keys')}
+        ${navRow('company', ICONS.building, 'Company &amp; messages', 'Company details and signature for refund messages and reports')}
       </div>` : ''}
       <div class="ap-signout"><button class="sp-btn" type="button" data-action="signout">${ICONS.out} Sign out</button></div>`;
+  }
+
+  function renderCompany() {
+    const company = app.getCompany();
+    const field = (name, label, value, attrs = '', help = '') => `<div class="sp-field"><label for="co_${name}">${label}</label><input id="co_${name}" name="${name}" type="text" value="${escapeHtml(value || '')}" ${attrs}>${help ? `<p class="sp-help">${help}</p>` : ''}</div>`;
+    body.innerHTML = `
+      ${back()}
+      ${app.companyManaged() ? '' : '<p class="ap-note ap-note-warn">Run SQL migration 017 to share these details with every user. Until then they are kept on this computer only.</p>'}
+      <form class="sp-form" data-form="company" novalidate>
+        ${field('name', 'Company name', company.name, 'maxlength="120" required')}
+        ${field('address', 'Address', company.address, 'maxlength="200"')}
+        <div class="ap-two">
+          ${field('phone', 'Phone', company.phone, 'maxlength="40" inputmode="tel"')}
+          ${field('whatsapp', 'WhatsApp number', company.whatsapp, 'maxlength="40" inputmode="tel" placeholder="+971 5x xxx xxxx"')}
+        </div>
+        ${field('email', 'Email', company.email, 'maxlength="120" inputmode="email"')}
+        ${field('signature', 'Signed by', company.signature, 'maxlength="120"', 'Shown under “Kind regards” in customer messages, e.g. Accounts Team.')}
+        ${field('refund_days', 'Refund arrival time', company.refund_days, 'maxlength="60"', 'Told to customers, e.g. “5–10 working days”.')}
+        ${field('trn', 'Tax registration number (TRN)', company.trn, 'maxlength="30"', 'Optional: printed on PDF reports.')}
+        ${message()}
+        <div class="sp-actions"><button class="sp-btn sp-btn-primary" type="submit">Save</button><button class="sp-btn" type="button" data-go="home">Cancel</button></div>
+      </form>`;
+  }
+
+  async function saveCompany() {
+    const form = body.querySelector('form[data-form="company"]');
+    const value = Object.fromEntries([...form.querySelectorAll('input[name]')].map(input => [input.name, input.value.trim()]));
+    if (!value.name) { say('Enter the company name.'); return; }
+    await withBusy(async () => {
+      try {
+        await app.saveCompany(value);
+        say('Saved.', true);
+        app.showToast('Company details saved.');
+      } catch (error) { say(friendlyError(error)); }
+    });
   }
 
   function renderProfile() {
@@ -570,6 +609,7 @@ export function createAccountPanel(app) {
     else if (form === 'password') await changePassword();
     else if (form === 'add-type') await addType(event.target.querySelector('input').value);
     else if (form === 'user') await saveUser();
+    else if (form === 'company') await saveCompany();
   });
 
   async function withBusy(task) {

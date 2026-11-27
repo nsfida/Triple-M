@@ -8,10 +8,12 @@ import {
   getEncryptedSessionDiagnostics,
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js?v=fast-autosave-1';
-import { createVirtualSheet } from './virtual-sheet.js?v=fix-6';
-import { setupReceiptImport } from './receipt-import.js?v=fix-6';
-import { createAccountPanel } from './account-panel.js?v=settings-1';
-import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid, onActiveCellChange, refocusActiveGrid } from './spreadsheet-grid.js?v=fix-6';
+import { createVirtualSheet } from './virtual-sheet.js?v=refunds-7';
+import { setupReceiptImport } from './receipt-import.js?v=refunds-7';
+import { createRefundMessenger } from './refunds.js?v=refunds-7';
+import { createReports } from './reports.js?v=refunds-7';
+import { createAccountPanel } from './account-panel.js?v=refunds-7';
+import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid, onActiveCellChange, refocusActiveGrid } from './spreadsheet-grid.js?v=refunds-7';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vThwCqEu6D5kFSNNI5SQaQ_C5e5ViGj';
@@ -833,6 +835,111 @@ function addExpenseEntries(entries) {
   return entries.length;
 }
 
+// ---- Company profile, card refunds and saved daily reconciliations (migration 017) ------
+// Each feature keeps working before migration 017 is run: company details fall back to this
+// browser, refunds/reconciliations simply are not stored (the user is told once).
+const DEFAULT_COMPANY = {
+  name: 'Premium Car Rentals DMCC',
+  address: 'Unit G 28, JLT, Dubai, United Arab Emirates',
+  phone: '+971 4 360 9991',
+  email: 'mo@pcr.ae',
+  whatsapp: '',
+  signature: 'Accounts Team',
+  refund_days: '5–10 working days',
+  trn: ''
+};
+let companySettings = { ...DEFAULT_COMPANY };
+let companyManaged = false;
+const isMissingTable = error => /relation .* does not exist|schema cache|Could not find the table|42P01|PGRST205/i.test(`${error?.code || ''} ${error?.message || ''}`);
+
+async function loadCompany() {
+  try {
+    const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'company').maybeSingle();
+    if (error) throw error;
+    companyManaged = true;
+    companySettings = { ...DEFAULT_COMPANY, ...(data?.value || {}) };
+  } catch (_) {
+    companyManaged = false;
+    try { companySettings = { ...DEFAULT_COMPANY, ...JSON.parse(localStorage.getItem('expense-vault:company') || '{}') }; } catch (__) { companySettings = { ...DEFAULT_COMPANY }; }
+  }
+}
+
+async function saveCompany(value) {
+  const next = { ...DEFAULT_COMPANY, ...value };
+  if (companyManaged) {
+    const { error } = await supabase.from('app_settings').upsert({ key: 'company', value: next }, { onConflict: 'key' });
+    if (error) throw error;
+  } else {
+    localStorage.setItem('expense-vault:company', JSON.stringify(next));
+  }
+  companySettings = next;
+}
+
+let refundTableMissingWarned = false;
+function warnMissing017(what) {
+  if (refundTableMissingWarned) return;
+  refundTableMissingWarned = true;
+  showToast(`${what} could not be stored: please run SQL migration 017 (see README).`, true);
+}
+
+async function loadRefunds({ from = null, to = null } = {}) {
+  let query = supabase.from('card_refunds').select('*').order('refund_date', { ascending: false }).order('created_at', { ascending: false });
+  if (from) query = query.gte('refund_date', from);
+  if (to) query = query.lte('refund_date', to);
+  const { data, error } = await query;
+  if (error) { if (isMissingTable(error)) return { rows: [], managed: false }; throw error; }
+  return { rows: data || [], managed: true };
+}
+
+async function insertRefunds(records) {
+  if (!records.length) return [];
+  const { data, error } = await supabase.from('card_refunds').insert(records).select('*');
+  if (error) {
+    if (isMissingTable(error)) { warnMissing017('Refund records'); return null; }
+    throw error;
+  }
+  return data || [];
+}
+
+async function updateRefund(id, changes) {
+  const { data, error } = await supabase.from('card_refunds').update(changes).eq('id', id).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+async function saveCollectionReport(report) {
+  const { error } = await supabase.from('collection_reports').upsert(report, { onConflict: 'report_date' });
+  if (error) {
+    if (isMissingTable(error)) { warnMissing017('The reconciliation'); return false; }
+    throw error;
+  }
+  return true;
+}
+
+async function loadCollectionReports({ from = null, to = null } = {}) {
+  let query = supabase.from('collection_reports').select('report_date, totals, files, entries_added, updated_at').order('report_date');
+  if (from) query = query.gte('report_date', from);
+  if (to) query = query.lte('report_date', to);
+  const { data, error } = await query;
+  if (error) { if (isMissingTable(error)) return { rows: [], managed: false }; throw error; }
+  return { rows: data || [], managed: true };
+}
+
+// Earlier card payments in Received for a card ending in last4 (merchant text written by
+// the collections import: "CN 19447 · POS ****4527 · RCV-…").
+function cardPaymentsFor(last4) {
+  if (!last4) return [];
+  const needle = `****${last4}`;
+  return receivedRows.filter(row => !isBlankReceivedRow(row) && String(row.merchant || '').includes(needle)).map(row => ({
+    date: row.entry_date,
+    name: row.name || '',
+    contract: /CN\s*(\d{3,})/i.exec(row.merchant || '')?.[1] || '',
+    cents: Math.round(calculateTotal(row, RECEIVING_AMOUNT_FIELDS) * 100),
+    type: row.transaction_type,
+    merchant: row.merchant
+  }));
+}
+
 // ---- Collections import (Received) ---------------------------------------------
 // Used by collections-import.js: entries come from the daily Caryaati report.
 async function ensureReceivedLoaded() {
@@ -968,23 +1075,25 @@ function makeEmptyReceivedRow() {
   return row;
 }
 
-const TAB_SECTION = { 'cash-vault': 'cash_vault', expenses: 'expenses', received: 'received' };
+const TAB_SECTION = { 'cash-vault': 'cash_vault', expenses: 'expenses', received: 'received', reports: 'reports' };
+// Reports needs view access to Expenses or Received (each part shows what the user may see).
+const canViewTab = tab => (tab === 'reports' ? canView('received') || canView('expenses') : canView(TAB_SECTION[tab]));
 
 function firstVisibleTab() {
-  return ['cash-vault', 'expenses', 'received'].find(tab => canView(TAB_SECTION[tab])) || 'cash-vault';
+  return ['cash-vault', 'expenses', 'received', 'reports'].find(canViewTab) || 'cash-vault';
 }
 
 // Hides the tabs (and buttons) the signed-in user has no access to.
 function applySectionVisibility() {
   document.querySelectorAll('.tab-button').forEach(button => {
-    button.classList.toggle('hidden', !canView(TAB_SECTION[button.dataset.tab]));
+    button.classList.toggle('hidden', !canViewTab(button.dataset.tab));
   });
   el('exportExcelButton').classList.toggle('hidden', !permissions.export);
   el('cashStaffCard').classList.toggle('is-disabled', !canView('cash_vault'));
 }
 
 function setActiveTab(tabName) {
-  if (!canView(TAB_SECTION[tabName])) tabName = firstVisibleTab();
+  if (!canViewTab(tabName)) tabName = firstVisibleTab();
   clearAllSpreadsheetSelections();
   document.querySelectorAll('.tab-button').forEach(button => {
     button.classList.toggle('active', button.dataset.tab === tabName);
@@ -992,6 +1101,9 @@ function setActiveTab(tabName) {
   el('cashVaultPane').classList.toggle('hidden', tabName !== 'cash-vault');
   el('expensesPane').classList.toggle('hidden', tabName !== 'expenses');
   el('receivedPane').classList.toggle('hidden', tabName !== 'received');
+  el('reportsPane').classList.toggle('hidden', tabName !== 'reports');
+  document.body.classList.toggle('reports-active', tabName === 'reports');
+  if (tabName === 'reports') reports.show();
   if (tabName === 'cash-vault') {
     if (!cashVaultLoaded && !cashVaultLoading) loadCashVault();
     else if (cashVaultLoaded) { renderCashPosition(); refreshCashSummary(); }
@@ -1925,7 +2037,7 @@ async function callAccess(action, payload = {}) {
 }
 
 async function loadWorkspace() {
-  const [info] = await Promise.all([callAccess('me'), loadPaymentTypes()]);
+  const [info] = await Promise.all([callAccess('me'), loadPaymentTypes(), loadCompany()]);
   currentUser = { ...info, name: info.name || info.label || (info.role === 'owner' ? 'Owner' : 'User') };
   permissions = normalisePermissions(info);
   canWrite = SECTION_KEYS.some(canEdit);
@@ -2745,58 +2857,153 @@ function buildExportSheet(XLSX, columns, records, valueFor) {
   return sheet;
 }
 
-async function exportToExcel() {
+// range = null → every date; { from, to } → only rows dated within (inclusive) + Summary sheet.
+async function exportToExcel(range = null) {
   const button = el('exportExcelButton');
   if (!currentUser) return;
   button.disabled = true;
-  const originalLabel = button.textContent;
+  const originalLabel = button.innerHTML;
   button.textContent = 'Preparing…';
   try {
     if (pendingChangeCount() > 0) await syncAll();
-    const [XLSX, cashRecords, expenseRecords, receivedRecords] = await Promise.all([
+    const optional = promise => promise.then(result => result.rows).catch(() => []);
+    const [XLSX, cashRecords, expenseRecords, receivedRecords, refundRecords, collectionRecords] = await Promise.all([
       import(new URL('./vendor/sheetjs/xlsx.js', import.meta.url).href),
-      fetchAllRows('cash_vault_counts', ['count_date', 'id']),
-      fetchAllRows('expense_records', ['sort_order', 'created_at', 'id']),
-      fetchAllRows('received_records', ['sort_order', 'created_at', 'id'])
+      canView('cash_vault') ? fetchAllRows('cash_vault_counts', ['count_date', 'id']) : [],
+      canView('expenses') ? fetchAllRows('expense_records', ['sort_order', 'created_at', 'id']) : [],
+      canView('received') ? fetchAllRows('received_records', ['sort_order', 'created_at', 'id']) : [],
+      optional(loadRefunds(range || {})),
+      canView('received') ? optional(loadCollectionReports(range || {})) : []
     ]);
+    const within = value => !range || (value >= range.from && value <= range.to);
+    const cash = cashRecords.filter(record => within(record.count_date));
+    const expenses = expenseRecords.filter(record => within(record.entry_date));
+    const received = receivedRecords.filter(record => within(record.entry_date));
 
     // Empty and zero amounts are left as truly empty cells (like the sheet on screen).
     const numberOrBlank = value => { const number = Number(value); return value === '' || value == null || !Number.isFinite(number) || number === 0 ? null : number; };
     const textOrBlank = value => (value == null || String(value).trim() === '' ? null : value);
-    const cashSheet = buildExportSheet(XLSX, CASH_COUNT_COLUMNS, cashRecords, (record, column) => {
-      if (column.kind === 'total') return numberOrBlank(calculateCashCountCents(record) / 100);
-      return numberOrBlank(record[column.field]);
-    });
-    const expenseSheet = buildExportSheet(XLSX, COLUMNS, expenseRecords, (record, column) => {
-      if (column.kind === 'total') return numberOrBlank(Number(calculateTotal(record, AMOUNT_FIELDS).toFixed(2)));
-      if (column.kind === 'amount') return numberOrBlank(record[column.field]);
-      return textOrBlank(record[column.field]);
-    });
-    const receivedSheet = buildExportSheet(XLSX, RECEIVING_COLUMNS, receivedRecords, (record, column) => {
-      if (column.kind === 'total') return numberOrBlank(Number(calculateTotal(record, RECEIVING_AMOUNT_FIELDS).toFixed(2)));
-      if (column.kind === 'amount') return numberOrBlank(record[column.field]);
-      return textOrBlank(record[column.field]);
-    });
-
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, cashSheet, 'Cash Vault');
-    XLSX.utils.book_append_sheet(workbook, expenseSheet, 'Expenses');
-    XLSX.utils.book_append_sheet(workbook, receivedSheet, 'Received');
-    XLSX.writeFile(workbook, `Expense-Vault-${localDateString()}.xlsx`);
+
+    if (range) {
+      const sumBy = (list, fields) => list.reduce((sum, record) => sum + Math.round(calculateTotal(record, fields) * 100), 0) / 100;
+      const byType = (list, fields) => {
+        const map = new Map();
+        list.forEach(record => { const type = record.transaction_type || 'Cash'; map.set(type, (map.get(type) || 0) + Math.round(calculateTotal(record, fields) * 100)); });
+        return [...map.entries()].sort((a, b) => b[1] - a[1]).map(([type, cents]) => [`  ${type}${cashTypeNames.has(type) ? ' (cash)' : ''}`, cents / 100]);
+      };
+      const lastCount = cash.slice().sort((a, b) => String(a.count_date).localeCompare(String(b.count_date))).pop();
+      const summary = [
+        [companySettings.name],
+        ['Expense Vault export', `${formatDmy(range.from)} – ${formatDmy(range.to)}`],
+        ['Created', new Date().toLocaleString('en-GB')],
+        [],
+        ['Received total', sumBy(received, RECEIVING_AMOUNT_FIELDS), `${received.length} entries`], ...byType(received, RECEIVING_AMOUNT_FIELDS),
+        [],
+        ['Expenses total', sumBy(expenses, AMOUNT_FIELDS), `${expenses.length} entries`], ...byType(expenses, AMOUNT_FIELDS),
+        [],
+        ['Net (received − expenses)', Math.round((sumBy(received, RECEIVING_AMOUNT_FIELDS) - sumBy(expenses, AMOUNT_FIELDS)) * 100) / 100],
+        ['Cash counts in range', cash.length, lastCount ? `last ${formatDmy(lastCount.count_date)}: ${(calculateCashCountCents(lastCount) / 100).toFixed(2)}` : ''],
+        ['Card refunds in range', refundRecords.reduce((sum, item) => sum + Number(item.amount || 0), 0), `${refundRecords.length} refunds`]
+      ];
+      const sheet = XLSX.utils.aoa_to_sheet(summary);
+      sheet['!cols'] = [{ wch: 34 }, { wch: 16 }, { wch: 30 }];
+      XLSX.utils.book_append_sheet(workbook, sheet, 'Summary');
+    }
+    if (canView('cash_vault')) {
+      XLSX.utils.book_append_sheet(workbook, buildExportSheet(XLSX, CASH_COUNT_COLUMNS, cash, (record, column) => {
+        if (column.kind === 'total') return numberOrBlank(calculateCashCountCents(record) / 100);
+        return numberOrBlank(record[column.field]);
+      }), 'Cash Vault');
+    }
+    if (canView('expenses')) {
+      XLSX.utils.book_append_sheet(workbook, buildExportSheet(XLSX, COLUMNS, expenses, (record, column) => {
+        if (column.kind === 'total') return numberOrBlank(Number(calculateTotal(record, AMOUNT_FIELDS).toFixed(2)));
+        if (column.kind === 'amount') return numberOrBlank(record[column.field]);
+        return textOrBlank(record[column.field]);
+      }), 'Expenses');
+    }
+    if (canView('received')) {
+      XLSX.utils.book_append_sheet(workbook, buildExportSheet(XLSX, RECEIVING_COLUMNS, received, (record, column) => {
+        if (column.kind === 'total') return numberOrBlank(Number(calculateTotal(record, RECEIVING_AMOUNT_FIELDS).toFixed(2)));
+        if (column.kind === 'amount') return numberOrBlank(record[column.field]);
+        return textOrBlank(record[column.field]);
+      }), 'Received');
+    }
+    if (refundRecords.length) {
+      const rowsOut = [['Refund date', 'Original date', 'Type', 'Card', 'Customer', 'Contract', 'Amount', 'Fee returned', 'Net effect', 'ARN', 'Auth', 'Email', 'Phone', 'Emailed', 'WhatsApp'],
+        ...refundRecords.map(item => [excelDateCell(item.refund_date), item.original_date ? excelDateCell(item.original_date) : null, item.txn_type, `${item.card_brand} ****${item.card_last4}`, textOrBlank(item.customer_name), textOrBlank(item.contract_no), numberOrBlank(item.amount), numberOrBlank(item.fee_returned), numberOrBlank(item.net_amount), item.arn, item.auth_code, textOrBlank(item.customer_email), textOrBlank(item.customer_phone), item.emailed_at ? new Date(item.emailed_at).toLocaleString('en-GB') : null, item.whatsapp_at ? new Date(item.whatsapp_at).toLocaleString('en-GB') : null])];
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rowsOut), 'Refunds');
+    }
+    if (collectionRecords.length) {
+      const c = value => (value == null ? null : numberOrBlank(value / 100));
+      const rowsOut = [['Date', 'Caryaati non-cash', 'Link', 'Link report', 'Card (POS)', 'Bank POS report', 'Bank transfer', 'Cash (Caryaati)', 'Link fees', 'POS fees', 'Refunds', 'Link net', 'Bank net payable', 'Differences', 'Entries added'],
+        ...collectionRecords.map(item => { const t = item.totals || {}; return [excelDateCell(item.report_date), c(t.nonCash), c(t.link), c(t.linkReport), c(t.pos), c(t.posReport), c(t.bank), c(t.cash), c(t.linkFees), c(t.posFees), c(t.refunds), c(t.linkNet), c(t.posNet), (t.linkDiff || 0) + (t.posDiff || 0) ? ((t.linkDiff || 0) + (t.posDiff || 0)) / 100 : null, item.entries_added || null]; })];
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rowsOut), 'Collections');
+    }
+    const fileName = range ? `Expense-Vault-${range.from}_to_${range.to}.xlsx` : `Expense-Vault-${localDateString()}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
 
     const unsaved = pendingChangeCount() > 0;
     showToast(unsaved
       ? 'Excel downloaded. Some changes were still being saved — export again in a moment to include them.'
-      : 'Excel file downloaded.');
+      : range ? `Excel downloaded: ${formatDmy(range.from)} – ${formatDmy(range.to)} (${expenses.length} expenses, ${received.length} received).` : 'Excel file downloaded.');
   } catch (error) {
     showToast(`Excel export failed: ${explainLedgerError(error)}`, true);
   } finally {
     button.disabled = false;
-    button.textContent = originalLabel;
+    button.innerHTML = originalLabel;
   }
 }
 
-el('exportExcelButton').addEventListener('click', exportToExcel);
+// ⬇ Excel → menu: full workbook, or a date range.
+const exportMenu = el('exportMenu');
+function presetRange(name) {
+  const today = new Date();
+  const iso = date => localDateString(date);
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  if (name === 'this-month') return { from: iso(new Date(y, m, 1)), to: iso(today) };
+  if (name === 'last-month') return { from: iso(new Date(y, m - 1, 1)), to: iso(new Date(y, m, 0)) };
+  if (name === 'last-7') { const start = new Date(today); start.setDate(start.getDate() - 6); return { from: iso(start), to: iso(today) }; }
+  return { from: iso(new Date(y, 0, 1)), to: iso(today) };
+}
+function toggleExportMenu(show) {
+  const open = show ?? exportMenu.hidden;
+  exportMenu.hidden = !open;
+  el('exportExcelButton').setAttribute('aria-expanded', String(open));
+  if (open && !el('exportFrom').value) {
+    const range = presetRange('this-month');
+    el('exportFrom').value = range.from;
+    el('exportTo').value = range.to;
+  }
+}
+el('exportExcelButton').addEventListener('click', event => { event.stopPropagation(); toggleExportMenu(); });
+exportMenu.addEventListener('click', event => {
+  const chip = event.target.closest('[data-range]');
+  if (chip) {
+    const range = presetRange(chip.dataset.range);
+    el('exportFrom').value = range.from;
+    el('exportTo').value = range.to;
+    exportMenu.querySelectorAll('[data-range]').forEach(button => button.classList.toggle('on', button === chip));
+    return;
+  }
+  const action = event.target.closest('[data-export]')?.dataset.export;
+  if (action === 'full') { toggleExportMenu(false); exportToExcel(null); }
+  else if (action === 'range') {
+    let from = el('exportFrom').value;
+    let to = el('exportTo').value;
+    if (!from || !to) { showToast('Choose both dates for the range.', true); return; }
+    if (from > to) [from, to] = [to, from];
+    toggleExportMenu(false);
+    exportToExcel({ from, to });
+  }
+});
+exportMenu.addEventListener('input', () => exportMenu.querySelectorAll('[data-range]').forEach(button => button.classList.remove('on')));
+document.addEventListener('mousedown', event => {
+  if (!exportMenu.hidden && !exportMenu.contains(event.target) && !el('exportExcelButton').contains(event.target)) toggleExportMenu(false);
+});
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !exportMenu.hidden) toggleExportMenu(false); });
 window.addEventListener('beforeunload', event => {
   persistPendingLocally();
   if (pendingChangeCount() > 0 || syncPromise || bulkTypeInFlight) { event.preventDefault(); event.returnValue = ''; }
@@ -3526,8 +3733,6 @@ document.addEventListener('input', event => {
 // Searches every loaded row of Expenses and Received (all dates). Results open the row in
 // its sheet with the matching cell selected.
 const searchInput = el('globalSearchInput');
-const searchDate = el('globalSearchDate');
-const searchDateTo = el('globalSearchDateTo');
 const searchBox = el('globalSearch');
 const searchResults = el('globalSearchResults');
 const SEARCH_LIMIT_STEP = 30;
@@ -3583,14 +3788,8 @@ const searchMoney = value => Number(value || 0).toLocaleString('en-US', { minimu
 
 function runSearch() {
   const query = searchInput.value.trim().toLowerCase();
-  // One date = that day; two dates = the range between them (either order).
-  let from = searchDate.value || searchDateTo.value;
-  let to = searchDateTo.value || searchDate.value;
-  if (from && to && from > to) [from, to] = [to, from];
-  const date = from;
-  const inRange = value => !from || (value >= from && value <= to);
-  searchBox.classList.toggle('has-query', Boolean(query || date));
-  if (!query && !date) { closeSearch(); return; }
+  searchBox.classList.toggle('has-query', Boolean(query));
+  if (!query) { closeSearch(); return; }
   const tokens = query.split(/\s+/).filter(Boolean);
   const pending = SEARCH_SOURCES.filter(source => canView(source.section) && !source.loaded());
   pending.forEach(source => { Promise.resolve(source.load()).then(() => { if (!searchResults.hidden) runSearch(); }).catch(() => {}); });
@@ -3602,11 +3801,8 @@ function runSearch() {
     let cashCents = 0;
     list.forEach((row, index) => {
       if (source.blank(row)) return;
-      if (date && !inRange(row.entry_date)) return;
-      if (tokens.length) {
-        const hay = searchHaystack(source, row);
-        if (!tokens.every(token => hay.includes(token))) return;
-      }
+      const hay = searchHaystack(source, row);
+      if (!tokens.every(token => hay.includes(token))) return;
       const cents = Math.round(calculateTotal(row, source.amountFields) * 100);
       totalCents += cents;
       if (cashTypeNames.has(row.transaction_type || 'Cash')) cashCents += cents;
@@ -3615,20 +3811,9 @@ function runSearch() {
     return { source, hits, totalCents, cashCents };
   });
   const parts = [];
-  const rangeText = from === to ? formatDmy(from) : `${formatDmy(from)} – ${formatDmy(to)}`;
-  const filterText = [date ? rangeText : '', query ? `“${escapeHtml(searchInput.value.trim())}”` : ''].filter(Boolean).join(' · ');
+  const filterText = `“${escapeHtml(searchInput.value.trim())}”`;
   const totalHits = groups.reduce((sum, group) => sum + group.hits.length, 0);
   parts.push(`<div class="gs-head"><strong>${totalHits} result${totalHits === 1 ? '' : 's'}</strong><span>${filterText}</span>${pending.length ? '<span class="gs-loading">loading…</span>' : ''}<button type="button" class="gs-clear" data-search-action="clear">Clear</button></div>`);
-  if (date) {
-    const counts = cashCounts.filter(row => inRange(row.count_date)).sort((a, b) => String(a.count_date).localeCompare(String(b.count_date)));
-    const lastCount = counts[counts.length - 1];
-    const single = from === to;
-    const countedHtml = !canView('cash_vault') ? '' : single
-      ? `<div><span>Cash counted</span><strong>${lastCount ? searchMoney(calculateCashCountCents(lastCount) / 100) : '—'}</strong><small>${lastCount ? 'daily count saved' : 'no count for this date'}</small></div>`
-      : `<div><span>Cash counted (last day)</span><strong>${lastCount ? searchMoney(calculateCashCountCents(lastCount) / 100) : '—'}</strong><small>${counts.length} daily count${counts.length === 1 ? '' : 's'} in range${lastCount ? ` · ${formatDmy(lastCount.count_date)}` : ''}</small></div>`;
-    const net = groups.reduce((sum, group) => sum + (group.source.key === 'received' ? 1 : -1) * group.cashCents, 0);
-    parts.push(`<div class="gs-day">${groups.map(group => `<div><span>${group.source.label}</span><strong>${searchMoney(group.totalCents / 100)}</strong><small>${group.hits.length} entr${group.hits.length === 1 ? 'y' : 'ies'} · cash ${searchMoney(group.cashCents / 100)}</small></div>`).join('')}${groups.length > 1 && !query ? `<div><span>Net cash (received − expenses)</span><strong>${searchMoney(net / 100)}</strong><small>${escapeHtml(rangeText)}</small></div>` : ''}${countedHtml}</div>`);
-  }
   groups.forEach(group => {
     if (!group.hits.length) return;
     const limit = searchLimits[group.source.key] || SEARCH_LIMIT_STEP;
@@ -3685,9 +3870,8 @@ function moveSearchFocus(step) {
 }
 
 searchInput.addEventListener('input', scheduleSearch);
-searchInput.addEventListener('focus', () => { if (searchInput.value.trim() || searchDate.value || searchDateTo.value) runSearch(); });
-[searchDate, searchDateTo].forEach(input => input.addEventListener('change', () => { searchLimits = {}; runSearch(); }));
-[searchInput, searchDate, searchDateTo].forEach(input => input.addEventListener('keydown', event => {
+searchInput.addEventListener('focus', () => { if (searchInput.value.trim()) runSearch(); });
+[searchInput].forEach(input => input.addEventListener('keydown', event => {
   if (event.key === 'ArrowDown') { event.preventDefault(); if (searchResults.hidden) runSearch(); moveSearchFocus(1); }
   else if (event.key === 'ArrowUp') { event.preventDefault(); moveSearchFocus(-1); }
   else if (event.key === 'Enter') {
@@ -3697,7 +3881,7 @@ searchInput.addEventListener('focus', () => { if (searchInput.value.trim() || se
     if (button) openSearchResult(searchItems[Number(button.dataset.searchIndex)]);
   } else if (event.key === 'Escape') {
     if (!searchResults.hidden) { event.preventDefault(); closeSearch(); }
-    else if (searchInput.value || searchDate.value || searchDateTo.value) { searchInput.value = ''; searchDate.value = ''; searchDateTo.value = ''; searchBox.classList.remove('has-query'); }
+    else if (searchInput.value) { searchInput.value = ''; searchBox.classList.remove('has-query'); }
   }
 }));
 searchResults.addEventListener('mousedown', event => event.preventDefault()); // keep focus in the box
@@ -3711,8 +3895,6 @@ searchResults.addEventListener('click', event => {
     runSearch();
   } else if (action.dataset.searchAction === 'clear') {
     searchInput.value = '';
-    searchDate.value = '';
-    searchDateTo.value = '';
     searchBox.classList.remove('has-query');
     closeSearch();
     searchInput.focus();
@@ -3755,11 +3937,34 @@ const accountPanel = createAccountPanel({
   updatePaymentType,
   addPaymentType,
   deletePaymentType,
-  onProfileChanged: profile => { currentUser = { ...currentUser, name: profile.name, avatar: profile.avatar }; }
+  onProfileChanged: profile => { currentUser = { ...currentUser, name: profile.name, avatar: profile.avatar }; },
+  getCompany: () => ({ ...companySettings }),
+  companyManaged: () => companyManaged,
+  saveCompany
+});
+
+const userStorageKey = name => `expense-vault:${name}:${currentUser?.id || currentUser?.label || 'user'}`;
+function collectionTypeMap() {
+  try { return JSON.parse(localStorage.getItem(userStorageKey('collection-types')) || '{}') || {}; } catch (_) { return {}; }
+}
+
+const refundMessenger = createRefundMessenger({
+  getCompany: () => ({ ...companySettings }),
+  updateRefund,
+  showToast
 });
 
 setupReceiptImport({
   canWrite: () => canEdit('expenses') && permissions.import,
+  refunds: {
+    cardPaymentsFor,
+    loadRefunds,
+    insertRefunds,
+    saveCollectionReport,
+    expenseColumns: () => AMOUNT_COLUMNS,
+    messenger: refundMessenger,
+    onRefundsChanged: () => reports?.invalidate()
+  },
   ensureExpensesLoaded,
   expenseTypes: () => typesForLedger('expenses'),
   isCashType: name => cashTypeNames.has(name),
@@ -3783,8 +3988,29 @@ setupReceiptImport({
     enableTypeForReceived: name => updatePaymentType(name, { use_in_received: true }),
     addPaymentType,
     openReceived: () => setActiveTab('received'),
-    storageKey: name => `expense-vault:${name}:${currentUser?.id || currentUser?.label || 'user'}`
+    storageKey: userStorageKey
   }
+});
+
+let reports = null;
+reports = createReports({
+  today: () => localDateString(),
+  collectionTypeMap,
+  isCashType: name => cashTypeNames.has(name),
+  receivedColumns: () => RECEIVING_AMOUNT_COLUMNS,
+  expenseColumns: () => AMOUNT_COLUMNS,
+  canViewReceived: () => canView('received'),
+  canViewExpenses: () => canView('expenses'),
+  receivedRows: () => receivedRows,
+  expenseRows: () => rows,
+  cashCounts: () => cashCounts,
+  ensureExpensesLoaded,
+  ensureReceivedLoaded,
+  loadCollectionReports,
+  loadRefunds,
+  getCompany: () => ({ ...companySettings }),
+  messenger: refundMessenger,
+  showToast
 });
 
 
