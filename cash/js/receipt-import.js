@@ -13,7 +13,7 @@
  * Every receipt's entries add up exactly to the receipt's printed Total Amount.
  */
 
-import { parseRtaReceiptPdf } from './rta-receipt-parser.js?v=rta-import-1';
+import { parseRtaReceiptPdf } from './rta-receipt-parser.js?v=settings-1';
 
 const PDFJS_URL = new URL('./vendor/pdfjs/pdf.min.js', import.meta.url).href;
 const PDFJS_WORKER_URL = new URL('./vendor/pdfjs/pdf.worker.min.js', import.meta.url).href;
@@ -112,6 +112,7 @@ export function setupReceiptImport(app) {
   const oldDateLabel = document.getElementById('receiptOldDateText');
   const nameInput = document.getElementById('receiptImportName');
   const methodHint = document.getElementById('receiptPaymentHint');
+  const typeChoices = document.getElementById('receiptTypeChoices');
 
   let files = [];      // { name, status: 'reading'|'done'|'error', error, receipts }
   let receipts = [];   // flattened, with ._include / ._status
@@ -126,7 +127,8 @@ export function setupReceiptImport(app) {
     fileInput.value = '';
     nameInput.value = '';
     oldDateCheck.checked = false;
-    dialog.querySelectorAll('input[name="receiptPaymentType"]').forEach(input => { input.checked = false; });
+    // Every payment type enabled for Expenses (Settings → Payment types); none preselected.
+    typeChoices.innerHTML = app.expenseTypes().map(type => `<label class="tc-type"><input type="radio" name="receiptPaymentType" value="${escapeHtml(type.name)}"><strong>${escapeHtml(type.name)}</strong><small>${app.isCashType(type.name) ? 'Reduces Available Cash' : 'Not cash · entries only'}</small></label>`).join('');
     const split = dialog.querySelector('input[name="receiptLayout"][value="split"]');
     if (split) split.checked = true;
     message.textContent = '';
@@ -224,35 +226,26 @@ export function setupReceiptImport(app) {
       const finesCents = fines.reduce((t, l) => t + l.cents + (l.knowledgeCents || 0), 0);
       const other = receipt.lines.filter(line => line.category === 'other' || line.category === 'passing').reduce((t, l) => t + l.cents, 0);
       const notes = [receipt._detail, ...(receipt.warnings || [])].filter(Boolean).map(escapeHtml).join('<br>');
+      const parts = [renewal ? `Renewal ${money(renewal)}` : '', fines.length ? `${fines.length} fine${fines.length === 1 ? '' : 's'} ${money(finesCents)}` : '', other ? `Other ${money(other)}` : ''].filter(Boolean).join(' · ');
       return `<tr class="ri-status-${receipt._status}">
         <td class="ri-check"><input type="checkbox" data-index="${index}" ${receipt._include && receipt._canTick ? 'checked' : ''} ${receipt._canTick ? '' : 'disabled'} aria-label="Import receipt ${escapeHtml(receipt.receiptNo)}"></td>
-        <td class="mono">${escapeHtml(receipt.receiptNo)}<div class="ri-sub">${escapeHtml(receipt.fileName)} · p.${receipt.pages.join('–')}</div></td>
-        <td class="mono">${escapeHtml(app.formatDmy(receipt.paymentDate))}</td>
-        <td class="num">${renewal ? money(renewal) : '—'}</td>
-        <td class="num">${fines.length ? `${money(finesCents)}<div class="ri-sub">${fines.length} fine${fines.length === 1 ? '' : 's'}</div>` : '—'}</td>
-        <td class="num">${other ? money(other) : '—'}</td>
-        <td class="num strong">${receipt.totalCents != null ? money(receipt.totalCents) : '—'}</td>
-        <td><span class="ri-pill ri-pill-${receipt._status}">${STATUS_LABEL[receipt._status]}</span>${notes ? `<div class="ri-sub ri-note">${notes}</div>` : ''}</td>
+        <td><span class="mono">${escapeHtml(receipt.receiptNo)}</span><div class="ri-sub">${escapeHtml(app.formatDmy(receipt.paymentDate))} · ${escapeHtml(receipt.fileName)} p.${receipt.pages.join('–')}</div><div class="ri-sub">${parts || '—'}</div>${notes ? `<div class="ri-sub ri-note">${notes}</div>` : ''}</td>
+        <td class="num"><span class="strong">${receipt.totalCents != null ? money(receipt.totalCents) : '—'}</span><div><span class="ri-pill ri-pill-${receipt._status}">${STATUS_LABEL[receipt._status]}</span></div></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="8" class="ri-empty">No receipts yet.</td></tr>';
+    }).join('') || '<tr><td colspan="3" class="ri-empty">No receipts yet.</td></tr>';
 
     // Entries preview
     let entries = [];
     let buildError = '';
     try { entries = plannedEntries(); } catch (error) { buildError = error.message; }
     const type = selectedType();
-    entriesTable.querySelector('tbody').innerHTML = entries.map(entry => `<tr>
-        <td class="mono">${escapeHtml(app.formatDmy(entry.entry_date))}</td>
-        <td>${escapeHtml(entry.supplier)}</td>
-        <td class="mono">${escapeHtml(entry.invoice_number)}</td>
-        <td class="num">${entry.renewal ? money(entry.renewal) : ''}</td>
-        <td class="num">${entry.fines ? money(entry.fines) : ''}</td>
-        <td class="num">${entry.rta_passing ? money(entry.rta_passing) : ''}</td>
-        <td class="num">${entry.misc_exp ? money(entry.misc_exp) : ''}</td>
-        <td class="num strong">${money(entry.totalCents)}</td>
-        <td>${type ? escapeHtml(type) : '<span class="ri-missing">Choose</span>'}</td>
-        <td class="ri-sub">${escapeHtml(entry.note)}</td>
-      </tr>`).join('') || '<tr><td colspan="10" class="ri-empty">Tick at least one receipt.</td></tr>';
+    entriesTable.querySelector('tbody').innerHTML = entries.map(entry => {
+      const columns = [entry.renewal ? `Renewal ${money(entry.renewal)}` : '', entry.fines ? `Fines ${money(entry.fines)}` : '', entry.rta_passing ? `RTA Passing ${money(entry.rta_passing)}` : '', entry.misc_exp ? `Misc ${money(entry.misc_exp)}` : ''].filter(Boolean).join(' · ');
+      return `<tr>
+        <td>${escapeHtml(entry.supplier)}<div class="ri-sub"><span class="mono">${escapeHtml(entry.invoice_number)}</span> · ${escapeHtml(app.formatDmy(entry.entry_date))}</div><div class="ri-sub">${escapeHtml(columns)}${entry.note ? ` · ${escapeHtml(entry.note)}` : ''}</div></td>
+        <td class="num"><span class="strong">${money(entry.totalCents)}</span><div class="ri-sub">${type ? escapeHtml(type) : '<span class="ri-missing">Choose type</span>'}</div></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="2" class="ri-empty">Tick at least one receipt.</td></tr>';
 
     const totalCents = entries.reduce((t, e) => t + e.totalCents, 0);
     const chosen = receipts.filter(receipt => receipt._include && receipt._canTick).length;
@@ -265,7 +258,7 @@ export function setupReceiptImport(app) {
       ? `Add ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}${type ? ` as ${type}` : ''}`
       : 'Add entries';
     if (buildError) message.textContent = buildError;
-    else if (hasReceipts && !type) message.textContent = 'Choose Cash or Bank before adding the entries.';
+    else if (hasReceipts && !type) message.textContent = 'Choose how the receipts were paid before adding the entries.';
     else if (!busy) message.textContent = '';
   }
 
@@ -326,13 +319,13 @@ export function setupReceiptImport(app) {
         supplier: entry.supplier,
         spent_by: name,
         invoice_number: entry.invoice_number,
-        transaction_type: type === 'Bank' ? 'Bank' : 'Cash',
+        transaction_type: type,
         amounts: { renewal: entry.renewal, fines: entry.fines, rta_passing: entry.rta_passing, misc_exp: entry.misc_exp }
       })));
       const receiptCount = new Set(entries.map(entry => entry.receipt.receiptNo)).size;
       const totalCents = entries.reduce((t, e) => t + e.totalCents, 0);
       dialog.close();
-      app.showToast(`Added ${added} ${type} entr${added === 1 ? 'y' : 'ies'} from ${receiptCount} receipt${receiptCount === 1 ? '' : 's'} (AED ${money(totalCents)}). Saving automatically.${type === 'Bank' ? ' Bank entries do not change Available Cash.' : ''}`);
+      app.showToast(`Added ${added} ${type} entr${added === 1 ? 'y' : 'ies'} from ${receiptCount} receipt${receiptCount === 1 ? '' : 's'} (AED ${money(totalCents)}). Saving automatically.${app.isCashType(type) ? '' : ` ${type} entries do not change Available Cash.`}`);
     } catch (error) {
       message.textContent = error?.message || 'The entries could not be added.';
     } finally {

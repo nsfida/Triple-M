@@ -18,6 +18,45 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
+## Latest update: settings panel, users & access, payment types, change type
+
+**Three steps to install, in this order. No existing data is changed.**
+
+1. **Run the SQL migration**: open Supabase → SQL Editor, paste the whole of `sql/migrations/014_users_profiles_payment_types.sql` and run it once (it is safe to run again).
+2. **Redeploy the access Edge Function**:
+   `npx --yes supabase@latest functions deploy access --project-ref hmtbalmgpyrnxbifnvzg --use-api`
+3. **Replace the website files** and refresh once with `Ctrl+F5`.
+
+The new website keeps working if step 1 or 2 hasn't been done yet (Cash/Bank only, old key behaviour); the new options appear once both are done.
+
+### User menu and side panels
+The *Access keys* and *Sign out* buttons are replaced by your **name and photo** in the top bar. Its menu has: **Settings**, **Name & photo**, **Password**, **Payment types** (owner), **Users & access** (owner) and **Sign out**. Every view opens in the same right-hand side panel. Staff Balance, Import RTA receipts and Change type use the same panel with the same size and design (`--panel-width` in `css/styles.css`, 480 px).
+
+- **Name & photo**: set a display name; upload a photo and **drag to move / zoom** to choose the look before saving. Photos are stored as a small 256×256 image (about 5–30 KB).
+- **Password**: every user can change their own access key (current key required).
+
+### Users & access (owner)
+- **New user**: name, access key, and for each section (**Cash Vault** incl. Staff Balance, **Expenses**, **Received**): *No access*, *View* or *Edit*. Plus *Can download the Excel file* and *Can import RTA receipts* (needs Expenses: Edit).
+- **Edit** a user: change the name or access, or set a new key for them.
+- **Disable / Enable**: a disabled user is signed out and can't sign in until enabled again.
+- **Delete**: removes the key permanently. Entries the user created are kept (their sign-in account is deleted, or permanently blocked if their entries still refer to it).
+- The database enforces the access (row-level security), not just the screen: a user without access to a section cannot read or change it at all. Existing keys keep exactly what they had: editor keys → Edit everywhere, view-only keys → View everywhere.
+
+### Payment types (owner)
+Cash and Bank are built in. **Card, Credit Card, Debit Card and Travel Card** are already added (unticked); tick them to use them, or add your own (e.g. Cheque).
+- Tick **Expenses** and/or **Received** to choose where a type appears in the TYPE column. Unticking only hides it from the list; rows already using it keep it.
+- **Counts as cash**: only these types change Available Cash. By default only Cash does, exactly as before; Cash always counts as cash.
+- A type that is used by any entry can't be deleted (untick it instead); Cash and Bank can't be deleted.
+- The import screen offers every type enabled for Expenses.
+
+### Change type of many rows at once
+**Expenses / Received → ⇄ Change type**
+1. **Rows**: either the rows you selected in the sheet (click a cell in the first row, then Shift+click / Shift+↓ to the last, or drag), or **all rows of a date**. Optionally only rows that are currently a given type (e.g. only Bank).
+2. **New type**: pick it. The panel shows how many rows change, which are skipped (older than the edit window, already that type, empty), and the exact effect on Available Cash, before you confirm.
+3. Saved rows are updated together, one database request per 300 rows (101 rows in about a second). If anything fails, the rows are saved one by one automatically. Rows older than the 3-day edit window stay locked, as always.
+
+Example: you imported receipts as **Bank** but they were paid by card → Change type → *All rows dated 26/11/2026*, *only rows that are currently Bank* → **Card**.
+
 ## Latest update: Import RTA receipts (no new migration)
 
 Front-end only. **No SQL to run and no Edge Function redeploy.** Replace the static files (including the new `js/vendor/pdfjs/` folder) and refresh once with `Ctrl+F5`.
@@ -112,6 +151,7 @@ expense_vault_project/
 │   ├── virtual-sheet.js
 │   ├── rta-receipt-parser.js
 │   ├── receipt-import.js
+│   ├── account-panel.js     (user menu, settings, users & access, payment types)
 │   ├── vendor/pdfjs/        (PDF.js 4.10.38, Apache-2.0; loaded only when importing)
 │   └── secure-session-storage.js
 ├── sql/
