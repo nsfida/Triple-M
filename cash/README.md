@@ -18,6 +18,40 @@ A single-page, Excel-style expense register using Supabase. The project is split
 - **Owner permissions:** the active `owner` key has unrestricted read, add, edit and delete permissions for Expenses, Received, Cash Vault counts and signed person balances, plus owner-key and alternate-key management. RLS remains enabled. This is full administrator access inside Expense Vault, not Supabase project-owner or database-superuser access.
 - **Spreadsheet selection, copy and paste (Excel style):** with a mouse, click a cell to select it, or drag (or Shift+click / Shift+arrow keys) to select a rectangular block, in the Expenses, Received and Cash Vault tables. `Ctrl+C` (`Cmd+C` on Mac) copies the block as tab-separated text that pastes straight into Excel, Google Sheets or Numbers; `Ctrl+X` copies and clears; `Ctrl+V` pastes a block starting at the top-left selected cell (one copied value fills the whole selection). Click anywhere outside the selected cells, switch tabs, or press `Esc` to clear the selection (using the table scrollbars keeps it). Double-click, `Enter`, `F2`, or simply start typing to edit a cell; `Enter`/`Tab` confirm and move, `Esc` cancels the edit; `Delete` clears the selected free-entry cells. Dragging past the edge of the table scrolls it. Computed total columns are read-only and are recalculated after paste; copied totals are plain numbers. Paste accepts common date formats including ISO and day-first dates (`DD/MM/YYYY`), Excel date serials, and comma-separated AED amounts such as `1,250.50`. On touch-only devices the cells remain ordinary tap-to-edit inputs.
 
+## Latest update: Import RTA receipts (no new migration)
+
+Front-end only. **No SQL to run and no Edge Function redeploy.** Replace the static files (including the new `js/vendor/pdfjs/` folder) and refresh once with `Ctrl+F5`.
+
+**Expenses → ⇪ Import RTA receipts** reads the *Receipt for Vehicle Renewal* PDFs downloaded from the RTA portal (one or many files at once, by choosing or dragging them in) and adds them as expense entries.
+
+1. **Reading.** Every receipt in every file is read, including receipts that continue onto a second page. The fee lines must add up exactly to the printed *Total Amount*; a receipt that doesn't is shown as *Cannot read* and is not imported. Files that are not RTA receipts are rejected.
+2. **Paid by Cash or Bank: required.** Nothing can be added until you choose. *Cash* entries reduce Available Cash. *Bank* entries are recorded only; they never affect the cash figures. The receipts' own payment method (e.g. Credit Card) is shown as a hint.
+3. **Preview.** You see each receipt (date, renewal, fines, total, status) and every entry that will be created before anything is added. Receipts can be unticked.
+4. **Add.** Entries are added to the bottom of Expenses (above the empty row) dated with the receipt's **Payment Date**, and save automatically like typed rows.
+
+**Where amounts go**
+
+| Receipt line | Expenses column |
+|---|---|
+| Light vehicle register, Issue Vehicle Registration Card, Vehicle Renewal Fee, Renewal Light Vehicle Private, Delivery Fee | **Renewal** |
+| Every fine (RTA Parking, Bus Lane, Dubai Police violations, Abu Dhabi Police, Abu Dhabi DoT, Sharjah Police, Sharjah Municipality, Ajman Police, …) | **Fines** |
+| Knowledge & Innovation fees (AED 20 per Dubai item) | Added to the item it was charged for: the renewal's AED 20 to **Renewal**, each Dubai fine's AED 20 to that fine in **Fines**. Fines from other emirates carry none. |
+| Vehicle test / inspection fees (if ever present) | **RTA Passing** |
+| Anything else | **Misc Exp.** (flagged in the preview first) |
+
+**Entry layout** (choose in the dialog):
+- *Renewal + each fine on its own row* (default). Renewal row: Supplier `RTA Renewal`, Inv# = Receipt No. Fine rows: Supplier = issuing authority (Dubai Police rows also name the violation, e.g. `Dubai Police · Speeding +30 km/h`), Inv# = the fine number, or the Receipt No for Dubai Police fines (they have no fine number on the receipt).
+- *One row per receipt*. Supplier `RTA`, Inv# = Receipt No, amounts split across Renewal and Fines.
+
+Either way, a receipt's entries add up exactly to its printed total. The *Name* column can optionally be filled for all imported rows; TRN# stays `---`.
+
+**Safety**
+- **No double imports.** A receipt whose Receipt No or any of its fine numbers is already in Expenses is shown as *Already imported* and unticked. The same receipt appearing twice in one upload is imported once.
+- **Edit window.** Receipts paid before the 3-day edit window can't be saved on their own date (the database enforces this). They are shown as *Too old*; you can choose to enter them on the working date instead.
+- Existing rows are never changed; the import only adds new rows.
+- **Plate numbers are not printed on RTA renewal receipts** (the QR code only links to the RTA website), so the Receipt No and fine numbers are used as references.
+- The PDFs are read entirely in the browser (PDF.js, bundled in `js/vendor/pdfjs/`) and are not uploaded anywhere.
+
 ## Latest update: speed and instant saving (no new migration)
 
 Front-end only. **Do not run any SQL migration and do not redeploy the Edge Function.** Replace the static files and refresh once with `Ctrl+F5`. Existing data is not touched.
@@ -76,6 +110,9 @@ expense_vault_project/
 │   ├── app.js
 │   ├── spreadsheet-grid.js
 │   ├── virtual-sheet.js
+│   ├── rta-receipt-parser.js
+│   ├── receipt-import.js
+│   ├── vendor/pdfjs/        (PDF.js 4.10.38, Apache-2.0; loaded only when importing)
 │   └── secure-session-storage.js
 ├── sql/
 │   └── migrations/

@@ -9,6 +9,7 @@ import {
   getEncryptedSessionPersistenceStatus
 } from './secure-session-storage.js?v=fast-autosave-1';
 import { createVirtualSheet } from './virtual-sheet.js?v=fast-autosave-1';
+import { setupReceiptImport } from './receipt-import.js?v=rta-import-1';
 import { cancelSpreadsheetDrag, clearAllSpreadsheetSelections, createSpreadsheetGrid } from './spreadsheet-grid.js?v=fast-autosave-1';
 
 const SUPABASE_URL = 'https://hmtbalmgpyrnxbifnvzg.supabase.co';
@@ -665,6 +666,53 @@ function syncTrailingBlankRows() {
       append();
     }
   });
+}
+
+// ---- RTA receipt import -------------------------------------------------------
+// Used by receipt-import.js. Expenses must be fully loaded first so duplicate
+// receipts are detected against every existing row.
+async function ensureExpensesLoaded() {
+  if (!expensesLoaded && !expensesLoading) await loadExpenses();
+  while (expensesLoading) await new Promise(resolve => setTimeout(resolve, 100));
+  if (!expensesLoaded) throw new Error('Expenses could not be loaded. Check the connection and try again.');
+}
+
+function existingInvoiceNumbers() {
+  const references = new Set();
+  rows.forEach(row => {
+    const value = String(row.invoice_number ?? '').trim();
+    if (value) references.add(value);
+  });
+  return references;
+}
+
+// Adds imported entries above the empty row at the bottom of Expenses. They are new,
+// unsaved rows exactly like typed ones, so they save automatically in the background
+// (and Cash entries update Available Cash; Bank entries do not).
+function addExpenseEntries(entries) {
+  if (!canWrite || !entries.length) return 0;
+  const last = rows[rows.length - 1];
+  const trailing = last && isBlankExpenseRow(last) ? rows.pop() : null;
+  entries.forEach(entry => {
+    const row = makeEmptyRow();
+    row.entry_date = entry.entry_date;
+    row.supplier = entry.supplier || '';
+    row.spent_by = entry.spent_by || '';
+    row.invoice_number = entry.invoice_number || '';
+    row.transaction_type = entry.transaction_type === 'Bank' ? 'Bank' : 'Cash';
+    Object.entries(entry.amounts || {}).forEach(([field, cents]) => {
+      if (AMOUNT_FIELDS.includes(field) && cents) row[field] = (cents / 100).toFixed(2);
+    });
+    rows.push(row);
+  });
+  if (trailing) rows.push(trailing);
+  selectedClientId = null;
+  renderTable();
+  setActiveTab('expenses');
+  scrollSheetToBottom(table);
+  setSheetStatus(UNSYNCED_TEXT, 'dirty');
+  scheduleAutosave('expenses');
+  return entries.length;
 }
 
 function focusTrailingRow(tableElement, list, selectSetter) {
@@ -1610,6 +1658,7 @@ function accessNoteText() {
 function updateToolbar() {
   updateSyncIndicatorSoon();
   addButton.disabled = !canWrite;
+  el('importReceiptsButton').disabled = !canWrite;
   deleteButton.disabled = !canWrite || !selectedClientId;
   setText(el('permissionNote'), accessNoteText());
 }
@@ -3099,6 +3148,19 @@ const cashSheet = registerSpreadsheet(el('cashCountTable'), {
   render: renderCashCounts,
   setDirtyStatus: () => { setCashVaultStatus(UNSYNCED_TEXT, 'dirty'); updateCashCountToolbar(); updateCashCountedSummary(); }
 });
+setupReceiptImport({
+  canWrite: () => canWrite,
+  ensureExpensesLoaded,
+  existingInvoiceNumbers,
+  addExpenseEntries,
+  workDate,
+  editCutoffDate,
+  isDateEditable,
+  formatDmy,
+  editWindowDays: EDIT_WINDOW_DAYS,
+  showToast
+});
+
 
 enableRowReorder({ tableElement: table, tbody: tableBody, getRows: () => rows, render: renderTable, tableName: 'expense_records', dateField: 'entry_date', isBlank: isBlankExpenseRow });
 enableRowReorder({ tableElement: el('receivedTable'), tbody: receivedTableBody, getRows: () => receivedRows, render: renderReceivedTable, tableName: 'received_records', dateField: 'entry_date', isBlank: isBlankReceivedRow });

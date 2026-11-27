@@ -728,3 +728,67 @@ body.reordering-rows, body.reordering-rows * { cursor: grabbing !important; user
 .sync-status[data-state="error"]::before, .sync-status[data-state="offline"]::before { background: var(--danger); }
 .sync-status[data-state="readonly"]::before { background: #98a2b3; }
 @keyframes ev-sync-pulse { 50% { opacity: .35; } }
+
+
+/* ---------------------------------------------------------------------------
+   Import RTA receipts dialog
+   --------------------------------------------------------------------------- */
+.receipt-import-modal { width: min(1180px, calc(100% - 28px)); max-height: 92vh; display: none; flex-direction: column; overflow: hidden; }
+.receipt-import-modal[open] { display: flex; }
+.receipt-import-modal .modal-content.ri-content { flex: 1 1 auto; max-height: none; min-height: 0; padding: 16px 24px 18px; }
+.ri-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 16px; border: 1.5px dashed var(--line-strong); border-radius: 12px; background: var(--surface-soft); text-align: center; transition: background .15s ease, border-color .15s ease; }
+.ri-drop.compact { flex-direction: row; justify-content: center; padding: 10px 14px; }
+.ri-drop.compact .ri-drop-title { font-size: 12px; }
+.ri-drop.dragging { border-color: var(--accent); background: var(--accent-soft); }
+.ri-drop-title { margin: 0; font-weight: 700; font-size: 14px; }
+.ri-drop-sub { margin: 0; font-size: 11px; }
+.ri-files { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ri-file { display: inline-flex; gap: 8px; align-items: center; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: #ffffff; font-size: 11px; }
+.ri-file-name { font-weight: 700; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ri-file-state { color: var(--muted); }
+.ri-file.error { border-color: #f3c7c2; background: var(--danger-soft); }
+.ri-file.error .ri-file-state { color: var(--danger); }
+.ri-file.reading .ri-file-state { color: var(--warning); }
+.ri-options { display: grid; grid-template-columns: 1.1fr 1.3fr .9fr; gap: 12px; margin-top: 16px; }
+.ri-field { margin: 0; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 10px; background: #ffffff; font-size: 11px; font-weight: 700; color: #344054; min-width: 0; }
+.ri-field legend { padding: 0 4px; font-size: 11px; font-weight: 700; color: #344054; }
+.ri-required { margin-left: 4px; padding: 1px 6px; border-radius: 999px; background: #fff4e0; color: var(--warning); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+.ri-choice { display: flex; gap: 9px; align-items: flex-start; margin-top: 7px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-weight: 400; }
+.ri-choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.ri-choice input { margin-top: 2px; accent-color: var(--accent); }
+.ri-choice span { display: flex; flex-direction: column; gap: 2px; }
+.ri-choice strong { font-size: 12px; color: var(--text); }
+.ri-choice small { color: var(--muted); font-size: 10px; }
+.ri-type:not(:has(input:checked)) { border-color: #f0dcae; background: #fffcf5; }
+.ri-hint { margin: 7px 2px 0; font-weight: 400; color: var(--muted); font-size: 10px; }
+.ri-name { display: flex; flex-direction: column; gap: 7px; }
+.ri-name input { height: 34px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 12px; font-weight: 400; }
+.ri-old { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 9px 12px; border: 1px solid #f0dcae; border-radius: 9px; background: #fffaf0; color: #6b4a00; font-size: 11px; }
+.ri-old input { margin-top: 1px; accent-color: var(--accent); }
+.ri-heading { margin: 16px 0 7px; font-size: 12px; color: #344054; }
+.ri-table-wrap { max-height: 250px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.ri-entries-wrap { max-height: 300px; }
+.ri-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+.ri-table th { position: sticky; top: 0; z-index: 1; padding: 7px 9px; background: #f3f6fa; border-bottom: 1px solid var(--line); text-align: left; font-size: 10px; color: #475467; white-space: nowrap; }
+.ri-table td { padding: 6px 9px; border-bottom: 1px solid #eef1f5; vertical-align: top; }
+.ri-table tr:last-child td { border-bottom: 0; }
+.ri-table .num { text-align: right; font-family: 'DM Mono', monospace; white-space: nowrap; }
+.ri-table .mono { font-family: 'DM Mono', monospace; white-space: nowrap; }
+.ri-table .strong { font-weight: 700; color: #126449; }
+.ri-table .ri-check { width: 26px; }
+.ri-table .ri-check input { accent-color: var(--accent); }
+.ri-sub { margin-top: 2px; color: var(--muted); font-size: 9.5px; font-family: 'DM Sans', sans-serif; white-space: normal; }
+.ri-note { max-width: 300px; }
+.ri-empty { padding: 16px !important; text-align: center; color: var(--muted); }
+.ri-missing { color: var(--warning); font-weight: 700; }
+.ri-pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; background: var(--accent-soft); color: var(--accent); }
+.ri-pill-redated { background: #edf4ff; color: #214f91; }
+.ri-pill-imported, .ri-pill-duplicate-batch { background: #f2f4f7; color: #475467; }
+.ri-pill-old { background: #fff4e0; color: var(--warning); }
+.ri-pill-error { background: var(--danger-soft); color: var(--danger); }
+.ri-table tr.ri-status-imported td, .ri-table tr.ri-status-duplicate-batch td, .ri-table tr.ri-status-old td, .ri-table tr.ri-status-error td { color: #8a94a6; }
+.ri-footer { display: flex; align-items: center; gap: 10px; padding: 12px 24px; border-top: 1px solid var(--line); background: #fbfcfe; }
+.ri-summary { font: 500 11px 'DM Mono', monospace; color: #344054; white-space: nowrap; }
+.ri-message { flex: 1; color: var(--warning); font-size: 11px; text-align: right; }
+@media (max-width: 860px) { .ri-options { grid-template-columns: 1fr; } }
+.receipt-import-modal [hidden] { display: none !important; }
