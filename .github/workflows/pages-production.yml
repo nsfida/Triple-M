@@ -1,0 +1,65 @@
+name: Publish production build to GitHub Pages
+
+# Publishes only the production output (dist-production/) instead of the whole repository, so
+# internal folders (docs/, scripts/, tests/, Security notes, reports) are no longer served on
+# triplem.vip.
+#
+# Switched off until you turn it on. To turn it on:
+#   1. Settings > Pages > Build and deployment > Source: "GitHub Actions".
+#   2. Settings > Secrets and variables > Actions > Variables > New repository variable:
+#        TRIPLEM_PAGES_FROM_ACTIONS = true
+#   3. Run this workflow once (Actions > this workflow > Run workflow), then check the site.
+# To go back: set Source to "Deploy from a branch" again (and the variable to false).
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and check the production output
+    if: vars.TRIPLEM_PAGES_FROM_ACTIONS == 'true' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source without persisting credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up maintained Node.js runtime
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          check-latest: false
+      - name: Verify application, security and regression tests
+        run: npm run verify
+      - name: Build sitemap and audit SEO/GEO source policies
+        run: npm run seo:prepare
+      - name: Build and audit production output
+        run: npm run build:production
+      - name: Upload production output
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-production
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
