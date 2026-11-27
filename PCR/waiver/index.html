@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deposit Waiver Control Center</title>
+  <meta name="description" content="Unified deposit-waiver, collections and Cardoo claims workspace">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234f46e5'/%3E%3Cstop offset='1' stop-color='%2314b8a6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M32 13l15 6v11c0 10-6.5 17.5-15 21-8.5-3.5-15-11-15-21V19z' fill='none' stroke='white' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M25 32l5 5 9-10' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style/styles.css?v=12">
+  <script>
+    // apply saved theme before paint (no flash)
+    try { var t = localStorage.getItem('dw_theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+  </script>
+</head>
+<body>
+
+  <!-- ============================ BOOT ============================ -->
+  <div id="boot" class="boot">
+    <div class="boot-mark"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg></div>
+    <div class="boot-bar"><span></span></div>
+  </div>
+
+  <!-- ============================ LOGIN ============================ -->
+  <section id="login" class="login" hidden>
+    <div class="login-art" aria-hidden="true">
+      <div class="art-grid"></div>
+      <div class="orb orb-a"></div><div class="orb orb-b"></div><div class="orb orb-c"></div>
+      <div class="art-content">
+        <div class="brand brand-light">
+          <span class="brand-mark"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg></span>
+          <span class="brand-text"><b>Deposit Waiver</b><small>Control Center · v12</small></span>
+        </div>
+        <h2 class="art-title">Five reports.<br><span>One source of truth.</span></h2>
+        <p class="art-sub">Unify Caryaati waivers, contracts and payments with Cardoo bookings and claims — then collect, remind and claim from one screen.</p>
+        <ul class="art-list">
+          <li><svg viewBox="0 0 24 24"><use href="#i-layers"/></svg>Auto-detects every report, whatever the file name</li>
+          <li><svg viewBox="0 0 24 24"><use href="#i-wand"/></svg>Cleans tags, dates, numbers &amp; phone formats</li>
+          <li><svg viewBox="0 0 24 24"><use href="#i-whatsapp"/></svg>WhatsApp reminders with payment links</li>
+          <li><svg viewBox="0 0 24 24"><use href="#i-file-check"/></svg>Claim-ready lists and PDF claim packs for Cardoo</li>
+        </ul>
+        <div class="art-cards">
+          <div class="glass"><small>Outstanding tracked</small><b>AED&nbsp;·&nbsp;live</b><i class="spark"></i></div>
+          <div class="glass g2"><small>Claim pipeline</small><b>Collect → Remind → Claim</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="login-panel">
+      <form id="loginForm" class="login-card" autocomplete="on" novalidate>
+        <div class="brand only-mobile">
+          <span class="brand-mark"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg></span>
+          <span class="brand-text"><b>Deposit Waiver</b><small>Control Center · v12</small></span>
+        </div>
+        <h1>Welcome back</h1>
+        <p class="muted">Sign in with the user ID provided by your administrator.</p>
+
+        <label class="field">
+          <span>User ID</span>
+          <div class="input-icon">
+            <svg viewBox="0 0 24 24"><use href="#i-user"/></svg>
+            <input id="loginUser" name="username" type="text" autocomplete="username" placeholder="e.g. admin" required autofocus>
+          </div>
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <div class="input-icon">
+            <svg viewBox="0 0 24 24"><use href="#i-lock"/></svg>
+            <input id="loginPass" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+            <button type="button" class="icon-btn ghost pass-toggle" id="passToggle" aria-label="Show password"><svg viewBox="0 0 24 24"><use href="#i-eye"/></svg></button>
+          </div>
+          <small class="caps-warn" id="capsWarn" hidden>Caps Lock is on</small>
+        </label>
+        <div class="login-row">
+          <label class="check"><input type="checkbox" id="loginRemember" checked><span></span>Keep me signed in</label>
+        </div>
+        <div class="login-error" id="loginError" role="alert" hidden></div>
+        <button class="btn btn-primary btn-lg btn-block" id="loginBtn" type="submit">
+          <span class="btn-label">Sign in</span><span class="spinner"></span>
+          <svg viewBox="0 0 24 24" class="arrow"><use href="#i-arrow-right"/></svg>
+        </button>
+        <p class="login-foot"><svg viewBox="0 0 24 24"><use href="#i-lock"/></svg>Encrypted session · passwords stored as bcrypt hashes</p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============================ APP ============================ -->
+  <div id="app" class="app" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="side-head">
+        <div class="brand">
+          <span class="brand-mark"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg></span>
+          <span class="brand-text"><b>Deposit Waiver</b><small>Control Center · v12</small></span>
+        </div>
+        <button class="icon-btn ghost side-collapse" id="sideCollapse" title="Collapse sidebar"><svg viewBox="0 0 24 24"><use href="#i-sidebar"/></svg></button>
+      </div>
+      <nav class="nav" id="nav">
+        <div class="nav-group">Overview</div>
+        <a href="#/dashboard" data-view="dashboard"><svg viewBox="0 0 24 24"><use href="#i-grid"/></svg><span>Dashboard</span></a>
+        <a href="#/profit" data-view="profit"><svg viewBox="0 0 24 24"><use href="#i-chart"/></svg><span>Profitability</span></a>
+        <a href="#/import" data-view="import"><svg viewBox="0 0 24 24"><use href="#i-upload"/></svg><span>Import &amp; Sync</span></a>
+        <div class="nav-group">Workflow</div>
+        <a href="#/collections" data-view="collections"><svg viewBox="0 0 24 24"><use href="#i-wallet"/></svg><span>Collections</span><em class="badge" data-badge="collections"></em></a>
+        <a href="#/cardoo" data-view="cardoo"><svg viewBox="0 0 24 24"><use href="#i-receipt"/></svg><span>Cardoo Account</span><em class="badge amber" data-badge="cardoo"></em></a>
+        <a href="#/claims" data-view="claims"><svg viewBox="0 0 24 24"><use href="#i-file-check"/></svg><span>Cardoo Claims</span><em class="badge amber" data-badge="claims"></em></a>
+        <a href="#/matching" data-view="matching"><svg viewBox="0 0 24 24"><use href="#i-swap"/></svg><span>Cardoo Matching</span><em class="badge rose" data-badge="matching"></em></a>
+        <a href="#/checks" data-view="checks"><svg viewBox="0 0 24 24"><use href="#i-radar"/></svg><span>Reconciliation</span><em class="badge rose" data-badge="checks"></em></a>
+        <div class="nav-group">Records</div>
+        <a href="#/contracts" data-view="contracts"><svg viewBox="0 0 24 24"><use href="#i-doc"/></svg><span>Waiver Contracts</span></a>
+        <a href="#/bookings" data-view="bookings"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg><span>Cardoo Bookings</span></a>
+        <a href="#/payments" data-view="payments"><svg viewBox="0 0 24 24"><use href="#i-receipt"/></svg><span>Rent Payments</span></a>
+        <a href="#/activity" data-view="activity"><svg viewBox="0 0 24 24"><use href="#i-clock"/></svg><span>Activity Log</span></a>
+        <div class="nav-group">System</div>
+        <a href="#/settings" data-view="settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg><span>Settings</span></a>
+      </nav>
+      <div class="side-foot">
+        <div class="user-card">
+          <span class="avatar" id="userAvatar">?</span>
+          <div class="user-meta"><b id="userName">—</b><small id="userRole">—</small></div>
+          <button class="icon-btn ghost" id="logoutBtn" title="Sign out"><svg viewBox="0 0 24 24"><use href="#i-logout"/></svg></button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn ghost only-mobile" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24"><use href="#i-menu"/></svg></button>
+        <div class="page-title">
+          <h1 id="pageTitle">Dashboard</h1>
+          <p id="pageSub" class="muted">Overview</p>
+        </div>
+        <div class="global-search" id="globalSearch">
+          <svg viewBox="0 0 24 24"><use href="#i-search"/></svg>
+          <input id="gsInput" type="search" placeholder="Search contract, customer, phone, plate…" autocomplete="off">
+          <kbd>/</kbd>
+          <div class="gs-results" id="gsResults" hidden></div>
+        </div>
+        <div class="top-actions">
+          <button class="sync-pill" id="syncPill" title="Last database sync"><i class="dot"></i><span id="syncText">Not synced</span></button>
+          <button class="icon-btn" id="refreshBtn" title="Reload from database"><svg viewBox="0 0 24 24"><use href="#i-refresh"/></svg></button>
+          <button class="icon-btn" id="themeBtn" title="Toggle dark mode"><svg viewBox="0 0 24 24"><use href="#i-moon"/></svg></button>
+        </div>
+      </header>
+
+      <div class="views" id="views">
+        <section class="view" id="view-dashboard"></section>
+        <section class="view" id="view-import"></section>
+        <section class="view" id="view-collections"></section>
+        <section class="view" id="view-claims"></section>
+        <section class="view" id="view-cardoo"></section>
+        <section class="view" id="view-matching"></section>
+        <section class="view" id="view-profit"></section>
+        <section class="view" id="view-checks"></section>
+        <section class="view" id="view-contracts"></section>
+        <section class="view" id="view-bookings"></section>
+        <section class="view" id="view-payments"></section>
+        <section class="view" id="view-activity"></section>
+        <section class="view" id="view-settings"></section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Side panel -->
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" aria-hidden="true"></aside>
+
+  <!-- Modal -->
+  <div class="modal-wrap" id="modalWrap" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+
+  <!-- Toasts -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <!-- ============================ ICONS ============================ -->
+  <svg width="0" height="0" style="position:absolute;top:0;left:0;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h13v4M3 7v11a2 2 0 002 2h15V9H5a2 2 0 01-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="14.5" r="1.4" fill="currentColor"/></symbol>
+      <symbol id="i-file-check" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 3v5h5M9 14l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 12l6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 3v5h5M9 13h6M9 17h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 8h6M9 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 4v16" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 01-15.5 6.3M3 12a9 9 0 0115.5-6.3M21 4v5h-5M3 20v-5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-pdf" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 3v5h5" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="17.5" font-size="6.2" font-family="Arial" font-weight="700" text-anchor="middle" fill="currentColor">PDF</text></symbol>
+      <symbol id="i-xls" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 3v5h5M9 12l6 6M15 12l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 7l8.5 6 8.5-6" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-whatsapp" viewBox="0 0 24 24"><path d="M12 3a9 9 0 00-7.8 13.5L3 21l4.6-1.2A9 9 0 1012 3z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M8.6 8.4c.2-.5.5-.5.8-.5h.5c.2 0 .4 0 .6.5l.7 1.7c.1.2.1.4 0 .6l-.4.6c-.1.2-.1.4 0 .6.6 1 1.4 1.8 2.4 2.4.2.1.4.1.6 0l.6-.5c.2-.2.4-.2.6-.1l1.7.8c.3.1.4.3.4.5 0 .5-.2 1.4-1.2 1.8-.9.4-2.2.2-3.9-.8a10 10 0 01-3.3-3.4c-.9-1.5-.8-2.8-.1-3.6" fill="currentColor"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M3 13l9 5 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-wand" viewBox="0 0 24 24"><path d="M4 20L15 9M14 4v3M18 6l-2 2M20 10h-3M12 6l2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v5l-4 2v-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4M12 17.5v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v6M12 7.5v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+      <symbol id="i-car" viewBox="0 0 24 24"><path d="M5 16V11l2-5h10l2 5v5M3 16h18v3H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="7.5" cy="13.5" r="1" fill="currentColor"/><circle cx="16.5" cy="13.5" r="1" fill="currentColor"/></symbol>
+      <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 4h14v11l-5 5H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 20v-5h5M8 9h8M8 13h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- ============================ LIBRARIES ============================ -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+  <script src="script/scripts.js?v=12"></script>
+</body>
+</html>
