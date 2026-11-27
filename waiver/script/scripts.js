@@ -3303,8 +3303,11 @@ const Drawer = {
       <table class="ledger"><tr><td>Caryaati status</td><td>${r.status}</td></tr>
       <tr><td>Caryaati closed</td><td>${r.close_date ? (String(r.caryaati_close_at).length > 10 ? U.fmtDT(r.caryaati_close_at) : U.fmtDate(r.close_date)) : '—'}</td></tr>
       <tr><td>Cardoo booking period</td><td>${r.booking_start ? `${U.fmtDate(r.booking_start)} → ${U.fmtDate(r.booking_end)}` : '—'}</td></tr>
-      <tr><td>Cardoo closed</td><td>${r.cardoo_close_at ? U.fmtDT(r.cardoo_close_at) : r.cardoo_status === 'open' ? 'not closed' : '—'}</td></tr>
-      ${r.close_diff_days ? `<tr><td>Difference</td><td class="${r.close_diff_days > 0 ? 'diff-pos' : 'diff-neg'}">${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days} days</td></tr>` : ''}
+      ${r.cardoo_close_at ? `<tr><td>Cardoo closed</td><td>${U.fmtDT(r.cardoo_close_at)}</td></tr>`
+        : r.cardoo_status === 'open' && r.status === 'Closed' ? `<tr class="nc-row"><td>Cardoo closed</td><td><span class="nc-badge">Not closed</span>${r.days_since_caryaati_close != null ? ` <small>${r.days_since_caryaati_close}d after Caryaati close</small>` : ''}</td></tr>`
+        : `<tr><td>Cardoo closed</td><td>${r.cardoo_status === 'open' ? 'not closed' : '—'}</td></tr>`}
+      ${r.close_diff_days ? `<tr><td>Difference</td><td class="${r.close_diff_days > 0 ? 'diff-pos' : 'diff-neg'}">${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days} days</td></tr>`
+        : r.cardoo_status === 'open' && r.status === 'Closed' ? `<tr class="nc-row"><td>Difference</td><td><span class="nc-badge">Not closed in Cardoo</span></td></tr>` : ''}
       ${r.claim_deadline ? `<tr><td>Claim window (${g.claim_deadline_days} days)</td><td>${U.fmtDate(r.claim_deadline)} · ${r.days_to_deadline < 0 ? `expired ${-r.days_to_deadline}d ago` : `${r.days_to_deadline}d left`}</td></tr>` : ''}</table></div>`;
     const bl = (App.model.cardoo ? App.model.cardoo.lines : []).filter(l => +l.contract_no === r.contract_no).sort((a, b) => String(b.po_no).localeCompare(String(a.po_no)));
     const billed = bl.length ? `<div class="panel"><h4>${icon('receipt')}Charged by Cardoo (invoices)<span class="spacer"></span><span class="mono" style="text-transform:none">AED ${U.money(U.sum(bl, l => l.price_aed))}</span></h4>
@@ -4299,7 +4302,7 @@ Views.matching = {
     ['missing_cardoo', 'Missing in Cardoo', 'rose', 'Waiver contracts in Caryaati with no active Cardoo booking — the deposit is not covered.'],
     ['missing_caryaati', 'Missing in Caryaati', 'rose', 'Cardoo bookings whose contract number is not found in the Caryaati Rental Contracts data. Check the contract number used in Cardoo (re-import the Rental Contracts report if it is recent).'],
     ['no_waiver', 'Booked, no waiver fee', 'amber', 'The contract exists in Caryaati and is booked in Cardoo, but it is not in the Deposit Waivers report — check whether the waiver fee was charged.'],
-    ['close_cardoo', 'Close in Cardoo', 'amber', 'Closed in Caryaati but the Cardoo booking is still open — close it in Cardoo with the same date.'],
+    ['close_cardoo', 'Not closed in Cardoo', 'rose', 'Closed in Caryaati but NOT closed in Cardoo — the booking is still running and Cardoo keeps charging. Close each one in Cardoo with the Caryaati closing date (oldest first).'],
     ['close_mismatch', 'Closing date mismatch', 'orange', 'Closed in both systems but on different dates.'],
     ['cardoo_only', 'Closed in Cardoo only', 'rose', 'Cardoo booking is closed while the Caryaati contract is still open — the deposit is no longer covered.'],
     ['matched', 'Fully matched', 'green', 'Closed in both systems on the same date.']
@@ -4335,8 +4338,9 @@ Views.matching = {
     const base = Views.recordColumns();
     const car = { key: 'close_date', label: 'Caryaati closed', type: 'date', get: r => r.close_date, sortGet: r => U.dayNum(r.close_date), html: r => r.close_date ? `<div class="dates2">${String(r.caryaati_close_at).length > 10 ? U.fmtDT(r.caryaati_close_at) : U.fmtDate(r.close_date)}<span>${R.ago(r.days_since_caryaati_close)}</span></div>` : '<span class="chip t-sky">open</span>' };
     const per = { key: 'booking_end', label: 'Cardoo booking', get: r => r.booking_start ? `${U.fmtDate(r.booking_start)} - ${U.fmtDate(r.booking_end)}` : '', sortGet: r => U.dayFrac(r.booking_end), html: r => r.booking_start ? `<div class="dates2">${U.fmtDate(r.booking_start)}<span>→ ${U.fmtDate(r.booking_end)}</span></div>` : R.booking(r) };
-    const cdc = { key: 'cardoo_close_at', label: 'Cardoo closed', type: 'date', dt: true, get: r => r.cardoo_close_at, sortGet: r => U.dayFrac(r.cardoo_close_at), html: r => r.cardoo_close_at ? `<div class="dates2">${U.fmtDT(r.cardoo_close_at)}</div>` : '<span class="zero">not closed</span>' };
+    const cdc = { key: 'cardoo_close_at', label: 'Cardoo closed', type: 'date', dt: true, get: r => r.cardoo_close_at, sortGet: r => U.dayFrac(r.cardoo_close_at), html: r => r.cardoo_close_at ? `<div class="dates2">${U.fmtDT(r.cardoo_close_at)}</div>` : r.status === 'Closed' && r.cardoo_status === 'open' ? '<span class="nc-badge">Not closed</span>' : '<span class="zero">not closed</span>' };
     const diff = { key: 'close_diff_days', label: 'Difference', numeric: true, get: r => r.close_diff_days, html: r => r.close_diff_days ? `<span class="${r.close_diff_days > 0 ? 'diff-pos' : 'diff-neg'}">${r.close_diff_days > 0 ? '+' : ''}${r.close_diff_days} days</span><span class="cell-sub">${r.close_diff_days > 0 ? 'Cardoo later' : 'Cardoo earlier'}</span>` : '<span class="zero">same day</span>' };
+    const notc = { key: 'not_closed_days', label: 'Cardoo status', numeric: true, get: r => r.days_since_caryaati_close, sortGet: r => r.days_since_caryaati_close, html: r => `<span class="nc-badge">Not closed</span><span class="cell-sub">${r.days_since_caryaati_close != null ? `${r.days_since_caryaati_close} day${r.days_since_caryaati_close === 1 ? '' : 's'} since Caryaati close` : ''}</span>` };
     const type = { key: 'btype', label: 'Type', get: r => [...new Set(r.bookings.filter(b => !b.cancelled).map(b => b.booking_type))].join(' / ') };
     const out = { key: 'outstanding', label: 'Outstanding', plain: `Outstanding (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.outstanding, html: r => R.owe(r.outstanding) };
     const fee = { key: 'cardoo_fee', label: 'Cardoo fee', plain: `Cardoo fee est. (${cur})`, align: 'right', type: 'num', sum: true, numeric: true, get: r => r.cardoo_fee, html: r => R.amt(r.cardoo_fee) };
@@ -4348,7 +4352,7 @@ Views.matching = {
     const bstate = { key: 'booking_state', label: 'Cardoo', get: r => r.booking_state, html: R.booking };
     return {
       missing_cardoo: [...base, status, opened, car, drop, wf, out, bstate, stage],
-      close_cardoo: [...base, type, car, per, fee, out, stage],
+      close_cardoo: [...base, type, car, per, notc, fee, out, stage],
       close_mismatch: [...base, type, car, cdc, diff, out],
       cardoo_only: [...base, opened, drop, per, cdc, wf],
       matched: [...base, car, cdc, out, stage]
