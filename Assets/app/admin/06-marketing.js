@@ -101,15 +101,20 @@
       plan = await finderCall({ action: "plan", ...base, lat: Number(list[0].lat), lon: Number(list[0].lon), label: String(list[0].display_name || f.city) });
     }
     onStage("Searching the business map from this computer…");
-    let elements = null; const tried = [];
-    for (const url of plan.endpoints || []) {
+    let elements = null; const tried = []; let small = false;
+    // First server: the full city area; after a timeout, the smaller centre area (much faster).
+    const attempts = (plan.endpoints || []).flatMap((url, i) => i === 0 ? [[url, false]] : [[url, true]]);
+    if (attempts.length) attempts.push([attempts[0][0], true]);
+    for (const [url, useSmall] of attempts) {
+      const host = new URL(url).hostname;
+      const q = (useSmall || small) && plan.query_small ? plan.query_small : plan.query;
       try {
-        const r = await withTimeout(fetch(url, { method: "POST", body: new URLSearchParams({ data: plan.query }), headers: { Accept: "application/json" } }), 35000);
-        if (!r.ok) { tried.push(`${new URL(url).hostname} ${r.status}`); continue; }
+        const r = await withTimeout(fetch(url, { method: "POST", body: new URLSearchParams({ data: q }), headers: { Accept: "application/json" } }), 25000);
+        if (!r.ok) { tried.push(`${host} ${r.status}`); if (r.status === 504) small = true; continue; }
         const d = await r.json();
-        if (Array.isArray(d?.elements)) { elements = d.elements; break; }
-        tried.push(`${new URL(url).hostname} bad answer`);
-      } catch (err) { tried.push(`${new URL(url).hostname} ${err?.message === "timeout" ? "timeout" : "unreachable"}`); }
+        if (Array.isArray(d?.elements) && !(d.elements.length === 0 && /timed out|runtime error/i.test(String(d.remark || "")))) { elements = d.elements; break; }
+        tried.push(`${host} ${/timed out/i.test(String(d?.remark || "")) ? "timeout" : "bad answer"}`); small = true;
+      } catch (err) { tried.push(`${host} ${err?.message === "timeout" ? "timeout" : "unreachable"}`); small = true; }
     }
     if (!elements) throw new Error(`The business map servers did not answer from this computer either (${tried.join(", ")}). Please try again in a few minutes.`);
     onStage(f.scan ? "Reading the businesses' websites…" : "Checking your list…");
@@ -324,7 +329,7 @@
           <div class="tm-ap-foot">${k.btn("mk-f-search", f.busy === "search" ? "Searching…" : "Search", "fa-solid fa-magnifying-glass", { primary: true, disabled: !!f.busy })}</div>
         </form>`
         + (f.err ? k.note(esc(f.err), "warn", "fa-solid fa-triangle-exclamation") : "")
-        + (f.busy === "search" ? (f.stage ? k.note(esc(f.stage), "info", "fa-solid fa-spinner fa-spin") : "") + k.skel(5) : results);
+        + (f.busy === "search" ? k.note(`${esc(f.stage || "Searching the business map…")} <b>${Math.max(0, Math.round((Date.now() - (f.started || Date.now())) / 1000))} s</b>`, "info", "fa-solid fa-spinner fa-spin") + k.skel(5) : results);
     }
 
     function formHtml(){
@@ -478,7 +483,8 @@
         "mk-f-search": async () => {
           const f = st.finder; if (f.busy) return;
           if (!String(f.city || "").trim()) { dp.toast("Enter a city.", false); return; }
-          f.busy = "search"; f.err = ""; f.results = null; f.selected = new Set(); R();
+          f.busy = "search"; f.err = ""; f.results = null; f.selected = new Set(); f.started = Date.now(); R();
+          const tick = setInterval(() => { if (f.busy === "search") R(); }, 1000);
           try {
             f.stage = "";
             let d;
@@ -490,6 +496,7 @@
             f.results = d.items || []; f.place = d.place || f.city; f.attribution = d.attribution || ""; f.template = d.template || "overview";
             f.results.forEach((r, i) => { if (!r.in_list && (r.email || r.whatsapp)) f.selected.add(i); });
           } catch (e) { f.err = String(e?.message || e); }
+          clearInterval(tick);
           f.busy = false; f.stage = ""; R();
         },
         "mk-f-all": () => { const f = st.finder; const avail = (f.results || []).map((r, i) => r.in_list ? -1 : i).filter(i => i >= 0); f.selected = f.selected.size === avail.length ? new Set() : new Set(avail); R(); },
