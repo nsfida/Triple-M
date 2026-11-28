@@ -80,7 +80,7 @@ test("Marketing is wired for the Main Admin only and uses the shared side panel"
   for (const html of ["index.html", "ar/index.html", "ur/index.html"]) {
     const s = read(html);
     assert.match(s, /<button class="btn soft tiny admin-tool-btn hide" id="adminMarketingBtn"/, html);
-    assert.match(s, /admin\/05-marketing-templates\.js\?v=20261128-mk1"[\s\S]*admin\/06-marketing\.js\?v=20261128-mk1"/, html);
+    assert.match(s, /admin\/05-marketing-templates\.js\?v=20261128-mk1"[\s\S]*admin\/06-marketing\.js\?v=20261128-mk\d+"/, html);
     assert.match(s, /connect-src[^;"]*http:\/\/127\.0\.0\.1:8765/, html);
   }
   assert.match(read("Assets/app/admin/01-admin.js"), /document\.getElementById\("adminMarketingBtn"\)\?\.classList\.toggle\("hide", !allowed\);/);
@@ -138,3 +138,29 @@ test("marketing-finder: Main Admin check first, OpenStreetMap only, safe website
   assert.match(src, /© OpenStreetMap contributors \(ODbL\)/);
   assert.match(src, /const ALLOW_LOCALHOST = /);
 });
+
+test("Find new keeps working when the map services refuse the server: city list, several servers, browser fallback", () => {
+  const ui = read("Assets/app/admin/06-marketing.js");
+  assert.match(ui, /if \(!\/\^\(geocode_unreachable\|osm_unreachable\)\$\/\.test\(e\.code \|\| ""\)\) throw e;/);
+  assert.match(ui, /finderCall\(\{ action: "plan", \.\.\.base \}\)/);
+  assert.match(ui, /finderCall\(\{ action: "enrich", \.\.\.base, elements: slim, place: plan\.place \}\)/);
+  for (const html of ["index.html", "ar/index.html", "ur/index.html"]) {
+    const csp = /connect-src[^;"]*/.exec(read(html))[0];
+    for (const host of ["https://overpass-api.de", "https://overpass.private.coffee", "https://nominatim.openstreetmap.org"]) assert.ok(csp.includes(host), `${html} ${host}`);
+  }
+});
+
+test("marketing-finder tries the built-in city list, Photon, Nominatim and several Overpass servers", { skip: !exists("supabase/functions/marketing-finder/index.ts") }, () => {
+  const src = read("supabase/functions/marketing-finder/index.ts");
+  const lib = read("supabase/functions/marketing-finder/lib.ts");
+  assert.ok(src.indexOf("const known = findCity(city, country);") < src.indexOf("new URL(PHOTON_URL)"));
+  assert.ok(src.indexOf("new URL(PHOTON_URL)") < src.indexOf("new URL(NOMINATIM_URL)"));
+  assert.match(src, /overpass-api\.de\/api\/interpreter,https:\/\/overpass\.private\.coffee\/api\/interpreter,https:\/\/maps\.mail\.ru/);
+  assert.match(src, /"geocode_unreachable"/);
+  assert.match(src, /"osm_unreachable"/);
+  assert.match(src, /if \(!\["search", "plan", "enrich"\]\.includes\(action\)\)/);
+  assert.ok(src.indexOf('await callRpc("app_marketing_finder_authorize"') < src.indexOf('const action = String(body?.action'), "Main Admin check before every action");
+  assert.match(lib, /\[\["dubai"\], "united arab emirates"/);
+  assert.match(lib, /\[\["riyadh"\], "saudi arabia"/);
+});
+

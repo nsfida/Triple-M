@@ -79,8 +79,42 @@
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 404 && !data?.code) throw new Error("The marketing-finder function is not deployed yet (supabase functions deploy marketing-finder).");
-    if (!res.ok) throw new Error(String(data?.error || `Search failed (${res.status})`));
+    if (!res.ok) { const err = new Error(String(data?.error || `Search failed (${res.status})`)); err.code = data?.code || ""; throw err; }
     return data;
+  }
+
+  // Fallback when the public map services refuse the server's shared cloud address: the same
+  // OpenStreetMap query runs over this computer's own connection; the server still checks the
+  // results, reads the websites and marks "In list" / "Unsubscribed" (action "enrich").
+  async function browserSearch(f, onStage){
+    const base = { category: f.category, city: f.city, country: f.country, keyword: f.keyword, limit: Number(f.limit), scan_websites: !!f.scan };
+    let plan;
+    try { plan = await finderCall({ action: "plan", ...base }); }
+    catch (e) {
+      if (e.code !== "geocode_unreachable") throw e;
+      onStage("Finding the city from this computer…");
+      const u = new URL("https://nominatim.openstreetmap.org/search");
+      u.searchParams.set("q", [f.city, f.country].filter(Boolean).join(", ")); u.searchParams.set("format", "jsonv2"); u.searchParams.set("limit", "1"); u.searchParams.set("accept-language", "en");
+      const r = await withTimeout(fetch(u.href, { headers: { Accept: "application/json" }, referrerPolicy: "strict-origin-when-cross-origin" }), 10000);
+      const list = r.ok ? await r.json().catch(() => []) : [];
+      if (!list[0]) throw new Error(`“${f.city}” was not found on the map. Check the city and country.`);
+      plan = await finderCall({ action: "plan", ...base, lat: Number(list[0].lat), lon: Number(list[0].lon), label: String(list[0].display_name || f.city) });
+    }
+    onStage("Searching the business map from this computer…");
+    let elements = null; const tried = [];
+    for (const url of plan.endpoints || []) {
+      try {
+        const r = await withTimeout(fetch(url, { method: "POST", body: new URLSearchParams({ data: plan.query }), headers: { Accept: "application/json" } }), 35000);
+        if (!r.ok) { tried.push(`${new URL(url).hostname} ${r.status}`); continue; }
+        const d = await r.json();
+        if (Array.isArray(d?.elements)) { elements = d.elements; break; }
+        tried.push(`${new URL(url).hostname} bad answer`);
+      } catch (err) { tried.push(`${new URL(url).hostname} ${err?.message === "timeout" ? "timeout" : "unreachable"}`); }
+    }
+    if (!elements) throw new Error(`The business map servers did not answer from this computer either (${tried.join(", ")}). Please try again in a few minutes.`);
+    onStage(f.scan ? "Reading the businesses' websites…" : "Checking your list…");
+    const slim = elements.slice(0, 1000).map(x => ({ type: x.type, id: x.id, lat: x.lat, lon: x.lon, center: x.center, tags: x.tags }));
+    return finderCall({ action: "enrich", ...base, elements: slim, place: plan.place });
   }
 
   async function open(opts = {}){
@@ -290,7 +324,7 @@
           <div class="tm-ap-foot">${k.btn("mk-f-search", f.busy === "search" ? "Searching…" : "Search", "fa-solid fa-magnifying-glass", { primary: true, disabled: !!f.busy })}</div>
         </form>`
         + (f.err ? k.note(esc(f.err), "warn", "fa-solid fa-triangle-exclamation") : "")
-        + (f.busy === "search" ? k.skel(5) : results);
+        + (f.busy === "search" ? (f.stage ? k.note(esc(f.stage), "info", "fa-solid fa-spinner fa-spin") : "") + k.skel(5) : results);
     }
 
     function formHtml(){
@@ -446,11 +480,17 @@
           if (!String(f.city || "").trim()) { dp.toast("Enter a city.", false); return; }
           f.busy = "search"; f.err = ""; f.results = null; f.selected = new Set(); R();
           try {
-            const d = await finderCall({ action: "search", category: f.category, city: f.city, country: f.country, keyword: f.keyword, limit: Number(f.limit), scan_websites: !!f.scan });
+            f.stage = "";
+            let d;
+            try { d = await finderCall({ action: "search", category: f.category, city: f.city, country: f.country, keyword: f.keyword, limit: Number(f.limit), scan_websites: !!f.scan }); }
+            catch (e) {
+              if (!/^(geocode_unreachable|osm_unreachable)$/.test(e.code || "")) throw e;
+              d = await browserSearch(f, msg => { f.stage = msg; R(); });
+            }
             f.results = d.items || []; f.place = d.place || f.city; f.attribution = d.attribution || ""; f.template = d.template || "overview";
             f.results.forEach((r, i) => { if (!r.in_list && (r.email || r.whatsapp)) f.selected.add(i); });
           } catch (e) { f.err = String(e?.message || e); }
-          f.busy = false; R();
+          f.busy = false; f.stage = ""; R();
         },
         "mk-f-all": () => { const f = st.finder; const avail = (f.results || []).map((r, i) => r.in_list ? -1 : i).filter(i => i >= 0); f.selected = f.selected.size === avail.length ? new Set() : new Set(avail); R(); },
         "mk-f-add": async () => {
