@@ -263,6 +263,7 @@ const CANONICAL_MIGRATION_FILES = [
   "245_security_inventory_upsert_owner_check.sql",
   "246_security_logo_storage_authorize.sql",
   "247_security_logo_storage_no_anonymous_writes.sql",
+  "248_marketing_contacts.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

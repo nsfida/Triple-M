@@ -13,7 +13,7 @@ const rootFiles = [
   "humans.txt", "llms.txt", "llms-full.txt", "index.md", "service-worker.js",
   "fe79ac427d86a8002988e0a87b9a500f.txt", "_headers", "_redirects"
 ];
-const runtimeDirs = [".well-known", "Assets", "Demo", "Founder", "Security", "regions", "seo", "ar", "ur", "triplemdrive", "windows-store"];
+const runtimeDirs = [".well-known", "Assets", "Demo", "Founder", "Security", "regions", "seo", "ar", "ur", "triplemdrive", "unsubscribe", "windows-store"];
 const excluded = new Set([
   "Assets/app/script.monolith.js",
   "Assets/app/script.js",

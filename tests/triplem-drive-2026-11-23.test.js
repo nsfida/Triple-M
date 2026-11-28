@@ -147,7 +147,7 @@ test("public page: address routing, SEO, escaping, honeypot; not in the sitemap"
   assert.match(js, /if \(r && r\.ok && r\.reference\)/, "success only after the server stored the request");
   assert.doesNotMatch(js, /innerHTML = [^`]*\$\{(?!esc\()/, "dynamic values are escaped");
   assert.doesNotMatch(read("sitemap.xml"), /triplemdrive/);
-  assert.match(read("scripts/build_production.js"), /"triplemdrive", "windows-store"\]/);
+  assert.match(read("scripts/build_production.js"), /"triplemdrive", (?:"unsubscribe", )?"windows-store"\]/);
   assert.match(read("_redirects"), /^\/triplemdrive\/:slug\/\s+\/triplemdrive\/index\.html\s+200$/m);
   assert.match(read("404.html"), /\/triplemdrive\/\?b=/);
   assert.match(read("404.html"), /p\.match\(\/\^\\\/\(\[a-z0-9-\]\{3,40\}\)\\\/\?\$\/\)/, "top-level business addresses");

@@ -226,8 +226,13 @@
       "path": "Assets/style/76-menu-system.css",
       "bytes": 16882,
       "sha256": "a79b08e90ebbb605acff47fa9766b1853446558d6c8982dfb47264a7e3fa7aee"
+    },
+    {
+      "path": "Assets/style/77-marketing.css",
+      "bytes": 6730,
+      "sha256": "b5580aab86968275626e968209a71409165f32c04956bd91865f404655b261b4"
     }
   ],
-  "bytes": 1063329,
-  "sha256": "b48123f7dbbd136ee9478304d06156cded68ee2c54981fc6df43fc02c162f5fe"
+  "bytes": 1070116,
+  "sha256": "0ebbed26fd115c6785a2756f3e8a1ef99f2641825e051815574d3e9f5717cdeb"
 }

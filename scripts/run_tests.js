@@ -32,6 +32,7 @@ const PUBLIC_TEST_FILES = [
   "tests/expense-forms-viewer-2026-11-18.test.js",
   "tests/triplem-drive-2026-11-23.test.js",
   "tests/security-2026-11-27.test.js",
+  "tests/marketing-2026-11-28.test.js",
   "tests/seo-quality.test.js",
   "tests/user-backup-restore.test.js",
   "tests/public-repository.test.js"
