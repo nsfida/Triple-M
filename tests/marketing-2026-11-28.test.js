@@ -33,7 +33,9 @@ test("every template builds a complete, branded email with a personal unsubscrib
     assert.ok(m.html.includes(`https://triplem.vip/unsubscribe/?t=${TOKEN}`), t.id);
     assert.ok(m.text.includes(`Unsubscribe: https://triplem.vip/unsubscribe/?t=${TOKEN}`), t.id);
     assert.match(m.html, /Sales Team[\s\S]*Partnerships[\s\S]*info@triplem\.vip/, t.id);
-    assert.match(m.html, new RegExp(`utm_campaign=${t.id}`), t.id);
+    assert.ok(m.html.includes(`https://triplem.vip/go/?t=${TOKEN}&amp;l=trial`), `${t.id}: tracked trial link`);
+    const pv = T.buildEmail({ template: t.id, contact: { name: "Gulf Trading LLC" }, settings, token: "preview" });
+    assert.match(pv.html, new RegExp(`utm_campaign=${t.id}`), `${t.id}: preview uses the plain link`);
     assert.doesNotMatch(m.html, new RegExp("TRIPLE" + "m"));
   }
 });
@@ -80,7 +82,7 @@ test("Marketing is wired for the Main Admin only and uses the shared side panel"
   for (const html of ["index.html", "ar/index.html", "ur/index.html"]) {
     const s = read(html);
     assert.match(s, /<button class="btn soft tiny admin-tool-btn hide" id="adminMarketingBtn"/, html);
-    assert.match(s, /admin\/05-marketing-templates\.js\?v=20261128-mk1"[\s\S]*admin\/06-marketing\.js\?v=20261128-mk\d+"/, html);
+    assert.match(s, /admin\/05-marketing-templates\.js\?v=20261128-mk\d+"[\s\S]*admin\/06-marketing\.js\?v=20261128-mk\d+"/, html);
     assert.match(s, /connect-src[^;"]*http:\/\/127\.0\.0\.1:8765/, html);
   }
   assert.match(read("Assets/app/admin/01-admin.js"), /document\.getElementById\("adminMarketingBtn"\)\?\.classList\.toggle\("hide", !allowed\);/);
@@ -143,7 +145,10 @@ test("Find new keeps working when the map services refuse the server: city list,
   const ui = read("Assets/app/admin/06-marketing.js");
   assert.match(ui, /if \(!\/\^\(geocode_unreachable\|osm_unreachable\)\$\/\.test\(e\.code \|\| ""\)\) throw e;/);
   assert.match(ui, /finderCall\(\{ action: "plan", \.\.\.base \}\)/);
-  assert.match(ui, /finderCall\(\{ action: "enrich", \.\.\.base, elements: slim, place: plan\.place \}\)/);
+  assert.match(ui, /finderCall\(\{ action: "enrich", \.\.\.base, elements: slim, place: plan\.place, partial \}\)/);
+  assert.match(ui, /scan_websites: false, scan_async: true/, "website contacts are read in the background");
+  assert.match(ui, /finderCall\(\{ action: "scan", items: batch\.map/);
+  assert.match(ui, /batches\.push\(todo\.slice\(i, i \+ 12\)\)/);
   for (const html of ["index.html", "ar/index.html", "ur/index.html"]) {
     const csp = /connect-src[^;"]*/.exec(read(html))[0];
     for (const host of ["https://overpass-api.de", "https://overpass.private.coffee", "https://nominatim.openstreetmap.org"]) assert.ok(csp.includes(host), `${html} ${host}`);
@@ -158,9 +163,49 @@ test("marketing-finder tries the built-in city list, Photon, Nominatim and sever
   assert.match(src, /overpass-api\.de\/api\/interpreter,https:\/\/overpass\.private\.coffee\/api\/interpreter,https:\/\/maps\.mail\.ru/);
   assert.match(src, /"geocode_unreachable"/);
   assert.match(src, /"osm_unreachable"/);
-  assert.match(src, /if \(!\["search", "plan", "enrich"\]\.includes\(action\)\)/);
+  assert.match(src, /if \(!\["search", "plan", "enrich", "scan"\]\.includes\(action\)\)/);
+  assert.match(src, /for \(const st of stepsFor\(place\.radius \|\| 15_000\)\)/, "small central area first, then wider");
   assert.ok(src.indexOf('await callRpc("app_marketing_finder_authorize"') < src.indexOf('const action = String(body?.action'), "Main Admin check before every action");
   assert.match(lib, /\[\["dubai"\], "united arab emirates"/);
   assert.match(lib, /\[\["riyadh"\], "saudi arabia"/);
 });
 
+
+test("template wording can be customised and still escapes contact and admin text", () => {
+  const T = templates();
+  const def = T.defaults("insurance");
+  assert.ok(def.subject && def.headline && def.intro && def.cta, "standard wording available");
+  const s2 = { ...settings, template_overrides: { insurance: { subject: "Offer for {company}", intro: "Hello {name} <b>x</b>", cta: "Try it now" } } };
+  const m = T.buildEmail({ template: "insurance", contact: { name: "Gulf <Co>", contact_person: "Sara Ali" }, settings: s2, token: TOKEN });
+  assert.equal(m.subject, "Offer for Gulf <Co>");
+  assert.match(m.html, /Hello Sara &lt;b&gt;x&lt;\/b&gt;/);
+  assert.match(m.html, /Try it now/);
+  assert.doesNotMatch(m.html, /<b>x<\/b>/);
+  const other = T.buildEmail({ template: "overview", contact: { name: "Gulf" }, settings: s2, token: TOKEN });
+  assert.notEqual(other.subject, "Offer for Gulf", "overrides apply to one template only");
+});
+
+test("link tracking page: no-index, strict CSP, fixed destinations only", () => {
+  const html = read("go/index.html");
+  const js = read("go/go.js");
+  assert.match(html, /<meta name="robots" content="noindex/);
+  assert.match(html, /Content-Security-Policy[^>]*default-src 'none'/);
+  assert.match(js, /const ALLOWED = \/\^https:\\\/\\\/\(triplem\\\.vip\\\//);
+  assert.match(js, /app_marketing_click/);
+  assert.doesNotMatch(js, /location\.(href|replace)\(\s*params/, "never redirects to an address taken from the link");
+  assert.ok(read("scripts/build_production.js").includes('"go"'), "go/ is published");
+});
+
+test("Marketing v2 panel: overview, campaigns, bulk actions, CSV, compact styles", () => {
+  const ui = read("Assets/app/admin/06-marketing.js");
+  for (const tab of ['["overview", "Overview"', '["contacts", "Contacts"', '["campaigns", "Campaigns"', '["find", "Find new"', '["templates", "Templates"', '["settings", "Settings"']) assert.ok(ui.includes(tab), tab);
+  for (const rpc of ["app_marketing_stats", "app_marketing_bulk", "app_marketing_log_activity", "app_marketing_campaign_start", "app_marketing_campaign_finish", "app_marketing_campaigns", "app_marketing_export"]) assert.ok(ui.includes(`"${rpc}"`), rpc);
+  assert.match(ui, /x\.email_status === "unsubscribed" \? "unsubscribed"/, "campaigns skip unsubscribed contacts");
+  assert.match(ui, /a\.ok\.length > 50/, "at most 50 emails per run");
+  assert.match(ui, /if \(\/\^\[=\+\\-@\\t\\r\]\/\.test\(t\)\) t = "'" \+ t;/, "CSV export is formula-safe");
+  assert.equal((ui.match(/<form /g) || []).length, (ui.match(/<form class="tm-mk-form" data-dp-form/g) || []).length, "forms never submit the page");
+  const css = read("Assets/style/77-marketing.css");
+  assert.match(css, /--mk-h:32px/);
+  assert.match(css, /@media \(pointer:coarse\)\{\.tm-mk-in\{font-size:16px\}/);
+  assert.doesNotMatch(ui + css, new RegExp("TRIPLE" + "m"));
+});

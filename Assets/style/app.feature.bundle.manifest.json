@@ -229,10 +229,10 @@
     },
     {
       "path": "Assets/style/77-marketing.css",
-      "bytes": 6730,
-      "sha256": "b5580aab86968275626e968209a71409165f32c04956bd91865f404655b261b4"
+      "bytes": 20306,
+      "sha256": "3e1090a9ce1e1d747679f6c54639b5ea8590e6982c145c8a55fd611af8acb3ed"
     }
   ],
-  "bytes": 1070116,
-  "sha256": "0ebbed26fd115c6785a2756f3e8a1ef99f2641825e051815574d3e9f5717cdeb"
+  "bytes": 1083692,
+  "sha256": "3b8549d24a50b1af13ff18e867a7fb8c130ef1f6b5ca027f116bd59052c30ed3"
 }

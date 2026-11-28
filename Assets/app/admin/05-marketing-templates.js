@@ -138,14 +138,34 @@
   function unsubscribeUrl(token){ return `${SITE}/unsubscribe/?t=${encodeURIComponent(String(token || ""))}`; }
 
   // ---- Email ----------------------------------------------------------------------------------
+  // Saved wording (Admin > Marketing > Templates) replaces the default text; {company} and
+  // {name} are filled in for each contact.
+  function wording(t, settings, contact){
+    const ov = (settings?.template_overrides && settings.template_overrides[t.id]) || {};
+    const company = oneLine(contact?.name) || "Your business";
+    const name = greetingName(contact) || company;
+    const fill = v => String(v || "").replace(/\{company\}/gi, company).replace(/\{name\}/gi, name);
+    return {
+      subject: ov.subject ? oneLine(fill(ov.subject)) : t.subject(company),
+      headline: ov.headline ? fill(ov.headline) : t.headline,
+      intro: ov.intro ? fill(ov.intro) : t.intro,
+      closing: ov.closing ? fill(ov.closing) : t.closing,
+      cta: ov.cta ? oneLine(fill(ov.cta)) : "Start your free 14-day trial",
+      custom: !!(ov.subject || ov.headline || ov.intro || ov.closing || ov.cta)
+    };
+  }
+  const trackedUrl = (token, link, template) => /^[0-9a-f]{64}$/.test(String(token || "")) ? `${SITE}/go/?t=${token}&l=${link}` : utm(template);
+
   function buildEmail({ template, contact, settings, token, note = "", subject = "", logoSrc = `cid:${LOGO_CID}` }){
-    const t = byId(template);
+    const t0 = byId(template);
+    const w = wording(t0, settings, contact);
+    const t = { ...t0, headline: w.headline, intro: w.intro, closing: w.closing };
     const s = settings || {};
     const company = oneLine(contact?.name) || "Your business";
     const hello = greetingName(contact);
-    const subj = oneLine(subject) || t.subject(company);
+    const subj = oneLine(subject) || w.subject;
     const unsub = unsubscribeUrl(token);
-    const cta = utm(t.id);
+    const cta = trackedUrl(token, "trial", t.id);
     const site = oneLine(s.website) || SITE;
     const sender = oneLine(s.sender_name) || "Triplem VIP Team";
     const title = oneLine(s.sender_title);
@@ -187,7 +207,7 @@
     </td></tr>
     <tr><td align="center" style="padding:0 36px 10px 36px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="${C.gold}" style="border-radius:8px;">
-        <a href="${esc(cta)}" style="display:inline-block;padding:14px 28px;font:bold 16px Arial,Helvetica,sans-serif;color:#1b1505;text-decoration:none;border-radius:8px;border:1px solid ${C.goldDark};">Start your free 14-day trial</a>
+        <a href="${esc(cta)}" style="display:inline-block;padding:14px 28px;font:bold 16px Arial,Helvetica,sans-serif;color:#1b1505;text-decoration:none;border-radius:8px;border:1px solid ${C.goldDark};">${esc(w.cta)}</a>
       </td></tr></table>
       <p style="margin:12px 0 0 0;font:13px/20px Arial,Helvetica,sans-serif;color:${C.muted};">No card needed. Available on the web and on the <a href="${STORE}" style="color:${C.teal};">Microsoft Store</a>.</p>
     </td></tr>
@@ -217,7 +237,7 @@
       t.headline, "", t.intro, "",
       ...t.features.map(([h, d]) => `- ${h}: ${d}`), "",
       t.closing, "",
-      `Start your free 14-day trial (no card needed): ${cta}`,
+      `${w.cta} (no card needed): ${cta}`,
       `Windows app on the Microsoft Store: ${STORE}`, "",
       `I would be glad to show you a short demo for ${company}. Simply reply to this email${wa ? " or message us on WhatsApp" : ""}.`, "",
       "--", sender, ...(title ? [title] : []), "Triplem VIP", mail, ...(phone ? [phone] : []), ...(wa ? [`WhatsApp: https://wa.me/${wa}`] : []), site, "",
@@ -301,6 +321,8 @@
 
   global.TriplemMarketingTemplates = Object.freeze({
     list: () => TEMPLATES.map(t => ({ id: t.id, name: t.name, icon: t.icon, preheader: t.preheader })),
+    defaults: id => { const t = byId(id); return { subject: t.subject("{company}"), headline: t.headline, intro: t.intro, closing: t.closing, cta: "Start your free 14-day trial" }; },
+    wording: (id, settings, contact) => wording(byId(id), settings, contact),
     byId: id => { const t = byId(id); return { id: t.id, name: t.name, icon: t.icon }; },
     buildEmail, buildEml, buildWhatsApp, whatsappUrl, unsubscribeUrl, LOGO_CID
   });
