@@ -265,6 +265,7 @@ const CANONICAL_MIGRATION_FILES = [
   "247_security_logo_storage_no_anonymous_writes.sql",
   "248_marketing_contacts.sql",
   "249_marketing_crm_campaigns.sql",
+  "250_marketing_journeys_tasks_templates.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

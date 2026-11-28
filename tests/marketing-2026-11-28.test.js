@@ -23,21 +23,57 @@ const TOKEN = "ab".repeat(32);
 test("every template builds a complete, branded email with a personal unsubscribe link", () => {
   const T = templates();
   const list = T.list();
-  assert.ok(list.length >= 8, "at least 8 templates");
+  assert.ok(list.length >= 35, "at least 35 email templates");
+  assert.ok(T.waList().length >= 25, "at least 25 WhatsApp templates");
   for (const t of list) {
     const m = T.buildEmail({ template: t.id, contact: { name: "Gulf Trading LLC", contact_person: "Ahmed Khan" }, settings, token: TOKEN });
-    assert.match(m.subject, /^Gulf Trading LLC: /, t.id);
+    assert.ok(m.subject.length > 5, t.id);
     assert.match(m.html, /src="cid:triplem-logo@triplem\.vip"/, t.id);
-    assert.match(m.html, /Dear Ahmed,/, t.id);
-    assert.match(m.html, /Start your free 14-day trial/, t.id);
+    assert.match(m.html, t.lang === "ar" ? /مرحباً Ahmed،/ : /Dear Ahmed,/, t.id);
     assert.ok(m.html.includes(`https://triplem.vip/unsubscribe/?t=${TOKEN}`), t.id);
-    assert.ok(m.text.includes(`Unsubscribe: https://triplem.vip/unsubscribe/?t=${TOKEN}`), t.id);
+    assert.ok(m.text.includes(`https://triplem.vip/unsubscribe/?t=${TOKEN}`), t.id);
     assert.match(m.html, /Sales Team[\s\S]*Partnerships[\s\S]*info@triplem\.vip/, t.id);
-    assert.ok(m.html.includes(`https://triplem.vip/go/?t=${TOKEN}&amp;l=trial`), `${t.id}: tracked trial link`);
-    const pv = T.buildEmail({ template: t.id, contact: { name: "Gulf Trading LLC" }, settings, token: "preview" });
-    assert.match(pv.html, new RegExp(`utm_campaign=${t.id}`), `${t.id}: preview uses the plain link`);
+    assert.doesNotMatch(m.html + m.subject, /\{company\}|\{name\}/, `${t.id}: placeholders filled`);
+    if (t.layout === "features") {
+      assert.match(m.subject, /^Gulf Trading LLC: /, t.id);
+      assert.match(m.html, /Start your free 14-day trial/, t.id);
+      assert.ok(m.html.includes(`https://triplem.vip/go/?t=${TOKEN}&amp;l=trial`), `${t.id}: tracked trial link`);
+      const pv = T.buildEmail({ template: t.id, contact: { name: "Gulf Trading LLC" }, settings, token: "preview" });
+      assert.match(pv.html, new RegExp(`utm_campaign=${t.id}`), `${t.id}: preview uses the plain link`);
+    }
+    if (t.lang === "ar") assert.match(m.html, /<html lang="ar" dir="rtl"/, t.id);
     assert.doesNotMatch(m.html, new RegExp("TRIPLE" + "m"));
   }
+});
+
+test("one email for many people: Bcc header, no personal data, campaign link, reply-to-unsubscribe", () => {
+  const T = templates();
+  const camp = "11111111-2222-3333-4444-555555555555";
+  const m = T.buildEmail({ template: "fu_1", contact: null, settings, bcc: true, campaign: camp });
+  assert.equal(m.subject, "Quick follow-up for your business");
+  assert.match(m.html, /Hello,/);
+  assert.ok(m.html.includes(`https://triplem.vip/go/?c=${camp}&amp;l=trial`));
+  assert.doesNotMatch(m.html, /unsubscribe\/\?t=/);
+  assert.match(m.html, /reply with <strong>Unsubscribe<\/strong>/);
+  const eml = T.buildEml({ to: "info@triplem.vip", toName: "Triplem VIP", subject: m.subject, html: m.html, text: m.text, unsubscribeUrl: "", replyTo: "info@triplem.vip",
+    logoBase64: "", template: "fu_1", bcc: ["a@x.com", "A@x.com ", "bad\r\nBcc: evil@x.com", "b@y.org"] });
+  const head = eml.split("\r\n\r\n")[0];
+  assert.match(head, /\r\nTo: "Triplem VIP" <info@triplem\.vip>\r\nBcc: <a@x\.com>,\r\n <A@x\.com>,\r\n <b@y\.org>\r\n/);
+  assert.doesNotMatch(head, /evil/);
+  assert.match(head, /List-Unsubscribe: <mailto:info@triplem\.vip\?subject=Unsubscribe>/);
+});
+
+test("WhatsApp templates fill names, keep STOP, support Arabic", () => {
+  const T = templates();
+  const en = T.buildWhatsApp({ template: "wa_followup", contact: { name: "Gulf", contact_person: "Ali Zain" }, settings });
+  assert.match(en, /^Hello Ali, just following up/);
+  assert.match(en, /Reply STOP/);
+  const ar = T.buildWhatsApp({ template: "wa_ar_intro", contact: { name: "Gulf" }, settings });
+  assert.match(ar, /^مرحباً فريق Gulf،/);
+  assert.match(ar, /لإيقاف الرسائل أرسل STOP\.$/);
+  for (const w of T.waList()) assert.doesNotMatch(T.buildWhatsApp({ template: w.id, contact: { name: "X" }, settings }), /\{(name|company|sender|link)\}/, w.id);
+  T.setCustom([{ id: "u1", code: "my-abc123def4", channel: "whatsapp", name: "Mine", lang: "en", body: "Hi {name} from {sender}" }]);
+  assert.match(T.buildWhatsApp({ template: "my-abc123def4", contact: { name: "Q", contact_person: "Omar" }, settings }), /^Hi Omar from Sales Team/);
 });
 
 test("contact and settings values are escaped; a name cannot inject HTML or mail headers", () => {
@@ -102,7 +138,10 @@ test("unsubscribe page: not indexed, strict CSP, confirm button, token never sto
   assert.doesNotMatch(html, /<script>(?!\s*<\/script>)|on(click|load)=/i, "no inline script");
   const js = read("unsubscribe/unsubscribe.js");
   assert.match(js, /\/\^\[0-9a-f\]\{64\}\$\//);
-  assert.match(js, /rpc\/app_marketing_unsubscribe/);
+  assert.match(js, /call\("app_marketing_unsubscribe_reason", \{ p_token: token, p_reason: reason, p_note: note \}\)/);
+  assert.match(js, /if \(res\.status === 404\) res = await call\("app_marketing_unsubscribe", \{ p_token: token \}\)/, "works before migration 250");
+  assert.match(html, /name="unReason" value="too_many"/);
+  assert.match(html, /<textarea id="unNote" maxlength="500"/);
   assert.match(js, /addEventListener\("click"/, "nothing happens without the click");
   assert.match(js, /history\.replaceState\(null, "", location\.pathname\)/);
   assert.match(read("scripts/build_production.js"), /"unsubscribe"/);
@@ -164,7 +203,10 @@ test("marketing-finder tries the built-in city list, Photon, Nominatim and sever
   assert.match(src, /"geocode_unreachable"/);
   assert.match(src, /"osm_unreachable"/);
   assert.match(src, /if \(!\["search", "plan", "enrich", "scan"\]\.includes\(action\)\)/);
-  assert.match(src, /for \(const st of stepsFor\(place\.radius \|\| 15_000\)\)/, "small central area first, then wider");
+  assert.match(src, /for \(const st of stepsFor\(radiusFor\(place\.radius \|\| 15_000, opts\.area\)\)\)/, "small central area first, then wider");
+  assert.match(src, /if \(body\.skip_known === true\)/);
+  assert.match(src, /callRpc\("app_marketing_finder_seen_add"/);
+  assert.match(lib, /hotels: \{ label: "Hotels & apartments"/);
   assert.ok(src.indexOf('await callRpc("app_marketing_finder_authorize"') < src.indexOf('const action = String(body?.action'), "Main Admin check before every action");
   assert.match(lib, /\[\["dubai"\], "united arab emirates"/);
   assert.match(lib, /\[\["riyadh"\], "saudi arabia"/);
@@ -208,4 +250,34 @@ test("Marketing v2 panel: overview, campaigns, bulk actions, CSV, compact styles
   assert.match(css, /--mk-h:32px/);
   assert.match(css, /@media \(pointer:coarse\)\{\.tm-mk-in\{font-size:16px\}/);
   assert.doesNotMatch(ui + css, new RegExp("TRIPLE" + "m"));
+});
+
+test("migration 250: closed new tables, Main Admin checks, fixed public reasons and Bcc links", { skip: !exists("migrations/250_marketing_journeys_tasks_templates.sql") }, () => {
+  const sql = read("migrations/250_marketing_journeys_tasks_templates.sql");
+  assert.doesNotMatch(sql, /\b(drop table|truncate|delete from)\b/i, "additive only");
+  for (const t of ["marketing_tasks", "marketing_templates", "marketing_finder_seen"]) {
+    assert.match(sql, new RegExp(`alter table public\\.${t} enable row level security;\\s*revoke all on public\\.${t} from public, anon, authenticated;`), t);
+  }
+  const fns = [...sql.matchAll(/create or replace function public\.(app_marketing_[a-z_]+)\(/g)].map(m => m[1]);
+  for (const fn of fns) {
+    const body = sql.slice(sql.indexOf(`function public.${fn}(`)).split(/\nend \$\$;/)[0];
+    if (["app_marketing_unsubscribe_reason", "app_marketing_campaign_click"].includes(fn)) continue;
+    assert.match(body, /app_require_protected_admin\(\)/, `${fn} checks the Main Admin`);
+  }
+  assert.match(sql, /code not in \('too_many', 'not_relevant', 'never_asked', 'already_customer', 'other_tool', 'not_business', 'other'\)/);
+  assert.match(sql, /r := public\.app_marketing_unsubscribe\(p_token\);/, "reason only with a valid token");
+  assert.match(sql, /when 'store' then 'https:\/\/apps\.microsoft\.com\/detail\/9MV028GH5NPX'/);
+  assert.match(sql, /cardinality\(p_ids\) > 100/);
+  assert.match(read("go/go.js"), /app_marketing_campaign_click/);
+  assert.match(read("scripts/build_full_schema_sql.js"), /"250_marketing_journeys_tasks_templates\.sql"/);
+});
+
+test("Marketing v3 panel: contact page tabs, Bcc, insights, phone as WhatsApp, finder options", () => {
+  const ui = read("Assets/app/admin/06-marketing.js");
+  for (const t of ['["overview", "Overview", "", "fa-solid fa-gauge"]', '["journey", "Journey"', '["profile", "Profile"', '["insights", "Insights"', '["cohorts", "Cohorts"', '["retention", "Retention"']) assert.ok(ui.includes(t), t);
+  for (const rpc of ["app_marketing_bcc_prepare", "app_marketing_insights", "app_marketing_profile_save", "app_marketing_task_save", "app_marketing_template_save"]) assert.ok(ui.includes(`"${rpc}"`), rpc);
+  assert.match(ui, /const waOf = it => it\?\.wa_number \|\| it\?\.whatsapp \|\| null;/);
+  assert.match(ui, /bcc: rec\.map\(r => r\.email\)/, "Bcc only gets the addresses the server allowed");
+  assert.match(ui, /extra = \{ skip_known: !!f\.skip, must: f\.must \|\| "", area: f\.area \|\| "" \}/);
+  assert.doesNotMatch(ui, new RegExp("TRIPLE" + "m"));
 });

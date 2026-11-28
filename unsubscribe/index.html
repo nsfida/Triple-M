@@ -9,7 +9,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://*.supabase.co; base-uri 'none'; form-action 'none'">
   <meta name="theme-color" content="#0e5a56">
   <link rel="icon" href="/Assets/logo/logo-pwa-192.png" type="image/png">
-  <link rel="stylesheet" href="/unsubscribe/unsubscribe.css?v=20261128-1">
+  <link rel="stylesheet" href="/unsubscribe/unsubscribe.css?v=20261128-2">
 </head>
 <body>
   <main class="un-card" aria-live="polite">
@@ -17,12 +17,24 @@
     <section id="unAsk">
       <h1>Unsubscribe from Triplem VIP emails</h1>
       <p>Press the button to stop receiving marketing emails from Triplem VIP at this address.</p>
+      <fieldset class="un-reasons" id="unReasons">
+        <legend>Why are you unsubscribing? <span>(optional)</span></legend>
+        <label><input type="radio" name="unReason" value="too_many"> I get too many emails</label>
+        <label><input type="radio" name="unReason" value="not_relevant"> The emails are not relevant to my business</label>
+        <label><input type="radio" name="unReason" value="never_asked"> I never asked to receive these emails</label>
+        <label><input type="radio" name="unReason" value="already_customer"> I already use Triplem VIP</label>
+        <label><input type="radio" name="unReason" value="other_tool"> We use another system</label>
+        <label><input type="radio" name="unReason" value="not_business"> This is not a business address</label>
+        <label><input type="radio" name="unReason" value="other"> Other reason</label>
+        <textarea id="unNote" maxlength="500" rows="3" placeholder="Tell us more (optional)" aria-label="Tell us more (optional)"></textarea>
+      </fieldset>
       <button type="button" id="unBtn" class="un-btn">Unsubscribe</button>
     </section>
     <section id="unDone" hidden>
       <div class="un-icon" aria-hidden="true">&#10003;</div>
       <h1>You are unsubscribed</h1>
       <p id="unDoneText">We will not send marketing emails to this address again.</p>
+      <p class="un-small" id="unThanks" hidden>Thank you for telling us why. It helps us send fewer, better emails.</p>
       <p class="un-small">Changed your mind or have a question? Write to <a href="mailto:info@triplem.vip">info@triplem.vip</a>.</p>
     </section>
     <section id="unError" hidden>
@@ -32,6 +44,6 @@
     </section>
   </main>
   <p class="un-foot">Triplem VIP · <a href="https://triplem.vip/seo/privacy-policy.html">Privacy policy</a></p>
-  <script src="/unsubscribe/unsubscribe.js?v=20261128-1" defer></script>
+  <script src="/unsubscribe/unsubscribe.js?v=20261128-2" defer></script>
 </body>
 </html>

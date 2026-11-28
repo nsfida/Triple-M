@@ -1,7 +1,9 @@
 /* Triplem VIP · email unsubscribe page (https://triplem.vip/unsubscribe/?t=<token>).
  * The token in the link is 64 hexadecimal characters; the server keeps only its hash
  * (migration 248, app_marketing_unsubscribe). The recipient confirms with a button, so mail
- * scanners that open links do not unsubscribe anyone by accident. */
+ * scanners that open links do not unsubscribe anyone by accident. The reason is optional
+ * (migration 250, app_marketing_unsubscribe_reason); without migration 250 the plain
+ * unsubscribe still works. */
 (function () {
   "use strict";
   // Public (anon) project settings - the same values the Triplem VIP app embeds.
@@ -29,19 +31,25 @@
   $("unBtn").addEventListener("click", async () => {
     const btn = $("unBtn");
     btn.disabled = true; btn.textContent = "Please wait…";
+    const picked = document.querySelector('input[name="unReason"]:checked');
+    const reason = picked ? picked.value : null;
+    const note = String($("unNote").value || "").trim().slice(0, 500) || null;
+    const call = (fn, body) => fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: ANON, Authorization: `Bearer ${ANON}` },
+      body: JSON.stringify(body),
+      referrerPolicy: "no-referrer"
+    });
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/app_marketing_unsubscribe`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: ANON, Authorization: `Bearer ${ANON}` },
-        body: JSON.stringify({ p_token: token }),
-        referrerPolicy: "no-referrer"
-      });
+      let res = await call("app_marketing_unsubscribe_reason", { p_token: token, p_reason: reason, p_note: note });
+      if (res.status === 404) res = await call("app_marketing_unsubscribe", { p_token: token });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data || data.ok !== true) throw new Error(String(data?.message || "invalid"));
       const who = data.email ? ` (${data.email})` : "";
       show("done", data.already
         ? `This address${who} was already unsubscribed. We will not send marketing emails to it.`
         : `This address${who} will not receive marketing emails from Triplem VIP again.`);
+      $("unThanks").hidden = !(reason || note);
       try { history.replaceState(null, "", location.pathname); } catch (_) {}
     } catch (e) {
       const msg = /not valid/i.test(String(e?.message || "")) ? "The unsubscribe link is not valid or is incomplete." : "We could not reach the server. Please try again in a moment.";
